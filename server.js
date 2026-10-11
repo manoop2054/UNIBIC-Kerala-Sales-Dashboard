@@ -1,5 +1,6 @@
 const express = require('express');
 const https = require('https');
+const http = require('http');
 const path = require('path');
 
 const app = express();
@@ -9,55 +10,44 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'UNIBIC_Kerala_Sales_Command_Center_FULL_FINAL.html'));
 });
 
-function getDriveFileId(url) {
-    if (!url) return null;
-    const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
-    return match ? match[1] : null;
-}
+function fetchFileFromUrl(fileUrl, res, label) {
+    if (!fileUrl) {
+        res.status(400).send(`${label} URL is not configured in environment variables`);
+        return;
+    }
 
-function fetchDriveFile(fileId, res, label) {
-    // Direct Google Drive download endpoint with force confirm
-    const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
+    const client = fileUrl.startsWith('https') ? https : http;
 
     const request = (url) => {
-        https.get(url, (driveRes) => {
-            // Handle HTTP redirects (301, 302, 303, 307)
-            if ([301, 302, 303, 307].includes(driveRes.statusCode)) {
-                if (driveRes.headers.location) {
-                    return request(driveRes.headers.location);
+        client.get(url, (fileRes) => {
+            // Handle HTTP redirects (301, 302, 303, 307) commonly used by GitHub
+            if ([301, 302, 303, 307].includes(fileRes.statusCode)) {
+                if (fileRes.headers.location) {
+                    return request(fileRes.headers.location);
                 }
             }
 
-            console.log(`${label} Response Status: ${driveRes.statusCode}, Content-Type: ${driveRes.headers['content-type']}`);
+            console.log(`${label} Response Status: ${fileRes.statusCode}`);
             
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', `attachment; filename="${label}.xlsx"`);
             
-            driveRes.pipe(res);
+            fileRes.pipe(res);
         }).on('error', (err) => {
             console.error(`${label} Error:`, err.message);
             res.status(500).send(`Error loading ${label} file`);
         });
     };
 
-    request(downloadUrl);
-}
-
-function processRequest(shareUrl, res, label) {
-    const fileId = getDriveFileId(shareUrl);
-    if (!fileId) {
-        res.status(400).send(`${label} URL is invalid`);
-        return;
-    }
-    fetchDriveFile(fileId, res, label);
+    request(fileUrl);
 }
 
 app.get(['/api/gsv', '/api/live-gsv'], (req, res) => {
-    processRequest(process.env.GSV_SHARE_URL, res, 'GSV');
+    fetchFileFromUrl(process.env.GSV_SHARE_URL, res, 'GSV');
 });
 
 app.get(['/api/soh', '/api/live-soh'], (req, res) => {
-    processRequest(process.env.SOH_SHARE_URL, res, 'SOH');
+    fetchFileFromUrl(process.env.SOH_SHARE_URL, res, 'SOH');
 });
 
 app.listen(PORT, () => {
