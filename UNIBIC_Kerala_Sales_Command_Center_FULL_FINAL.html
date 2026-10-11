@@ -284,7 +284,7 @@ async function loadLiveData(){
   setStatus('Loading GSV...',false);
 
   try{
-    const r=await fetch('http://127.0.0.1:8765/api/gsv',{cache:'no-store'});
+    const r=await fetch('/api/gsv',{cache:'no-store'});
     if(!r.ok) throw new Error('GSV HTTP '+r.status);
 
     const d=await r.json();
@@ -294,7 +294,7 @@ async function loadLiveData(){
     console.log('GSV rows loaded:',gsvRows.length);
 
     try{
-      const q=await fetch('http://127.0.0.1:8765/api/live-soh',{cache:'no-store'});
+      const q=await fetch('/api/live-soh',{cache:'no-store'});
       if(q.ok){
         const x=await q.json();
         soh=payloadRows(x);
@@ -898,7 +898,7 @@ async function loadLiveData(){
   setStatus('Loading GSV...',false);
 
   try{
-    const r=await fetch('http://127.0.0.1:8765/api/gsv',{cache:'no-store'});
+    const r=await fetch('/api/gsv',{cache:'no-store'});
     if(!r.ok) throw new Error('GSV HTTP '+r.status);
 
     const d=await r.json();
@@ -908,7 +908,7 @@ async function loadLiveData(){
     console.log('GSV rows loaded:',gsvRows.length);
 
     try{
-      const q=await fetch('http://127.0.0.1:8765/api/live-soh',{cache:'no-store'});
+      const q=await fetch('/api/live-soh',{cache:'no-store'});
       if(q.ok){
         const x=await q.json();
         soh=payloadRows(x);
@@ -2435,12 +2435,12 @@ setTimeout(()=>{
 })();
 </script>
 </section>
-<div class="footer" style="padding:15px 2px;color:#8493a8;font-size:9px">GSV API: http://127.0.0.1:8765/api/gsv • LIVE SOH API: http://127.0.0.1:8765/api/live-soh • Auto refresh: 15 minutes • <span id="last">Last refresh: -</span></div>
+<div class="footer" style="padding:15px 2px;color:#8493a8;font-size:9px">GSV API: /api/gsv • LIVE SOH API: /api/live-soh • Auto refresh: 15 minutes • <span id="last">Last refresh: -</span></div>
 </main></div><div id="toast" class="toast"></div>
 <script>
 
 
-const GSV_API='http://127.0.0.1:8765/api/gsv', SOH_API='http://127.0.0.1:8765/api/live-soh';
+const GSV_API='/api/gsv', SOH_API='/api/live-soh';
 
 async function loadLiveData(){
   try{
@@ -3722,7 +3722,7 @@ async function loadLiveData(){
   setStatus('Loading GSV...',false);
 
   try{
-    const r=await fetch('http://127.0.0.1:8765/api/gsv',{cache:'no-store'});
+    const r=await fetch('/api/gsv',{cache:'no-store'});
     if(!r.ok) throw new Error('GSV HTTP '+r.status);
 
     const d=await r.json();
@@ -3732,7 +3732,7 @@ async function loadLiveData(){
     console.log('GSV rows loaded:',gsvRows.length);
 
     try{
-      const q=await fetch('http://127.0.0.1:8765/api/live-soh',{cache:'no-store'});
+      const q=await fetch('/api/live-soh',{cache:'no-store'});
       if(q.ok){
         const x=await q.json();
         soh=payloadRows(x);
