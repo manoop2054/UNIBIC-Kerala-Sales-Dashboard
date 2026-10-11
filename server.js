@@ -38,7 +38,6 @@ let lastErrors = { gsv: null, soh: null };
 
 function downloadUrl(raw) {
   const u = new URL(raw);
-  u.search = '';
   u.searchParams.set('download', '1');
   return u.toString();
 }
