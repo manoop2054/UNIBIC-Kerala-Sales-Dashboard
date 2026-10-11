@@ -32,8 +32,10 @@ const GSV_FIELDS = new Set([
 ]);
 
 const inFlight = new Map();
+const gsvStatus = { stage: 'idle', rows: 0, startedAt: null, updatedAt: null, error: null };
 app.get('/', (req, res) => res.sendFile(DASHBOARD));
 app.get('/health', (req, res) => res.json({ ok: true, service: 'UNIBIC Sales Dashboard API' }));
+app.get('/api/gsv/status', (req, res) => res.json({ ...gsvStatus, inProgress: inFlight.has('gsv-compact.json') }));
 
 function downloadToFile(url, dest, redirects = 0) {
   return new Promise((resolve, reject) => {
@@ -73,10 +75,14 @@ function cellValue(value) {
 }
 
 async function buildGsvCache(cachePath) {
+  gsvStatus.stage = 'downloading workbook'; gsvStatus.rows = 0; gsvStatus.startedAt = new Date().toISOString(); gsvStatus.updatedAt = gsvStatus.startedAt; gsvStatus.error = null;
+  console.log('GSV status: downloading source workbook');
   await fs.promises.mkdir(CACHE_DIR, { recursive: true });
   const source = path.join(CACHE_DIR, 'gsv-source.xlsx');
   const temp = cachePath + '.tmp';
   await downloadToFile(GSV_URL, source);
+  gsvStatus.stage = 'processing workbook'; gsvStatus.updatedAt = new Date().toISOString();
+  console.log('GSV status: download complete; processing worksheet', GSV_SHEET);
   const output = fs.createWriteStream(temp, { encoding: 'utf8' });
   let first = true, header = null, rowCount = 0, selectedSheetFound = false;
   const write = chunk => new Promise((resolve, reject) => {
@@ -110,6 +116,7 @@ async function buildGsvCache(cachePath) {
         await write(JSON.stringify(obj));
         first = false;
         rowCount++;
+        if (rowCount % 10000 === 0) { gsvStatus.rows = rowCount; gsvStatus.updatedAt = new Date().toISOString(); console.log('GSV processing rows:', rowCount); }
       }
       break;
     }
@@ -117,8 +124,10 @@ async function buildGsvCache(cachePath) {
     await write(']}');
     await new Promise((resolve, reject) => output.end(err => err ? reject(err) : resolve()));
     await fs.promises.rename(temp, cachePath);
+    gsvStatus.stage = 'ready'; gsvStatus.rows = rowCount; gsvStatus.updatedAt = new Date().toISOString(); gsvStatus.error = null;
     console.log('GSV compact cache ready:', rowCount, 'rows');
   } catch (error) {
+    gsvStatus.stage = 'failed'; gsvStatus.updatedAt = new Date().toISOString(); gsvStatus.error = error.message;
     output.destroy();
     await fs.promises.rm(temp, { force: true }).catch(() => {});
     throw error;
