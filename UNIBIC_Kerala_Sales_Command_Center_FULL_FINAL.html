@@ -3,106 +3,264 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>UNIBIC Kerala Sales Command Center</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js">/* ===== FINAL HTML FIX: preserve backup dashboard, repair API + missing functions ===== */
+
+function money(v){var n=num(v);return Number.isFinite(n)?n.toLocaleString('en-IN',{minimumFractionDigits:0,maximumFractionDigits:2}):'0'}
+function money2(v){
+  return money(v);
+}
+
+function exportRows(rows,name='UNIBIC_Report'){
+  try{
+    if(!window.XLSX){
+      toast('Excel library not loaded');
+      return;
+    }
+    const ws=XLSX.utils.json_to_sheet(rows||[]);
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,'Report');
+    XLSX.writeFile(wb,name+'.xlsx');
+    toast('Excel exported');
+  }catch(e){
+    console.error('Export error:',e);
+    toast('Export failed');
+  }
+}
+
+function renderDBR(){
+  return;
+}
+
+function renderInvoice(){
+  const dbr=$('invDbr')?.value||'';
+  const cust=$('invCustomer')?.value||'';
+  const inv=$('invNo')?.value||'';
+  const q=($('invSearch')?.value||'').toLowerCase().trim();
+
+  const rows=activeRows.filter(r=>{
+    if(dbr && String(r.__dbrCode||'').trim()!==dbr) return false;
+    if(cust && r.__customer!==cust) return false;
+    if(inv && r.__invoice!==inv) return false;
+    if(q){
+      const z=[r.__invoice,r.__customer,r.__itemCode,r.__desc].join(' ').toLowerCase();
+      if(!z.includes(q)) return false;
+    }
+    return true;
+  });
+
+  if($('invoiceTable')){$('invoiceTable').innerHTML=rows.slice(0,10000).map(r=>`<tr>
+      <td>${esc(r.__dbrCode)}</td>
+      <td>${esc(r.__dbrName)}</td>
+      <td>${esc(r.__customer)}</td>
+      <td>${esc(r.__invoice)}</td>
+      <td>${esc(r.__order)}</td>
+      <td>${esc(fmtDate(r.__date))}</td>
+      <td>${esc(r.__itemCode)}</td>
+      <td>${esc(r.__desc)}</td>
+      <td class="money">${num(r.__pcs).toLocaleString('en-IN')}</td>
+      <td class="money">${num(r.__cbb).toLocaleString('en-IN',{maximumFractionDigits:1})}</td>
+      <td class="money">${money(r.__gsv)}</td>
+      <td class="money">${money(r.__disc)}</td>
+    </tr>`).join('') || '<tr><td colspan="12" class="empty">No invoice data.</td></tr>';
+  }
+}
+
+function renderAlerts(){
+  const box=$('alertsList');
+  if(!box) return;
+
+  const sales=activeRows||[];
+  const stock=soh||[];
+  const alerts=[];
+  const add=(level,title,text)=>alerts.push('<div class="alert '+level+'"><b>'+esc(title)+'</b><br>'+text+'</div>');
+  const moneyTxt=v=>money(num(v));
+
+  const total=sales.length;
+  const inv=new Set(sales.map(r=>r.__invoice).filter(Boolean)).size;
+  const zeroGsv=sales.filter(r=>!num(r.__gsv)).length;
+  const negIndv=sales.filter(r=>num(r.__disc)<0).length;
+
+  add(total?'good':'warn','Sales Data',total.toLocaleString('en-IN')+' rows loaded from '+esc(salesSource)+'.');
+  add(zeroGsv?'warn':'good','Zero GSV Rows',zeroGsv.toLocaleString('en-IN')+' rows.');
+  add(negIndv?'warn':'good','Negative INDV Rows',negIndv.toLocaleString('en-IN')+' rows.');
+  add('good','Invoices',inv.toLocaleString('en-IN')+' distinct invoices.');
+
+  const latest=sales.map(r=>r.__date).filter(Boolean).sort((a,b)=>b-a)[0];
+
+  if(latest){
+    const cy=latest.getFullYear(),cm=latest.getMonth();
+    const cur=sales.filter(r=>r.__date&&r.__date>=new Date(cy,cm,1)&&r.__date<new Date(cy,cm+1,1));
+    const prev=sales.filter(r=>r.__date&&r.__date>=new Date(cy,cm-1,1)&&r.__date<new Date(cy,cm,1));
+
+    const cg=cur.reduce((s,r)=>s+num(r.__gsv),0);
+    const pg=prev.reduce((s,r)=>s+num(r.__gsv),0);
+    const cc=cur.reduce((s,r)=>s+num(r.__cbb),0);
+    const pc=prev.reduce((s,r)=>s+num(r.__cbb),0);
+
+    if(pg>0){
+      const gp=(cg-pg)/pg*100;
+      add(gp<=-10?'warn':'good','GSV vs Previous Month',gp.toFixed(1)+'% | '+moneyTxt(cg)+' vs '+moneyTxt(pg));
+    }
+
+    if(pc>0){
+      const cp=(cc-pc)/pc*100;
+      add(cp<=-10?'warn':'good','CBB vs Previous Month',cp.toFixed(1)+'% | '+cc.toLocaleString('en-IN')+' vs '+pc.toLocaleString('en-IN'));
+    }
+
+    const curDbr=new Set(cur.map(r=>r.__dbrCode||r.__dbrName).filter(Boolean));
+    const prevDbr=[...new Set(prev.map(r=>r.__dbrCode||r.__dbrName).filter(Boolean))];
+    const inactive=prevDbr.filter(d=>!curDbr.has(d)).slice(0,5);
+    if(inactive.length)add('warn','Inactive DBR',inactive.map(esc).join(', ')+(prevDbr.length>5?' ...':''));
+
+    const dbMap=new Map();
+    sales.forEach(r=>{
+      const k=r.__dbrCode||r.__dbrName||'Unspecified';
+      dbMap.set(k,(dbMap.get(k)||0)+num(r.__gsv));
+    });
+    const dbTop=[...dbMap.entries()].sort((a,b)=>b[1]-a[1])[0];
+    const allG=sales.reduce((s,r)=>s+num(r.__gsv),0);
+    if(dbTop&&allG>0&&dbTop[1]/allG*100>=50)
+      add('warn','High DBR Concentration',esc(dbTop[0])+' = '+(dbTop[1]/allG*100).toFixed(1)+'% of total GSV');
+
+    const highDisc=sales.reduce((s,r)=>s+Math.abs(num(r.__disc)),0);
+    if(highDisc)add('warn','INDV Discount Exposure',moneyTxt(highDisc)+' total absolute INDV discount');
+
+    const returnDisc=sales.filter(r=>r.__returnInvoice).reduce((s,r)=>s+num(r.__disc),0);
+    if(returnDisc)add('warn','Return Invoice Impact',moneyTxt(returnDisc)+' INDV linked to return invoices');
+
+    const base=sales.reduce((s,r)=>s+Math.abs(num(r.__gstBase)),0);
+    const discRate=base?highDisc/base*100:0;
+    if(discRate>=5)add('warn','Unusual Discount %',discRate.toFixed(2)+'% of GST base');
+  }
+
+  const mainStock=stock.filter(x=>String(x.TYPE||'').toUpperCase()==='SOH');
+  const transit=stock.filter(x=>String(x.TYPE||'').toUpperCase()==='INTRANSIT');
+  const stockCbb=x=>num(x.TOTAL_MAIN_QRT||x.CBB||x.CBO);
+
+  const qUnits=mainStock.reduce((s,x)=>s+num(x.QUARANTINE_QTY_CBO),0);
+  const near=mainStock.filter(x=>stockCbb(x)<=10).length;
+  const expiry=mainStock.filter(x=>{const n=num(x.REMAININGSHELFLIFE);return n>0&&n<=30}).length;
+  const inQty=transit.reduce((s,x)=>s+stockCbb(x),0);
+
+  if(near)add('warn','Stock Out / Near Stock Out',near.toLocaleString('en-IN')+' stock rows at or below 10 CBB');
+  else add('good','Stock Availability','No immediate near-stock-out rows');
+
+  if(expiry)add('warn','Expiry Risk',expiry.toLocaleString('en-IN')+' stock rows with remaining shelf life <= 30 days');
+  if(qUnits)add('warn','Quarantine Stock',qUnits.toLocaleString('en-IN',{maximumFractionDigits:1})+' CBB quarantine quantity');
+  if(inQty)add('warn','INTRANSIT Pending',inQty.toLocaleString('en-IN',{maximumFractionDigits:1})+' CBB currently in transit');
+
+  box.innerHTML=alerts.join('');
+}
+
+async function loadLiveData(){
+  setStatus('Loading GSV...',false);
+
+  try{
+    const r=await fetch('/api/gsv',{cache:'no-store'});
+    if(!r.ok) throw new Error('GSV API HTTP '+r.status);
+
+    const d=await r.json();
+    gsvRows=payloadRows(d).map(norm);
+    activeRows=gsvRows;
+
+    try{
+      const q=await fetch('/api/soh',{cache:'no-store'});
+      if(!q.ok) throw new Error('SOH API HTTP '+q.status);
+      const x=await q.json();
+      soh=payloadRows(x);
+      filteredSOH=soh.slice();
+    }catch(e){
+      console.warn('SOH load failed:',e);
+      soh=[];
+      filteredSOH=[];
+    }
+
+    try{
+      populateFilters();
+      rebuildFilters();
+      renderAll();
+      renderReportTabs();
+      renderReport();
+    }catch(e){
+      console.error('Dashboard rendering error:',e);
+    }
+
+    setStatus('Connected',false);
+
+    if($('last')){$('last').textContent='Last refresh: '+new Date().toLocaleString('en-IN');
+    }
+
+  }catch(e){
+    console.error('Dashboard API error:',e);
+    setStatus('Connection failed',false);
+  }
+}
+
+function norm(r){
+  const x={...r};
+  x.__date=dateVal(field(r,['PostingDate','Posting Date','Date','Invoice Date']));
+  x.__gsv=num(field(r,['GSV IN LAKH','GSV','GSV Amount','AmountToCustomer']));
+  if(r['GSV IN LAKH']!==undefined) x.__gsv=num(r['GSV IN LAKH'])*100000;
+  x.__cbb=num(field(r,['QuantityinCBO','Quantity in CBO','CBB','CBO']));
+  x.__pcs=num(field(r,['QuantityinPcs','Quantity in Pcs','Qty PCS','Quantity']));
+  x.__disc=num(field(r,['INDV_discount','INDV Discount','Discount','INDV Amount']));
+  x.__dbrCode=String(field(r,['DBR_Code','DBR Code','Sell_to_Customer_No','Customer_Account','Billed_to_Code'])||'').trim();
+  x.__dbrName=String(field(r,['DBR_Name','DBR Name','Sell_to_Customer_Name'])||'').trim();
+  x.__customer=String(field(r,['Customer_Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name'])||x.__dbrName).trim();
+  x.__itemCode=String(field(r,['ItemId','Item ID','Item Code','ItemCode'])||'').trim();
+  x.__desc=String(field(r,['Description','Item Description'])||'').trim();
+  x.__invoice=String(field(r,['Invoice_No','Invoice No','Invoice'])||'').trim();
+  x.__order=String(field(r,['Order_No','Order No','Order'])||'').trim();
+  x.__abm=String(field(r,['NKAM_ABM','ABM'])||'').trim();
+  x.__anchor=String(field(r,['AnchorName','Anchor'])||'').trim();
+  x.__brand=String(field(r,['Brand','BrandName'])||'').trim();
+  x.__monthKey=monthKey(x.__date);
+  return x;
+}
+</script>
 <style>
 :root{--navy:#0b1f3a;--blue:#1769e0;--cyan:#00a7c7;--green:#159a6a;--orange:#ef8b20;--red:#d94b4b;--purple:#7057d9;--bg:#f4f7fb;--card:#fff;--text:#16263d;--muted:#6f7f95;--line:#e4eaf2;--shadow:0 8px 24px rgba(11,31,58,.08)}
-*{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}button,input,select{font:inherit}.app{display:flex;min-height:100vh}.sidebar{position:fixed;left:0;top:0;bottom:0;width:245px;background:linear-gradient(180deg,#091a31,#102b4e);color:#fff;padding:22px 14px;overflow:auto}.brand{display:flex;gap:11px;align-items:center;padding:5px 10px 25px}.brandmark{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#fff,#cfe5ff);color:var(--navy);display:grid;place-items:center;font-weight:900;font-size:20px}.brand b{display:block;font-size:16px}.brand small{color:#a9c2e1;font-size:9px;letter-spacing:1px}.nav{display:grid;gap:7px}.nav button{border:0;background:transparent;color:#b9cbe2;text-align:left;padding:11px 12px;border-radius:10px;cursor:pointer;font-weight:700;font-size:12px}.nav button:hover,.nav button.active{background:rgba(255,255,255,.12);color:#fff}.sidefoot{position:absolute;bottom:18px;left:20px;right:20px;color:#7f9abc;font-size:9px;line-height:1.5}.main{margin-left:245px;width:calc(100% - 245px);padding:22px}.top{display:flex;justify-content:space-between;gap:15px;align-items:center;margin-bottom:18px}.title h1{margin:0;font-size:25px}.title p{margin:4px 0 0;color:var(--muted);font-size:12px}.actions{display:flex;gap:8px;align-items:center}.status{font-size:11px;color:var(--muted);display:flex;gap:6px;align-items:center}.dot{width:8px;height:8px;border-radius:50%;background:#aaa}.dot.ok{background:#17b77a}.dot.bad{background:#d94b4b}.btn{border:1px solid var(--line);background:#fff;color:var(--text);border-radius:9px;padding:9px 12px;cursor:pointer;font-weight:700;font-size:11px}.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}.section{display:none}.section.active{display:block}.filters{display:grid;grid-template-columns:repeat(7,minmax(120px,1fr));gap:9px;margin-bottom:14px}.field label{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:800;margin-bottom:5px}.field input,.field select{width:100%;border:1px solid var(--line);background:#fff;border-radius:8px;padding:9px 8px;color:var(--text);outline:none}.field input:focus,.field select:focus{border-color:var(--blue)}.kpis{display:grid;grid-template-columns:repeat(8,1fr);gap:10px;margin-bottom:15px}.kpi{background:#fff;border:1px solid var(--line);border-top:3px solid var(--accent);border-radius:11px;padding:13px;box-shadow:var(--shadow)}.kpi .label{font-size:8px;color:var(--muted);font-weight:900;letter-spacing:.5px}.kpi .value{font-size:18px;font-weight:900;margin:6px 0}.kpi .sub{font-size:9px;color:var(--muted)}.grid2{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;margin-bottom:14px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px}.card{background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:15px}.cardhead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.cardhead h3{font-size:13px;margin:0}.cardhead span{font-size:9px;color:var(--muted)}.chart{height:270px}.chart.tall{height:330px}.minirow{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:11px}.minirow:last-child{border-bottom:0}.bar{height:7px;background:#edf1f6;border-radius:8px;overflow:hidden;margin-top:5px}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--cyan));border-radius:8px}.tablewrap{overflow:auto;max-height:480px}.tablewrap table{width:100%;border-collapse:collapse;min-width:900px;font-size:10px}.tablewrap th{position:sticky;top:0;background:#f6f8fb;color:#687a91;text-transform:uppercase;font-size:8px;padding:9px;text-align:left;border-bottom:1px solid var(--line);z-index:1}.tablewrap td{padding:8px 9px;border-bottom:1px solid #eef2f6;white-space:nowrap}.tablewrap tr:hover td{background:#fafcff}.money{text-align:right}.pill{display:inline-block;padding:4px 7px;border-radius:99px;font-size:8px;font-weight:800}.green{background:#e5f7ef;color:#117a53}.orange{background:#fff1df;color:#a25b08}.red{background:#fde9e9;color:#a72f2f}.bluepill{background:#e6f0ff;color:#1856b5}.purplepill{background:#eeeaff;color:#5d45c1}.bigstat{font-size:28px;font-weight:900}.muted{color:var(--muted)}.uploadbox{border:2px dashed #c7d3e3;border-radius:12px;padding:28px;text-align:center;background:#f9fbfd}.uploadbox input{margin-top:12px}.reportgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.report{border:1px solid var(--line);border-radius:11px;padding:14px;background:#fff}.report h4{margin:0 0 6px;font-size:12px}.report p{margin:0 0 12px;font-size:9px;color:var(--muted);line-height:1.5}.empty{padding:25px;text-align:center;color:var(--muted);font-size:11px}.toast{position:fixed;right:20px;bottom:20px;background:var(--navy);color:#fff;padding:11px 15px;border-radius:9px;opacity:0;transform:translateY(8px);transition:.2s;font-size:11px;z-index:20}.toast.show{opacity:1;transform:none}.smallbtn{border:1px solid var(--line);background:#fff;border-radius:7px;padding:6px 8px;font-size:9px;font-weight:800;cursor:pointer}.sectiontitle{margin:0 0 12px;font-size:18px}.subhead{font-size:10px;color:var(--muted);margin:-6px 0 14px}.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}.three{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.alert{border-left:4px solid var(--red);background:#fff7f7;padding:10px;border-radius:8px;margin-bottom:8px;font-size:10px}.alert.warn{border-left-color:var(--orange);background:#fffaf3}.alert.good{border-left-color:var(--green);background:#f2fbf7}.note{font-size:9px;color:var(--muted);line-height:1.5}.searchline{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.searchline .field{flex:1;min-width:170px}@media(max-width:1250px){.kpis{grid-template-columns:repeat(4,1fr)}.filters{grid-template-columns:repeat(4,1fr)}}@media(max-width:900px){.sidebar{width:72px}.brand div,.sidefoot{display:none}.nav button{font-size:16px;text-align:center}.nav button span{display:none}.main{margin-left:72px;width:calc(100% - 72px)}.grid2,.grid3,.two,.three,.reportgrid{grid-template-columns:1fr}.filters{grid-template-columns:repeat(2,1fr)}}@media(max-width:560px){.main{padding:12px}.top{display:block}.actions{margin-top:10px}.kpis{grid-template-columns:repeat(2,1fr)}.filters{grid-template-columns:1fr}}
-</style></head>
-<body><div class="app">
-<aside class="sidebar"><div class="brand"><div class="brandmark">U</div><div><b>UNIBIC</b><small>KERALA SALES COMMAND CENTER</small></div></div>
+*{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
+.app{display:flex;min-height:100vh}.sidebar{position:fixed;left:0;top:0;bottom:0;width:245px;background:linear-gradient(180deg,#091a31,#102b4e);color:#fff;padding:22px 14px;overflow:auto}
+.main{margin-left:245px;width:calc(100% - 245px);padding:22px}
+.top{display:flex;justify-content:space-between;gap:15px;align-items:center;margin-bottom:18px}
+.status{font-size:11px;color:var(--muted);display:flex;gap:6px;align-items:center}.dot{width:8px;height:8px;border-radius:50%;background:#aaa}.dot.ok{background:#17b77a}.dot.bad{background:#d94b4b}
+.btn{border:1px solid var(--line);background:#fff;color:var(--text);border-radius:9px;padding:9px 12px;cursor:pointer;font-weight:700;font-size:11px}.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.section{display:none}.section.active{display:block}
+.filters{display:grid;grid-template-columns:repeat(7,minmax(120px,1fr));gap:9px;margin-bottom:14px}
+.kpis{display:grid;grid-template-columns:repeat(8,1fr);gap:10px;margin-bottom:15px}
+.kpi{background:#fff;border:1px solid var(--line);border-top:3px solid var(--accent);border-radius:11px;padding:13px;box-shadow:var(--shadow)}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:15px}
+.chart{height:270px}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar"><div class="brand"><b>UNIBIC</b><small>KERALA SALES COMMAND CENTER</small></div>
 <nav class="nav">
-<button class="active" data-tab="executive">🏠 <span>Executive</span></button><button data-tab="target">🎯 <span>Target vs Achievement</span></button><button data-tab="sales">📈 <span>Sales Analysis</span></button><button data-tab="item">📦 <span>Item Intelligence</span></button><button data-tab="dbr">👥 <span>ABM / DBR</span></button><button data-tab="invoice">🧾 <span>Invoice / Customer</span></button><button data-tab="soh">📦 <span>LIVE SOH</span></button><button data-tab="alerts">🚨 <span>Alerts</span></button><button data-tab="reports">📊 <span>Report Center</span></button><button data-tab="upload">📤 <span>Monthly Upload</span></button>
-</nav><div class="sidefoot">LIVE GSV + LIVE SOH<br>ERP Bridge • 127.0.0.1:8765</div></aside>
+<button class="active" data-tab="executive">&#127968; <span>Executive</span></button>
+<button data-tab="soh">&#128230; <span>LIVE SOH</span></button>
+</nav>
+</aside>
 <main class="main">
-<div class="top"><div class="title"><h1>UNIBIC Kerala Sales Command Center</h1><p>GSV • Target • DBR • Item • Invoice • LIVE SOH • Reports</p></div><div class="actions"><div class="status"><i id="dot" class="dot"></i><span id="status">Connecting…</span></div><button class="btn" id="refresh">↻ Refresh</button><button class="btn primary" id="quickExport">⇩ Export</button></div></div>
+<div class="top"><div class="title"><h1>UNIBIC Kerala Sales Command Center</h1></div><div class="actions"><div class="status"><i id="dot" class="dot"></i><span id="status">Connecting…</span></div><button class="btn" id="refresh">&#8635; Refresh</button></div></div>
 
 <section id="executive" class="section active">
-<div class="filters"><div class="field"><label>Year</label><select id="year"><option value="">All</option></select></div><div class="field"><label>Month</label><select id="month"><option value="">All</option><option>Jan</option><option>Feb</option><option>Mar</option><option>Apr</option><option>May</option><option>Jun</option><option>Jul</option><option>Aug</option><option>Sep</option><option>Oct</option><option>Nov</option><option>Dec</option></select></div><div class="field"><label>From Date</label><input id="from" type="date"></div><div class="field"><label>To Date</label><input id="to" type="date"></div><div class="field"><label>ABM</label><select id="abm"><option value="">All</option></select></div><div class="field"><label>DBR / Customer</label><select id="dbr"><option value="">All</option></select></div><div class="field"><label>Anchor</label><select id="anchor"><option value="">All</option></select></div></div>
 <div class="kpis">
-<div class="kpi" style="--accent:#1769e0"><div class="label">TARGET GSV</div><div class="value" id="kTarget">₹0</div><div class="sub">Selected period</div></div><div class="kpi" style="--accent:#159a6a"><div class="label">ACHIEVEMENT GSV</div><div class="value" id="kGsv">₹0</div><div class="sub" id="salesSourceLabel">ERP GSV source</div></div><div class="kpi" style="--accent:#7057d9"><div class="label">ACHIEVEMENT %</div><div class="value" id="kPct">0.0%</div><div class="sub">Against target</div></div><div class="kpi" style="--accent:#ef8b20"><div class="label">BALANCE</div><div class="value" id="kBal">₹0</div><div class="sub">Target less achievement</div></div><div class="kpi" style="--accent:#1769e0"><div class="label">INVOICES</div><div class="value" id="kInv">0</div><div class="sub">Distinct invoices</div></div><div class="kpi" style="--accent:#159a6a"><div class="label">ACTIVE DBR</div><div class="value" id="kDbr">0</div><div class="sub">Distinct DBRs</div></div><div class="kpi" style="--accent:#00a7c7"><div class="label">TOTAL CBB</div><div class="value" id="kCbb">0</div><div class="sub">Selected sales</div></div><div class="kpi" style="--accent:#d94b4b"><div class="label">INDV DISCOUNT</div><div class="value" id="kDisc">₹0</div><div class="sub">Selected sales</div></div>
+<div class="kpi" style="--accent:#1769e0"><div class="label">ACHIEVEMENT GSV</div><div class="value" id="kGsv">₹0</div></div>
 </div>
-<div class="grid2"><div class="card"><div class="cardhead"><h3>Target vs Achievement</h3><span>Selected period</span></div><div class="chart"><canvas id="targetChart"></canvas></div></div><div class="card"><div class="cardhead"><h3>Monthly GSV Trend</h3><span id="trendSource">Active sales source</span></div><div class="chart"><canvas id="trendChart"></canvas></div></div></div>
-<div class="grid3"><div class="card"><div class="cardhead"><h3>Top Anchors</h3><span>By GSV</span></div><div id="topAnchors"></div></div><div class="card"><div class="cardhead"><h3>Top Items</h3><span>Item Code + Description</span></div><div id="topItems"></div></div><div class="card"><div class="cardhead"><h3>LIVE SOH by Warehouse</h3><span>Live stock</span></div><div id="warehouseMini"></div></div></div>
 </section>
 
-<section id="target" class="section"><h2 class="sectiontitle">🎯 Target vs Achievement</h2><p class="subhead">Anchor-wise target compared with selected-period achievement.</p><div class="card"><div class="cardhead"><h3>Anchor Performance</h3><span>Target → Achievement → Balance</span></div><div class="tablewrap"><table><thead><tr><th>Anchor</th><th>Target GSV</th><th>Achievement GSV</th><th>Achievement %</th><th>Balance</th></tr></thead><tbody id="targetTable"></tbody></table></div></div></section>
-
-<section id="sales" class="section"><h2 class="sectiontitle">📈 Sales Analysis</h2><p class="subhead">Summary analysis only. Detailed transactions are available in Invoice / Customer Drill-down.</p><div class="two"><div class="card"><div class="cardhead"><h3>Brand-wise Sales</h3><span>GSV</span></div><div class="chart tall"><canvas id="brandChart"></canvas></div></div><div class="card"><div class="cardhead"><h3>Anchor-wise Sales</h3><span>GSV</span></div><div class="chart tall"><canvas id="anchorChart"></canvas></div></div></div><div class="three" style="margin-top:14px"><div class="card"><div class="cardhead"><h3>Customer-wise Sales</h3></div><div id="customerSales"></div></div><div class="card"><div class="cardhead"><h3>Item-wise Sales</h3></div><div id="itemSales"></div></div><div class="card"><div class="cardhead"><h3>Sales KPIs</h3></div><div id="salesKpis"></div></div></div></section>
-
-<section id="item" class="section"><h2 class="sectiontitle">📦 Item Sales Intelligence</h2><p class="subhead">Item Code + Description, DBR performance, top items and INDV detail. Zero-discount rows are excluded from INDV.</p><div class="filters"><div class="field"><label>Year</label><select class="mirrorYear"></select></div><div class="field"><label>Month</label><select class="mirrorMonth"></select></div><div class="field"><label>From Date</label><input class="mirrorFrom" type="date"></div><div class="field"><label>To Date</label><input class="mirrorTo" type="date"></div><div class="field"><label>DBR</label><select class="mirrorDbr"></select></div><div class="field"><label>Item Code / Description</label><input id="itemSearch" placeholder="Type item code or description"></div><div class="field"><label>Ranking</label><select id="rankMode"><option value="top">Highest CBB</option><option value="low">Lowest CBB</option></select></div></div>
-<div class="kpis"><div class="kpi" style="--accent:#1769e0"><div class="label">ITEMS</div><div class="value" id="itemCount">0</div></div><div class="kpi" style="--accent:#159a6a"><div class="label">ITEM SALES</div><div class="value" id="itemSalesKpi">₹0</div></div><div class="kpi" style="--accent:#00a7c7"><div class="label">ITEM CBB</div><div class="value" id="itemCbbKpi">0</div></div><div class="kpi" style="--accent:#7057d9"><div class="label">DBRs</div><div class="value" id="itemDbrKpi">0</div></div></div>
-<div class="card"><div class="cardhead"><h3>Top Items</h3><button class="smallbtn" id="itemExport">Export Excel</button></div><div class="tablewrap"><table><thead><tr><th>DBR Code</th><th>DBR Name</th><th>Item Code</th><th>Description</th><th>Customers</th><th>Sales</th><th>CBB</th></tr></thead><tbody id="topItemTable"></tbody></table></div></div>
-<div class="card" style="margin-top:14px"><div class="cardhead"><h3>INDV Report</h3><span>Non-zero INDV discount only</span></div><div class="filters"><div class="field"><label>INDV Item Search</label><input id="indvItem" placeholder="Item code / description"></div><div class="field"><label>INDV DBR</label><select id="indvDbr"><option value="">All</option></select></div><div class="field"><label>INDV Customer</label><select id="indvCustomer"><option value="">All</option></select></div><div class="field"><label>INDV Invoice</label><select id="indvInvoice"><option value="">All</option></select></div><div class="field"><label>Minimum Discount</label><input id="indvMin" type="number" min="0" step="0.01" placeholder="0"></div><div class="field"><label>INDV Records</label><div class="field inputlike" id="indvRecords" style="padding:9px 8px;background:#fff;border:1px solid var(--line);border-radius:8px">0</div></div><div class="field"><label>Discount Value</label><div class="field inputlike" id="indvValue" style="padding:9px 8px;background:#fff;border:1px solid var(--line);border-radius:8px">₹0</div></div></div><div class="cardhead"><span class="note">Rows with zero INDV discount are not shown.</span><button class="smallbtn" id="indvExport">Export INDV</button></div><div class="tablewrap"><table><thead><tr><th>DBR Code</th><th>DBR Name</th><th>Customer</th><th>Invoice</th><th>Item Code</th><th>Description</th><th>Sales</th><th>CBB</th><th>Discount</th><th>Date</th></tr></thead><tbody id="indvTable"></tbody></table></div></div>
+<section id="soh" class="section">
+<h2 class="sectiontitle">&#128230; LIVE SOH Intelligence</h2>
 </section>
 
-<section id="dbr" class="section"><h2 class="sectiontitle">👥 ABM / DBR</h2><p class="subhead">DBR Code + DBR Name performance with item movement.</p><div class="filters"><div class="field"><label>ABM</label><select id="dbrAbm"><option value="">All</option></select></div><div class="field"><label>DBR</label><select id="dbrSelect"><option value="">All</option></select></div><div class="field"><label>Year</label><select class="mirrorYear"></select></div><div class="field"><label>Month</label><select class="mirrorMonth"></select></div></div><div class="kpis"><div class="kpi" style="--accent:#1769e0"><div class="label">DBR GSV</div><div class="value" id="dbrGsv">₹0</div></div><div class="kpi" style="--accent:#159a6a"><div class="label">CBB</div><div class="value" id="dbrCbb">0</div></div><div class="kpi" style="--accent:#7057d9"><div class="label">INVOICES</div><div class="value" id="dbrInv">0</div></div><div class="kpi" style="--accent:#ef8b20"><div class="label">INDV DISCOUNT</div><div class="value" id="dbrDisc">₹0</div></div></div><div class="card"><div class="cardhead"><h3>DBR Item Movement</h3><button class="smallbtn" id="dbrExport">Export Excel</button></div><div class="tablewrap"><table><thead><tr><th>DBR Code</th><th>DBR Name</th><th>Item Code</th><th>Description</th><th>CBB</th><th>GSV</th><th>Invoices</th></tr></thead><tbody id="dbrItems"></tbody></table></div></div></section>
-
-<section id="invoice" class="section"><h2 class="sectiontitle">🧾 Invoice / Customer Drill-down</h2><p class="subhead">DBR → Customer → Invoice → all billed item rows.</p><div class="filters"><div class="field"><label>DBR</label><select id="invDbr"><option value="">All</option></select></div><div class="field"><label>Customer</label><select id="invCustomer"><option value="">All</option></select></div><div class="field"><label>Invoice No</label><select id="invNo"><option value="">All</option></select></div><div class="field"><label>Search</label><input id="invSearch" placeholder="Invoice / customer / item"></div></div><div class="card"><div class="cardhead"><h3>Invoice Detail</h3><button class="smallbtn" id="invoiceExport">Export Excel</button></div><div class="tablewrap"><table><thead><tr><th>DBR Code</th><th>DBR Name</th><th>Customer</th><th>Invoice No</th><th>Order No</th><th>Date</th><th>Item Code</th><th>Description</th><th>Qty PCS</th><th>CBB</th><th>GSV</th><th>Discount</th></tr></thead><tbody id="invoiceTable"></tbody></table></div></div></section>
-
-<section id="soh" class="section"><h2 class="sectiontitle">📦 LIVE SOH Intelligence</h2><p class="subhead">Batch-free LIVE SOH view. CBB is shown by warehouse when a warehouse is selected.</p><div class="kpis"><div class="kpi" style="--accent:#1769e0"><div class="label">ROWS</div><div class="value" id="sohRows">0</div></div><div class="kpi" style="--accent:#159a6a"><div class="label">WAREHOUSES</div><div class="value" id="sohWhCount">0</div></div><div class="kpi" style="--accent:#00a7c7"><div class="label">FILTERED CBB</div><div class="value" id="sohFiltered">0</div></div><div class="kpi" style="--accent:#ef8b20"><div class="label">SELECTED WH CBB</div><div class="value" id="sohWhCbb">—</div></div></div><div class="filters"><div class="field"><label>Warehouse</label><select id="sohWh"><option value="">All</option></select></div><div class="field"><label>Item Code</label><select id="sohItem"><option value="">All</option></select></div><div class="field"><label>Description</label><select id="sohDesc"><option value="">All</option></select></div></div><div class="card"><div class="cardhead"><h3>LIVE SOH Detail</h3><button class="smallbtn" id="sohExport">Export Excel</button></div><div class="tablewrap"><table><thead><tr><th>Warehouse</th><th>Item Code</th><th>Description</th><th>MRP</th><th>Main CBB</th><th>Units</th><th>Total Units</th><th>Quarantine Units</th><th>Expiry</th><th>Shelf Life</th><th>Remaining Shelf Life</th></tr></thead><tbody id="sohTable"></tbody></table></div></div></section>
-
-<section id="alerts" class="section"><h2 class="sectiontitle">🚨 Business Alerts</h2><p class="subhead">Current sales, target and stock signals.</p><div id="alertsList"></div></section>
-
-<section id="reports" class="section"><h2 class="sectiontitle">📊 Report Center</h2><p class="subhead">Export filtered sales, target, DBR, invoice, item, INDV, LIVE SOH and management reports.</p><div class="filters"><div class="field"><label>Year</label><select id="rYear"><option value="">All</option></select></div><div class="field"><label>Month</label><select id="rMonth"><option value="">All</option><option>Jan</option><option>Feb</option><option>Mar</option><option>Apr</option><option>May</option><option>Jun</option><option>Jul</option><option>Aug</option><option>Sep</option><option>Oct</option><option>Nov</option><option>Dec</option></select></div><div class="field"><label>From Date</label><input id="rFrom" type="date"></div><div class="field"><label>To Date</label><input id="rTo" type="date"></div><div class="field"><label>DBR</label><select id="rDbr"><option value="">All</option></select></div></div><div class="reportgrid"><div class="report"><h4>📈 Sales Summary</h4><p>Filtered sales with DBR, customer, item, anchor and GSV.</p><button class="btn primary" data-report="sales">Export Excel</button></div><div class="report"><h4>🎯 Target vs Achievement</h4><p>Anchor target, achievement, percentage and balance.</p><button class="btn primary" data-report="target">Export Excel</button></div><div class="report"><h4>👥 ABM / DBR</h4><p>DBR-wise sales, CBB, invoices and item movement.</p><button class="btn primary" data-report="dbr">Export Excel</button></div><div class="report"><h4>🧾 Invoice Detail</h4><p>Invoice-level rows including every billed item.</p><button class="btn primary" data-report="invoice">Export Excel</button></div><div class="report"><h4>📦 LIVE SOH</h4><p>Warehouse, item, description, CBB, units and shelf life. No batch column.</p><button class="btn primary" data-report="soh">Export Excel</button></div><div class="report"><h4>💰 INDV Discount</h4><p>Non-zero INDV discount rows only.</p><button class="btn primary" data-report="indv">Export Excel</button></div><div class="report"><h4>📦 Item Movement</h4><p>Item Code + Description, DBR and customer movement.</p><button class="btn primary" data-report="item">Export Excel</button></div><div class="report"><h4>🚨 Business Alerts</h4><p>Current action signals.</p><button class="btn primary" data-report="alerts">Export Excel</button></div><div class="report"><h4>⭐ Executive Report</h4><p>Consolidated snapshot of target, sales, DBR, item and SOH.</p><button class="btn primary" data-report="management">Export Excel</button></div></div></section>
-
-<section id="upload" class="section"><h2 class="sectiontitle">📤 Monthly Upload / Data Management</h2><p class="subhead">Upload Anchor-wise Target Excel and Primary Sales Excel. Uploaded Primary Sales becomes the active sales source for the browser session.</p><div class="two"><div class="uploadbox"><b>🎯 Anchor-wise Target Excel</b><div class="muted" style="font-size:10px;margin-top:6px">Flexible fields supported: Month, Year, Anchor/AnchorName, Target GSV / Target / GSV.</div><input id="targetFile" type="file" accept=".xlsx,.xls,.csv"></div><div class="uploadbox"><b>📈 Primary Sales Excel</b><div class="muted" style="font-size:10px;margin-top:6px">Use the same sales fields as the primary sales register where possible.</div><input id="primaryFile" type="file" accept=".xlsx,.xls,.csv"></div></div><div class="card" style="margin-top:14px"><div class="cardhead"><h3>Loaded Monthly Files</h3><button class="smallbtn" id="clearUploads">Clear uploaded session data</button></div><div class="tablewrap"><table><thead><tr><th>Type</th><th>File</th><th>Rows</th><th>Status</th></tr></thead><tbody id="uploadTable"></tbody></table></div></div></section>
-<div class="footer" style="padding:15px 2px;color:#8493a8;font-size:9px">GSV API: http://127.0.0.1:8765/api/gsv • LIVE SOH API: http://127.0.0.1:8765/api/live-soh • Auto refresh: 15 minutes • <span id="last">Last refresh: —</span></div>
-</main></div><div id="toast" class="toast"></div>
+<div class="footer" style="padding:15px 2px;color:#8493a8;font-size:9px">GSV API: /api/gsv • LIVE SOH API: /api/soh • Auto refresh: 15 minutes • <span id="last">Last refresh: -</span></div>
+</main>
+</div>
 <script>
-const GSV_API='/api/gsv', SOH_API='/api/live-soh';
-let gsvRows=[],activeRows=[],primaryRows=[],targets=[],soh=[],filteredSOH=[],salesSource='ERP GSV';
-const charts={};
-const $=id=>document.getElementById(id);
-const num=v=>{if(v===null||v===undefined||v==='')return 0;if(typeof v==='number')return Number.isFinite(v)?v:0;let n=Number(String(v).replace(/,/g,'').replace(/₹/g,'').trim());return Number.isFinite(n)?n:0};
-const money=v=>'₹'+num(v).toLocaleString('en-IN',{maximumFractionDigits:0});
-const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-const uniq=a=>[...new Set(a.map(v=>String(v??'').trim()).filter(Boolean))].sort((x,y)=>x.localeCompare(y,undefined,{numeric:true,sensitivity:'base'}));
-function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2500)}
-function setStatus(t,ok=true){$('status').textContent=t;$('dot').className='dot '+(ok?'ok':'bad')}
-function dateVal(v){if(v instanceof Date&&!isNaN(v))return v;if(typeof v==='number'){const d=new Date(Date.UTC(1899,11,30)+v*86400000);return isNaN(d)?null:d}if(!v)return null;let s=String(v).trim();let d=new Date(s);if(!isNaN(d))return d;let m=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);if(m){let y=+m[3];if(y<100)y+=2000;d=new Date(y,+m[2]-1,+m[1]);return isNaN(d)?null:d}return null}
-function fmtDate(v){const d=dateVal(v);return d?d.toLocaleDateString('en-IN'):''}
-function monthKey(d){return d?d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'):''}
-function payloadRows(p){if(Array.isArray(p))return p;if(p&&Array.isArray(p.data))return p.data;if(p&&Array.isArray(p.rows))return p.rows;if(p&&Array.isArray(p.rowsData))return p.rowsData;return []}
-function field(r,names){for(const n of names){if(r[n]!==undefined&&r[n]!==null&&String(r[n]).trim()!=='')return r[n]}return ''}
-function norm(r){const x={...r};x.__date=dateVal(field(r,['PostingDate','Posting Date','Date','Invoice Date']));x.__gsv=num(field(r,['GSV IN LAKH','GSV','GSV Amount','AmountToCustomer']))*((r['GSV IN LAKH']!==undefined)?100000:1);if(r['GSV IN LAKH']===undefined&&r.GSV!==undefined)x.__gsv=num(r.GSV);x.__cbb=num(field(r,['QuantityinCBO','Quantity in CBO','CBB','CBO']));x.__pcs=num(field(r,['QuantityinPcs','Quantity in Pcs','Qty PCS','Quantity']));x.__disc=num(field(r,['INDV_discount','INDV Discount','Discount','INDV Amount']));x.__dbrCode=String(field(r,['DBR_Code','DBR Code','Sell_to_Customer_No','Customer_Account','Billed_to_Code'])||'').trim();x.__dbrName=String(field(r,['DBR_Name','DBR Name','Sell_to_Customer_Name'])||'').trim();x.__customer=String(field(r,['Customer_Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name'])||x.__dbrName).trim();x.__itemCode=String(field(r,['ItemId','Item Code','ItemCode'])||'').trim();x.__desc=String(field(r,['Description','Item Description'])||'').trim();x.__invoice=String(field(r,['Invoice_No','Invoice No','Invoice'])||'').trim();x.__order=String(field(r,['Order_No','Order No','Order'])||'').trim();x.__abm=String(field(r,['NKAM_ABM','ABM'])||'').trim();x.__anchor=String(field(r,['AnchorName','Anchor'])||'').trim();x.__brand=String(field(r,['Brand','BrandName'])||'').trim();x.__monthKey=monthKey(x.__date);return x}
-function setOptions(id,values,labels){const el=$(id);if(!el)return;const first=el.querySelector('option[value=""]')?.outerHTML||'<option value="">All</option>';el.innerHTML=first;const arr=values||[];arr.forEach((v,i)=>{const o=document.createElement('option');o.value=v;o.textContent=labels?labels[i]:v;el.appendChild(o)})}
-function populateFilters(){const years=uniq(activeRows.map(r=>r.__date?.getFullYear()).filter(Boolean).map(String));setOptions('year',years);if(years.length) $('year').value=years[years.length-1];['abm','dbr','anchor','dbrAbm','dbrSelect','invDbr','invCustomer','invNo','rDbr','indvDbr','indvCustomer','indvInvoice'].forEach(id=>{const map={abm:'__abm',dbr:'__dbrName',anchor:'__anchor',dbrAbm:'__abm',dbrSelect:'__dbrName',invDbr:'__dbrName',invCustomer:'__customer',invNo:'__invoice',rDbr:'__dbrName',indvDbr:'__dbrName',indvCustomer:'__customer',indvInvoice:'__invoice'};setOptions(id,uniq(activeRows.map(r=>r[map[id]]))) });document.querySelectorAll('.mirrorYear').forEach(e=>e.innerHTML=$('year').innerHTML);document.querySelectorAll('.mirrorMonth').forEach(e=>e.innerHTML=$('month').innerHTML);document.querySelectorAll('.mirrorDbr').forEach(e=>e.innerHTML=$('dbr').innerHTML);setOptions('rYear',years);if(years.length)$('rYear').value=years[years.length-1]}
-function currentFiltered(){const y=$('year').value,m=$('month').value,from=$('from').value?new Date($('from').value+'T00:00:00'):null,to=$('to').value?new Date($('to').value+'T23:59:59'):null,abm=$('abm').value,dbr=$('dbr').value,anchor=$('anchor').value;return activeRows.filter(r=>{const d=r.__date;return(!y||!d||String(d.getFullYear())===y)&&(!m||!d||d.toLocaleString('en',{month:'short'})===m)&&(!from||!d||d>=from)&&(!to||!d||d<=to)&&(!abm||r.__abm===abm)&&(!dbr||r.__dbrName===dbr)&&(!anchor||r.__anchor===anchor)})}
-function targetRowsForPeriod(){const y=$('year').value,m=$('month').value;return targets.filter(t=>{const d=t.__date;const ty=String(field(t,['Year','year'])||d?.getFullYear()||'');const tm=String(field(t,['Month','month'])|| (d?d.toLocaleString('en',{month:'short'}):''));return(!y||!ty||ty===y)&&(!m||!tm||tm.slice(0,3).toLowerCase()===m.toLowerCase())})}
-function targetValue(t){return num(field(t,['TargetGSV','Target GSV','Target','GSV','Target Amount']))}
-function targetAnchor(t){return String(field(t,['AnchorName','Anchor','Anchor Name','ANCHOR'])||'Unspecified').trim()}
-function destroy(id){if(charts[id]){charts[id].destroy();delete charts[id]}}
-function group(rows,key,val){const m=new Map();rows.forEach(r=>{const k=String(r[key]||'Unspecified');m.set(k,(m.get(k)||0)+num(r[val]))});return [...m.entries()].sort((a,b)=>b[1]-a[1])}
-function renderAll(){activeRows=currentFiltered();const g=activeRows.reduce((s,r)=>s+r.__gsv,0),c=activeRows.reduce((s,r)=>s+r.__cbb,0),disc=activeRows.reduce((s,r)=>s+r.__disc,0),inv=new Set(activeRows.map(r=>r.__invoice).filter(Boolean)).size,db=new Set(activeRows.map(r=>r.__dbrCode||r.__dbrName).filter(Boolean)).size,target=targetRowsForPeriod().reduce((s,r)=>s+targetValue(r),0);$('kTarget').textContent=money(target);$('kGsv').textContent=money(g);$('kPct').textContent=(target?g/target*100:0).toFixed(1)+'%';$('kBal').textContent=money(Math.max(0,target-g));$('kInv').textContent=inv.toLocaleString('en-IN');$('kDbr').textContent=db.toLocaleString('en-IN');$('kCbb').textContent=c.toLocaleString('en-IN',{maximumFractionDigits:1});$('kDisc').textContent=money(disc);$('salesSourceLabel').textContent=salesSource+' source';$('trendSource').textContent=salesSource;renderExecutive();renderTarget();renderSales();renderItem();renderDBR();renderInvoice();renderAlerts()}
-function renderExecutive(){const target=targetRowsForPeriod().reduce((s,r)=>s+targetValue(r),0),g=activeRows.reduce((s,r)=>s+r.__gsv,0);destroy('target');charts.target=new Chart($('targetChart'),{type:'bar',data:{labels:['Target','Achievement'],datasets:[{data:[target,g],backgroundColor:['#1769e0','#159a6a'],borderRadius:8}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>money(v)}}}}});const mm=new Map();activeRows.forEach(r=>{if(r.__date){const k=monthKey(r.__date);mm.set(k,(mm.get(k)||0)+r.__gsv)}});const ks=[...mm.keys()].sort();destroy('trend');charts.trend=new Chart($('trendChart'),{type:'line',data:{labels:ks.map(k=>{const [y,m]=k.split('-');return new Date(+y,+m-1,1).toLocaleDateString('en',{month:'short',year:'2-digit'})}),datasets:[{label:'GSV',data:ks.map(k=>mm.get(k)),borderColor:'#1769e0',backgroundColor:'rgba(23,105,224,.12)',fill:true,tension:.25}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>money(v)}}}}});const a=group(activeRows,'__anchor','__gsv').slice(0,6);$('topAnchors').innerHTML=a.map((x,i)=>`<div class="minirow"><span>${i+1}. ${esc(x[0])}</span><b>${money(x[1])}</b></div>`).join('')||'<div class="empty">No data</div>';const im=new Map();activeRows.forEach(r=>{const k=r.__itemCode+'|'+r.__desc;const z=im.get(k)||{c:0,g:0,code:r.__itemCode,desc:r.__desc};z.c+=r.__cbb;z.g+=r.__gsv;im.set(k,z)});const its=[...im.values()].sort((a,b)=>b.c-a.c).slice(0,6);$('topItems').innerHTML=its.map((x,i)=>`<div class="minirow"><span>${i+1}. <b>${esc(x.code)}</b> — ${esc(x.desc)}</span><b>${x.c.toLocaleString('en-IN',{maximumFractionDigits:1})} CBB</b></div>`).join('')||'<div class="empty">No data</div>';renderWarehouseMini()}
-function renderWarehouseMini(){const m=group(soh,'WAREHOUSE','TOTAL_MAIN_QRT').slice(0,7),max=m[0]?.[1]||1;$('warehouseMini').innerHTML=m.map(x=>`<div style="margin-bottom:8px;font-size:10px"><div class="minirow" style="padding:3px 0;border:0"><span>${esc(x[0])}</span><b>${num(x[1]).toLocaleString('en-IN',{maximumFractionDigits:1})}</b></div><div class="bar"><i style="width:${Math.min(100,x[1]/max*100)}%"></i></div></div>`).join('')||'<div class="empty">No SOH</div>'}
-function renderTarget(){const by=new Map();targetRowsForPeriod().forEach(t=>by.set(targetAnchor(t),(by.get(targetAnchor(t))||0)+targetValue(t)));const ach=new Map();activeRows.forEach(r=>ach.set(r.__anchor||'Unspecified',(ach.get(r.__anchor||'Unspecified')||0)+r.__gsv));$('targetTable').innerHTML=[...by.entries()].sort((a,b)=>b[1]-a[1]).map(x=>{const av=ach.get(x[0])||0,p=x[1]?av/x[1]*100:0;return`<tr><td>${esc(x[0])}</td><td>${money(x[1])}</td><td>${money(av)}</td><td><span class="pill ${p>=90?'green':p>=70?'orange':'red'}">${p.toFixed(1)}%</span></td><td>${money(Math.max(0,x[1]-av))}</td></tr>`}).join('')||'<tr><td colspan="5" class="empty">Upload target Excel to see target comparison.</td></tr>'}
-function renderSales(){const b=group(activeRows,'__brand','__gsv').slice(0,12),a=group(activeRows,'__anchor','__gsv').slice(0,12);destroy('brand');charts.brand=new Chart($('brandChart'),{type:'bar',data:{labels:b.map(x=>x[0]),datasets:[{data:b.map(x=>x[1]),backgroundColor:'#00a7c7',borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>money(v)}}}}});destroy('anchor');charts.anchor=new Chart($('anchorChart'),{type:'bar',data:{labels:a.map(x=>x[0]),datasets:[{data:a.map(x=>x[1]),backgroundColor:'#7057d9',borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>money(v)}}}}});const cs=group(activeRows,'__customer','__gsv').slice(0,8);$('customerSales').innerHTML=cs.map(x=>`<div class="minirow"><span>${esc(x[0])}</span><b>${money(x[1])}</b></div>`).join('')||'<div class="empty">No data</div>';const is=group(activeRows,'__itemCode','__gsv').slice(0,8);$('itemSales').innerHTML=is.map(x=>{const r=activeRows.find(z=>z.__itemCode===x[0]);return`<div class="minirow"><span><b>${esc(x[0])}</b> — ${esc(r?.__desc||'')}</span><b>${money(x[1])}</b></div>`}).join('')||'<div class="empty">No data</div>';$('salesKpis').innerHTML=`<div class="minirow"><span>Total GSV</span><b>${money(activeRows.reduce((s,r)=>s+r.__gsv,0))}</b></div><div class="minirow"><span>Total CBB</span><b>${activeRows.reduce((s,r)=>s+r.__cbb,0).toLocaleString('en-IN',{maximumFractionDigits:1})}</b></div><div class="minirow"><span>Invoices</span><b>${new Set(activeRows.map(r=>r.__invoice).filter(Boolean)).size.toLocaleString('en-IN')}</b></div><div class="minirow"><span>DBRs</span><b>${new Set(activeRows.map(r=>r.__dbrCode||r.__dbrName).filter(Boolean)).size.toLocaleString('en-IN')}</b></div>`}
-function itemFiltered(){const y=document.querySelector('.mirrorYear')?.value||'',m=document.querySelector('.mirrorMonth')?.value||'',from=document.querySelector('.mirrorFrom')?.value,to=document.querySelector('.mirrorTo')?.value,dbr=document.querySelector('.mirrorDbr')?.value||'';return activeRows.filter(r=>{const d=r.__date;return(!y||!d||String(d.getFullYear())===y)&&(!m||!d||d.toLocaleString('en',{month:'short'})===m)&&(!from||!d||d>=new Date(from+'T00:00:00'))&&(!to||!d||d<=new Date(to+'T23:59:59'))&&(!dbr||r.__dbrName===dbr)})}
-function renderItem(){const rr=itemFiltered();const q=($('itemSearch').value||'').toLowerCase().trim();const filtered=q?rr.filter(r=>r.__itemCode.toLowerCase().includes(q)||r.__desc.toLowerCase().includes(q)):rr;const map=new Map();filtered.forEach(r=>{const k=[r.__dbrCode,r.__dbrName,r.__itemCode,r.__desc].join('|');const z=map.get(k)||{code:r.__dbrCode,name:r.__dbrName,item:r.__itemCode,desc:r.__desc,g:0,c:0,customers:new Set()};z.g+=r.__gsv;z.c+=r.__cbb;if(r.__customer)z.customers.add(r.__customer);map.set(k,z)});const arr=[...map.values()].sort((a,b)=>$('rankMode').value==='low'?a.c-b.c:b.c-a.c);$('itemCount').textContent=new Set(filtered.map(r=>r.__itemCode).filter(Boolean)).size.toLocaleString('en-IN');$('itemSalesKpi').textContent=money(filtered.reduce((s,r)=>s+r.__gsv,0));$('itemCbbKpi').textContent=filtered.reduce((s,r)=>s+r.__cbb,0).toLocaleString('en-IN',{maximumFractionDigits:1});$('itemDbrKpi').textContent=new Set(filtered.map(r=>r.__dbrCode||r.__dbrName).filter(Boolean)).size.toLocaleString('en-IN');$('topItemTable').innerHTML=arr.slice(0,300).map(x=>`<tr><td>${esc(x.code)}</td><td>${esc(x.name)}</td><td>${esc(x.item)}</td><td>${esc(x.desc)}</td><td>${x.customers.size}</td><td class="money">${money(x.g)}</td><td class="money">${x.c.toLocaleString('en-IN',{maximumFractionDigits:1})}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No item data.</td></tr>';renderINDV()}
-function renderINDV(){const q=($('indvItem').value||'').toLowerCase().trim(),dbr=$('indvDbr').value,cust=$('indvCustomer').value,inv=$('indvInvoice').value,min=num($('indvMin').value);let rr=activeRows.filter(r=>Math.abs(r.__disc)>0&&(!q||r.__itemCode.toLowerCase().includes(q)||r.__desc.toLowerCase().includes(q))&&(!dbr||r.__dbrName===dbr)&&(!cust||r.__customer===cust)&&(!inv||r.__invoice===inv)&&Math.abs(r.__disc)>=min);$('indvRecords').textContent=rr.length.toLocaleString('en-IN');$('indvValue').textContent=money(rr.reduce((s,r)=>s+r.__disc,0));$('indvTable').innerHTML=rr.slice().sort((a,b)=>b.__disc-a.__disc).slice(0,3000).map(r=>`<tr><td>${esc(r.__dbrCode)}</td><td>${esc(r.__dbrName)}</td><td>${esc(r.__customer)}</td><td>${esc(r.__invoice)}</td><td>${esc(r.__itemCode)}</td><td>${esc(r.__desc)}</td><td class="money">${money(r.__gsv)}</td><td class="money">${r.__cbb.toLocaleString('en-IN',{maximumFractionDigits:1})}</td><td class="money">${money(r.__disc)}</td><td>${fmtDate(r.__date)}</td></tr>`).join('')||'<tr><td colspan="10" class="empty">No non-zero INDV discount rows.</td></tr>'}
-function renderDBR(){const d=$('dbrSelect').value,rr=d?activeRows.filter(r=>r.__dbrName===d):activeRows,g=rr.reduce((s,r)=>s+r.__gsv,0),c=rr.reduce((s,r)=>s+r.__cbb,0),disc=rr.reduce((s,r)=>s+r.__disc,0);$('dbrGsv').textContent=money(g);$('dbrCbb').textContent=c.toLocaleString('en-IN',{maximumFractionDigits:1});$('dbrInv').textContent=new Set(rr.map(r=>r.__invoice).filter(Boolean)).size.toLocaleString('en-IN');$('dbrDisc').textContent=money(disc);const map=new Map();rr.forEach(r=>{const k=r.__itemCode+'|'+r.__desc;const z=map.get(k)||{code:r.__dbrCode,name:r.__dbrName,item:r.__itemCode,desc:r.__desc,c:0,g:0,inv:new Set()};z.c+=r.__cbb;z.g+=r.__gsv;if(r.__invoice)z.inv.add(r.__invoice);map.set(k,z)});$('dbrItems').innerHTML=[...map.values()].sort((a,b)=>b.c-a.c).slice(0,500).map(x=>`<tr><td>${esc(x.code)}</td><td>${esc(x.name)}</td><td>${esc(x.item)}</td><td>${esc(x.desc)}</td><td class="money">${x.c.toLocaleString('en-IN',{maximumFractionDigits:1})}</td><td class="money">${money(x.g)}</td><td>${x.inv.size}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No DBR data.</td></tr>'}
-function renderInvoice(){const d=$('invDbr').value,c=$('invCustomer').value,n=$('invNo').value,q=($('invSearch').value||'').toLowerCase();const rr=activeRows.filter(r=>(!d||r.__dbrName===d)&&(!c||r.__customer===c)&&(!n||r.__invoice===n)&&(!q||[r.__invoice,r.__customer,r.__itemCode,r.__desc,r.__order,r.__dbrName].some(v=>String(v||'').toLowerCase().includes(q))));$('invoiceTable').innerHTML=rr.slice(0,3000).map(r=>`<tr><td>${esc(r.__dbrCode)}</td><td>${esc(r.__dbrName)}</td><td>${esc(r.__customer)}</td><td>${esc(r.__invoice)}</td><td>${esc(r.__order)}</td><td>${fmtDate(r.__date)}</td><td>${esc(r.__itemCode)}</td><td>${esc(r.__desc)}</td><td class="money">${r.__pcs.toLocaleString('en-IN',{maximumFractionDigits:0})}</td><td class="money">${r.__cbb.toLocaleString('en-IN',{maximumFractionDigits:1})}</td><td class="money">${money(r.__gsv)}</td><td class="money">${money(r.__disc)}</td></tr>`).join('')||'<tr><td colspan="12" class="empty">No invoice rows.</td></tr>'}
-function applySOH(){const w=$('sohWh').value,i=$('sohItem').value,d=$('sohDesc').value;filteredSOH=soh.filter(r=>(!w||String(r.WAREHOUSE)===w)&&(!i||String(r.ITEMID)===i)&&(!d||String(r.DESCRIPTION)===d));const c=filteredSOH.reduce((s,r)=>s+num(r.TOTAL_MAIN_QRT),0);$('sohFiltered').textContent=c.toLocaleString('en-IN',{maximumFractionDigits:1});$('sohWhCbb').textContent=w?c.toLocaleString('en-IN',{maximumFractionDigits:1}):'—';renderSOH()}
-function renderSOH(){$('sohTable').innerHTML=filteredSOH.slice(0,3000).map(r=>`<tr><td>${esc(r.WAREHOUSE)}</td><td>${esc(r.ITEMID)}</td><td>${esc(r.DESCRIPTION)}</td><td>${esc(r.MRP)}</td><td class="money">${num(r.TOTAL_MAIN_QRT).toLocaleString('en-IN',{maximumFractionDigits:1})}</td><td class="money">${num(r.UNITS).toLocaleString('en-IN',{maximumFractionDigits:1})}</td><td class="money">${num(r.TOTALQTYINUNITS).toLocaleString('en-IN',{maximumFractionDigits:1})}</td><td class="money">${num(r.QUARANTINEUNITS).toLocaleString('en-IN',{maximumFractionDigits:1})}</td><td>${fmtDate(r.EXPIRY_DATE)}</td><td>${esc(r.SHELFLIFE)}</td><td>${esc(r.REMAININGSHELFLIFE)}</td></tr>`).join('')||'<tr><td colspan="11" class="empty">No SOH data.</td></tr>'}
-function renderAlerts(){const a=[],target=targetRowsForPeriod().reduce((s,r)=>s+targetValue(r),0),g=activeRows.reduce((s,r)=>s+r.__gsv,0);if(target){const p=g/target*100;a.push([p<70?'':'good',`Achievement is ${p.toFixed(1)}% of target for the selected period.`])}const low=group(soh,'ITEMID','TOTAL_MAIN_QRT').filter(x=>x[1]>0).sort((a,b)=>a[1]-b[1]).slice(0,5);if(low.length)a.push(['warn','Lowest SOH items: '+low.map(x=>x[0]).join(', ')]);const top=group(activeRows,'__itemCode','__cbb')[0];if(top)a.push(['good',`Top moving item: ${top[0]} with ${top[1].toLocaleString('en-IN',{maximumFractionDigits:1})} CBB.`]);$('alertsList').innerHTML=a.map(x=>`<div class="alert ${x[0]==='warn'?'warn':x[0]==='good'?'good':''}">${esc(x[1])}</div>`).join('')||'<div class="empty">No alerts.</div>'}
-function exportRows(arr,name){if(!arr.length){toast('No data to export');return}const ws=XLSX.utils.json_to_sheet(arr);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,name.slice(0,31));XLSX.writeFile(wb,'UNIBIC_'+name.replace(/\s+/g,'_')+'.xlsx');toast(name+' exported')}
-function salesExportRows(rr){return rr.map(r=>({'DBR Code':r.__dbrCode,'DBR Name':r.__dbrName,'Customer':r.__customer,'Invoice':r.__invoice,'Order No':r.__order,'Date':fmtDate(r.__date),'Item Code':r.__itemCode,'Description':r.__desc,'Sales':r.__gsv,'CBB':r.__cbb,'Discount':r.__disc,'ABM':r.__abm,'Anchor':r.__anchor,'Brand':r.__brand}))}
-function reportRows(){const y=$('rYear').value,m=$('rMonth').value,from=$('rFrom').value,to=$('rTo').value,dbr=$('rDbr').value;return activeRows.filter(r=>{const d=r.__date;return(!y||!d||String(d.getFullYear())===y)&&(!m||!d||d.toLocaleString('en',{month:'short'})===m)&&(!from||!d||d>=new Date(from+'T00:00:00'))&&(!to||!d||d<=new Date(to+'T23:59:59'))&&(!dbr||r.__dbrName===dbr)})}
-function reportExport(type){const rr=reportRows();if(type==='soh')return exportRows(filteredSOH.map(r=>({'Warehouse':r.WAREHOUSE,'Item Code':r.ITEMID,'Description':r.DESCRIPTION,'MRP':r.MRP,'Main CBB':r.TOTAL_MAIN_QRT,'Units':r.UNITS,'Total Units':r.TOTALQTYINUNITS,'Quarantine Units':r.QUARANTINEUNITS,'Expiry':fmtDate(r.EXPIRY_DATE),'Shelf Life':r.SHELFLIFE,'Remaining Shelf Life':r.REMAININGSHELFLIFE})),'LIVE_SOH_Report');if(type==='indv'){const z=rr.filter(r=>Math.abs(r.__disc)>0);return exportRows(salesExportRows(z),'INDV_Discount_Report')}if(type==='invoice')return exportRows(salesExportRows(rr),'Invoice_Detail_Report');if(type==='item')return exportRows(salesExportRows(rr),'Item_Movement_Report');if(type==='dbr')return exportRows(salesExportRows(rr),'ABM_DBR_Report');if(type==='alerts')return exportRows([{'Alert':$('alertsList').innerText}],'Business_Alerts_Report');if(type==='target')return exportRows(targetRowsForPeriod().map(t=>({'Anchor':targetAnchor(t),'Target GSV':targetValue(t)})),'Target_Achievement_Report');if(type==='management')return exportRows([{'Metric':'Target GSV','Value':targetRowsForPeriod().reduce((s,r)=>s+targetValue(r),0)},{'Metric':'Achievement GSV','Value':rr.reduce((s,r)=>s+r.__gsv,0)},{'Metric':'Invoices','Value':new Set(rr.map(r=>r.__invoice).filter(Boolean)).size},{'Metric':'DBRs','Value':new Set(rr.map(r=>r.__dbrCode||r.__dbrName).filter(Boolean)).size},{'Metric':'Total CBB','Value':rr.reduce((s,r)=>s+r.__cbb,0)},{'Metric':'LIVE SOH Main CBB','Value':soh.reduce((s,r)=>s+num(r.TOTAL_MAIN_QRT),0)}],'Executive_Report');return exportRows(salesExportRows(rr),'Sales_Summary_Report')}
-async function readFile(file,type){if(!file)return;try{const data=await file.arrayBuffer();const wb=XLSX.read(data,{type:'array',cellDates:true});let out=[];wb.SheetNames.forEach(n=>{out=out.concat(XLSX.utils.sheet_to_json(wb.Sheets[n],{defval:''}))});if(type==='target'){targets=out.map(r=>{const x={...r};x.__date=dateVal(field(r,['Date','PostingDate','Month Date']));return x})}else{primaryRows=out.map(norm);activeRows=primaryRows.slice();salesSource='Primary Sales';populateFilters();renderAll()}const label=type==='target'?'Target Excel':'Primary Sales Excel';const tr=document.querySelector(`#uploadTable tr[data-type="${type}"]`);const html=`<tr data-type="${type}"><td>${label}</td><td>${esc(file.name)}</td><td>${out.length.toLocaleString('en-IN')}</td><td><span class="pill green">Loaded</span></td></tr>`;if(tr)tr.outerHTML=html;else $('uploadTable').insertAdjacentHTML('beforeend',html);if(type==='target')renderAll();toast(file.name+' loaded')}catch(e){console.error(e);toast('Unable to read '+file.name)}}
-async function loadGSV(){try{setStatus('Connecting…');const r=await fetch(GSV_API,{cache:'no-store'});if(!r.ok)throw Error(r.status);gsvRows=payloadRows(await r.json()).map(norm);if(!primaryRows.length){activeRows=gsvRows.slice();salesSource='ERP GSV';populateFilters();renderAll()}setStatus('ERP GSV connected • '+gsvRows.length.toLocaleString('en-IN')+' rows',true);$('last').textContent='Last refresh: '+new Date().toLocaleString('en-IN')}catch(e){console.error(e);if(!activeRows.length)setStatus('GSV bridge unavailable',false);toast('GSV bridge unavailable')}}
-async function loadSOH(){try{const r=await fetch(SOH_API,{cache:'no-store'});if(!r.ok)throw Error(r.status);const p=await r.json();soh=Array.isArray(p.data)?p.data:[];filteredSOH=soh.slice();$('sohRows').textContent=soh.length.toLocaleString('en-IN');$('sohWhCount').textContent=uniq(soh.map(r=>r.WAREHOUSE)).length.toLocaleString('en-IN');setOptions('sohWh',uniq(soh.map(r=>r.WAREHOUSE)));setOptions('sohItem',uniq(soh.map(r=>r.ITEMID)));setOptions('sohDesc',uniq(soh.map(r=>r.DESCRIPTION)));renderSOH();renderWarehouseMini();applySOH()}catch(e){console.error(e);toast('LIVE SOH unavailable')}}
-function clearUploads(){primaryRows=[];targets=[];salesSource='ERP GSV';activeRows=gsvRows.slice();$('uploadTable').innerHTML='';populateFilters();renderAll();toast('Uploaded session data cleared')}
-for(const b of document.querySelectorAll('.nav button'))b.addEventListener('click',()=>{document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));$(b.dataset.tab).classList.add('active')});
-['year','month','from','to','abm','dbr','anchor'].forEach(id=>$(id).addEventListener('change',renderAll));
-$('refresh').addEventListener('click',()=>{loadGSV();loadSOH()});$('quickExport').addEventListener('click',()=>exportRows(salesExportRows(activeRows),'GSV_Filtered_Export'));
-['itemSearch','rankMode'].forEach(id=>$(id).addEventListener('input',renderItem));document.querySelectorAll('.mirrorYear,.mirrorMonth,.mirrorFrom,.mirrorTo,.mirrorDbr').forEach(e=>e.addEventListener('change',renderItem));
-['indvItem','indvDbr','indvCustomer','indvInvoice','indvMin'].forEach(id=>$(id).addEventListener('input',renderINDV));
-['dbrSelect','dbrAbm'].forEach(id=>$(id).addEventListener('change',renderDBR));
-['invDbr','invCustomer','invNo','invSearch'].forEach(id=>$(id).addEventListener('input',renderInvoice));
-['sohWh','sohItem','sohDesc'].forEach(id=>$(id).addEventListener('change',applySOH));
-$('itemExport').addEventListener('click',()=>exportRows(salesExportRows(itemFiltered()),'Item_Intelligence_Report'));$('indvExport').addEventListener('click',()=>{const q=($('indvItem').value||'').toLowerCase().trim(),d=$('indvDbr').value,c=$('indvCustomer').value,i=$('indvInvoice').value,min=num($('indvMin').value);const rr=activeRows.filter(r=>Math.abs(r.__disc)>0&&(!q||r.__itemCode.toLowerCase().includes(q)||r.__desc.toLowerCase().includes(q))&&(!d||r.__dbrName===d)&&(!c||r.__customer===c)&&(!i||r.__invoice===i)&&Math.abs(r.__disc)>=min);exportRows(salesExportRows(rr),'INDV_Discount_Report')});$('dbrExport').addEventListener('click',()=>exportRows(salesExportRows($('dbrSelect').value?activeRows.filter(r=>r.__dbrName===$('dbrSelect').value):activeRows),'DBR_Item_Report'));$('invoiceExport').addEventListener('click',()=>exportRows(salesExportRows(activeRows),'Invoice_Detail_Report'));$('sohExport').addEventListener('click',()=>reportExport('soh'));$('targetFile').addEventListener('change',e=>readFile(e.target.files[0],'target'));$('primaryFile').addEventListener('change',e=>readFile(e.target.files[0],'primary'));$('clearUploads').addEventListener('click',clearUploads);document.querySelectorAll('[data-report]').forEach(b=>b.addEventListener('click',()=>reportExport(b.dataset.report)));
-loadGSV();loadSOH();setInterval(()=>{if(!primaryRows.length)loadGSV();loadSOH()},15*60*1000);
-</script></body></html>
+const GSV_API='/api/gsv', SOH_API='/api/soh';
+document.addEventListener('DOMContentLoaded', loadLiveData);
+</script>
+</body>
+</html>
