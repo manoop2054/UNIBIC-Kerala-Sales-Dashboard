@@ -78,8 +78,8 @@ async function fetchViaMicrosoftGraph(raw, label) {
   // Microsoft Graph accepts a sharing URL encoded as a base64url token prefixed with "u!".
   const shareToken = 'u!' + Buffer.from(raw, 'utf8').toString('base64')
     .replace(/=/g, '')
-    .replace(/\\+/g, '-')
-    .replace(/\\//g, '_');
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
 
   const graphResponse = await fetch(
     `https://graph.microsoft.com/v1.0/shares/${shareToken}/driveItem/content`,
