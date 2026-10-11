@@ -100,7 +100,7 @@ async function buildGsvCache(cachePath) {
         }
         const obj = {};
         for (let i = 1; i < values.length; i++) {
-          const key = header[i] || header[i - 1];
+          const key = header[i];
           if (!key || !GSV_FIELDS.has(key)) continue;
           const value = cellValue(values[i]);
           if (value !== undefined && value !== null && value !== '') obj[key] = value;
