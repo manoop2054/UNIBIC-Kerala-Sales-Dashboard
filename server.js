@@ -48,11 +48,12 @@ function handleResponse(driveRes, res, label) {
     driveRes.pipe(res);
 }
 
-app.get('/api/gsv', (req, res) => {
+// Support both standard and live API route names
+app.get(['/api/gsv', '/api/live-gsv'], (req, res) => {
     fetchExcel(process.env.GSV_SHARE_URL, res, 'GSV');
 });
 
-app.get('/api/soh', (req, res) => {
+app.get(['/api/soh', '/api/live-soh'], (req, res) => {
     fetchExcel(process.env.SOH_SHARE_URL, res, 'SOH');
 });
 
