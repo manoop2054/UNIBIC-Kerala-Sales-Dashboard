@@ -42,13 +42,76 @@ function downloadUrl(raw) {
   return u.toString();
 }
 
+async function fetchViaMicrosoftGraph(raw, label) {
+  const tenantId = process.env.MS_TENANT_ID;
+  const clientId = process.env.MS_CLIENT_ID;
+  const clientSecret = process.env.MS_CLIENT_SECRET;
+
+  if (!tenantId || !clientId || !clientSecret) {
+    return null;
+  }
+
+  const tokenResponse = await fetch(
+    `https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/v2.0/token`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        scope: 'https://graph.microsoft.com/.default',
+        grant_type: 'client_credentials'
+      })
+    }
+  );
+
+  if (!tokenResponse.ok) {
+    const detail = (await tokenResponse.text()).slice(0, 300);
+    throw new Error(`Microsoft Graph authentication failed (HTTP ${tokenResponse.status}). Check MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET and app permissions. ${detail}`);
+  }
+
+  const tokenData = await tokenResponse.json();
+  if (!tokenData.access_token) {
+    throw new Error('Microsoft Graph did not return an access token');
+  }
+
+  // Microsoft Graph accepts a sharing URL encoded as a base64url token prefixed with "u!".
+  const shareToken = 'u!' + Buffer.from(raw, 'utf8').toString('base64')
+    .replace(/=/g, '')
+    .replace(/\\+/g, '-')
+    .replace(/\\//g, '_');
+
+  const graphResponse = await fetch(
+    `https://graph.microsoft.com/v1.0/shares/${shareToken}/driveItem/content`,
+    {
+      redirect: 'follow',
+      headers: { Authorization: `Bearer ${tokenData.access_token}` }
+    }
+  );
+
+  if (!graphResponse.ok) {
+    const detail = (await graphResponse.text()).slice(0, 300);
+    throw new Error(`Microsoft Graph could not download ${label} (HTTP ${graphResponse.status}). Verify the SharePoint sharing link and grant the app appropriate Microsoft Graph file/site read permissions with admin consent. ${detail}`);
+  }
+
+  const type = (graphResponse.headers.get('content-type') || '').toLowerCase();
+  if (type.includes('text/html') || type.includes('application/json')) {
+    throw new Error(`Microsoft Graph returned a web page instead of the ${label} Excel file. Verify the share link and app permissions.`);
+  }
+
+  return graphResponse;
+}
+
 async function fetchToTemp(raw, label) {
   if (!raw) {
     throw new Error(`${label}_SHARE_URL environment variable is not set`);
   }
 
+  // Prefer authenticated Microsoft Graph access when app credentials are configured.
+  // If they are not configured, retain the existing direct-link method.
+  const graphResponse = await fetchViaMicrosoftGraph(raw, label);
   const url = downloadUrl(raw);
-  const res = await fetch(url, {
+  const res = graphResponse || await fetch(url, {
     redirect: 'follow',
     headers: { 'User-Agent': 'Mozilla/5.0' }
   });
