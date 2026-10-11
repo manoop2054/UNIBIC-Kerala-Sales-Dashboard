@@ -5,7 +5,10 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve the main dashboard HTML file directly
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'UNIBIC_Kerala_Sales_Command_Center_FULL_FINAL.html'));
+});
 
 function getDriveFileId(url) {
     if (!url) return null;
