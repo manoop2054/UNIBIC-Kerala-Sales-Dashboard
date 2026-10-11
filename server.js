@@ -1,4 +1,3 @@
-
 'use strict';
 
 const express = require('express');
@@ -36,70 +35,30 @@ let gsvLoading = false;
 let sohLoading = false;
 let lastErrors = { gsv: null, soh: null };
 
-function downloadUrl(raw) {
-  const u = new URL(raw);
-  u.searchParams.set('download', '1');
-  return u.toString();
-}
-
-async function fetchViaMicrosoftGraph(raw, label) {
-  const tenantId = process.env.MS_TENANT_ID;
-  const clientId = process.env.MS_CLIENT_ID;
-  const clientSecret = process.env.MS_CLIENT_SECRET;
-
-  if (!tenantId || !clientId || !clientSecret) {
-    return null;
-  }
-
-  const tokenResponse = await fetch(
-    `https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/v2.0/token`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        scope: 'https://graph.microsoft.com/.default',
-        grant_type: 'client_credentials'
-      })
+// Google Drive ലിങ്കിൽ നിന്ന് നേരിട്ട് ഡൗൺലോഡ് ചെയ്യാനുള്ള URL ഉണ്ടാക്കുന്നു
+function getGoogleDriveDownloadUrl(rawUrl) {
+  try {
+    const u = new URL(rawUrl);
+    let fileId = '';
+    
+    // formats like /file/d/FILE_ID/view or /uc?id=FILE_ID
+    if (u.pathname.includes('/file/d/')) {
+      const parts = u.pathname.split('/');
+      const idx = parts.indexOf('d');
+      if (idx !== -1 && parts[idx + 1]) {
+        fileId = parts[idx + 1];
+      }
+    } else {
+      fileId = u.searchParams.get('id');
     }
-  );
 
-  if (!tokenResponse.ok) {
-    const detail = (await tokenResponse.text()).slice(0, 300);
-    throw new Error(`Microsoft Graph authentication failed (HTTP ${tokenResponse.status}). Check MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET and app permissions. ${detail}`);
-  }
-
-  const tokenData = await tokenResponse.json();
-  if (!tokenData.access_token) {
-    throw new Error('Microsoft Graph did not return an access token');
-  }
-
-  // Microsoft Graph accepts a sharing URL encoded as a base64url token prefixed with "u!".
-  const shareToken = 'u!' + Buffer.from(raw, 'utf8').toString('base64')
-    .replace(/=/g, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_');
-
-  const graphResponse = await fetch(
-    `https://graph.microsoft.com/v1.0/shares/${shareToken}/driveItem/content`,
-    {
-      redirect: 'follow',
-      headers: { Authorization: `Bearer ${tokenData.access_token}` }
+    if (fileId) {
+      return `https://drive.google.com/uc?export=download&id=${fileId}`;
     }
-  );
-
-  if (!graphResponse.ok) {
-    const detail = (await graphResponse.text()).slice(0, 300);
-    throw new Error(`Microsoft Graph could not download ${label} (HTTP ${graphResponse.status}). Verify the SharePoint sharing link and grant the app appropriate Microsoft Graph file/site read permissions with admin consent. ${detail}`);
+  } catch (e) {
+    // fallback if URL parsing fails
   }
-
-  const type = (graphResponse.headers.get('content-type') || '').toLowerCase();
-  if (type.includes('text/html') || type.includes('application/json')) {
-    throw new Error(`Microsoft Graph returned a web page instead of the ${label} Excel file. Verify the share link and app permissions.`);
-  }
-
-  return graphResponse;
+  return rawUrl;
 }
 
 async function fetchToTemp(raw, label) {
@@ -107,11 +66,8 @@ async function fetchToTemp(raw, label) {
     throw new Error(`${label}_SHARE_URL environment variable is not set`);
   }
 
-  // Prefer authenticated Microsoft Graph access when app credentials are configured.
-  // If they are not configured, retain the existing direct-link method.
-  const graphResponse = await fetchViaMicrosoftGraph(raw, label);
-  const url = downloadUrl(raw);
-  const res = graphResponse || await fetch(url, {
+  const downloadLink = getGoogleDriveDownloadUrl(raw);
+  const res = await fetch(downloadLink, {
     redirect: 'follow',
     headers: { 'User-Agent': 'Mozilla/5.0' }
   });
@@ -119,21 +75,17 @@ async function fetchToTemp(raw, label) {
   if (!res.ok) {
     throw new Error(
       `${label} download failed: HTTP ${res.status}. ` +
-      `Check the SharePoint download link and permissions.`
+      `Check the Google Drive share link and permissions.`
     );
   }
 
   const type = (res.headers.get('content-type') || '').toLowerCase();
-  console.log('SharePoint URL:', res.url);
-console.log('SharePoint response:', res.status, type);
+  console.log('Google Drive URL:', res.url);
+  console.log('Google Drive response:', res.status, type);
 
-  if (
-    type.includes('text/html') ||
-    type.includes('application/json')
-  ) {
+  if (type.includes('text/html') && type.includes('login')) {
     throw new Error(
-      `${label} link returned a web page instead of an Excel file. ` +
-      `SharePoint may require a different download link or authentication.`
+      `${label} link requires sign-in. Make sure Google Drive sharing is set to "Anyone with the link can view".`
     );
   }
 
@@ -145,7 +97,7 @@ console.log('SharePoint response:', res.status, type);
   );
 
   try {
-    if (!res.body) throw new Error('Empty response from SharePoint');
+    if (!res.body) throw new Error('Empty response from Google Drive');
 
     await pipeline(
       Readable.fromWeb(res.body),
