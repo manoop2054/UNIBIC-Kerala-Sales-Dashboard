@@ -25,7 +25,7 @@ const GSV_FIELDS = new Set([
   'Sell_to_Customer_Name','Customer_Name','Customer','Billed_to_Name','Ship_to_Name',
   'ItemId','Item ID','Item Code','ItemCode','Description','Item Description','Invoice_No',
   'Invoice No','Invoice','Order_No','Order No','Order','NKAM_ABM','ABM','ABM Name','NKAM / ABM',
-  'AnchorName','Anchor','Brand','BrandName','AreaCode','Area Code','Area','Ship_to_Code',
+  'AnchorName','Anchor','Brand','BrandName','REGION','Region','region','AreaCode','Area Code','Area','Ship_to_Code',
   'Ship to Code','ShipCode','Customer_Posting_Group','Customer Posting Group','ExternalDocNo',
   'External Doc No','External Document No','MRP_Price','MRP Price','MRP','GST_Base_Amount',
   'GST Base Amount','GST_Base','DBR / Customer Code','Customer / DBR Name','Available Shelf Life %'
