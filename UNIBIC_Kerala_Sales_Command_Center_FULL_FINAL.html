@@ -997,7 +997,8 @@ reports.soh={
       const z=map.get(key);
       z.cbb+=num(sohField(r,['TOTAL_MAIN_QRT','CBB','CBO','QuantityinCBO','Quantity in CBO']));
       
-      const sl=shelfLifeValue(r);      if(z.shelf==='' && sl!=='') z.shelf=sl;
+      const sl=shelfLifeValue(r);
+      if(z.shelf==='' && sl!=='') z.shelf=sl;
     });
 
     return [...map.values()].map(z=>[
@@ -1996,7 +1997,8 @@ setTimeout(()=>{
     <div class="field"><label>AREA</label><select id="twArea" multiple size="4"></select></div>
     <div class="field"><label>Anchor Zone</label><select id="twAnchorZone" multiple size="4"></select></div>
     <div class="field"><label>TBI ID</label><select id="twTbiId" multiple size="4"></select></div>
-    <div class="field"><label>TBI Name</label><select id="twTbiName" multiple size="4"></select></div>    <div class="field"><label>CUSTOMER CODE</label><select id="twCustomerCode" multiple size="4"></select></div>
+    <div class="field"><label>TBI Name</label><select id="twTbiName" multiple size="4"></select></div>
+    <div class="field"><label>CUSTOMER CODE</label><select id="twCustomerCode" multiple size="4"></select></div>
     <div class="field"><label>CUSTOMER NAME</label><select id="twCustomerName" multiple size="4"></select></div>
   </div>
 
@@ -2995,7 +2997,8 @@ function renderSOH(){
     [whSel,itemSel,descSel].forEach(el=>el?.addEventListener('change',renderSOH));
     typeSel?.addEventListener('change',renderSOH);
     document.getElementById('sohItemSearch')?.addEventListener('input',renderSOH);
-    document.getElementById('sohDescSearch')?.addEventListener('input',renderSOH);    document.getElementById('sohMrp')?.addEventListener('change',renderSOH);
+    document.getElementById('sohDescSearch')?.addEventListener('input',renderSOH);
+    document.getElementById('sohMrp')?.addEventListener('change',renderSOH);
     const exportBtn=document.getElementById('sohExport');
     if(exportBtn && !exportBtn.dataset.sohBound){
       exportBtn.addEventListener('click',()=>{
@@ -3994,7 +3997,8 @@ const excelGridStyle=document.createElement('style');
 excelGridStyle.textContent=`
 #enhReportBody{
   width:100%;
-  overflow:hidden;}
+  overflow:hidden;
+}
 
 #enhReportBody .card{
   width:100%;
@@ -4993,6 +4997,7 @@ function replaceWithSearch(id,type,label,placeholder){
  if(parent.dataset.finalFilterDone==='1')return;
 
  parent.dataset.finalFilterDone='1';
+
  old.style.display='none';
 
  const lab=parent.querySelector('label');
@@ -5992,7 +5997,8 @@ const timer=setInterval(function(){
 
 
 })();
-</script><script>
+</script>
+<script>
 /* ============================================================
    YEAR / MONTH / DAY DROPDOWN RESTORE
    Only restores dropdown values.
@@ -6991,7 +6997,8 @@ const observer = new MutationObserver(function(){
   width:22%;
   text-align:left;
 }
-#topItemTable th:nth-child(3),#topItemTable td:nth-child(3){
+#topItemTable th:nth-child(3),
+#topItemTable td:nth-child(3){
   width:16%;
   text-align:left;
 }
@@ -7867,6 +7874,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
 })();
 </script>
 </body></html>
+
 
 
 
