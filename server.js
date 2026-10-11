@@ -23,7 +23,6 @@ function fetchExcel(shareUrl, res, label) {
     const downloadUrl = `https://drive.google.com/uc?export=download&confirm=t&id=${fileId}`;
     
     https.get(downloadUrl, (driveRes) => {
-        // Handle Google Drive redirects
         if (driveRes.statusCode === 302 || driveRes.statusCode === 301) {
             https.get(driveRes.headers.location, (redirectRes) => {
                 handleResponse(redirectRes, res, label);
