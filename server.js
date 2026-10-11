@@ -5,7 +5,6 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Serve the main dashboard HTML file directly
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'UNIBIC_Kerala_Sales_Command_Center_FULL_FINAL.html'));
 });
@@ -16,45 +15,49 @@ function getDriveFileId(url) {
     return match ? match[1] : null;
 }
 
-function fetchExcel(shareUrl, res, label) {
+function fetchDriveFile(fileId, res, label) {
+    // Direct Google Drive download endpoint with force confirm
+    const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
+
+    const request = (url) => {
+        https.get(url, (driveRes) => {
+            // Handle HTTP redirects (301, 302, 303, 307)
+            if ([301, 302, 303, 307].includes(driveRes.statusCode)) {
+                if (driveRes.headers.location) {
+                    return request(driveRes.headers.location);
+                }
+            }
+
+            console.log(`${label} Response Status: ${driveRes.statusCode}, Content-Type: ${driveRes.headers['content-type']}`);
+            
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', `attachment; filename="${label}.xlsx"`);
+            
+            driveRes.pipe(res);
+        }).on('error', (err) => {
+            console.error(`${label} Error:`, err.message);
+            res.status(500).send(`Error loading ${label} file`);
+        });
+    };
+
+    request(downloadUrl);
+}
+
+function processRequest(shareUrl, res, label) {
     const fileId = getDriveFileId(shareUrl);
     if (!fileId) {
         res.status(400).send(`${label} URL is invalid`);
         return;
     }
-    
-    const downloadUrl = `https://drive.google.com/uc?export=download&confirm=t&id=${fileId}`;
-    
-    https.get(downloadUrl, (driveRes) => {
-        if (driveRes.statusCode === 302 || driveRes.statusCode === 301) {
-            https.get(driveRes.headers.location, (redirectRes) => {
-                handleResponse(redirectRes, res, label);
-            }).on('error', (err) => {
-                console.error(`${label} Redirect Error:`, err.message);
-                res.status(500).send(`Error loading ${label} file`);
-            });
-            return;
-        }
-        handleResponse(driveRes, res, label);
-    }).on('error', (err) => {
-        console.error(`${label} Error:`, err.message);
-        res.status(500).send(`Error loading ${label} file`);
-    });
+    fetchDriveFile(fileId, res, label);
 }
 
-function handleResponse(driveRes, res, label) {
-    console.log(`${label} Response Status: ${driveRes.statusCode}, Content-Type: ${driveRes.headers['content-type']}`);
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    driveRes.pipe(res);
-}
-
-// Support both standard and live API route names
 app.get(['/api/gsv', '/api/live-gsv'], (req, res) => {
-    fetchExcel(process.env.GSV_SHARE_URL, res, 'GSV');
+    processRequest(process.env.GSV_SHARE_URL, res, 'GSV');
 });
 
 app.get(['/api/soh', '/api/live-soh'], (req, res) => {
-    fetchExcel(process.env.SOH_SHARE_URL, res, 'SOH');
+    processRequest(process.env.SOH_SHARE_URL, res, 'SOH');
 });
 
 app.listen(PORT, () => {
