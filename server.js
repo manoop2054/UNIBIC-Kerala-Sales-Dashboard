@@ -61,6 +61,8 @@ async function fetchToTemp(raw, label) {
   }
 
   const type = (res.headers.get('content-type') || '').toLowerCase();
+  console.log('SharePoint URL:', res.url);
+console.log('SharePoint response:', res.status, type);
 
   if (
     type.includes('text/html') ||
