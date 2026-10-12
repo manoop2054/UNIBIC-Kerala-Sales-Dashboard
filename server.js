@@ -37,6 +37,30 @@ app.get('/', (req, res) => res.sendFile(DASHBOARD));
 app.get('/health', (req, res) => res.json({ ok: true, service: 'UNIBIC Sales Dashboard API' }));
 app.get('/api/gsv/status', (req, res) => res.json({ ...gsvStatus, inProgress: inFlight.has('gsv-compact.json') }));
 
+app.get('/api/gsv/summary', async (req, res) => {
+  try {
+    await getCache('gsv-compact.json', buildGsvCache);
+    res.json({
+      success: true,
+      service: 'UNIBIC Sales Dashboard API',
+      status: 'running',
+      gsvRows: gsvStatus.rows,
+      gsvLoadedAt: gsvStatus.updatedAt,
+      loading: false,
+      error: null
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      service: 'UNIBIC Sales Dashboard API',
+      status: 'error',
+      gsvRows: gsvStatus.rows,
+      loading: false,
+      error: error.message
+    });
+  }
+});
+
 function downloadToFile(url, dest, redirects = 0) {
   return new Promise((resolve, reject) => {
     if (redirects > 8) return reject(new Error('Too many download redirects'));
