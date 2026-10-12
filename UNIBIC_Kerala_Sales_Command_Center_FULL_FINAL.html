@@ -2842,7 +2842,7 @@ async function sharedGetDataset(dataset){
     if(uploadTable){
       uploadTable.innerHTML='<tr><td>Target</td><td>'+esc(result.filename||'Shared Target Excel')+'</td><td>'+targets.length.toLocaleString('en-IN')+'</td><td><span class="pill green">Shared</span></td></tr>';
     }
-    if(typeof renderTargetWorking==='function') renderTargetWorking();
+    const twRefreshTrigger=document.getElementById('twRegion'); if(twRefreshTrigger) twRefreshTrigger.dispatchEvent(new Event('change'));
     if(typeof renderAll==='function') renderAll();
   }).catch(e=>console.warn('Shared Target restore unavailable; keeping browser copy:',e));
 })();
