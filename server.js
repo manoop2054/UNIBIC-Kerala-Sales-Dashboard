@@ -9,7 +9,7 @@ const ExcelJS = require('exceljs');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
-const DASHBOARD = path.join(__dirname, 'UNIBIC_Kerala_Sales_Command_Center_FINAL_PATCHED');
+const DASHBOARD = path.join(__dirname, 'UNIBIC_Kerala_Sales_Command_Center_FINAL_PATCHED.html');
 const CACHE_DIR = path.join(os.tmpdir(), 'unibic-sales-cache');
 const GSV_URL = process.env.GSV_SHARE_URL || 'https://github.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/releases/download/v1.0/KL.LIVE.GSV.LINK-MANOOB.xlsx';
 const SOH_URL = process.env.SOH_SHARE_URL || 'https://github.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/releases/download/v1.0/LIVE.STOCK.xlsb';
