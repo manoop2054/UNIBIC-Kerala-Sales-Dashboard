@@ -8027,61 +8027,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
 <!-- PERFORMANCE OPTIMIZATION ENGINE & NON-BLOCKING EVENTS -->
 <script>
 (function(){
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init,{once:true});
-  else setTimeout(init,0);
-
-  // --- 1. YEAR DROPDOWN POPULATION ---
-  setTimeout(function fixDashboardPerformanceAndData() {
-    try {
-      const rawData = window.gsvData || window.rawGSVData || [];
-      const yearSelects = document.querySelectorAll('select[name="YEAR"], select#yearFilter, select.year-select, #rfYear');
-      
-      if (rawData.length) {
-        const years = new Set();
-        rawData.forEach(r => {
-          let dateStr = r.PostingDate || r.Date || r['Posting Date'] || '';
-          if (dateStr) {
-            let match = String(dateStr).match(/\b(202[0-9])\b/);
-            if (match) years.add(match[1]);
-          }
-        });
-
-        if (years.size > 0 && yearSelects.length > 0) {
-          const sortedYears = Array.from(years).sort().reverse();
-          yearSelects.forEach(sel => {
-            let options = '<option value="ALL">All Year</option>';
-            sortedYears.forEach(y => {
-              options += `<option value="${y}">${y}</option>`;
-            });
-            sel.innerHTML = options;
-          });
-        }
-      }
-
-      if (typeof window.renderDashboard === 'function') window.renderDashboard();
-      else if (typeof window.applyFilters === 'function') window.applyFilters();
-    } catch(err) { console.warn('Performance fix error:', err); }
-  }, 300);
-
-  // --- 2. FAST NON-BLOCKING TAB SWITCHING ---
-  document.addEventListener('click', function (e) {
-    const tabBtn = e.target.closest('.report-tab-btn, [data-report-target], .tab-btn');
-    if (!tabBtn) return;
-
-    document.querySelectorAll('.report-tab-btn, .tab-btn').forEach(b => b.classList.remove('active'));
-    tabBtn.classList.add('active');
-    window.renderInvoice = renderInvoice;
-  $i('invoiceExportBtn')?.addEventListener('click', exportInvoice);$i('invoiceExport')?.addEventListener('click', exportInvoice);
-  bindInvoice();
-  renderInvoice();
-})();
-</script>
-
-<!-- PERFORMANCE OPTIMIZATION ENGINE & NON-BLOCKING EVENTS -->
-<script>
-(function(){
-  function startEngine() {
-    // 1. YEAR DROPDOWN AUTO POPULATION
+  function startDashboardEngine() {
     try {
       const rawData = window.gsvData || window.rawGSVData || [];
       const yearSelects = document.querySelectorAll('select[name="YEAR"], select#yearFilter, select.year-select, #rfYear');
@@ -8110,7 +8056,6 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       else if (typeof window.applyFilters === 'function') window.applyFilters();
     } catch(err) { console.warn('Performance fix error:', err); }
 
-    // 2. FAST NON-BLOCKING TAB SWITCHING
     document.addEventListener('click', function (e) {
       const tabBtn = e.target.closest('.report-tab-btn, [data-report-target], .tab-btn');
       if (!tabBtn) return;
@@ -8125,7 +8070,6 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       }, 10);
     });
 
-    // 3. GLOBAL INPUT SEARCH DEBOUNCE (NO LAG)
     let globalSearchDebounce = null;
     document.addEventListener('input', function(e) {
       const t = e.target;
@@ -8140,16 +8084,15 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', startEngine, {once: true});
+    document.addEventListener('DOMContentLoaded', startDashboardEngine, {once: true});
   } else {
-    setTimeout(startEngine, 0);
+    setTimeout(startDashboardEngine, 0);
   }
 })();
 </script>
 
 </body>
 </html>
-
     
 
 
