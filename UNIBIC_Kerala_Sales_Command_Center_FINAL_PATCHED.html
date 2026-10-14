@@ -7919,11 +7919,13 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     $i('invoiceExport')?.addEventListener('click',exportInvoice);
   }
 
-  window.renderInvoice=renderInvoice;
+ window.renderInvoice = renderInvoice;
+  $i('invoiceExportBtn')?.addEventListener('click', exportInvoice);$i('invoiceExport')?.addEventListener('click', exportInvoice);
   bindInvoice();
   renderInvoice();
 })();
 </script>
+
 <script id="daily-claim-tracker-script">
 (()=>{
  const $=id=>document.getElementById(id);let ctRows=[],ctHeaders=[],ctCharts={},ctPage=0;const ctPageSize=7;let ctExpanded=-1,ctSummarySelection=null;
@@ -7945,15 +7947,13 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
  function ctChart(id,key,type,labels,data,color,horizontal=false){if(typeof Chart==='undefined')return;ctDestroy(key);const ctx=$(id);if(!ctx)return;ctCharts[key]=new Chart(ctx,{type,data:{labels,datasets:[{label:key==='month'?'Claim Amount':'Claims',data,backgroundColor:color,borderColor:color,borderRadius:6,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:horizontal?'y':'x',plugins:{legend:{display:false}},scales:{x:{ticks:{autoSkip:true,maxRotation:35}},y:{beginAtZero:true}}}})}
  function ctRender(){ctRenderSummary();const rows=ctFiltered();const amount=rows.reduce((s,r)=>s+ctNum(ctVal(r,'CLAIM AMOUNT')),0);const closed=rows.filter(r=>ctStr(ctVal(r,'UI STATUS')).toLowerCase()==='closed').length;const pushed=rows.filter(r=>ctStr(ctVal(r,'PUSHED TO ERP')).toLowerCase()==='yes').length;const over30=rows.reduce((s,r)=>s+ctNum(ctVal(r,'GREATER TAHN 30 DAYS')),0);$('ctTotal').textContent=ctFmt(rows.length);$('ctAmount').textContent=ctMoney(amount);$('ctClosed').textContent=ctFmt(closed);$('ctOpen').textContent=ctFmt(rows.length-closed);$('ctPushed').textContent=ctFmt(pushed);$('ctOver30').textContent=ctFmt(over30);$('ctFilteredLabel').textContent=ctFmt(rows.length)+' matching claims';$('ctTableCount').textContent=ctHeaders.length+' columns • '+ctFmt(rows.length)+' matching records';
  const thead=$('ctTable').querySelector('thead'),tbody=$('ctTable').querySelector('tbody');
- // Keep the main grid compact; the row detail expander exposes every source column.
  const priority=[['CLAIM ID',['CLAIM ID','CLAIM NO','CLAIM NUMBER','CLAIM CODE']],['CLAIM DATE',['CLAIM DATE','DATE']],['CLAIM MONTH',['CLAIM MONTH','MONTH']],['DBR / DISTRIBUTOR',['DBR','DISTRIBUTOR','DISTRIBUTOR NAME','DBR NAME']],['CLAIM REASON',['CLAIM REASON','REASON']],['CLAIM AMOUNT',['CLAIM AMOUNT','AMOUNT']],['STATUS',['UI STATUS','STATUS']],['PENDING WITH ROLE',['PENDING WITH ROLE']],['DETAILS',['__DETAILS__']]];
  const mainCols=[];for(const [label,aliases] of priority){if(label==='DETAILS'){mainCols.push({label,key:'__DETAILS__'});continue;}const key=ctHeaders.find(h=>aliases.some(a=>ctNorm(h)===ctNorm(a)));if(key&&!mainCols.some(c=>c.key===key))mainCols.push({label,key});}
- // If a workbook uses unexpected headings, still show its first available fields in the main grid.
  if(mainCols.length<5){ctHeaders.slice(0,7).forEach(h=>{if(!mainCols.some(c=>c.key===h)&&mainCols.length<8)mainCols.push({label:h,key:h});});if(!mainCols.some(c=>c.key==='__DETAILS__'))mainCols.push({label:'DETAILS',key:'__DETAILS__'});}
  const pages=Math.max(1,Math.ceil(rows.length/ctPageSize));ctPage=Math.min(ctPage,pages-1);const start=ctPage*ctPageSize;const shown=rows.slice(start,start+ctPageSize);
  thead.innerHTML='<tr>'+mainCols.map(c=>'<th title="'+ctEsc(c.label)+'">'+ctEsc(c.label)+'</th>').join('')+'</tr>';
  tbody.innerHTML=shown.length?shown.map((r,i)=>{const absolute=start+i;const cells=mainCols.map(c=>{if(c.key==='__DETAILS__')return '<td><button class="ct-detailbtn" type="button" data-ctdetail="'+absolute+'">'+(ctExpanded===absolute?'Hide details':'All details')+'</button></td>';const v=ctStr(r[c.key]);return '<td title="'+ctEsc(v)+'">'+ctEsc(v)+'</td>'}).join('');const detail=ctExpanded===absolute?'<tr class="ct-detailrow"><td colspan="'+mainCols.length+'"><div class="ct-detailgrid">'+ctHeaders.map(h=>'<div class="ct-detailitem"><b>'+ctEsc(h)+':</b> '+ctEsc(r[h])+'</div>').join('')+'</div></td></tr>':'';return '<tr>'+cells+'</tr>'+detail;}).join(''):'<tr><td class="ct-empty" colspan="'+Math.max(mainCols.length,1)+'">No matching claims. Change or clear filters.</td></tr>';
- $('ctPageLabel').textContent=rows.length?('Page '+(ctPage+1)+' of '+pages+' • '+(start+1)+'–'+Math.min(start+ctPageSize,rows.length)+' of '+rows.length):'Page 0 of 0';$('ctPrevPage').disabled=ctPage<=0||!rows.length;$('ctNextPage').disabled=ctPage>=pages-1||!rows.length;
+ $('ctPageLabel').textContent=rows.length?('Page '+(ctPage+1)+' of '+pages+' • '+(start+1)+'–'+Math.min(start+ctPageSize,rows.length)+' of '+rows.length):'Page 0 of 0';$('ctPrevPage').disabled=ctPage<=0\vert{}\vert{}!rows.length;$('ctNextPage').disabled=ctPage>=pages-1||!rows.length;
  tbody.querySelectorAll('[data-ctdetail]').forEach(btn=>btn.addEventListener('click',()=>{const ix=Number(btn.getAttribute('data-ctdetail'));ctExpanded=ctExpanded===ix?-1:ix;ctRender();}));
  const months={};rows.forEach(r=>{const m=ctStr(ctVal(r,'CLAIM MONTH'))||'Not specified';months[m]=(months[m]||0)+ctNum(ctVal(r,'CLAIM AMOUNT'))});const monthKeys=Object.keys(months).sort((a,b)=>{const da=Date.parse('1 '+a),db=Date.parse('1 '+b);return Number.isNaN(da)||Number.isNaN(db)?a.localeCompare(b):da-db});ctChart('ctMonthChart','month','bar',monthKeys.map(k=>k),monthKeys.map(k=>months[k]),'#60a5fa');
  const reasons={};rows.forEach(r=>{const k=ctStr(ctVal(r,'CLAIM REASON'))||'Not specified';reasons[k]=(reasons[k]||0)+1});const top=Object.entries(reasons).sort((a,b)=>b[1]-a[1]).slice(0,8);ctChart('ctReasonChart','reason','bar',top.map(x=>x[0]),top.map(x=>x[1]),'#2dd4bf',true);
@@ -7968,7 +7968,6 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
    try{
     const wb=XLSX.read(e.target.result,{type:'array',cellDates:false});
     if(!wb.SheetNames||!wb.SheetNames.length)throw new Error('The workbook contains no worksheets.');
-    // Find the real header row instead of assuming row 1; claim workbooks sometimes have title/blank rows above it.
     let best=null;
     wb.SheetNames.forEach(sheetName=>{
      const ws=wb.Sheets[sheetName];
@@ -7995,13 +7994,10 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
      if(any)rows.push(obj);
     });
     if(!rows.length)throw new Error('No claim records found below the column headings. The previous data has been kept.');
-    // Save to shared D1 first. Keep the previous visible/shared data if upload fails or is cancelled.
     const sharedResult=await sharedSaveDataset('claims',file.name,rows,headers);
     if(!sharedResult){$('ctFileStatus').textContent='Upload cancelled; previous shared data retained';return;}
-    // Replace the old dataset only after the new workbook has been parsed and shared successfully.
     ctRows=rows;ctHeaders=headers;ctPage=0;ctExpanded=-1;ctSummarySelection=null;
-    Object.keys(ctFilterMap).forEach(id=>{const el=$(id);if(el)el.innerHTML=''});
-    $('ctSearch').value='';
+    Object.keys(ctFilterMap).forEach(id=>{const el=$(id);if(el)el.innerHTML=''});$('ctSearch').value='';
     ctFillFilters();
     $('ctFileStatus').textContent=file.name+' • '+ctFmt(ctRows.length)+' records shared ('+best.sheetName+')';
     ctRender();
@@ -8023,756 +8019,18 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   }catch(err){console.warn('Shared Claims restore unavailable:',err)}
  }
  function ctExport(){const rows=ctFiltered();if(!ctHeaders.length){alert('Upload an Excel file first.');return}if(typeof XLSX==='undefined'){alert('Excel export library is not available.');return}const wb=XLSX.utils.book_new();const ws=XLSX.utils.json_to_sheet(rows,{header:ctHeaders});XLSX.utils.book_append_sheet(wb,ws,'Daily Claim Tracker');XLSX.writeFile(wb,'Daily_Claim_Tracker_Filtered.xlsx')}
- $('ctPrevPage')?.addEventListener('click',()=>{if(ctPage>0){ctPage--;ctExpanded=-1;ctRender()}});$('ctNextPage')?.addEventListener('click',()=>{ctPage++;ctExpanded=-1;ctRender()});$('ctLoad')?.addEventListener('click',ctLoad);$('ctExport')?.addEventListener('click',ctExport);$('ctApply')?.addEventListener('click',()=>{ctPage=0;ctExpanded=-1;ctRender()});$('ctSearch')?.addEventListener('input',()=>{ctPage=0;ctExpanded=-1;ctRender()});Object.keys(ctFilterMap).forEach(id=>$(id)?.addEventListener('change',()=>{ctPage=0;ctExpanded=-1;ctRender()}));$('ctReset')?.addEventListener('click',()=>{Object.keys(ctFilterMap).forEach(id=>Array.from($(id)?.options||[]).forEach(o=>o.selected=false));$('ctSearch').value='';ctSummarySelection=null;ctPage=0;ctRender()});$('ctClear')?.addEventListener('click',()=>{ctRows=[];ctHeaders=[];ctPage=0;ctExpanded=-1;ctSummarySelection=null;Object.keys(ctFilterMap).forEach(id=>$(id).innerHTML='');$('ctFile').value='';$('ctFileStatus').textContent='Waiting for Excel file';ctRender()});
+ $('ctPrevPage')?.addEventListener('click',()=>{if(ctPage>0){ctPage--;ctExpanded=-1;ctRender()}});$('ctNextPage')?.addEventListener('click',()=>{ctPage++;ctExpanded=-1;ctRender()});$('ctLoad')?.addEventListener('click',ctLoad);$('ctExport')?.addEventListener('click',ctExport);$('ctApply')?.addEventListener('click',()=>{ctPage=0;ctExpanded=-1;ctRender()});$('ctSearch')?.addEventListener('input',()=>{ctPage=0;ctExpanded=-1;ctRender()});Object.keys(ctFilterMap).forEach(id=>$(id)?.addEventListener('change',()=>{ctPage=0;ctExpanded=-1;ctRender()}));$('ctReset')?.addEventListener('click',()=>{Object.keys(ctFilterMap).forEach(id=>Array.from($(id)?.options\vert{}\vert{}[]).forEach(o=>o.selected=false));$('ctSearch').value='';ctSummarySelection=null;ctPage=0;ctRender()});$('ctClear')?.addEventListener('click',()=>{ctRows=[];ctHeaders=[];ctPage=0;ctExpanded=-1;ctSummarySelection=null;Object.keys(ctFilterMap).forEach(id=>$(id).innerHTML='');$('ctFile').value='';$('ctFileStatus').textContent='Waiting for Excel file';ctRender()});
  ctRestoreShared();
 })();
 </script>
+
+<!-- PERFORMANCE OPTIMIZATION ENGINE & NON-BLOCKING EVENTS -->
 <script>
-/* REPORT_DATE_DROPDOWN_FALLBACK_V1 */
 (function(){
-  function repairReportDateOptions(){
-    try {
-      if (!Array.isArray(activeRows) || !activeRows.length) return;
-
-      const ys = document.getElementById('small_year');
-      const ms = document.getElementById('small_month');
-      const ds = document.getElementById('small_day');
-      if (!ys || !ms || !ds) return;
-
-      const dates = activeRows.map(r => r && r.__date)
-        .map(v => {
-          if (v instanceof Date && !isNaN(v.getTime())) return v;
-          if (v === null || v === undefined || v === '') return null;
-          const d = new Date(v);
-          return isNaN(d.getTime()) ? null : d;
-        }).filter(Boolean);
-
-      if (!dates.length) return;
-
-      function addOptions(el, values, allLabel) {
-        const existing = new Set(Array.from(el.options).map(o => o.value));
-        if (!el.options.length) {
-          el.add(new Option(allLabel, ''));
-          existing.add('');
-        }
-        values.forEach(v => {
-          const value = String(v);
-          if (!existing.has(value)) {
-            el.add(new Option(value, value));
-            existing.add(value);
-          }
-        });
-      }
-
-      const years = [...new Set(dates.map(d => d.getFullYear()))]
-        .sort((a,b) => a-b);
-
-      const monthNames = ['Jan','Feb','Mar','Apr','May','Jun',
-                          'Jul','Aug','Sep','Oct','Nov','Dec'];
-      const months = [...new Set(dates.map(d => d.getMonth()))]
-        .sort((a,b) => a-b).map(m => monthNames[m]);
-
-      const days = [...new Set(dates.map(d => d.getDate()))]
-        .sort((a,b) => a-b);
-
-      addOptions(ys, years, 'All Year');
-      addOptions(ms, months, 'All Month');
-      addOptions(ds, days, 'All Day');
-    } catch(e) {
-      /* Wait for the dashboard data and controls to become available. */
-    }
-  }
-
-  repairReportDateOptions();
-  const timer = setInterval(repairReportDateOptions, 1000);
-  setTimeout(() => clearInterval(timer), 120000);
-})();
-</script>
-<script id="consolidated-targeted-repairs-20261013">
-(function(){
-  'use strict';
-  const clean = v => v === null || v === undefined ? '' : String(v).trim();
-  const unique = a => [...new Set(a.map(clean).filter(Boolean))];
-  const rows = () => (typeof gsvRows!=='undefined' && Array.isArray(gsvRows) && gsvRows.length) ? gsvRows : ((typeof activeRows!=='undefined' && Array.isArray(activeRows)) ? activeRows : (Array.isArray(window.gsvRows) ? window.gsvRows : []));
-  function read(r, keys){ for (const k of keys) if (r && r[k] !== undefined && r[k] !== null && clean(r[k]) !== '') return r[k]; return ''; }
-  const invoiceKeys = ['Invoice_No','Invoice No','Invoice','__invoice'];
-  const itemKeys = ['ItemId','Item ID','ItemCode','Item Code','__itemCode'];
-  const invoiceFields = {
-    ItemId: ['ItemId','Item ID','ItemCode','Item Code'],
-    QuantityinCBO: ['QuantityinCBO','Quantity in CBO','CBO','CBB'],
-    Description: ['Description','Item Description'],
-    MRP_Price: ['MRP_Price','MRP Price','MRP'],
-    Unit_Price: ['Unit_Price','Unit Price','UnitPrice'],
-    Discount_Percent: ['Discount_Percent','Discount Percent','DiscountPercent'],
-    Line_Discount_Percent: ['Line_Discount_Percent','Line Discount Percent','LineDiscountPercent'],
-    AmountToCustomer: ['AmountToCustomer','Amount To Customer'],
-    AssesableValue: ['AssesableValue','AssessableValue','Assesable Value','Assessable Value'],
-    LocationCode: ['LocationCode','Location Code','Location_Code'],
-    INDV_discount: ['INDV_discount','INDV Discount','INDV_Discount'],
-    Scheme_Discount: ['Scheme_Discount','Scheme Discount'],
-    Scheme_Discount_Percent: ['Scheme_Discount_Percent','Scheme Discount Percent','SchemeDiscountPercent'],
-    PostingDate: ['PostingDate','Posting Date','Date','Invoice Date']
-  };
-  window.enrichInvoiceRows = function(dataRows){
-    if (!Array.isArray(dataRows) || !dataRows.length) return;
-    // Cross-row repair is permitted only when invoice + item identify one unambiguous source value.
-    const index = new Map();
-    dataRows.forEach(r => {
-      const inv=clean(read(r,invoiceKeys)), item=clean(read(r,itemKeys));
-      if(!inv || !item) return;
-      const k=inv+'\u001f'+item;
-      if(!index.has(k)) index.set(k,[]);
-      index.get(k).push(r);
-    });
-    dataRows.forEach(r => {
-      const inv=clean(read(r,invoiceKeys)), item=clean(read(r,itemKeys));
-      const peers = inv && item ? (index.get(inv+'\u001f'+item)||[]) : [];
-      Object.entries(invoiceFields).forEach(([target,aliases])=>{
-        if(clean(r[target])!=='') return; // never overwrite a populated value
-        let value=read(r,aliases);
-        if(clean(value)==='' && peers.length){
-          const candidates=unique(peers.map(p=>read(p,aliases)));
-          if(candidates.length===1) value=candidates[0];
-        }
-        if(clean(value)==='' && target==='ItemId') value=read(r,['__itemCode']);
-        if(clean(value)==='' && target==='Description') value=read(r,['__desc']);
-        if(clean(value)==='' && target==='PostingDate' && r.__date instanceof Date && !isNaN(r.__date)) value=r.__date;
-        if(clean(value)!=='') r[target]=value;
-      });
-    });
-  };
-
-  function optionList(id, values, allLabel){
-    const el=document.getElementById(id); if(!el) return;
-    const previous=el.value;
-    const cleanValues=unique(values).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'}));
-    el.innerHTML='<option value="">'+allLabel+'</option>'+cleanValues.map(v=>'<option value="'+String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')+'">'+String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</option>').join('');
-    if(cleanValues.includes(previous)) el.value=previous;
-  }
-  function rowsForFilters(){ return rows(); }
-  function areaZoneOptions(){
-    const data=rowsForFilters();
-    const areas=data.map(r=>r.__area || r.AreaCode || r['Area Code'] || r.Area || '');
-    optionList('execArea',areas,'All Areas');
-    optionList('salesArea',areas,'All Areas');
-    optionList('invArea',areas,'All Areas');
-    optionList('targetArea',areas,'All Areas');
-    const scoped=(areaId)=>{
-      const area=document.getElementById(areaId)?.value || '';
-      return data.filter(r=>!area || clean(r.__area || r.AreaCode || r['Area Code'] || r.Area)===area)
-        .map(r=>r.__anchorZone || r.AnchorZoneName || r['Anchor Zone Name'] || r['Anchor Zone'] || '');
-    };
-    optionList('execAnchorZone',scoped('execArea'),'All Anchor Zones');
-    optionList('salesAnchorZone',scoped('salesArea'),'All Anchor Zones');
-    optionList('invAnchorZone',scoped('invArea'),'All Anchor Zones');
-    optionList('targetAnchorZone',scoped('targetArea'),'All Anchor Zones');
-  }
-  // Wrap the existing filter population rather than replacing any of its working controls.
-  if (typeof window.populateFilters==='function') {
-    const originalPopulateFilters=window.populateFilters;
-    window.populateFilters=function(){ originalPopulateFilters(); areaZoneOptions(); };
-  }
-  // Sales Analysis: cascade Anchor Zone by Area and apply both filters to the existing results.
-  if (typeof window.salesFilteredRows==='function') {
-    const originalSalesFilteredRows=window.salesFilteredRows;
-    window.salesFilteredRows=function(){
-      const area=document.getElementById('salesArea')?.value || '';
-      const zone=document.getElementById('salesAnchorZone')?.value || '';
-      return originalSalesFilteredRows().filter(r=>
-        (!area || clean(r.__area || r.AreaCode || r['Area Code'] || r.Area)===area) &&
-        (!zone || clean(r.__anchorZone || r.AnchorZoneName || r['Anchor Zone Name'] || r['Anchor Zone'])===zone)
-      );
-    };
-  }
-  // Executive filters: Area changes cascade the Anchor Zone list and refresh the current view.
-  ['execArea','execAnchorZone'].forEach(id=>document.getElementById(id)?.addEventListener('change',()=>{
-    if(id==='execArea') areaZoneOptions();
-    if(typeof window.renderAll==='function') window.renderAll();
-  }));
-  ['salesArea','salesAnchorZone'].forEach(id=>document.getElementById(id)?.addEventListener('change',()=>{
-    if(id==='salesArea') areaZoneOptions();
-    if(typeof window.renderSales==='function') window.renderSales();
-  }));
-  ['invArea','invAnchorZone'].forEach(id=>document.getElementById(id)?.addEventListener('change',()=>{
-    if(id==='invArea') areaZoneOptions();
-    if(typeof window.renderInvoice==='function') window.renderInvoice();
-  }));
-  ['targetArea','targetAnchorZone'].forEach(id=>document.getElementById(id)?.addEventListener('change',()=>{
-    if(id==='targetArea') areaZoneOptions();
-    if(typeof window.renderTarget==='function') window.renderTarget();
-  }));
-
-  // Target vs Achievement only: add cascading selectors while leaving Target Working untouched.
-  if(typeof window.populateTargetFilters==='function'){
-    const oldTargetFilters=window.populateTargetFilters;
-    window.populateTargetFilters=function(){ oldTargetFilters(); areaZoneOptions(); };
-  }
-  if(typeof window.getTargetFilteredRows==='function'){
-    const oldTargetRows=window.getTargetFilteredRows;
-    window.getTargetFilteredRows=function(){
-      const area=document.getElementById('targetArea')?.value || '';
-      const zone=document.getElementById('targetAnchorZone')?.value || '';
-      return oldTargetRows().filter(r=>
-        (!area || clean(r.__area || r.AreaCode || r['Area Code'] || r.Area)===area) &&
-        (!zone || clean(r.__anchorZone || r.AnchorZoneName || r['Anchor Zone Name'] || r['Anchor Zone'])===zone)
-      );
-    };
-  }
-
-  // Report Center shelf-life mapping. Preserve source Available Shelf Life when supplied;
-  // Balance Shelf Life is calculated from MFG/EXPIRY_DATE against today's date.
-  function parseDate(v){
-    if(v instanceof Date && !isNaN(v)) return v;
-    if(v===null || v===undefined || clean(v)==='') return null;
-    if(typeof v==='number' && v>20000 && v<80000) return new Date(Date.UTC(1899,11,30)+v*86400000);
-    const s=clean(v); let m=s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$/);
-    if(m){let y=Number(m[3]); if(y<100)y+=y>=50?1900:2000; const d=new Date(y,Number(m[2])-1,Number(m[1])); return isNaN(d)?null:d;}
-    const d=new Date(s); return isNaN(d)?null:d;
-  }
-  function balancePercent(r){
-    const mfg=parseDate(read(r,['MFG','Mfg','Manufacturing Date','MFGDATE']));
-    const exp=parseDate(read(r,['EXPIRY_DATE','Expiry Date','EXPIRY DATE','ExpiryDate']));
-    if(!mfg || !exp || exp<=mfg) return '';
-    const today=new Date(); today.setHours(0,0,0,0);
-    return Math.round(((exp.getTime()-today.getTime())/(exp.getTime()-mfg.getTime()))*10000)/100;
-  }
-  function availableValue(r){
-    const mfd=parseDate(read(r,['MFD','MFD Date','MFD_DATE','MFG','Mfg','MFGDATE','Manufacturing Date','Manufacture Date']));
-    const exp=parseDate(read(r,['EXPIRY_DATE','Expiry Date','EXPIRY DATE','ExpiryDate','EXP DATE','EXP_DATE']));
-    if(!mfd || !exp || exp<=mfd) return '';
-    const start=Date.UTC(mfd.getFullYear(),mfd.getMonth(),mfd.getDate());
-    const end=Date.UTC(exp.getFullYear(),exp.getMonth(),exp.getDate());
-    return Math.round((end-start)/86400000);
-  }
-  if(typeof reports!=='undefined' && reports.soh){
-    reports.soh={
-      ...reports.soh,
-      name:'LIVE SOH - CFA Wise',
-      cols:['ITEMID','DESCRIPTION','PACKFAMILY','MRP','CFA / WAREHOUSE','CBB','Grand Total','Available Shelf Life','Balance Shelf Life %'],
-      make:function(){
-        const source=(typeof filteredSOH!=='undefined' && Array.isArray(filteredSOH) && filteredSOH.length)?filteredSOH:((typeof soh!=='undefined' && Array.isArray(soh))?soh:(window.soh||[]));
-        const map=new Map();
-        source.forEach(r=>{
-          const item=clean(read(r,['ITEMID','ItemID','Item Id','Item Code','ITEM CODE'])); if(!item)return;
-          const wh=clean(read(r,['WAREHOUSE','Warehouse','CFA','CFA Name'])); const key=item+'|'+wh;
-          if(!map.has(key)) map.set(key,{item,desc:read(r,['DESCRIPTION','Description','ITEM DESCRIPTION']),pack:read(r,['PACKFAMILY','PACK FAMILY','PackFamily']),mrp:read(r,['MRP','MRP_Price','MRP Price']),wh,cbb:0,available:availableValue(r),balance:balancePercent(r)});
-          const z=map.get(key); z.cbb+=Number(read(r,['TOTAL_MAIN_QRT','CBB','CBO','QuantityinCBO','Quantity in CBO'])||0);
-          if(z.available==='' && availableValue(r)!=='') z.available=availableValue(r);
-          if(z.balance==='' && balancePercent(r)!=='') z.balance=balancePercent(r);
-        });
-        return [...map.values()].map(z=>[z.item,z.desc,z.pack,z.mrp,z.wh,z.cbb,z.cbb,z.available,z.balance]);
-      }
-    };
-  }
-
-  // Business Alerts: top DBR exceptions include both customer code and customer name.
-  if(typeof reports!=='undefined' && reports.alerts){
-    reports.alerts={...reports.alerts,cols:['Alert','Customer Code','Customer Name','Value'],make:function(r){
-      const out=[],db=new Map(),items=new Map();
-      r.forEach(x=>{
-        const code=clean(x.__dbrCode || x.Sell_to_Customer_No || x.Customer_Account || x.Billed_to_Code);
-        const name=clean(x.__dbrName || x.Sell_to_Customer_Name || x.Billed_to_Name || x.Ship_to_Name || x.__customer);
-        if(code || name){const k=code+'\u001f'+name;const z=db.get(k)||{code,name,g:0};z.g+=Number(x.__gsv||0);db.set(k,z);}
-        const item=clean(x.__itemCode || x.__desc); if(item){const z=items.get(item)||{g:0,c:0};z.g+=Number(x.__gsv||0);z.c+=Number(x.__cbb||0);items.set(item,z);}
-      });
-      [...db.values()].sort((a,b)=>b.g-a.g).slice(0,10).forEach(x=>out.push(['Top DBR Sales',x.code,x.name,typeof money==='function'?money(x.g):x.g]));
-      [...items.entries()].sort((a,b)=>a[1].g-b[1].g).slice(0,10).forEach(([k,v])=>out.push(['Item Sales Exception','','',k+' - '+(typeof money==='function'?money(v.g):v.g)+' / '+v.c+' CBB']));
-      const stock=((typeof soh!=='undefined' && Array.isArray(soh))?soh:(window.soh||[])).filter(x=>clean(x.TYPE).toUpperCase()==='SOH');
-      const sm=new Map(); stock.forEach(x=>{const k=clean(x.ITEMID);if(k)sm.set(k,(sm.get(k)||0)+Number(x.TOTAL_MAIN_QRT||x.CBB||x.CBO||0));});
-      [...sm.entries()].sort((a,b)=>b[1]-a[1]).slice(0,10).forEach(([k,v])=>out.push(['Stock Risk','','',k+' - '+v]));
-      return out;
-    }};
-  }
-
-  // Cache the filtered report rows between report switches; invalidate whenever data is refreshed.
-  const filteredCache=new Map();
-  if(typeof window.refreshAllDataViews==='function'){
-    const oldRefresh=window.refreshAllDataViews;
-    window.refreshAllDataViews=function(){filteredCache.clear();oldRefresh();};
-  }
-  if(typeof window.renderReport==='function'){
-    window.renderReport=function(){
-      const body=document.getElementById('enhReportBody'); if(!body)return;
-      try{
-        const cfg=reports[report]; if(!cfg){body.innerHTML='<div class="card"><div class="empty">Report configuration not found.</div></div>';return;}
-        const filterKey=typeof state!=='undefined'?Object.keys(state).map(k=>k+':'+[...state[k]].sort().join(',')).join('|'):'';
-        const cacheKey=String(report)+'|'+String(window.gsvRows?.length||0)+'|'+String(window.soh?.length||0)+'|'+filterKey;
-        let data=filteredCache.get(cacheKey);
-        if(!data){data=cfg.make(filtered())||[];filteredCache.set(cacheKey,data);while(filteredCache.size>4)filteredCache.delete(filteredCache.keys().next().value);}
-        const cols=cfg.cols||[];
-        const shown=data.slice(0,50);
-        const rowsHtml=shown.map(row=>'<tr>'+row.map((v,i)=>{
-          const col=String(cols[i]||'');
-          if(col==='Balance Shelf Life %' && v!=='' && v!==null && v!==undefined){
-            const n=Number(v); const tone=!Number.isFinite(n)?'neutral':n<0?'red':n<30?'red':n<60?'amber':'green';
-            return '<td><span class="balance-shelf-card '+tone+'">'+(Number.isFinite(n)?n.toLocaleString('en-IN',{maximumFractionDigits:2}):esc(v))+'</span></td>';
-          }
-          if(col==='Available Shelf Life' && typeof v==='string') v=v.replace(/%/g,'').trim();
-          return '<td>'+ (typeof v==='number'?num(v).toLocaleString('en-IN',{maximumFractionDigits:2}):esc(v)) +'</td>';
-        }).join('')+'</tr>').join('');
-        body.innerHTML='<div class="card"><div class="enhHead"><h3>'+(cfg.icon||'')+' '+esc(cfg.name)+'</h3><span class="enhCount">'+data.length.toLocaleString('en-IN')+' rows</span><button class="smallbtn" id="enhExcel">Export Excel</button></div>'+
-          (data.length>1000?'<div class="subhead" style="padding:6px 12px">Showing first 1,000 rows for faster display. Export Excel includes all matching rows.</div>':'')+
-          '<div class="enhWrap"><table class="enhTable"><thead><tr>'+cols.map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr></thead><tbody>'+(rowsHtml||'<tr><td colspan="'+cols.length+'" class="empty">No data available.</td></tr>')+'</tbody></table></div></div>';
-        const excel=document.getElementById('enhExcel'); if(excel) excel.onclick=()=>exportRows(data.map(row=>Object.fromEntries(cols.map((c,i)=>[c,row[i]]))),String(cfg.name||'Report').replace(/[^A-Za-z0-9]+/g,'_'));
-        const wrap=body.querySelector('.enhWrap'); if(wrap){wrap.scrollLeft=0;wrap.scrollTop=0;}
-      }catch(e){console.error('Consolidated report render error:',e);body.innerHTML='<div class="card"><div class="empty">Unable to render this report. See browser console for details.</div></div>';}
-    };
-  }
-  const style=document.createElement('style');
-  style.textContent='.balance-shelf-card{display:inline-block;min-width:66px;text-align:center;padding:5px 9px;border-radius:9px;font-weight:700;border:1px solid transparent}.balance-shelf-card.green{background:#dcfce7;color:#166534;border-color:#86efac}.balance-shelf-card.amber{background:#fef3c7;color:#92400e;border-color:#fcd34d}.balance-shelf-card.red{background:#fee2e2;color:#991b1b;border-color:#fca5a5}.balance-shelf-card.neutral{background:#e5e7eb;color:#374151;border-color:#d1d5db}';
-  document.head.appendChild(style);
-
-  // Ensure options are populated even if data was already loaded before this patch initialized.
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',areaZoneOptions,{once:true}); else areaZoneOptions();
-})();
-</script>
-
-<script>
-/* RF_YEAR_GSV_OPTIONS_FIX_20261013 */
-(function () {
-  let attempts = 0;
-  const timer = setInterval(function () {
-    attempts++;
-
-    try {
-      if (typeof gsvRows === 'undefined' || !Array.isArray(gsvRows) || !gsvRows.length) {
-        if (attempts >= 240) clearInterval(timer);
-        return;
-      }
-
-      const select = document.getElementById('rfYear');
-      if (!select) {
-        if (attempts >= 240) clearInterval(timer);
-        return;
-      }
-
-      const years = [...new Set(gsvRows.map(function (r) {
-        const d = r && r.__date instanceof Date ? r.__date : new Date(r && r.__date);
-        return !isNaN(d.getTime()) ? String(d.getFullYear()) : '';
-      }).filter(Boolean))].sort(function (a, b) {
-        return Number(a) - Number(b);
-      });
-
-      if (!years.length) {
-        if (attempts >= 240) clearInterval(timer);
-        return;
-      }
-
-      const current = new Set(
-        Array.from(select.selectedOptions || []).map(function (o) {
-          return o.value;
-        }).filter(Boolean)
-      );
-
-      const existing = Array.from(select.options).map(function (o) {
-        return o.value;
-      });
-
-      if (JSON.stringify(existing) !== JSON.stringify(years)) {
-        select.innerHTML = '';
-        years.forEach(function (year) {
-          const option = document.createElement('option');
-          option.value = year;
-          option.textContent = year;
-          option.selected = current.has(year);
-          select.appendChild(option);
-        });
-      }
-
-      if (attempts >= 240) clearInterval(timer);
-    } catch (e) {
-      if (attempts >= 240) clearInterval(timer);
-    }
-  }, 500);
-})();
-</script>
-<script>
-/* RF_YEAR_TRUE_MULTISELECT_20261013 */
-(function () {
-  function fixReportYearMultiSelect() {
-    var el = document.getElementById('rfYear');
-    if (!el) return;
-
-    el.multiple = true;
-    el.setAttribute('multiple', 'multiple');
-    el.size = 4;
-    el.style.height = '96px';
-    el.style.minHeight = '96px';
-    el.style.overflowY = 'auto';
-  }
-
-  fixReportYearMultiSelect();
-
-  var count = 0;
-  var timer = setInterval(function () {
-    fixReportYearMultiSelect();
-    count++;
-    if (count >= 40) clearInterval(timer);
-  }, 500);
-})();
-</script>
-<script id="SMALL_YEAR_MULTISELECT_FINAL_20261013">
-(function () {
-  "use strict";
-  var attempts = 0;
-
-  function fixYear() {
-    var sel = document.getElementById("small_year");
-    if (!sel) return;
-
-    var rows = Array.isArray(window.activeRows) ? window.activeRows : [];
-    if (!rows.length && typeof activeRows !== "undefined" && Array.isArray(activeRows)) {
-      rows = activeRows;
-    }
-    if (!rows.length) return;
-
-    var years = new Set(["2024", "2025", "2026"]);
-
-    rows.forEach(function (r) {
-      var d = r && r.__date;
-      if (d instanceof Date && !isNaN(d.getTime())) {
-        years.add(String(d.getFullYear()));
-      }
-    });
-
-    var sorted = Array.from(years).sort(function (a, b) {
-      return Number(a) - Number(b);
-    });
-
-    var wanted = ["", ...sorted];
-    var current = Array.from(sel.options).map(function (o) {
-      return o.value;
-    });
-
-    if (current.length !== wanted.length ||
-        current.some(function (v, i) { return v !== wanted[i]; })) {
-      var selected = Array.from(sel.selectedOptions || []).map(function (o) {
-        return o.value;
-      });
-
-      sel.innerHTML = "";
-      wanted.forEach(function (v) {
-        sel.add(new Option(v === "" ? "All Year" : v, v));
-      });
-
-      Array.from(sel.options).forEach(function (o) {
-        o.selected = selected.indexOf(o.value) !== -1;
-      });
-    }
-
-    sel.multiple = true;
-    sel.size = Math.min(4, sel.options.length);
-    sel.style.height = "auto";
-    sel.style.minHeight = "96px";
-    sel.style.overflowY = "auto";
-
-    sel.onchange = function () {
-      var chosen = Array.from(sel.selectedOptions).map(function (o) {
-        return o.value;
-      });
-
-      if (chosen.some(function (v) { return v !== ""; })) {
-        Array.from(sel.options).forEach(function (o) {
-          if (o.value === "") o.selected = false;
-        });
-        chosen = chosen.filter(function (v) { return v !== ""; });
-      } else {
-        chosen = [];
-        var all = Array.from(sel.options).find(function (o) {
-          return o.value === "";
-        });
-        if (all) all.selected = true;
-      }
-
-      if (typeof state !== "undefined") {
-        state.year = new Set(chosen);
-      }
-      if (typeof renderReport === "function") renderReport();
-    };
-
-    console.log("YEAR MULTI-SELECT FINAL:", Array.from(sel.options).map(function (o) {
-      return o.text;
-    }));
-  }
-
-  var timer = setInterval(function () {
-    attempts++;
-    try { fixYear(); } catch (e) {
-      console.warn("Year multi-select fix:", e.message);
-    }
-    if (attempts >= 120) clearInterval(timer);
-  }, 500);
-
-  try { fixYear(); } catch (e) {}
-})();
-</script>
-
-<script id="final-requested-corrections-20261014">
-(function(){
-  'use strict';
-  const $ = id => document.getElementById(id);
-  const clean = v => v === undefined || v === null ? '' : String(v).trim();
-  const list = v => Array.isArray(v) ? v : [];
-  const unique = vals => [...new Set(vals.map(clean).filter(Boolean))].sort((x,y)=>x.localeCompare(y,undefined,{numeric:true,sensitivity:'base'}));
-  const read = (r, keys) => {
-    for (const k of keys) if (r && r[k] !== undefined && r[k] !== null && clean(r[k]) !== '') return r[k];
-    return '';
-  };
-  const allGsvRows = () => list(typeof gsvRows !== 'undefined' && gsvRows.length ? gsvRows : (typeof activeRows !== 'undefined' ? activeRows : window.gsvRows));
-  const allSohRows = () => list(typeof soh !== 'undefined' ? soh : window.soh);
-
-  // Report Center: extend the existing filter state without replacing the existing controls.
-  try {
-    if (typeof state !== 'undefined') {
-      state.area = state.area instanceof Set ? state.area : new Set();
-      state.anchorZone = state.anchorZone instanceof Set ? state.anchorZone : new Set();
-      state.abm = state.abm instanceof Set ? state.abm : new Set();
-    }
-  } catch(e) { console.warn('Report Center extra filter state:', e); }
-
-  function valuesFor(key){
-    let rows = allGsvRows();
-    if(key==='area') return unique(rows.map(r=>r.__area || read(r,['AreaCode','Area Code','Area'])));
-    if(key==='anchorZone'){
-      const chosenAreas = typeof state!=='undefined' && state.area instanceof Set ? [...state.area] : [];
-      if(chosenAreas.length) rows = rows.filter(r => chosenAreas.includes(String(r.__area || read(r,['AreaCode','Area Code','Area']) || '').trim()));
-      return unique(rows.map(r=>r.__anchorZone || read(r,['AnchorZoneName','Anchor Zone Name','Anchor Zone','AnchorZone','ANCHOR ZONE','ZoneName','Zone'])));
-    }
-    if(key==='abm') return unique(rows.map(r=>r.__abm || read(r,['NKAM_ABM','ABM','ABM Name'])));
-    return [];
-  }
-  function fillExtra(id,key,label){
-    const el=$(id); if(!el) return;
-    const selected = typeof state!=='undefined' && state[key] instanceof Set ? state[key] : new Set();
-    const vals=valuesFor(key);
-    el.innerHTML = '<option value="">'+label+'</option>' + vals.map(v=>{
-      const safe=v.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-      return '<option value="'+safe+'"'+(selected.has(v)?' selected':'')+'>'+safe+'</option>';
-    }).join('');
-    // If there is no active filter, make the "All..." option the visible selection.
-    if(!selected.size && el.options.length) el.options[0].selected=true;
-  }
-  const originalRebuild = typeof window.rebuildFilters==='function' ? window.rebuildFilters : null;
-  if(originalRebuild){
-    window.rebuildFilters=function(){
-      originalRebuild.apply(this,arguments);
-      fillExtra('rfArea','area','All Areas');
-      fillExtra('rfAnchorZone','anchorZone','All Anchor Zones');
-      fillExtra('rfAbm','abm','All ABM');
-    };
-  }
-  function bindExtra(id,key){
-    const el=$(id); if(!el || el.dataset.finalExtraBound==='1') return;
-    el.dataset.finalExtraBound='1';
-    el.addEventListener('change',()=>{
-      if(typeof state==='undefined') return;
-      const chosen=Array.from(el.selectedOptions||[]).map(o=>o.value).filter(Boolean);
-      if(chosen.length){
-        Array.from(el.options).forEach(o=>{if(o.value==='')o.selected=false;});
-        state[key]=new Set(chosen);
-      }else{
-        state[key]=new Set();
-        if(el.options.length)el.options[0].selected=true;
-      }
-      if(key==='area') fillExtra('rfAnchorZone','anchorZone','All Anchor Zones');
-      if(typeof renderReport==='function')renderReport();
-      if(typeof window.safeUpdateStatus==='function')window.safeUpdateStatus();
-    });
-  }
-  bindExtra('rfArea','area');
-  bindExtra('rfAnchorZone','anchorZone');
-  bindExtra('rfAbm','abm');
-  const invoiceFilter=$('rfInvoice');
-  if(invoiceFilter && invoiceFilter.dataset.invoiceDetailAutoTab!=='1'){
-    invoiceFilter.dataset.invoiceDetailAutoTab='1';
-    invoiceFilter.addEventListener('change',()=>{
-      const chosen=Array.from(invoiceFilter.selectedOptions||[]).map(o=>o.value).filter(Boolean);
-      if(chosen.length && typeof reports!=='undefined' && reports.invoiceDetail){
-        report='invoiceDetail';
-        if(typeof renderReportTabs==='function')renderReportTabs();
-        if(typeof renderReport==='function')renderReport();
-      }
-    });
-  }
-
-  // Apply all Report Center common filters to GSV rows, including the new Area / Anchor Zone / ABM fields.
-  const oldFiltered = typeof window.filtered==='function' ? window.filtered : null;
-  if(oldFiltered){
-    window.filtered=function(){
-      const rows=allGsvRows();
-      const filters=(typeof state!=='undefined')?state:{};
-      return rows.filter(r=>{
-        const d=r.__date instanceof Date?r.__date:(r.__date?new Date(r.__date):null);
-        const values={
-          year:d&&!isNaN(d)?String(d.getFullYear()):'',
-          month:d&&!isNaN(d)?d.toLocaleString('en',{month:'short'}):'',
-          day:d&&!isNaN(d)?String(d.getDate()):'',
-          customer:clean(r.__customer),
-          invoice:clean(r.__invoice || read(r,['Invoice_No','Invoice No','Invoice'])),
-          item:clean(r.__itemCode || read(r,['ItemId','Item ID','ItemCode','Item Code'])),
-          dbr:clean(r.__dbrName || r.__dbrCode),
-          area:clean(r.__area || read(r,['AreaCode','Area Code','Area'])),
-          anchorZone:clean(r.__anchorZone || read(r,['AnchorZoneName','Anchor Zone Name','Anchor Zone'])),
-          abm:clean(r.__abm || read(r,['NKAM_ABM','ABM','ABM Name']))
-        };
-        return Object.keys(filters).every(k=>{
-          const set=filters[k];
-          return !(set instanceof Set) || !set.size || set.has(String(values[k]===undefined?'':values[k]));
-        });
-      });
-    };
-  }
-
-  // Add a row-level invoice detail report so selecting an Invoice No returns its matching records.
-  function makeInvoiceDetail(rows){
-    return rows.map(r=>[
-      clean(r.__invoice || read(r,['Invoice_No','Invoice No','Invoice'])),
-      r.__date instanceof Date ? r.__date.toLocaleDateString('en-GB') : clean(read(r,['PostingDate','Posting Date','Date','Invoice Date'])),
-      clean(r.__dbrCode || read(r,['DBR_Code','DBR Code','Sell_to_Customer_No','Customer_Account','Billed_to_Code'])),
-      clean(r.__dbrName || read(r,['DBR_Name','DBR Name','Sell_to_Customer_Name'])),
-      clean(r.__customer || read(r,['Customer_Name','Customer','Billed_to_Name','Ship_to_Name'])),
-      clean(r.__itemCode || read(r,['ItemId','Item ID','Item Code','ItemCode'])),
-      clean(r.__desc || read(r,['Description','Item Description'])),
-      Number(r.__pcs || read(r,['QuantityinPcs','Quantity in Pcs','Qty PCS','Quantity']) || 0),
-      Number(r.__cbb || read(r,['QuantityinCBO','Quantity in CBO','CBB','CBO']) || 0),
-      Number(r.__gsv || 0),
-      Number(r.__disc || 0),
-      Number(r.__amount || read(r,['AmountToCustomer','Amount To Customer','Amount']) || 0),
-      clean(r.__area || read(r,['AreaCode','Area Code','Area'])),
-      clean(r.__anchorZone || read(r,['AnchorZoneName','Anchor Zone Name','Anchor Zone'])),
-      clean(r.__abm || read(r,['NKAM_ABM','ABM','ABM Name']))
-    ]);
-  }
-  if(typeof reports!=='undefined' && reports){
-    reports.invoiceDetail={
-      name:'Invoice / Customer Drill-down',
-      icon:'&#128221;',
-      cols:['Invoice No','Posting Date','DBR Code','DBR Name','Customer','Item Code','Description','Quantity (PCS)','Quantity (CBB)','GSV','INDV Discount','Amount To Customer','Area','Anchor Zone','ABM'],
-      make:makeInvoiceDetail
-    };
-  }
-
-  // LIVE SOH - CFA Wise in Report Center gets its own three filters, independent of common GSV filters.
-  window.__reportSOHFilter = window.__reportSOHFilter || {type:'',warehouse:'',mrp:''};
-  window.__reportSOHRows = allSohRows().slice();
-  const oldSohConfig = (typeof reports!=='undefined' && reports.soh) ? reports.soh : null;
-  if(oldSohConfig && typeof oldSohConfig.make==='function'){
-    const oldSohMake=oldSohConfig.make;
-    oldSohConfig.make=function(){
-      const originalSoh = typeof soh!=='undefined' ? soh : window.soh;
-      const originalFiltered = typeof filteredSOH!=='undefined' ? filteredSOH : window.filteredSOH;
-      try {
-        if(typeof soh!=='undefined') soh=window.__reportSOHRows.slice();
-        if(typeof filteredSOH!=='undefined') filteredSOH=window.__reportSOHRows.slice();
-        return oldSohMake.apply(this,arguments);
-      } finally {
-        if(typeof soh!=='undefined') soh=originalSoh;
-        if(typeof filteredSOH!=='undefined') filteredSOH=originalFiltered;
-      }
-    };
-  }
-  function sohVal(r,keys){return clean(read(r,keys));}
-  function sohOptionList(key){
-    const rows=allSohRows();
-    if(key==='type') return unique(rows.map(r=>sohVal(r,['TYPE','Type'])));
-    if(key==='warehouse') return unique(rows.map(r=>sohVal(r,['WAREHOUSE','Warehouse','CFA','CFA Name','CFA / WAREHOUSE'])));
-    if(key==='mrp') return unique(rows.map(r=>sohVal(r,['MRP','MRP_Price','MRP Price'])));
-    return [];
-  }
-  function renderReportSOHControls(){
-    const body=$('enhReportBody'); if(!body) return;
-    const existing=$('reportSOHDedicatedFilters'); if(existing)existing.remove();
-    const box=document.createElement('div');
-    box.id='reportSOHDedicatedFilters';
-    box.className='card';
-    box.style.marginBottom='12px';
-    box.innerHTML='<div class="cardhead"><h3>LIVE SOH Dedicated Filters</h3><span>These filters apply only to LIVE SOH - CFA Wise</span></div><div class="filters">'+
-      [['type','TYPE','All Types'],['warehouse','WAREHOUSE','All Warehouses'],['mrp','MRP','All MRP']].map(([key,label,allLabel])=>{
-        const options=sohOptionList(key);
-        const chosen=window.__reportSOHFilter[key]||'';
-        return '<div class="field"><label>'+label+'</label><select id="reportSOH_'+key+'"><option value="">'+allLabel+'</option>'+
-          options.map(v=>'<option value="'+v.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')+'"'+(chosen===v?' selected':'')+'>'+v.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</option>').join('')+
-          '</select></div>';
-      }).join('')+'</div>';
-    body.insertBefore(box,body.firstChild);
-    [['type','reportSOH_type'],['warehouse','reportSOH_warehouse'],['mrp','reportSOH_mrp']].forEach(([key,id])=>{
-      const el=$(id); if(!el)return;
-      el.addEventListener('change',()=>{
-        window.__reportSOHFilter[key]=el.value;
-        applyReportSOHFilters();
-        if(typeof renderReport==='function')renderReport();
-      });
-    });
-  }
-  function applyReportSOHFilters(){
-    const f=window.__reportSOHFilter;
-    window.__reportSOHRows=allSohRows().filter(r=>
-      (!f.type || sohVal(r,['TYPE','Type'])===f.type) &&
-      (!f.warehouse || sohVal(r,['WAREHOUSE','Warehouse','CFA','CFA Name','CFA / WAREHOUSE'])===f.warehouse) &&
-      (!f.mrp || sohVal(r,['MRP','MRP_Price','MRP Price'])===f.mrp)
-    );
-  }
-  const oldRenderReport=typeof window.renderReport==='function'?window.renderReport:null;
-  if(oldRenderReport){
-    window.renderReport=function(){
-      // The existing Report Center renderer remains responsible for the dashboard table and styling.
-      if(typeof report!=='undefined' && report==='soh') applyReportSOHFilters();
-      const result=oldRenderReport.apply(this,arguments);
-      if(typeof report!=='undefined' && report==='soh') renderReportSOHControls();
-      else {
-        const controls=$('reportSOHDedicatedFilters');
-        if(controls)controls.remove();
-      }
-      return result;
-    };
-  }
-
-  // The separate LIVE SOH sidebar page retains its own TYPE / WAREHOUSE / MRP controls.
-  // Remove the older Report Center SOH filter widget, which incorrectly reused the common report filter path.
-  const obsoleteSOH=$('safeSOHFilter');
-  if(obsoleteSOH)obsoleteSOH.remove();
-
-  // Preserve the existing SOH source refresh behavior and repopulate new Report Center controls after load.
-  const oldRefresh=typeof window.refreshAllDataViews==='function'?window.refreshAllDataViews:null;
-  if(oldRefresh){
-    window.refreshAllDataViews=function(){
-      const result=oldRefresh.apply(this,arguments);
-      window.__reportSOHRows=allSohRows().slice();
-      if(typeof window.rebuildFilters==='function')window.rebuildFilters();
-      if(typeof report!=='undefined' && report==='soh')applyReportSOHFilters();
-      return result;
-    };
-  }
-
-  // Keep the dedicated Report Center SOH filters in sync after the source API finishes loading.
-  const oldLoadLiveData=typeof window.loadLiveData==='function'?window.loadLiveData:null;
-  if(oldLoadLiveData){
-    window.loadLiveData=async function(){
-      const result=await oldLoadLiveData.apply(this,arguments);
-      window.__reportSOHRows=allSohRows().slice();
-      applyReportSOHFilters();
-      if(typeof window.rebuildFilters==='function')window.rebuildFilters();
-      if(typeof report!=='undefined' && report==='soh' && typeof renderReport==='function')renderReport();
-      return result;
-    };
-  }
-
-  // Rebuild the new common filters once the dashboard's GSV rows have arrived.
-  function init(){
-    try{
-      if(typeof window.rebuildFilters==='function')window.rebuildFilters();
-      else {
-        fillExtra('rfArea','area','All Areas');
-        fillExtra('rfAnchorZone','anchorZone','All Anchor Zones');
-        fillExtra('rfAbm','abm','All ABM');
-      }
-      applyReportSOHFilters();
-    }catch(e){console.warn('Final correction initialisation:',e);}
-  }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init,{once:true});
   else setTimeout(init,0);
 
-  // --- AUTO FIX FOR YEAR DROPDOWN, DATA TABLE & HIGH-SPEED REPORT SWITCHING ---
+  // --- 1. YEAR DROPDOWN POPULATION ---
   setTimeout(function fixDashboardPerformanceAndData() {
     try {
       const rawData = window.gsvData || window.rawGSVData || [];
@@ -8805,7 +8063,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     } catch(err) { console.warn('Performance fix error:', err); }
   }, 300);
 
-  // Fast Non-Blocking Tab Switcher
+  // --- 2. FAST NON-BLOCKING TAB SWITCHING ---
   document.addEventListener('click', function (e) {
     const tabBtn = e.target.closest('.report-tab-btn, [data-report-target], .tab-btn');
     if (!tabBtn) return;
@@ -8820,11 +8078,23 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     }, 10);
   });
 
+  // --- 3. GLOBAL INPUT SEARCH DEBOUNCE (ELIMINATES LAG) ---
+  let globalSearchDebounce = null;
+  document.addEventListener('input', function(e) {
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT')) {
+      clearTimeout(globalSearchDebounce);
+      globalSearchDebounce = setTimeout(() => {
+        if (typeof window.applyFilters === 'function') window.applyFilters();
+        else if (typeof window.renderDashboard === 'function') window.renderDashboard();
+      }, 350);
+    }
+  }, true);
+
 })();
 </script>
 
 </body></html>
-
 
 
 
