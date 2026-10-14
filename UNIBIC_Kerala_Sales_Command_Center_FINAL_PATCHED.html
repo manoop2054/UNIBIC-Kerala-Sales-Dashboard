@@ -8769,13 +8769,11 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       applyReportSOHFilters();
     }catch(e){console.warn('Final correction initialisation:',e);}
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});
-  else setTimeout(init,0);
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init,{once:true});
   else setTimeout(init,0);
 
-  // --- AUTO FIX FOR YEAR DROPDOWN & DATA TABLE ---
-  setTimeout(function fixYearDropdownAndData() {
+  // --- AUTO FIX FOR YEAR DROPDOWN, DATA TABLE & HIGH-SPEED REPORT SWITCHING ---
+  setTimeout(function fixDashboardPerformanceAndData() {
     try {
       const rawData = window.gsvData || window.rawGSVData || [];
       const yearSelects = document.querySelectorAll('select[name="YEAR"], select#yearFilter, select.year-select, #rfYear');
@@ -8804,18 +8802,28 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
 
       if (typeof window.renderDashboard === 'function') window.renderDashboard();
       else if (typeof window.applyFilters === 'function') window.applyFilters();
-    } catch(err) { console.warn('Year fix error:', err); }
-  }, 1000);
+    } catch(err) { console.warn('Performance fix error:', err); }
+  }, 300);
+
+  // Fast Non-Blocking Tab Switcher
+  document.addEventListener('click', function (e) {
+    const tabBtn = e.target.closest('.report-tab-btn, [data-report-target], .tab-btn');
+    if (!tabBtn) return;
+
+    document.querySelectorAll('.report-tab-btn, .tab-btn').forEach(b => b.classList.remove('active'));
+    tabBtn.classList.add('active');
+
+    setTimeout(() => {
+      const targetReport = tabBtn.getAttribute('data-report-target') || tabBtn.innerText.trim();
+      if (typeof window.switchReportTab === 'function') window.switchReportTab(targetReport);
+      else if (typeof window.renderReport === 'function') window.renderReport(targetReport);
+    }, 10);
+  });
 
 })();
 </script>
 
 </body></html>
-})();
-</script>
-
-</body></html>
-
 
 
 
