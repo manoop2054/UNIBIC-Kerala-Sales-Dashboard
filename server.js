@@ -16,9 +16,10 @@ const SOH_URL = process.env.SOH_SHARE_URL || 'https://github.com/manoop2054/UNIB
 const GSV_SHEET = process.env.GSV_SHEET_NAME || 'ACX_Sales_Register';
 const SOH_SHEET = process.env.SOH_SHEET_NAME || 'LIVE STOCK REPORT';
 
+// UPDATED: Added all Excel header variations (QuantityinCBD, Discounts, AssesableValue, LocationCode etc.)
 const GSV_FIELDS = new Set([
   'PostingDate','Posting Date','Date','Invoice Date','GSV IN LAKH','GSV','GSV Amount',
-  'AmountToCustomer','Amount To Customer','Amount','QuantityinCBO','Quantity in CBO','CBB','CBO',
+  'AmountToCustomer','Amount To Customer','Amount','QuantityinCBO','QuantityinCBD','Quantity in CBO','CBB','CBO','QuantityinBox',
   'QuantityinPcs','Quantity in Pcs','Qty PCS','Quantity','INDV_discount','INDV Discount','Discount',
   'INDV Amount','Return_Invoices','Return Invoice','Return Invoices','DBR_Code','DBR Code',
   'Sell_to_Customer_No','Customer_Account','Billed_to_Code','DBR_Name','DBR Name',
@@ -28,7 +29,11 @@ const GSV_FIELDS = new Set([
   'AnchorName','Anchor','Brand','BrandName','REGION','Region','region','AreaCode','Area Code','Area','Ship_to_Code',
   'Ship to Code','ShipCode','Customer_Posting_Group','Customer Posting Group','ExternalDocNo',
   'External Doc No','External Document No','MRP_Price','MRP Price','MRP','GST_Base_Amount',
-  'GST Base Amount','GST_Base','DBR / Customer Code','Customer / DBR Name','Available Shelf Life %'
+  'GST Base Amount','GST_Base','DBR / Customer Code','Customer / DBR Name','Available Shelf Life %',
+  'Line_Discount_Percent','Line Discount Percent','LineDiscountPercent','Scheme_Discount',
+  'Scheme Discount','Scheme_Discount_Percent','Scheme Discount Percent','Discount_Percent','Discount Percent',
+  'AssesableValue','AssessableValue','Assesable Value','LocationCode','Location Code','Location_Code',
+  'AnchorZoneName','Anchor Zone Name','ANCHOR ZONENAME','Anchor Zone','AnchorZone'
 ]);
 
 const inFlight = new Map();
@@ -98,6 +103,36 @@ function cellValue(value) {
   return value;
 }
 
+// AUTOMATIC EXCEL COLUMN NORMALIZER FUNCTION
+function normalizeRow(r) {
+  if (!r) return {};
+  const getVal = (keys) => {
+    for (let k of keys) {
+      if (r[k] !== undefined && r[k] !== null && String(r[k]).trim() !== '') return r[k];
+    }
+    return '';
+  };
+  return {
+    ...r,
+    Invoice_No: getVal(['Invoice_No','Invoice No','Invoice']),
+    ItemId: getVal(['ItemId','Item ID','ItemCode','Item Code']),
+    QuantityinCBO: getVal(['QuantityinCBD','QuantityinCBO','Quantity in CBO','CBO','CBB','QuantityinBox']) || 0,
+    Description: getVal(['Description','Item Description']),
+    MRP_Price: getVal(['MRP_Price','MRP Price','MRP']) || 0,
+    Unit_Price: getVal(['Unit_Price','Unit Price','UnitPrice']) || 0,
+    Discount_Percent: getVal(['Discount_Percent','Discount Percent']) || 0,
+    Line_Discount_Percent: getVal(['Line_Discount_Percent','Line Discount Percent']) || 0,
+    AmountToCustomer: getVal(['AmountToCustomer','Amount To Customer']) || 0,
+    AssesableValue: getVal(['AssesableValue','AssessableValue','Assesable Value']) || 0,
+    LocationCode: getVal(['LocationCode','Location Code','Location_Code']),
+    INDV_discount: getVal(['INDV_discount','INDV Discount']) || 0,
+    Scheme_Discount: getVal(['Scheme_Discount','Scheme Discount']) || 0,
+    Scheme_Discount_Percent: getVal(['Scheme_Discount_Percent','Scheme Discount Percent']) || 0,
+    PostingDate: getVal(['PostingDate','Posting Date','Date','Invoice Date']),
+    AnchorZoneName: getVal(['AnchorZoneName','Anchor Zone Name','ANCHOR ZONENAME','Anchor Zone','AnchorZone'])
+  };
+}
+
 async function buildGsvCache(cachePath) {
   gsvStatus.stage = 'downloading workbook'; gsvStatus.rows = 0; gsvStatus.startedAt = new Date().toISOString(); gsvStatus.updatedAt = gsvStatus.startedAt; gsvStatus.error = null;
   console.log('GSV status: downloading source workbook');
@@ -128,14 +163,18 @@ async function buildGsvCache(cachePath) {
           header = values.map(v => String(cellValue(v) ?? '').trim());
           continue;
         }
-        const obj = {};
+        const rawObj = {};
         for (let i = 1; i < values.length; i++) {
           const key = header[i];
           if (!key || !GSV_FIELDS.has(key)) continue;
           const value = cellValue(values[i]);
-          if (value !== undefined && value !== null && value !== '') obj[key] = value;
+          if (value !== undefined && value !== null && value !== '') rawObj[key] = value;
         }
-        if (!Object.keys(obj).length) continue;
+        if (!Object.keys(rawObj).length) continue;
+
+        // Clean & Normalize each row before writing JSON
+        const obj = normalizeRow(rawObj);
+
         if (!first) await write(',');
         await write(JSON.stringify(obj));
         first = false;
