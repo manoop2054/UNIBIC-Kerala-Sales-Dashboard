@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -8822,49 +8822,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
 
 })();
 </script>
-// --- FINAL AUTO FIX FOR YEAR DROPDOWN & SPEED ---
-  setTimeout(function fixDashboardPerformanceAndData() {
-    try {
-      const rawData = window.activeRows || window.gsvRows || window.gsvData || window.rawGSVData || [];
-      const yearSelects = document.querySelectorAll('select[name="YEAR"], select#yearFilter, select.year-select, #rfYear, select[id*="Year"], select[id*="year"]');
-      
-      let years = new Set();
-      if (rawData.length) {
-        rawData.forEach(r => {
-          let dateStr = r.__date || r.PostingDate || r.Date || r['Posting Date'] || '';
-          if (dateStr) {
-            let dt = dateStr instanceof Date ? dateStr : new Date(dateStr);
-            if (!isNaN(dt)) years.add(dt.getFullYear());
-            else {
-              let match = String(dateStr).match(/\b(202[0-9])\b/);
-              if (match) years.add(match[1]);
-            }
-          }
-        });
-      }
 
-      const sortedYears = years.size ? Array.from(years).sort().reverse() : [2026, 2025, 2024];
-
-      yearSelects.forEach(sel => {
-        let currentVal = sel.value;
-        let options = '<option value="">All Year</option>';
-        sortedYears.forEach(y => {
-          options += `<option value="${y}">${y}</option>`;
-        });
-        sel.innerHTML = options;
-        if (currentVal) sel.value = currentVal;
-      });
-
-      if (typeof window.renderDashboard === 'function') window.renderDashboard();
-      else if (typeof window.applyFilters === 'function') window.applyFilters();
-    } catch(err) { console.warn('Performance fix error:', err); }
-  }, 500);
-
-})();
-</script>
-
-</body>
-</html>
 </body></html>
 
 
