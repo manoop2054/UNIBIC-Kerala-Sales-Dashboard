@@ -8309,10 +8309,18 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
         const today=new Date();today.setHours(0,0,0,0);
         return Math.round(((exp.getTime()-today.getTime())/(exp.getTime()-mfg.getTime()))*10000)/100;
       };
-      const applied=!!window.__reportSOHFilterApplied;
-      const rows=applied
-        ? (Array.isArray(window.__reportSOHRows)?window.__reportSOHRows:[])
-        : (Array.isArray(soh)?soh:[]);
+      // Apply the selected filters directly to the source rows used by this table.
+      // This avoids stale filteredSOH/report-cache state overriding the user's selection.
+      const filter=window.__reportSOHFilter||{type:'',warehouse:'',mrp:''};
+      const baseRows=Array.isArray(soh)?soh:[];
+      const normFilterValue=function(v){return String(v??'').toUpperCase().replace(/[^A-Z0-9]/g,'');};
+      const rows=baseRows.filter(r=>
+        (!filter.type || sohValueLocal(r,['TYPE','Type'])===filter.type) &&
+        (!filter.warehouse || normFilterValue(sohValueLocal(r,['WAREHOUSE']))===normFilterValue(filter.warehouse)) &&
+        (!filter.mrp || String(sohValueLocal(r,['MRP','MRP_Price','MRP Price']))===String(filter.mrp))
+      );
+      window.__reportSOHRows=rows;
+      window.__reportSOHFilterApplied=true;
       const map=new Map();
       rows.forEach(r=>{
         const item=clean(r.ITEMID||r.ItemID||r['Item Id']||r['Item Code']||r['ITEM CODE']);
