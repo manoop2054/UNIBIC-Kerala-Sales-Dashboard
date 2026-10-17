@@ -445,7 +445,9 @@ function renderReport(){
                     ${row.map(v=>`
                       <td>${typeof v==='number'
                         ? num(v).toLocaleString('en-IN',{maximumFractionDigits:2})
-                        : esc(v)}
+                        : (report==='soh' && /shelf life %/i.test(String(cfg.cols[i]||'')) && v!=='' && Number.isFinite(Number(v))
+                        ? '<span style="display:inline-block;padding:3px 8px;border-radius:6px;font-weight:700;background:'+(Number(v)<25?'#fde2e2':Number(v)<50?'#fff0c2':'#d9f5e5')+';color:'+(Number(v)<25?'#9b1c1c':Number(v)<50?'#805b00':'#166534')+'">'+esc(v)+'%</span>'
+                        : esc(v))}
                       </td>
                     `).join('')}
                   </tr>
@@ -8408,7 +8410,14 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
         if(!z.shelf) z.shelf=clean(r.AVAILABLESHELFLIFE||r['Available Shelf Life']||r['Available Shelf Life %']||
           r.REMAININGSHELFLIFE||r['Remaining Shelf Life']||r.SHELFLIFE||r['Shelf Life']);
       });
-      return [...map.values()].map(z=>[z.type,z.item,z.desc,z.pack,z.mrp,z.wh,z.cbb,z.cbb,z.shelf]);
+      return [...map.values()].map(z=>{
+        const source=rows.find(r=>clean(r.ITEMID||r.ItemID||r['Item Id']||r['Item Code']||r['ITEM CODE'])===z.item &&
+          clean(r.TYPE||r.Type)===z.type &&
+          clean(r.WAREHOUSE||r.Warehouse||r.CFA||r['CFA Name']||r['CFA / WAREHOUSE'])===z.wh &&
+          clean(r.MRP??r.MRP_Price??r['MRP Price'])===z.mrp) || {};
+        const percent=balancePercent(source);
+        return [z.type,z.item,z.desc,z.pack,z.mrp,z.wh,z.cbb,z.cbb,percent];
+      });
     };
   }
 
@@ -8445,6 +8454,14 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     }
   };
 
+  // Ensure LIVE SOH detail controls always re-render the table after a selection changes.
+  // Delegation remains active even if other dashboard scripts attach their own listeners.
+  document.addEventListener('change',function(event){
+    const el=event.target;
+    if(el && el.closest && el.closest('#soh') && ['sohWh','sohItem','sohDesc','sohMrp','sohType'].includes(el.id)){
+      setTimeout(function(){ if(typeof window.renderSOH==='function') window.renderSOH(); },0);
+    }
+  },true);
   // 4) DBR Ranking export follows Area + Zone + optional Anchor + DBR search.
   window.exportAnchorAchievement=function(){
     if(typeof XLSX==='undefined'){alert('Excel export library is not available.');return;}
