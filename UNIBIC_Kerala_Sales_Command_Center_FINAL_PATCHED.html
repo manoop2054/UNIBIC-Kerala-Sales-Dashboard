@@ -3489,7 +3489,7 @@ const reports={
  let report='dbr';
 function renderReportTabs(){const t=document.getElementById('reportTabs');t.innerHTML=Object.entries(reports).map(([k,v])=>`<button class="rtab ${report===k?'active':''}" data-r="${k}"><span>${v.icon}</span><b>${v.name}</b></button>`).join('');t.querySelectorAll('.rtab').forEach(b=>b.onclick=()=>{report=b.dataset.r;renderReportTabs();renderReport()})}
 function renderReport(){const rr=filtered(),cfg=reports[report],data=cfg.make(rr),body=document.getElementById('enhReportBody');body.innerHTML=`<div class="card"><div class="enhHead"><h3>${cfg.icon} ${esc(cfg.name)}</h3><span class="enhCount">${data.length.toLocaleString('en-IN')} rows${data.length>1000?' • showing first 1,000 of '+data.length.toLocaleString('en-IN'):''}</span><button class="smallbtn" id="enhExcel">Export Excel</button></div><div class="enhWrap"><table class="enhTable"><thead><tr>${cfg.cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${data.slice(0,50).map(row=>`<tr>${row.map(v=>`<td>${typeof v==='number'?money2(v):esc(v)}</td>`).join('')}</tr>`).join('')||'<tr><td colspan="99" class="empty">No data</td></tr>'}</tbody></table></div></div>`;document.getElementById('enhExcel').onclick=()=>exportRows(data.map(row=>Object.fromEntries(cfg.cols.map((c,i)=>[c,row[i]]))),cfg.name.replace(/[^A-Za-z0-9]+/g,'_'))}
-['rfYear','rfMonth','rfDay','rfCustomer','rfInvoice','rfItem','rfMrp','rfDbr'].forEach(id=>document.getElementById(id)?.addEventListener('change',()=>{Object.keys(state).forEach(k=>{const el=document.getElementById('rf'+k.charAt(0).toUpperCase()+k.slice(1));state[k]=new Set([...el.selectedOptions].map(o=>o.value))});renderReport()}));
+const reportFilterKeys={rfYear:'year',rfMonth:'month',rfDay:'day',rfMrp:'mrp',rfDbr:'dbr'}; Object.entries(reportFilterKeys).forEach(([id,key])=>document.getElementById(id)?.addEventListener('change',()=>{const el=document.getElementById(id);if(!el)return;state[key]=new Set([...el.selectedOptions].map(o=>o.value).filter(Boolean));renderReport();if(typeof safeUpdateStatus==='function')safeUpdateStatus()}));
 document.getElementById('enhSelectAll').onclick=()=>{Object.keys(state).forEach(k=>state[k]=new Set(vals(k)));rebuildFilters();renderReport()};document.getElementById('enhClearAll').onclick=()=>{Object.keys(state).forEach(k=>state[k].clear());rebuildFilters();renderReport()};document.getElementById('enhPDF').onclick=()=>window.print();
 const rtStyle=document.createElement('style');rtStyle.textContent='.reportTabs{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 16px}.rtab{border:0;border-radius:12px;padding:11px 13px;background:linear-gradient(135deg,#eef2ff,#f8fafc);color:#243047;cursor:pointer;box-shadow:0 2px 7px rgba(0,0,0,.08);display:flex;align-items:center;gap:7px;transition:.2s}.rtab span{font-size:18px}.rtab:hover{transform:translateY(-1px)}.rtab.active{background:linear-gradient(135deg,#5b4bdb,#8b5cf6);color:#fff;box-shadow:0 5px 14px rgba(91,75,219,.3)}';document.head.appendChild(rtStyle);
 rebuildFilters();renderReportTabs();renderReport();
@@ -7796,9 +7796,10 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
           year:d&&!isNaN(d)?String(d.getFullYear()):'',
           month:d&&!isNaN(d)?d.toLocaleString('en',{month:'short'}):'',
           day:d&&!isNaN(d)?String(d.getDate()):'',
-          customer:clean(r.__customer),
+          customer:clean(r.__customer || r.__dbrName || r.__dbrCode || read(r,['Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name','Customer_Name','Customer'])),
           invoice:clean(r.__invoice || read(r,['Invoice_No','Invoice No','Invoice'])),
           item:clean(r.__itemCode || read(r,['ItemId','Item ID','ItemCode','Item Code'])),
+          mrp:clean(r.__mrp ?? read(r,['MRP','MRP_Price','MRP Price'])),
           dbr:clean(r.__dbrName || r.__dbrCode),
           area:clean(r.__area || read(r,['AreaCode','Area Code','Area'])),
           anchorZone:clean(r.__anchorZone || read(r,['AnchorZoneName','Anchor Zone Name','Anchor Zone'])),
@@ -7967,7 +7968,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   setTimeout(function fixDashboardPerformanceAndData() {
     try {
       const rawData = window.gsvData || window.rawGSVData || [];
-      const yearSelects = document.querySelectorAll('select[name="YEAR"], select#yearFilter, select.year-select, #rfYear');
+      const yearSelects = document.querySelectorAll('select[name="YEAR"], select#yearFilter, select.year-select');
       
       if (rawData.length) {
         const years = new Set();
