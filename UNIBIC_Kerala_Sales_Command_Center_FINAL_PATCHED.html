@@ -8160,7 +8160,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     const gsvEl=document.getElementById('kGsv');
     const out=document.getElementById('kGsvWithoutTax');
     if(!gsvEl||!out)return;
-    const raw=String(gsvEl.textContent||'').replace(/,/g,'').match(/-?\\d+(?:\\.\\d+)?/);
+    const raw=String(gsvEl.textContent||'').replace(/,/g,'').match(/-?\d+(?:\.\d+)?/);
     const includingTax=raw?Number(raw[0]):0;
     const withoutTax=includingTax/1.05;
     out.textContent='GSV WITHOUT TAX: ₹'+withoutTax.toLocaleString('en-IN',{maximumFractionDigits:2,minimumFractionDigits:0});
