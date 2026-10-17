@@ -7439,7 +7439,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       name:'LIVE SOH - CFA Wise',
       cols:['ITEMID','DESCRIPTION','PACKFAMILY','MRP','CFA / WAREHOUSE','CBB','Grand Total','Available Shelf Life','Balance Shelf Life %'],
       make:function(){
-        const source=(window.__reportSOHFilterApplied && typeof filteredSOH!=='undefined' && Array.isArray(filteredSOH))?filteredSOH:((typeof soh!=='undefined' && Array.isArray(soh))?soh:(window.soh||[]));
+        const source=(window.__reportSOHFilterApplied && Array.isArray(window.__reportSOHRows))?window.__reportSOHRows:((typeof filteredSOH!=='undefined' && Array.isArray(filteredSOH))?filteredSOH:((typeof soh!=='undefined' && Array.isArray(soh))?soh:(window.soh||[])));
         const map=new Map();
         source.forEach(r=>{
           const item=clean(read(r,['ITEMID','ItemID','Item Id','Item Code','ITEM CODE'])); if(!item)return;
@@ -7845,22 +7845,6 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   // LIVE SOH - CFA Wise in Report Center gets its own three filters, independent of common GSV filters.
   window.__reportSOHFilter = window.__reportSOHFilter || {type:'',warehouse:'',mrp:''};
   window.__reportSOHRows = allSohRows().slice();
-  const oldSohConfig = (typeof reports!=='undefined' && reports.soh) ? reports.soh : null;
-  if(oldSohConfig && typeof oldSohConfig.make==='function'){
-    const oldSohMake=oldSohConfig.make;
-    oldSohConfig.make=function(){
-      const originalSoh = typeof soh!=='undefined' ? soh : window.soh;
-      const originalFiltered = typeof filteredSOH!=='undefined' ? filteredSOH : window.filteredSOH;
-      try {
-        if(typeof soh!=='undefined') soh=window.__reportSOHRows.slice();
-        if(typeof filteredSOH!=='undefined') filteredSOH=window.__reportSOHRows.slice();
-        return oldSohMake.apply(this,arguments);
-      } finally {
-        if(typeof soh!=='undefined') soh=originalSoh;
-        if(typeof filteredSOH!=='undefined') filteredSOH=originalFiltered;
-      }
-    };
-  }
   function sohVal(r,keys){return clean(read(r,keys));}
   function sohOptionList(key){
     const rows=allSohRows();
