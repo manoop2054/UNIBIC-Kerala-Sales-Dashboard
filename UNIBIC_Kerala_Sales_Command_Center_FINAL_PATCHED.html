@@ -8273,6 +8273,24 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   if(typeof reports!=='undefined' && reports.soh){
     reports.soh.cols=['TYPE','ITEMID','DESCRIPTION','PACKFAMILY','MRP','CFA / WAREHOUSE','CBB','Grand Total','Available Shelf Life %'];
     reports.soh.make=function(){
+      // Keep shelf-life calculation local to this patch scope (balancePercent is private to another script).
+      const calcShelfPercent=function(r){
+        const pick=function(keys){for(const k of keys){if(r && r[k]!==undefined && r[k]!==null && String(r[k]).trim()!=='')return r[k];}return null;};
+        const asDate=function(v){
+          if(v instanceof Date && !isNaN(v)) return v;
+          if(v===null || v===undefined || String(v).trim()==='') return null;
+          if(typeof v==='number' && v>20000 && v<80000) return new Date(Date.UTC(1899,11,30)+v*86400000);
+          const s=String(v).trim();
+          const m=s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$/);
+          if(m){let y=Number(m[3]);if(y<100)y+=y>=50?1900:2000;const d=new Date(y,Number(m[2])-1,Number(m[1]));return isNaN(d.getTime())?null:d;}
+          const d=new Date(s);return isNaN(d.getTime())?null:d;
+        };
+        const mfg=asDate(pick(['MFG','Mfg','Manufacturing Date','MFGDATE','MFD','MFD Date','MFD_DATE']));
+        const exp=asDate(pick(['EXPIRY_DATE','Expiry Date','EXPIRY DATE','ExpiryDate','EXP DATE','EXP_DATE']));
+        if(!mfg||!exp||exp<=mfg)return '';
+        const today=new Date();today.setHours(0,0,0,0);
+        return Math.round(((exp.getTime()-today.getTime())/(exp.getTime()-mfg.getTime()))*10000)/100;
+      };
       const applied=!!window.__reportSOHFilterApplied;
       const rows=applied
         ? (Array.isArray(window.__reportSOHRows)?window.__reportSOHRows:[])
@@ -8302,7 +8320,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
           clean(r.TYPE||r.Type)===z.type &&
           clean(r.WAREHOUSE||r.Warehouse||r.CFA||r['CFA Name']||r['CFA / WAREHOUSE'])===z.wh &&
           clean(r.MRP??r.MRP_Price??r['MRP Price'])===z.mrp) || {};
-        const percent=balancePercent(source);
+        const percent=calcShelfPercent(source);
         return [z.type,z.item,z.desc,z.pack,z.mrp,z.wh,z.cbb,z.cbb,percent];
       });
     };
