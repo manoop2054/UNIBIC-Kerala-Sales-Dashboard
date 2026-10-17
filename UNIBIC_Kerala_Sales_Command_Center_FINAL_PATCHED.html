@@ -7767,12 +7767,19 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   // LIVE SOH - CFA Wise in Report Center gets its own three filters, independent of common GSV filters.
   window.__reportSOHFilter = window.__reportSOHFilter || {type:'',warehouse:'',mrp:''};
   window.__reportSOHRows = allSohRows().slice();
-  function sohVal(r,keys){return clean(read(r,keys));}
-  function normaliseSOHWarehouse(value){return clean(value).toUpperCase().replace(/[^A-Z0-9]/g,'');}
+  function normaliseSOHKey(value){return String(value??'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
+  function sohVal(r,keys){
+    const direct=read(r,keys); if(clean(direct)!=='') return clean(direct);
+    if(!r || typeof r!=='object') return '';
+    const wanted=new Set(keys.map(normaliseSOHKey));
+    for(const actual of Object.keys(r)) if(wanted.has(normaliseSOHKey(actual)) && clean(r[actual])!=='') return clean(r[actual]);
+    return '';
+  }
+  function normaliseSOHWarehouse(value){return normaliseSOHKey(value);}
   function sohOptionList(key){
     const rows=allSohRows();
     if(key==='type') return unique(rows.map(r=>sohVal(r,['TYPE','Type'])));
-    if(key==='warehouse') return unique(rows.map(r=>sohVal(r,['WAREHOUSE','Warehouse','CFA','CFA Name','CFA / WAREHOUSE'])));
+    if(key==='warehouse') return unique(rows.map(r=>sohVal(r,['WAREHOUSE'])));
     if(key==='mrp') return unique(rows.map(r=>sohVal(r,['MRP','MRP_Price','MRP Price'])));
     return [];
   }
@@ -7806,7 +7813,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     window.__reportSOHFilterApplied=true;
     window.__reportSOHRows=allSohRows().filter(r=>
       (!f.type || sohVal(r,['TYPE','Type'])===f.type) &&
-      (!f.warehouse || normaliseSOHWarehouse(sohVal(r,['WAREHOUSE','Warehouse','CFA','CFA Name','CFA / WAREHOUSE']))===normaliseSOHWarehouse(f.warehouse)) &&
+      (!f.warehouse || normaliseSOHWarehouse(sohVal(r,['WAREHOUSE']))===normaliseSOHWarehouse(f.warehouse)) &&
       (!f.mrp || sohVal(r,['MRP','MRP_Price','MRP Price'])===f.mrp)
     );
     if(typeof filteredSOH!=='undefined') filteredSOH=window.__reportSOHRows;
@@ -8272,7 +8279,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   // 2) LIVE SOH - CFA Wise: filter source rows first, then show real CFA/type/MRP details.
   // An empty filtered result must remain empty (never fall back to all stock rows).
   if(typeof reports!=='undefined' && reports.soh){
-    reports.soh.cols=['TYPE','ITEMID','DESCRIPTION','PACKFAMILY','MRP','CFA / WAREHOUSE','CBB','Grand Total','Available Shelf Life %'];
+    reports.soh.cols=['TYPE','ITEMID','DESCRIPTION','PACKFAMILY','MRP','WAREHOUSE','CBB','Grand Total','Available Shelf Life %'];
     reports.soh.make=function(){
       // Keep shelf-life calculation local to this patch scope (balancePercent is private to another script).
       const calcShelfPercent=function(r){
@@ -8301,7 +8308,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
         const item=clean(r.ITEMID||r.ItemID||r['Item Id']||r['Item Code']||r['ITEM CODE']);
         if(!item)return;
         const type=clean(r.TYPE||r.Type);
-        const wh=clean(r.WAREHOUSE||r.Warehouse||r.CFA||r['CFA Name']||r['CFA / WAREHOUSE']);
+        const wh=sohVal(r,['WAREHOUSE']);
         const mrp=clean(r.MRP??r.MRP_Price??r['MRP Price']);
         const key=[type,item,wh,mrp].join('\u001f');
         if(!map.has(key)){
@@ -8319,7 +8326,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       return [...map.values()].map(z=>{
         const source=rows.find(r=>clean(r.ITEMID||r.ItemID||r['Item Id']||r['Item Code']||r['ITEM CODE'])===z.item &&
           clean(r.TYPE||r.Type)===z.type &&
-          clean(r.WAREHOUSE||r.Warehouse||r.CFA||r['CFA Name']||r['CFA / WAREHOUSE'])===z.wh &&
+          sohVal(r,['WAREHOUSE'])===z.wh &&
           clean(r.MRP??r.MRP_Price??r['MRP Price'])===z.mrp) || {};
         const percent=calcShelfPercent(source);
         return [z.type,z.item,z.desc,z.pack,z.mrp,z.wh,z.cbb,z.cbb,percent];
