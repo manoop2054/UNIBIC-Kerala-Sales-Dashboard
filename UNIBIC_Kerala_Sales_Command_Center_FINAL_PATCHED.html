@@ -7362,16 +7362,33 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       cols:['ITEMID','DESCRIPTION','PACKFAMILY','MRP','CFA / WAREHOUSE','CBB','Grand Total','Available Shelf Life','Balance Shelf Life %'],
       make:function(){
         const source=(window.__reportSOHFilterApplied && Array.isArray(window.__reportSOHRows))?window.__reportSOHRows:((typeof filteredSOH!=='undefined' && Array.isArray(filteredSOH))?filteredSOH:((typeof soh!=='undefined' && Array.isArray(soh))?soh:(window.soh||[])));
-        const map=new Map();
+        const normalKey=value=>String(value??'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+        const fieldValue=(r,keys)=>{
+          const direct=read(r,keys);
+          if(clean(direct)!=='') return direct;
+          const wanted=new Set(keys.map(normalKey));
+          const actual=Object.keys(r||{}).find(k=>wanted.has(normalKey(k)) && clean(r[k])!=='');
+          return actual===undefined?'':r[actual];
+        };
+        const qtyValue=r=>{
+          const keys=['TOTAL_MAIN_QRT','CBB','CBO','QuantityinCBO','Quantity in CBO','TOTAL_CBB','TOTAL CBB','INTRANSIT_CBB','INTRANSIT CBB','TRANSIT_CBB','TRANSIT CBB','CBB_QTY','CBB QTY'];
+          const v=fieldValue(r,keys);
+          const n=Number(String(v??0).replace(/,/g,''));
+          return Number.isFinite(n)?n:0;
+        };
+        const map=new Map(), totals=new Map();
         source.forEach(r=>{
-          const item=clean(read(r,['ITEMID','ItemID','Item Id','Item Code','ITEM CODE'])); if(!item)return;
-          const wh=clean(read(r,['WAREHOUSE','Warehouse','CFA','CFA Name'])); const key=item+'|'+wh;
-          if(!map.has(key)) map.set(key,{item,desc:read(r,['DESCRIPTION','Description','ITEM DESCRIPTION']),pack:read(r,['PACKFAMILY','PACK FAMILY','PackFamily']),mrp:read(r,['MRP','MRP_Price','MRP Price']),wh,cbb:0,available:availableValue(r),balance:balancePercent(r)});
-          const z=map.get(key); z.cbb+=Number(read(r,['TOTAL_MAIN_QRT','CBB','CBO','QuantityinCBO','Quantity in CBO'])||0);
+          const item=clean(fieldValue(r,['ITEMID','ItemID','Item Id','Item Code','ITEM CODE'])); if(!item)return;
+          const wh=clean(fieldValue(r,['WAREHOUSE','Warehouse','CFA','CFA Name']));
+          const mrp=clean(fieldValue(r,['MRP','MRP_Price','MRP Price']));
+          const key=[item,wh,mrp].join('|');
+          if(!map.has(key)) map.set(key,{item,desc:fieldValue(r,['DESCRIPTION','Description','ITEM DESCRIPTION']),pack:fieldValue(r,['PACKFAMILY','PACK FAMILY','PackFamily']),mrp,wh,cbb:0,available:availableValue(r),balance:balancePercent(r)});
+          const z=map.get(key); z.cbb+=qtyValue(r);
+          const totalKey=[item,mrp].join('|'); totals.set(totalKey,(totals.get(totalKey)||0)+qtyValue(r));
           if(z.available==='' && availableValue(r)!=='') z.available=availableValue(r);
           if(z.balance==='' && balancePercent(r)!=='') z.balance=balancePercent(r);
         });
-        return [...map.values()].map(z=>[z.item,z.desc,z.pack,z.mrp,z.wh,z.cbb,z.cbb,z.available,z.balance]);
+        return [...map.values()].map(z=>[z.item,z.desc,z.pack,z.mrp,z.wh,z.cbb,totals.get([z.item,z.mrp].join('|'))||0,z.available,z.balance]);
       }
     };
   }
