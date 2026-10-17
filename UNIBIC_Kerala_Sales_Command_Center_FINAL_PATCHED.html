@@ -8353,7 +8353,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
               r.REMAININGSHELFLIFE||r['Remaining Shelf Life']||r.SHELFLIFE||r['Shelf Life'])});
         }
         const z=map.get(key);
-        const qty=r.TOTAL_MAIN_QRT??r.CBB??r.CBO??r.QuantityinCBO??r['Quantity in CBO'];
+        const qty=String(type).trim().toUpperCase()==='INTRANSIT'?r.CBO:(r.TOTAL_MAIN_QRT??r.CBB??r.CBO??r.QuantityinCBO??r['Quantity in CBO']);
         const n=Number(String(qty??0).replace(/,/g,'')); z.cbb+=Number.isFinite(n)?n:0;
         if(!z.shelf) z.shelf=clean(r.AVAILABLESHELFLIFE||r['Available Shelf Life']||r['Available Shelf Life %']||
           r.REMAININGSHELFLIFE||r['Remaining Shelf Life']||r.SHELFLIFE||r['Shelf Life']);
