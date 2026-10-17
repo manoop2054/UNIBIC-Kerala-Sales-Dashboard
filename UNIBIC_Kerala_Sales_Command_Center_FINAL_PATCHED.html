@@ -1819,6 +1819,18 @@ setTimeout(()=>{
     <div style="padding:16px">
       <div class="filters" style="margin-bottom:16px">
         <div class="field">
+          <label for="targetRankArea">Area</label>
+          <select id="targetRankArea" onchange="renderTarget()">
+            <option value="">All Areas</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="targetRankAnchorZone">Anchor Zone</label>
+          <select id="targetRankAnchorZone" onchange="renderTarget()">
+            <option value="">All Anchor Zones</option>
+          </select>
+        </div>
+        <div class="field">
           <label for="targetAnchorSelect">Select Anchor</label>
           <select id="targetAnchorSelect" onchange="renderTarget()">
             <option value="">Select Anchor to view DBRs</option>
@@ -3168,8 +3180,37 @@ function getTargetFilteredRows(){
   });
 }
 
-function getAnchorAchievementData(){
+function targetRankArea(r){
+  return String(r.__area ?? r.AreaCode ?? r["Area Code"] ?? r.Area ?? "").replace(/\u00A0/g," ").replace(/\s+/g," ").trim();
+}
+function targetRankAnchorZone(r){
+  return String(r.__anchorZone ?? r.AnchorZoneName ?? r["Anchor Zone Name"] ?? r["Anchor Zone"] ?? r.AnchorZone ?? "").replace(/\u00A0/g," ").replace(/\s+/g," ").trim();
+}
+function populateTargetRankingFilters(){
   const rows = getTargetFilteredRows();
+  const areaEl = document.getElementById("targetRankArea");
+  const zoneEl = document.getElementById("targetRankAnchorZone");
+  if(!areaEl || !zoneEl) return;
+  const oldArea = areaEl.value;
+  const oldZone = zoneEl.value;
+  const areas = [...new Set(rows.map(targetRankArea).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  areaEl.innerHTML = '<option value="">All Areas</option>' + areas.map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join("");
+  if(areas.includes(oldArea)) areaEl.value = oldArea;
+  const selectedArea = areaEl.value;
+  const zones = [...new Set(rows.filter(r=>!selectedArea || targetRankArea(r)===selectedArea).map(targetRankAnchorZone).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  zoneEl.innerHTML = '<option value="">All Anchor Zones</option>' + zones.map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join("");
+  if(zones.includes(oldZone)) zoneEl.value = oldZone;
+}
+function getTargetRankingRows(){
+  const area = document.getElementById("targetRankArea")?.value || "";
+  const zone = document.getElementById("targetRankAnchorZone")?.value || "";
+  return getTargetFilteredRows().filter(r =>
+    (!area || targetRankArea(r)===area) &&
+    (!zone || targetRankAnchorZone(r)===zone)
+  );
+}
+function getAnchorAchievementData(rowsOverride){
+  const rows = Array.isArray(rowsOverride) ? rowsOverride : getTargetFilteredRows();
   const anchorTotals = new Map();
   const dbrTotals = new Map();
 
@@ -3207,14 +3248,16 @@ function rowsForAnchor(anchor){
 
 function renderTarget(){
   populateTargetFilters();
+  populateTargetRankingFilters();
 
   const data = getAnchorAchievementData();
+  const rankingData = getAnchorAchievementData(getTargetRankingRows());
   const anchorSelect = document.getElementById("targetAnchorSelect");
   const search = String(document.getElementById("targetDbrSearch")?.value || "").trim().toLowerCase();
   const previous = anchorSelect ? anchorSelect.value : "";
 
   if (anchorSelect) {
-    const options = data.anchors.map(x => x.Anchor);
+    const options = rankingData.anchors.map(x => x.Anchor);
     anchorSelect.innerHTML = '<option value="">Select Anchor to view DBRs</option>' +
       options.map(a => '<option value="' + esc(a) + '">' + esc(a) + '</option>').join("");
     if (options.includes(previous)) anchorSelect.value = previous;
@@ -3230,7 +3273,7 @@ function renderTarget(){
 
   const selectedAnchor = anchorSelect ? anchorSelect.value : "";
   const rankingBody = document.getElementById("targetDbrTable");
-  const ranking = data.dbrs.filter(x => {
+  const ranking = rankingData.dbrs.filter(x => {
     const name = String(x.DBRName || "").toLowerCase();
     const code = String(x.DBRCode || "").toLowerCase();
     return selectedAnchor && x.Anchor === selectedAnchor &&
@@ -3277,10 +3320,11 @@ function exportAnchorAchievement(){
   }
 
   const data = getAnchorAchievementData();
+  const rankingData = getAnchorAchievementData(getTargetRankingRows());
   const selectedAnchor = document.getElementById("targetAnchorSelect")?.value || "";
   const search = String(document.getElementById("targetDbrSearch")?.value || "").trim().toLowerCase();
 
-  const dbrs = data.dbrs.filter(x => {
+  const dbrs = rankingData.dbrs.filter(x => {
     const name = String(x.DBRName || "").toLowerCase();
     const code = String(x.DBRCode || "").toLowerCase();
     return selectedAnchor && x.Anchor === selectedAnchor &&
