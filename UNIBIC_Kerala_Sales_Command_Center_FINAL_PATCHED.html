@@ -8123,89 +8123,88 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   }
 })();
 </script>
+
+<script id="UNIBIC_REPORT_DATE_FILTER_RECOVERY_20261017">
+(function(){
+  'use strict';
+  if(window.__unibicReportDateRecovery) return;
+  window.__unibicReportDateRecovery = true;
+
+  function rows(){
+    if(typeof gsvRows !== 'undefined' && Array.isArray(gsvRows) && gsvRows.length) return gsvRows;
+    return Array.isArray(window.gsvRows) ? window.gsvRows : [];
+  }
+  function parsedDate(r){
+    if(!r) return null;
+    var d=r.__date;
+    if(d instanceof Date && !Number.isNaN(d.getTime())) return d;
+    if(d!==undefined && d!==null && d!==''){
+      var dd=new Date(d);
+      if(!Number.isNaN(dd.getTime())) return dd;
+    }
+    var v=r.PostingDate || r['Posting Date'] || r.Date || r['Invoice Date'] || r.InvoiceDate;
+    if(v===undefined || v===null || v==='') return null;
+    if(typeof dateVal==='function'){
+      var dv=dateVal(v);
+      if(dv instanceof Date && !Number.isNaN(dv.getTime())) return dv;
+    }
+    var parsed=new Date(v);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  function fillSelect(el, values, sortFn){
+    if(!el) return;
+    var selected=new Set(Array.from(el.selectedOptions || []).map(function(o){return o.value;}).filter(Boolean));
+    var list=Array.from(new Set(values.map(String).filter(Boolean))).sort(sortFn);
+    var current=Array.from(el.options || []).map(function(o){return o.value;}).filter(Boolean);
+    if(current.length===list.length && current.every(function(v,i){return v===list[i];})) return;
+    el.innerHTML='';
+    list.forEach(function(v){
+      var opt=document.createElement('option');
+      opt.value=v;
+      opt.textContent=v;
+      opt.selected=selected.has(v);
+      el.appendChild(opt);
+    });
+  }
+  function repair(){
+    var source=rows();
+    var y=document.getElementById('rfYear');
+    var m=document.getElementById('rfMonth');
+    var d=document.getElementById('rfDay');
+    if(!source.length || !y || !m || !d) return false;
+
+    try { if(typeof rebuildFilters==='function') rebuildFilters(); } catch(e) { console.warn('Report filter rebuild:',e); }
+
+    var dates=[];
+    for(var i=0;i<source.length;i++){
+      var date=parsedDate(source[i]);
+      if(date) dates.push(date);
+    }
+    if(!dates.length) return false;
+
+    var monthNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    fillSelect(y,dates.map(function(x){return x.getFullYear();}),function(a,b){return Number(a)-Number(b);});
+    fillSelect(m,dates.map(function(x){return monthNames[x.getMonth()];}),function(a,b){return monthNames.indexOf(a)-monthNames.indexOf(b);});
+    fillSelect(d,dates.map(function(x){return x.getDate();}),function(a,b){return Number(a)-Number(b);});
+
+    if(typeof renderReportTabs==='function') { try{renderReportTabs();}catch(e){console.warn('Report tabs refresh:',e);} }
+    if(typeof renderReport==='function') { try{renderReport();}catch(e){console.warn('Report refresh:',e);} }
+    console.info('Report Center date filters ready:',y.options.length,'years,',m.options.length,'months,',d.options.length,'days; source rows:',source.length);
+    return true;
+  }
+
+  var attempts=0;
+  var timer=setInterval(function(){
+    attempts++;
+    if(repair() || attempts>=2400) clearInterval(timer);
+  },250);
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){repair();},{once:true});
+  } else {
+    setTimeout(repair,0);
+  }
+})();
+</script>
+
 </body></html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
