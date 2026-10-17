@@ -5116,7 +5116,6 @@ function replaceWithSearch(id,type,label,placeholder){
 
  const old=document.getElementById(id);
  if(!old)return;
-
  const parent=old.parentElement;
  if(parent.dataset.finalFilterDone==='1')return;
  parent.dataset.finalFilterDone='1';
@@ -5138,30 +5137,36 @@ function replaceWithSearch(id,type,label,placeholder){
  parent.appendChild(input);
  parent.appendChild(list);
 
- function valueForRow(r){
-   if(type==='customer')return customer(r);
-   if(type==='invoice')return invoice(r);
-   if(type==='item')return item(r)||desc(r);
-   return '';
- }
-
  input.addEventListener('input',function(){
    const q=T(this.value).toLowerCase();
    const rows=getRows();
-   const values=[...new Set(rows.map(valueForRow).map(v=>T(v)).filter(Boolean))];
-   const matchedValues=values.filter(v=>v.toLowerCase().includes(q));
+   let matched=[];
+   let suggestions=[];
 
-   // Offer a short, useful autocomplete list instead of creating thousands of DOM options.
+   if(type==='customer'){
+     matched=rows.filter(r=>customer(r).toLowerCase().includes(q)).map(customer).filter(Boolean);
+     suggestions=[...new Set(matched)];
+   }else if(type==='invoice'){
+     matched=rows.filter(r=>invoice(r).toLowerCase().includes(q)).map(invoice).filter(Boolean);
+     suggestions=[...new Set(matched)];
+   }else if(type==='item'){
+     matched=rows.filter(r=>item(r).toLowerCase().includes(q)||desc(r).toLowerCase().includes(q)).map(item).filter(Boolean);
+     suggestions=[...new Set(rows.filter(r=>item(r).toLowerCase().includes(q)||desc(r).toLowerCase().includes(q)).map(r=>({code:item(r),description:desc(r)})).filter(x=>x.code))];
+   }
+
    list.replaceChildren();
-   matchedValues.slice(0,60).forEach(function(v){
+   suggestions.slice(0,60).forEach(function(v){
      const option=document.createElement('option');
-     option.value=v;
+     if(type==='item'){
+       option.value=v.code;
+       option.label=v.description||v.code;
+     }else{
+       option.value=v;
+     }
      list.appendChild(option);
    });
 
-   // Empty search clears the filter; otherwise match all source values containing the query.
-   window.state[type]=q ? new Set(matchedValues) : new Set();
-
+   window.state[type]=q ? new Set(matched) : new Set();
    try{if(typeof renderReport==='function')renderReport();}catch(e){console.warn('Report search render failed:',e);}
    try{if(typeof renderReportTabs==='function')renderReportTabs();}catch(e){}
  });
