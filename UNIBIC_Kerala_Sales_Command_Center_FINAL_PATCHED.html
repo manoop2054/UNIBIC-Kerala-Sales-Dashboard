@@ -8281,6 +8281,27 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       });
     }
   });
+
+  // Safe select-all / clear-all for the three search boxes and all real multi-selects.
+  if($('enhSelectAll')) $('enhSelectAll').onclick=function(){
+    ['year','month','day','mrp','dbr','area','anchorZone','abm'].forEach(key=>{
+      const el=$('rf'+key.charAt(0).toUpperCase()+key.slice(1));
+      if(!el || !el.options) return;
+      Array.from(el.options).forEach(o=>o.selected=true);
+      if(typeof state!=='undefined') state[key]=new Set(Array.from(el.options).map(o=>o.value).filter(Boolean));
+    });
+    ['customer','invoice','item'].forEach(key=>{if(typeof state!=='undefined')state[key]=new Set();});
+    ['rfCustomer','rfInvoice','rfItem'].forEach(id=>{if($(id))$(id).value='';});
+    if(typeof window.renderReport==='function')window.renderReport();
+  };
+  if($('enhClearAll')) $('enhClearAll').onclick=function(){
+    if(typeof state!=='undefined') Object.keys(state).forEach(key=>state[key]=new Set());
+    document.querySelectorAll('#reportFilters select[multiple]').forEach(el=>Array.from(el.options).forEach(o=>o.selected=false));
+    ['rfCustomer','rfInvoice','rfItem'].forEach(id=>{if($(id))$(id).value='';});
+    if(typeof window.rebuildFilters==='function')window.rebuildFilters();
+    const body=$('enhReportBody'); if(body) delete body.dataset.unibicRenderKey;
+    if(typeof window.renderReport==='function')window.renderReport();
+  };
   // Clear All must also clear search text without disturbing other filter choices.
   $('enhClearAll')?.addEventListener('click',()=>{
     ['rfCustomer','rfInvoice','rfItem'].forEach(id=>{if($(id))$(id).value='';});
