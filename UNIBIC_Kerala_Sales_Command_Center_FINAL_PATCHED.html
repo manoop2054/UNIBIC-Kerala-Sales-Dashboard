@@ -7407,7 +7407,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       try{
         const cfg=reports[report]; if(!cfg){body.innerHTML='<div class="card"><div class="empty">Report configuration not found.</div></div>';return;}
         const filterKey=typeof state!=='undefined'&&state?Object.keys(state).map(k=>{const v=state[k];if(v instanceof Set)return k+':'+Array.from(v).map(String).sort().join(',');if(Array.isArray(v))return k+':'+v.map(String).sort().join(',');return k+':'+String(v==null?'':v);}).join('|'):'';
-        const cacheKey=String(report)+'|'+String(window.gsvRows?.length||0)+'|'+String(window.soh?.length||0)+'|'+filterKey;
+        const cacheKey=String(report)+'|'+String(window.gsvRows?.length||0)+'|'+String(window.soh?.length||0)+'|'+filterKey+'|sohFilter='+JSON.stringify(window.__reportSOHFilter||{});
         let data=filteredCache.get(cacheKey);
         if(!data){data=cfg.make(filtered())||[];filteredCache.set(cacheKey,data);while(filteredCache.size>4)filteredCache.delete(filteredCache.keys().next().value);}
         const cols=cfg.cols||[];
