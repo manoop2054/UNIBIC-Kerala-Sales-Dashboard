@@ -8281,6 +8281,13 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   if(typeof reports!=='undefined' && reports.soh){
     reports.soh.cols=['TYPE','ITEMID','DESCRIPTION','PACKFAMILY','MRP','WAREHOUSE','CBB','Grand Total','Available Shelf Life %'];
     reports.soh.make=function(){
+      // Keep helper local to this report function; sohVal is scoped inside a different script closure.
+      const sohValueLocal=function(r,keys){
+        const norm=function(v){return String(v??'').toUpperCase().replace(/[^A-Z0-9]/g,'');};
+        for(const key of keys){if(r && r[key]!==undefined && r[key]!==null && String(r[key]).trim()!=='')return clean(r[key]);}
+        if(r && typeof r==='object'){const wanted=new Set(keys.map(norm));for(const actual of Object.keys(r)){if(wanted.has(norm(actual)) && r[actual]!==undefined && r[actual]!==null && String(r[actual]).trim()!=='')return clean(r[actual]);}}
+        return '';
+      };
       // Keep shelf-life calculation local to this patch scope (balancePercent is private to another script).
       const calcShelfPercent=function(r){
         const pick=function(keys){for(const k of keys){if(r && r[k]!==undefined && r[k]!==null && String(r[k]).trim()!=='')return r[k];}return null;};
@@ -8308,7 +8315,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
         const item=clean(r.ITEMID||r.ItemID||r['Item Id']||r['Item Code']||r['ITEM CODE']);
         if(!item)return;
         const type=clean(r.TYPE||r.Type);
-        const wh=sohVal(r,['WAREHOUSE']);
+        const wh=sohValueLocal(r,['WAREHOUSE']);
         const mrp=clean(r.MRP??r.MRP_Price??r['MRP Price']);
         const key=[type,item,wh,mrp].join('\u001f');
         if(!map.has(key)){
@@ -8326,7 +8333,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       return [...map.values()].map(z=>{
         const source=rows.find(r=>clean(r.ITEMID||r.ItemID||r['Item Id']||r['Item Code']||r['ITEM CODE'])===z.item &&
           clean(r.TYPE||r.Type)===z.type &&
-          sohVal(r,['WAREHOUSE'])===z.wh &&
+          sohValueLocal(r,['WAREHOUSE'])===z.wh &&
           clean(r.MRP??r.MRP_Price??r['MRP Price'])===z.mrp) || {};
         const percent=calcShelfPercent(source);
         return [z.type,z.item,z.desc,z.pack,z.mrp,z.wh,z.cbb,z.cbb,percent];
