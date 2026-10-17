@@ -7804,7 +7804,10 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       el.addEventListener('change',()=>{
         window.__reportSOHFilter[key]=el.value;
         applyReportSOHFilters();
-        if(typeof renderReport==='function')renderReport();
+        // Dedicated SOH filters are not part of the common filter signature; force the table renderer to refresh.
+        const reportBody=$('enhReportBody');
+        if(reportBody) delete reportBody.dataset.unibicRenderKey;
+        if(typeof window.renderReport==='function')window.renderReport();
       });
     });
   }
