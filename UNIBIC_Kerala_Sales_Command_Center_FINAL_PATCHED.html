@@ -3010,7 +3010,8 @@ function sohDate(v){
   });
 }
 function renderSOH(){
-  const rows=Array.isArray(filteredSOH)?filteredSOH:(Array.isArray(soh)?soh:[]);
+  // Always start from the complete loaded SOH source; apply warehouse/item filters below.
+  const rows=Array.isArray(soh)?soh:(Array.isArray(filteredSOH)?filteredSOH:[]);
   const wh=[...new Set(rows.map(x=>String(x.WAREHOUSE||x.CFA||x['CFA / WAREHOUSE']||'').trim()).filter(Boolean))].sort();
   const items=[...new Set(rows.map(x=>String(x.ITEMID||x.ItemId||x['Item ID']||'').trim()).filter(Boolean))].sort();
   const desc=[...new Set(rows.map(x=>String(x.DESCRIPTION||x.Description||'').trim()).filter(Boolean))].sort();
@@ -8281,6 +8282,66 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       });
     }
   });
+
+  // Autocomplete suggestions for Customer, Invoice and Item search.
+  // Values come from the loaded GSV rows; selection reuses the existing report filter.
+  (function bindReportAutocomplete(){
+    const configs = [
+      {id:'rfCustomer', values:r=>[r.__customer,r.__dbrName,r.__dbrCode,r.Billed_to_Name,r.Ship_to_Name,r.Sell_to_Customer_Name,r.Customer_Name,r.Customer]},
+      {id:'rfInvoice', values:r=>[r.__invoice,r.Invoice_No,r['Invoice No'],r.Invoice]},
+      {id:'rfItem', values:r=>[r.__itemCode,r.__desc,r.ItemId,r['Item ID'],r['Item Code'],r.ItemCode,r.Description,r['Item Description']]}
+    ];
+    if(!document.getElementById('unibicReportSuggestStyle')){
+      const st=document.createElement('style'); st.id='unibicReportSuggestStyle';
+      st.textContent='.unibic-suggest-wrap{position:relative;width:100%}.unibic-suggest{position:absolute;z-index:9999;top:100%;left:0;right:0;max-height:230px;overflow:auto;background:var(--card,#fff);color:var(--text,#222);border:1px solid #b8c5d6;border-radius:7px;box-shadow:0 6px 16px rgba(0,0,0,.16);display:none}.unibic-suggest button{display:block;width:100%;text-align:left;padding:8px 10px;border:0;border-bottom:1px solid rgba(120,130,145,.18);background:transparent;color:inherit;cursor:pointer;font:inherit}.unibic-suggest button:hover,.unibic-suggest button:focus{background:rgba(40,120,220,.12);outline:none}.unibic-suggest small{opacity:.7;display:block;font-size:11px}';
+      document.head.appendChild(st);
+    }
+    const source=()=>Array.isArray(window.gsvRows)?window.gsvRows:(typeof gsvRows!=='undefined'&&Array.isArray(gsvRows)?gsvRows:[]);
+    const unique=(vals)=>[...new Set(vals.map(clean).filter(Boolean))];
+    configs.forEach(cfg=>{
+      const input=$(cfg.id); if(!input||input.dataset.unibicAutoBound==='1')return;
+      input.dataset.unibicAutoBound='1';
+      const wrap=document.createElement('div');wrap.className='unibic-suggest-wrap';
+      input.parentNode.insertBefore(wrap,input);wrap.appendChild(input);
+      const list=document.createElement('div');list.className='unibic-suggest';list.setAttribute('role','listbox');wrap.appendChild(list);
+      let active=-1, shown=[];
+      const hide=()=>{list.style.display='none';active=-1;};
+      const refresh=()=>{
+        const q=lower(input.value);
+        list.innerHTML='';active=-1;shown=[];
+        if(!q){hide();return;}
+        const rows=source();
+        const vals=unique(rows.flatMap(r=>cfg.values(r)));
+        shown=vals.filter(v=>lower(v).includes(q)).slice(0,12);
+        if(!shown.length){hide();return;}
+        shown.forEach((v,i)=>{
+          const b=document.createElement('button');b.type='button';b.setAttribute('role','option');b.textContent=v;
+          b.addEventListener('mousedown',e=>e.preventDefault());
+          b.addEventListener('click',()=>{
+            input.value=v;hide();
+            const body=$('enhReportBody');if(body)delete body.dataset.unibicRenderKey;
+            if(typeof window.renderReport==='function')window.renderReport();
+            if(typeof window.safeUpdateStatus==='function')window.safeUpdateStatus();
+          });
+          list.appendChild(b);
+        });
+        list.style.display='block';
+      };
+      input.addEventListener('input',refresh);
+      input.addEventListener('keydown',e=>{
+        if(list.style.display!=='block')return;
+        const buttons=Array.from(list.querySelectorAll('button'));
+        if(e.key==='ArrowDown'){e.preventDefault();active=Math.min(active+1,buttons.length-1);}
+        else if(e.key==='ArrowUp'){e.preventDefault();active=Math.max(active-1,0);}
+        else if(e.key==='Escape'){hide();return;}
+        else if(e.key==='Enter'&&active>=0){e.preventDefault();buttons[active]?.click();return;}
+        else return;
+        buttons.forEach((b,i)=>{b.style.background=i===active?'rgba(40,120,220,.12)':'';});
+        buttons[active]?.scrollIntoView({block:'nearest'});
+      });
+      document.addEventListener('click',e=>{if(!wrap.contains(e.target))hide();});
+    });
+  })();
 
   // Safe select-all / clear-all for the three search boxes and all real multi-selects.
   if($('enhSelectAll')) $('enhSelectAll').onclick=function(){
