@@ -442,12 +442,10 @@ function renderReport(){
               ${
                 data.slice(0,50).map(row=>`
                   <tr>
-                    ${row.map(v=>`
-                      <td>${typeof v==='number'
-                        ? num(v).toLocaleString('en-IN',{maximumFractionDigits:2})
-                        : (report==='soh' && /shelf life %/i.test(String(cfg.cols[i]||'')) && v!=='' && Number.isFinite(Number(v))
-                        ? '<span style="display:inline-block;padding:3px 8px;border-radius:6px;font-weight:700;background:'+(Number(v)<25?'#fde2e2':Number(v)<50?'#fff0c2':'#d9f5e5')+';color:'+(Number(v)<25?'#9b1c1c':Number(v)<50?'#805b00':'#166534')+'">'+esc(v)+'%</span>'
-                        : esc(v))}
+                    ${row.map((v,i)=>`
+                      <td>${report==='soh' && /shelf life %/i.test(String(cfg.cols[i]||'')) && v!=='' && v!==null && Number.isFinite(Number(v))
+                        ? '<span style="display:inline-block;padding:3px 8px;border-radius:6px;font-weight:700;background:'+(Number(v)<25?'#fde2e2':Number(v)<50?'#fff0c2':'#d9f5e5')+';color:'+(Number(v)<25?'#9b1c1c':Number(v)<50?'#805b00':'#166534')+'">'+esc(Number(v).toFixed(1))+'%</span>'
+                        : (typeof v==='number' ? num(v).toLocaleString('en-IN',{maximumFractionDigits:2}) : esc(v))}
                       </td>
                     `).join('')}
                   </tr>
