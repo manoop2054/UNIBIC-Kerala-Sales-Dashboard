@@ -1943,7 +1943,7 @@ setTimeout(()=>{
 <div id="alertsList"></div>
 </section>
 
-<section id="reports" class="section"><h2 class="sectiontitle">&#128202; Report Center</h2><p class="subhead">One common multi-select filter controls every report below.</p><div id="reportFilters" class="card" style="margin-bottom:14px"><div class="cardhead"><h3>&#127899;&#65039; Common Multi-Select Filters</h3><span>Ctrl / Command + click for multiple values</span></div><div class="filters"><div class="field"><label>&#128467;&#65039; Year</label><select id="rfYear" multiple size="4"></select></div><div class="field"><label>&#128467;&#65039; Month</label><select id="rfMonth" multiple size="4"></select></div><div class="field"><label>&#128198; Day</label><select id="rfDay" multiple size="4"></select></div><div class="field"><label>&#128101; Customer / DBR</label><select id="rfCustomer" multiple size="4"></select></div><div class="field"><label>&#129534; Invoice</label><select id="rfInvoice" multiple size="4"></select></div><div class="field"><label>&#128230; Item Code</label><select id="rfItem" multiple size="4"></select></div><div class="field"><label>MRP</label><select id="rfMrp" multiple size="4"></select></div><div class="field"><label>&#127970; DBR</label><select id="rfDbr" multiple size="4"></select></div><div class="field"><label>Area</label><select id="rfArea" multiple size="4"></select></div><div class="field"><label>Anchor Zone</label><select id="rfAnchorZone" multiple size="4"></select></div><div class="field"><label>ABM</label><select id="rfAbm" multiple size="4"></select></div></div><button class="smallbtn" id="enhSelectAll">Select All</button> <button class="smallbtn" id="enhClearAll">Clear All</button> <button class="smallbtn" id="enhPDF">PDF / Print</button></div><div id="reportTabs" class="reportTabs"></div><div id="enhReportBody"></div></section>
+<section id="reports" class="section"><h2 class="sectiontitle">&#128202; Report Center</h2><p class="subhead">One common multi-select filter controls every report below.</p><div id="reportFilters" class="card" style="margin-bottom:14px"><div class="cardhead"><h3>&#127899;&#65039; Common Multi-Select Filters</h3><span>Ctrl / Command + click for multiple values</span></div><div class="filters"><div class="field"><label>&#128467;&#65039; Year</label><select id="rfYear" multiple size="4"></select></div><div class="field"><label>&#128467;&#65039; Month</label><select id="rfMonth" multiple size="4"></select></div><div class="field"><label>&#128198; Day</label><select id="rfDay" multiple size="4"></select></div><div class="field"><label for="rfCustomer">&#128101; Customer Search</label><input id="rfCustomer" type="search" placeholder="Search customer / DBR name..." autocomplete="off"></div><div class="field"><label for="rfInvoice">&#129534; Invoice Search</label><input id="rfInvoice" type="search" placeholder="Search invoice number..." autocomplete="off"></div><div class="field"><label for="rfItem">&#128230; Item Search</label><input id="rfItem" type="search" placeholder="Search item code / description..." autocomplete="off"></div><div class="field"><label>MRP</label><select id="rfMrp" multiple size="4"></select></div><div class="field"><label>&#127970; DBR</label><select id="rfDbr" multiple size="4"></select></div><div class="field"><label>Area</label><select id="rfArea" multiple size="4"></select></div><div class="field"><label>Anchor Zone</label><select id="rfAnchorZone" multiple size="4"></select></div><div class="field"><label>ABM</label><select id="rfAbm" multiple size="4"></select></div></div><button class="smallbtn" id="enhSelectAll">Select All</button> <button class="smallbtn" id="enhClearAll">Clear All</button> <button class="smallbtn" id="enhPDF">PDF / Print</button></div><div id="reportTabs" class="reportTabs"></div><div id="enhReportBody"></div></section>
 
 <section id="targetworking" class="section">
   <h2 class="sectiontitle">&#127919; Target Management</h2>
@@ -8237,4 +8237,143 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
 
 
 
+
+
+
+<script id="UNIBIC_TARGETED_CORRECTIONS_20261017">
+(function(){
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const clean = v => v === undefined || v === null ? '' : String(v).trim();
+  const lower = v => clean(v).toLocaleLowerCase();
+
+  // 1) Report Center: preserve all selected dropdown filters and combine them
+  // with the three text searches. Reports and Excel exports share this same row set.
+  const baseFiltered = typeof window.filtered === 'function' ? window.filtered.bind(window) : null;
+  if(baseFiltered){
+    window.filtered = function(){
+      let rows = baseFiltered();
+      const customer = lower($('rfCustomer')?.value);
+      const invoice = lower($('rfInvoice')?.value);
+      const item = lower($('rfItem')?.value);
+      if(customer) rows = rows.filter(r => [
+        r.__customer, r.__dbrName, r.__dbrCode,
+        r.Billed_to_Name, r.Ship_to_Name, r.Sell_to_Customer_Name,
+        r.Customer_Name, r.Customer
+      ].some(v => lower(v).includes(customer)));
+      if(invoice) rows = rows.filter(r => lower(r.__invoice || r.Invoice_No || r['Invoice No'] || r.Invoice).includes(invoice));
+      if(item) rows = rows.filter(r => [
+        r.__itemCode, r.__desc, r.ItemId, r['Item ID'], r['Item Code'], r.ItemCode,
+        r.Description, r['Item Description']
+      ].some(v => lower(v).includes(item)));
+      return rows;
+    };
+  }
+  ['rfCustomer','rfInvoice','rfItem'].forEach(id=>{
+    const el=$(id);
+    if(el && el.dataset.unibicSearchBound!=='1'){
+      el.dataset.unibicSearchBound='1';
+      el.addEventListener('input',()=>{
+        const body=$('enhReportBody');
+        if(body) delete body.dataset.unibicRenderKey;
+        if(typeof window.renderReport==='function') window.renderReport();
+        if(typeof window.safeUpdateStatus==='function') window.safeUpdateStatus();
+      });
+    }
+  });
+  // Clear All must also clear search text without disturbing other filter choices.
+  $('enhClearAll')?.addEventListener('click',()=>{
+    ['rfCustomer','rfInvoice','rfItem'].forEach(id=>{if($(id))$(id).value='';});
+    const body=$('enhReportBody'); if(body) delete body.dataset.unibicRenderKey;
+    setTimeout(()=>{if(typeof window.renderReport==='function')window.renderReport();},0);
+  });
+
+  // 2) LIVE SOH - CFA Wise: filter source rows first, then show real CFA/type/MRP details.
+  // An empty filtered result must remain empty (never fall back to all stock rows).
+  if(typeof reports!=='undefined' && reports.soh){
+    reports.soh.cols=['TYPE','ITEMID','DESCRIPTION','PACKFAMILY','MRP','CFA / WAREHOUSE','CBB','Grand Total','Available Shelf Life %'];
+    reports.soh.make=function(){
+      const applied=!!window.__reportSOHFilterApplied;
+      const rows=applied
+        ? (Array.isArray(window.__reportSOHRows)?window.__reportSOHRows:[])
+        : (Array.isArray(soh)?soh:[]);
+      const map=new Map();
+      rows.forEach(r=>{
+        const item=clean(r.ITEMID||r.ItemID||r['Item Id']||r['Item Code']||r['ITEM CODE']);
+        if(!item)return;
+        const type=clean(r.TYPE||r.Type);
+        const wh=clean(r.WAREHOUSE||r.Warehouse||r.CFA||r['CFA Name']||r['CFA / WAREHOUSE']);
+        const mrp=clean(r.MRP??r.MRP_Price??r['MRP Price']);
+        const key=[type,item,wh,mrp].join('\u001f');
+        if(!map.has(key)){
+          map.set(key,{type,item,desc:clean(r.DESCRIPTION||r.Description||r['ITEM DESCRIPTION']),
+            pack:clean(r.PACKFAMILY||r['PACK FAMILY']||r.PackFamily),mrp,wh,cbb:0,
+            shelf:clean(r.AVAILABLESHELFLIFE||r['Available Shelf Life']||r['Available Shelf Life %']||
+              r.REMAININGSHELFLIFE||r['Remaining Shelf Life']||r.SHELFLIFE||r['Shelf Life'])});
+        }
+        const z=map.get(key);
+        const qty=r.TOTAL_MAIN_QRT??r.CBB??r.CBO??r.QuantityinCBO??r['Quantity in CBO'];
+        const n=Number(String(qty??0).replace(/,/g,'')); z.cbb+=Number.isFinite(n)?n:0;
+        if(!z.shelf) z.shelf=clean(r.AVAILABLESHELFLIFE||r['Available Shelf Life']||r['Available Shelf Life %']||
+          r.REMAININGSHELFLIFE||r['Remaining Shelf Life']||r.SHELFLIFE||r['Shelf Life']);
+      });
+      return [...map.values()].map(z=>[z.type,z.item,z.desc,z.pack,z.mrp,z.wh,z.cbb,z.cbb,z.shelf]);
+    };
+  }
+
+  // 3) Area / Anchor Zone determine DBR ranking; Select Anchor is optional.
+  window.renderTarget=function(){
+    if(typeof populateTargetFilters==='function') populateTargetFilters();
+    if(typeof populateTargetRankingFilters==='function') populateTargetRankingFilters();
+    const data=getAnchorAchievementData();
+    const rankingData=getAnchorAchievementData(getTargetRankingRows());
+    const anchorSelect=$('targetAnchorSelect');
+    const search=lower($('targetDbrSearch')?.value);
+    const previous=anchorSelect?anchorSelect.value:'';
+    if(anchorSelect){
+      const options=rankingData.anchors.map(x=>x.Anchor);
+      anchorSelect.innerHTML='<option value="">All Anchors</option>'+options.map(a=>'<option value="'+esc(a)+'">'+esc(a)+'</option>').join('');
+      if(options.includes(previous)) anchorSelect.value=previous;
+    }
+    const selectedAnchor=anchorSelect?anchorSelect.value:'';
+    const summaryBody=$('targetTable');
+    if(summaryBody) summaryBody.innerHTML=data.anchors.map(x=>'<tr><td>'+esc(x.Anchor)+'</td><td style="text-align:right">'+money(x.AchievementGSV)+'</td></tr>').join('')||'<tr><td colspan="2">No matching records</td></tr>';
+    const ranking=rankingData.dbrs.filter(x=>{
+      const matchesAnchor=!selectedAnchor||x.Anchor===selectedAnchor;
+      return matchesAnchor && (!search||lower(x.DBRName).includes(search)||lower(x.DBRCode).includes(search));
+    });
+    const rankingBody=$('targetDbrTable');
+    if(rankingBody) rankingBody.innerHTML=ranking.map((x,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(x.DBRCode)+'</td><td>'+esc(x.DBRName)+'</td><td style="text-align:right">'+money(x.AchievementGSV)+'</td></tr>').join('')||'<tr><td colspan="4">No DBRs match the selected filters.</td></tr>';
+    const total=selectedAnchor?(data.anchors.find(x=>x.Anchor===selectedAnchor)?.AchievementGSV||0):data.anchors.reduce((sum,x)=>sum+x.AchievementGSV,0);
+    if($('targetTotalAchievement')) $('targetTotalAchievement').textContent=money(total);
+    if($('targetAnchorCount')) $('targetAnchorCount').textContent=data.anchors.length.toLocaleString('en-IN');
+    if($('targetDbrCount')) $('targetDbrCount').textContent=new Set(ranking.map(x=>x.DBRCode||x.DBRName)).size.toLocaleString('en-IN');
+    if($('targetInvoiceCount')){
+      const rows=getTargetRankingRows().filter(r=>!selectedAnchor||targetAnchorName(r)===selectedAnchor);
+      $('targetInvoiceCount').textContent=new Set(rows.map(r=>r.__invoice).filter(Boolean)).size.toLocaleString('en-IN');
+    }
+  };
+
+  // 4) DBR Ranking export follows Area + Zone + optional Anchor + DBR search.
+  window.exportAnchorAchievement=function(){
+    if(typeof XLSX==='undefined'){alert('Excel export library is not available.');return;}
+    const selectedAnchor=$('targetAnchorSelect')?.value||'';
+    const search=lower($('targetDbrSearch')?.value);
+    const rows=getTargetRankingRows().filter(r=>{
+      if(selectedAnchor && targetAnchorName(r)!==selectedAnchor) return false;
+      if(!search) return true;
+      const name=lower(r.__dbrName||r.DBR_Name||r['DBR Name']||r.Sell_to_Customer_Name);
+      const code=lower(r.__dbrCode||r.DBR_Code||r['DBR Code']||r.Billed_to_Code);
+      return name.includes(search)||code.includes(search);
+    });
+    const data=getAnchorAchievementData(rows);
+    const ranking=data.dbrs.map((x,i)=>({Rank:i+1,Anchor:x.Anchor,'DBR Code':x.DBRCode,'DBR Name':x.DBRName,'Achievement GSV':x.AchievementGSV}));
+    const summary=data.anchors.map(x=>({Anchor:x.Anchor,'Achievement GSV':x.AchievementGSV}));
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(summary),'Anchor Achievement');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(ranking),'DBR Ranking');
+    XLSX.writeFile(wb,'UNIBIC_Anchor_DBR_Achievement_Filtered.xlsx');
+  };
+})();
+</script>
 
