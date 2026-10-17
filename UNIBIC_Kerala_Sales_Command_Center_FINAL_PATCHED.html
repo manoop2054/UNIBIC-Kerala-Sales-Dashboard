@@ -7414,7 +7414,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
         const shown=data.slice(0,50);
         const rowsHtml=shown.map(row=>'<tr>'+row.map((v,i)=>{
           const col=String(cols[i]||'');
-          if(col==='Balance Shelf Life %' && v!=='' && v!==null && v!==undefined){
+          if((col==='Balance Shelf Life %' || col==='Available Shelf Life %') && v!=='' && v!==null && v!==undefined){
             const n=Number(v); const tone=!Number.isFinite(n)?'neutral':n<0?'red':n<30?'red':n<60?'amber':'green';
             return '<td><span class="balance-shelf-card '+tone+'">'+(Number.isFinite(n)?n.toLocaleString('en-IN',{maximumFractionDigits:2}):esc(v))+'</span></td>';
           }
@@ -7768,6 +7768,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   window.__reportSOHFilter = window.__reportSOHFilter || {type:'',warehouse:'',mrp:''};
   window.__reportSOHRows = allSohRows().slice();
   function sohVal(r,keys){return clean(read(r,keys));}
+  function normaliseSOHWarehouse(value){return clean(value).toUpperCase().replace(/[^A-Z0-9]/g,'');}
   function sohOptionList(key){
     const rows=allSohRows();
     if(key==='type') return unique(rows.map(r=>sohVal(r,['TYPE','Type'])));
@@ -7805,7 +7806,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     window.__reportSOHFilterApplied=true;
     window.__reportSOHRows=allSohRows().filter(r=>
       (!f.type || sohVal(r,['TYPE','Type'])===f.type) &&
-      (!f.warehouse || sohVal(r,['WAREHOUSE','Warehouse','CFA','CFA Name','CFA / WAREHOUSE'])===f.warehouse) &&
+      (!f.warehouse || normaliseSOHWarehouse(sohVal(r,['WAREHOUSE','Warehouse','CFA','CFA Name','CFA / WAREHOUSE']))===normaliseSOHWarehouse(f.warehouse)) &&
       (!f.mrp || sohVal(r,['MRP','MRP_Price','MRP Price'])===f.mrp)
     );
     if(typeof filteredSOH!=='undefined') filteredSOH=window.__reportSOHRows;
