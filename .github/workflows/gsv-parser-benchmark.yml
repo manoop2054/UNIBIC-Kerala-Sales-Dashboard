@@ -70,10 +70,11 @@ jobs:
           const t = performance.now();
           const wb = XLSX.readFile('gsv-source.xlsx', { cellDates: true });
           console.log('SHEETJS_SHEET_NAMES ' + JSON.stringify(wb.SheetNames));
-          const sheetName = wb.SheetNames.find(n => String(n).trim().toLowerCase() === 'acx_sales_register');
-          const actualSheetName = sheetName || wb.SheetNames.find(n => String(n).trim().toLowerCase().replace(/[^a-z0-9]/g, '') === 'acxsalesregister');
-          const ws = actualSheetName ? wb.Sheets[actualSheetName] : null;
-          if (!ws) throw Error('Worksheet ACX_Sales_Register missing. Sheet names: ' + JSON.stringify(wb.SheetNames));
+          const actualSheetName = wb.SheetNames.find(n => String(n).trim().toLowerCase().replace(/[^a-z0-9]/g, '') === 'acxsalesregister');
+          const sheetKeys = Object.keys(wb.Sheets || {});
+          const sheetKey = actualSheetName && (wb.Sheets[actualSheetName] ? actualSheetName : sheetKeys.find(n => String(n).trim().toLowerCase().replace(/[^a-z0-9]/g, '') === 'acxsalesregister'));
+          const ws = sheetKey ? wb.Sheets[sheetKey] : null;
+          if (!ws) throw Error('Worksheet lookup failed. SheetNames: ' + JSON.stringify(wb.SheetNames) + '; Sheet keys: ' + JSON.stringify(sheetKeys));
           const data = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
           const header = (data[0] || []).map(x => x == null ? '' : String(x).trim());
           const cols = [];
