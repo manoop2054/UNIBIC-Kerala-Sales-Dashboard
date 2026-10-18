@@ -2984,7 +2984,7 @@ function targetRowsForPeriod(){
   });
 }
 
-function targetColumnForMonth(month){
+function targetColumnForMonth(t,month){
   const aliases={
     jan:['Jan MC Tgt 26','Jan MC Target 26','Plan Jan MC-26'],
     feb:['Feb MC Tgt 26','Feb MC Target 26','Plan Feb MC-26'],
@@ -3006,7 +3006,7 @@ function targetColumnForMonth(month){
 function targetValue(t){
   const m=String(document.getElementById('month')?.value||'').trim().toLowerCase();
   const read=month=>{
-    const col=targetColumnForMonth(month);
+    const col=targetColumnForMonth(t,month);
     if(!col) return null;
     const raw=t?.[col];
     if(raw===undefined||raw===null||String(raw).trim()==='') return null;
@@ -4358,7 +4358,7 @@ function safeSourceRows(){
   return Array.isArray(gsvRows) ? gsvRows : [];
 }
 
-function safeValfunction safeBuildMenus(){
+function safeBuildMenus(){
   const OPTION_LIMIT=200;
   const escapeHTML=(v)=>String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   SAFE_FILTERS.forEach(f=>{
@@ -4402,65 +4402,6 @@ function safeValfunction safeBuildMenus(){
       safeUpdateCount(f.key);
       scheduleSafeUpdateStatus();
     };
-    safeUpdateCount(f.key);
-  });
-}
-
-f(!state[f.key])
-          state[f.key]=new Set();
-
-        if(all.checked)
-          vals.forEach(v=>state[f.key].add(v));
-        else
-          state[f.key].clear();
-
-        safeBuildMenus();
-        safeUpdateStatus();
-      };
-    }
-
-    menu.querySelectorAll(
-      '[data-value="'+f.key+'"]'
-    ).forEach(cb=>{
-
-      cb.onchange=()=>{
-
-        if(!state[f.key])
-          state[f.key]=new Set();
-
-        if(cb.checked)
-          state[f.key].add(cb.value);
-        else
-          state[f.key].delete(cb.value);
-
-        safeUpdateCount(f.key);
-        safeUpdateStatus();
-      };
-
-    });
-
-    const search=menu.querySelector(
-      '[data-search="'+f.key+'"]'
-    );
-
-    if(search){
-
-      search.oninput=()=>{
-
-        const q=search.value.toLowerCase();
-
-        menu.querySelectorAll(
-          '.safeRCOption'
-        ).forEach(row=>{
-          row.style.display=
-            row.dataset.text.includes(q)
-            ? ''
-            : 'none';
-        });
-
-      };
-    }
-
     safeUpdateCount(f.key);
   });
 }
