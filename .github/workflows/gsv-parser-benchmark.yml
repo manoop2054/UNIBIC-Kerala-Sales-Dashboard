@@ -68,8 +68,10 @@ jobs:
           const fields = new Set(["PostingDate","Posting Date","Date","Invoice Date","GSV IN LAKH","GSV","GSV Amount","AmountToCustomer","Amount To Customer","Amount","QuantityinCBO","QuantityinCBD","Quantity in CBO","CBB","CBO","QuantityinBox","QuantityinPcs","Quantity in Pcs","Qty PCS","Quantity","INDV_discount","INDV Discount","Discount","INDV Amount","Return_Invoices","Return Invoice","Return Invoices","DBR_Code","DBR Code","Sell_to_Customer_No","Customer_Account","Billed_to_Code","DBR_Name","DBR Name","Sell_to_Customer_Name","Customer_Name","Customer","Billed_to_Name","Ship_to_Name","ItemId","Item ID","Item Code","ItemCode","Description","Item Description","Invoice_No","Invoice No","Invoice","Order_No","Order No","Order","NKAM_ABM","ABM","ABM Name","NKAM / ABM","AnchorName","Anchor","Brand","BrandName","REGION","Region","region","AreaCode","Area Code","Area","Ship_to_Code","Ship to Code","ShipCode","Customer_Posting_Group","Customer Posting Group","ExternalDocNo","External Doc No","External Document No","MRP_Price","MRP Price","MRP","GST_Base_Amount","GST Base Amount","GST_Base","DBR / Customer Code","Customer / DBR Name","Available Shelf Life %","Unit_Price","UNIT PRICE","Unit Price","UNIT_PRICE","UnitPrice","Line_Discount_Percent","Line Discount Percent","LineDiscountPercent","Scheme_Discount","Scheme Discount","Scheme_Discount_Percent","Scheme Discount Percent","Discount_Percent","Discount Percent","AssesableValue","AssessableValue","Assesable Value","LocationCode","Location Code","Location_Code","AnchorZoneName","Anchor Zone Name","ANCHOR ZONENAME","Anchor Zone","AnchorZone"]);
           const t = performance.now();
           const wb = XLSX.readFile('gsv-source.xlsx', { cellDates: true });
-          const ws = wb.Sheets['ACX_Sales_Register'];
-          if (!ws) throw Error('Worksheet ACX_Sales_Register missing');
+          console.log('SHEETJS_SHEET_NAMES ' + JSON.stringify(wb.SheetNames));
+          const sheetName = wb.SheetNames.find(n => String(n).trim().toLowerCase() === 'acx_sales_register');
+          const ws = sheetName ? wb.Sheets[sheetName] : null;
+          if (!ws) throw Error('Worksheet ACX_Sales_Register missing. Sheet names: ' + JSON.stringify(wb.SheetNames));
           const data = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
           const header = (data[0] || []).map(x => x == null ? '' : String(x).trim());
           const cols = [];
