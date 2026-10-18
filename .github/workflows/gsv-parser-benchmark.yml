@@ -1,0 +1,92 @@
+name: GSV Parser Benchmark
+on:
+  push:
+    paths:
+      - ".github/workflows/gsv-parser-benchmark.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install benchmark parsers
+        run: npm install --no-save exceljs@4.4.0 xlsx@0.18.5
+      - name: Download exact GSV release workbook
+        run: |
+          curl --fail --location --retry 3 --output gsv-source.xlsx "https://github.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/releases/download/v1.0/KL.LIVE.GSV.LINK-MANOOB.xlsx"
+          echo "Workbook bytes: $(stat -c%s gsv-source.xlsx)"
+          sha256sum gsv-source.xlsx
+      - name: Benchmark current ExcelJS streaming parser
+        run: |
+          cat > benchmark-exceljs.cjs <<'NODE'
+          const ExcelJS = require('exceljs');
+          const { performance } = require('perf_hooks');
+          const fields = new Set(["PostingDate","Posting Date","Date","Invoice Date","GSV IN LAKH","GSV","GSV Amount","AmountToCustomer","Amount To Customer","Amount","QuantityinCBO","QuantityinCBD","Quantity in CBO","CBB","CBO","QuantityinBox","QuantityinPcs","Quantity in Pcs","Qty PCS","Quantity","INDV_discount","INDV Discount","Discount","INDV Amount","Return_Invoices","Return Invoice","Return Invoices","DBR_Code","DBR Code","Sell_to_Customer_No","Customer_Account","Billed_to_Code","DBR_Name","DBR Name","Sell_to_Customer_Name","Customer_Name","Customer","Billed_to_Name","Ship_to_Name","ItemId","Item ID","Item Code","ItemCode","Description","Item Description","Invoice_No","Invoice No","Invoice","Order_No","Order No","Order","NKAM_ABM","ABM","ABM Name","NKAM / ABM","AnchorName","Anchor","Brand","BrandName","REGION","Region","region","AreaCode","Area Code","Area","Ship_to_Code","Ship to Code","ShipCode","Customer_Posting_Group","Customer Posting Group","ExternalDocNo","External Doc No","External Document No","MRP_Price","MRP Price","MRP","GST_Base_Amount","GST Base Amount","GST_Base","DBR / Customer Code","Customer / DBR Name","Available Shelf Life %","Unit_Price","UNIT PRICE","Unit Price","UNIT_PRICE","UnitPrice","Line_Discount_Percent","Line Discount Percent","LineDiscountPercent","Scheme_Discount","Scheme Discount","Scheme_Discount_Percent","Scheme Discount Percent","Discount_Percent","Discount Percent","AssesableValue","AssessableValue","Assesable Value","LocationCode","Location Code","Location_Code","AnchorZoneName","Anchor Zone Name","ANCHOR ZONENAME","Anchor Zone","AnchorZone"]);
+          (async () => {
+            const t = performance.now();
+            let rows = 0, header = null, cols = null, found = false;
+            const reader = new ExcelJS.stream.xlsx.WorkbookReader('gsv-source.xlsx', {
+              sharedStrings: 'cache', hyperlinks: 'ignore', worksheets: 'emit', styles: 'ignore'
+            });
+            for await (const sheet of reader) {
+              if (sheet.name !== 'ACX_Sales_Register') continue;
+              found = true;
+              for await (const row of sheet) {
+                const v = row.values || [];
+                if (!header) {
+                  header = v.map(x => x == null ? '' : String(x).trim());
+                  cols = [];
+                  for (let i = 1; i < header.length; i++) if (header[i] && fields.has(header[i])) cols.push(i);
+                  continue;
+                }
+                if (cols.some(i => v[i] !== undefined && v[i] !== null && v[i] !== '')) rows++;
+              }
+              break;
+            }
+            if (!found) throw Error('Worksheet ACX_Sales_Register missing');
+            console.log('BENCHMARK_RESULT ' + JSON.stringify({
+              parser: 'ExcelJS streaming (current settings)', rows,
+              seconds: +((performance.now() - t) / 1000).toFixed(2),
+              peakRssMiB: +(process.memoryUsage().rss / 1048576).toFixed(1)
+            }));
+          })().catch(e => { console.error(e); process.exit(1); });
+          NODE
+          node --max-old-space-size=4096 benchmark-exceljs.cjs
+      - name: Benchmark SheetJS full-workbook parser
+        run: |
+          cat > benchmark-sheetjs.cjs <<'NODE'
+          const XLSX = require('xlsx');
+          const { performance } = require('perf_hooks');
+          const fields = new Set(["PostingDate","Posting Date","Date","Invoice Date","GSV IN LAKH","GSV","GSV Amount","AmountToCustomer","Amount To Customer","Amount","QuantityinCBO","QuantityinCBD","Quantity in CBO","CBB","CBO","QuantityinBox","QuantityinPcs","Quantity in Pcs","Qty PCS","Quantity","INDV_discount","INDV Discount","Discount","INDV Amount","Return_Invoices","Return Invoice","Return Invoices","DBR_Code","DBR Code","Sell_to_Customer_No","Customer_Account","Billed_to_Code","DBR_Name","DBR Name","Sell_to_Customer_Name","Customer_Name","Customer","Billed_to_Name","Ship_to_Name","ItemId","Item ID","Item Code","ItemCode","Description","Item Description","Invoice_No","Invoice No","Invoice","Order_No","Order No","Order","NKAM_ABM","ABM","ABM Name","NKAM / ABM","AnchorName","Anchor","Brand","BrandName","REGION","Region","region","AreaCode","Area Code","Area","Ship_to_Code","Ship to Code","ShipCode","Customer_Posting_Group","Customer Posting Group","ExternalDocNo","External Doc No","External Document No","MRP_Price","MRP Price","MRP","GST_Base_Amount","GST Base Amount","GST_Base","DBR / Customer Code","Customer / DBR Name","Available Shelf Life %","Unit_Price","UNIT PRICE","Unit Price","UNIT_PRICE","UnitPrice","Line_Discount_Percent","Line Discount Percent","LineDiscountPercent","Scheme_Discount","Scheme Discount","Scheme_Discount_Percent","Scheme Discount Percent","Discount_Percent","Discount Percent","AssesableValue","AssessableValue","Assesable Value","LocationCode","Location Code","Location_Code","AnchorZoneName","Anchor Zone Name","ANCHOR ZONENAME","Anchor Zone","AnchorZone"]);
+          const t = performance.now();
+          const wb = XLSX.readFile('gsv-source.xlsx', { cellDates: true });
+          const ws = wb.Sheets['ACX_Sales_Register'];
+          if (!ws) throw Error('Worksheet ACX_Sales_Register missing');
+          const data = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
+          const header = (data[0] || []).map(x => x == null ? '' : String(x).trim());
+          const cols = [];
+          for (let i = 0; i < header.length; i++) if (header[i] && fields.has(header[i])) cols.push(i);
+          let rows = 0;
+          for (let r = 1; r < data.length; r++) {
+            const row = data[r] || [];
+            if (cols.some(i => row[i] !== undefined && row[i] !== null && row[i] !== '')) rows++;
+          }
+          console.log('BENCHMARK_RESULT ' + JSON.stringify({
+            parser: 'SheetJS full workbook', rows,
+            seconds: +((performance.now() - t) / 1000).toFixed(2),
+            peakRssMiB: +(process.memoryUsage().rss / 1048576).toFixed(1),
+            worksheetRows: data.length
+          }));
+          NODE
+          node --max-old-space-size=5120 benchmark-sheetjs.cjs
+      - name: Benchmark scope
+        if: always()
+        run: echo "Benchmark-only workflow; it does not modify server.js or the dashboard."
