@@ -2984,22 +2984,44 @@ function targetRowsForPeriod(){
   });
 }
 
+function targetColumnForMonth(month){
+  const aliases={
+    oct:['Oct MC Tgt 26','OCT MC TARGET 26','OCT MC TGT 26'],
+    nov:['NOV MC Tgt 26','Nov MC Target 26','Plan NOV MC-26','NOV MC TGT 26'],
+    dec:['Dec MC Tgt 26','DEC MC Target 26','Plan Dec MC-26','DEC MC TGT 26']
+  };
+  const normalize=v=>String(v??'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+  const keys=(aliases[String(month||'').trim().toLowerCase()]||[]).map(normalize);
+  return Object.keys(t||{}).find(k=>keys.includes(normalize(k)))||'';
+}
 function targetValue(t){
   const m=String(document.getElementById('month')?.value||'').trim().toLowerCase();
-  if(m==='oct') return num(t['Oct MC Tgt 26'])*100000;
-  if(m==='nov') return num(t['Plan NOV MC-26'])*100000;
-  if(m==='dec') return num(t['Plan Dec MC-26'])*100000;
-  return (num(t['Oct MC Tgt 26'])+num(t['Plan NOV MC-26'])+num(t['Plan Dec MC-26']))*100000;
+  const read=month=>{
+    const col=targetColumnForMonth(month);
+    if(!col) return null;
+    const raw=t?.[col];
+    if(raw===undefined||raw===null||String(raw).trim()==='') return null;
+    const value=Number(String(raw).replace(/,/g,''));
+    return Number.isFinite(value)?value*100000:null;
+  };
+  if(['jan','feb','mar','apr','may','jun','jul','aug','sep'].includes(m)) return null;
+  if(['oct','nov','dec'].includes(m)) return read(m);
+  const values=['oct','nov','dec'].map(read).filter(v=>v!==null);
+  return values.length?values.reduce((sum,v)=>sum+v,0):null;
+}
+function sumTargetValues(rows){
+  const values=(rows||[]).map(r=>targetValue(r)).filter(v=>v!==null&&Number.isFinite(v));
+  return values.length?values.reduce((sum,v)=>sum+v,0):null;
 }
 
 function regionKey(v){return String(v??'').trim().toUpperCase().replace(/[\s-]+/g,'')}
-function updateExecuteRegionKpis(){const selected=$('execRegion')?.value||'';const rows=activeRows||[];const targetRows=targetRowsForPeriod();let g=rows.reduce((sum,r)=>sum+num(r.__gsv),0);let target=targetRows.reduce((sum,r)=>sum+targetValue(r),0);if(selected){const key=regionKey(selected);const matchedTargets=targetRows.filter(r=>regionKey(field(r,['REGION','Region','region'])||r.__region)===key);target=matchedTargets.reduce((sum,r)=>sum+targetValue(r),0);const direct=rows.filter(r=>regionKey(r.__region||field(r,['REGION','Region','region']))===key);if(direct.length){g=direct.reduce((sum,r)=>sum+num(r.__gsv),0)}else{const areaKeys=new Set(matchedTargets.map(r=>regionKey(field(r,['AREA','Area','AreaCode','Area Code'])||r.__area)).filter(Boolean));g=rows.filter(r=>areaKeys.has(regionKey(r.__area||field(r,['AREA','Area','AreaCode','Area Code'])))).reduce((sum,r)=>sum+num(r.__gsv),0)}}$('kTarget').textContent=money(target);$('kGsv').textContent=money(g);const gsvWithoutTax=g/1.05;$('kPct').textContent=target>0?((gsvWithoutTax/target)*100).toFixed(1)+'%':'—';$('kBal').textContent=money(target-gsvWithoutTax)}
+function updateExecuteRegionKpis(){const selected=$('execRegion')?.value||'';const rows=activeRows||[];const targetRows=targetRowsForPeriod();let g=rows.reduce((sum,r)=>sum+num(r.__gsv),0);let target=sumTargetValues(targetRows);if(selected){const key=regionKey(selected);const matchedTargets=targetRows.filter(r=>regionKey(field(r,['REGION','Region','region'])||r.__region)===key);target=sumTargetValues(matchedTargets);const direct=rows.filter(r=>regionKey(r.__region||field(r,['REGION','Region','region']))===key);if(direct.length){g=direct.reduce((sum,r)=>sum+num(r.__gsv),0)}else{const areaKeys=new Set(matchedTargets.map(r=>regionKey(field(r,['AREA','Area','AreaCode','Area Code'])||r.__area)).filter(Boolean));g=rows.filter(r=>areaKeys.has(regionKey(r.__area||field(r,['AREA','Area','AreaCode','Area Code'])))).reduce((sum,r)=>sum+num(r.__gsv),0)}}$('kTarget').textContent=target===null?'Target Not updated in Excel':money(target);$('kGsv').textContent=money(g);const gsvWithoutTax=g/1.05;$('kPct').textContent=target!==null&&target>0?((gsvWithoutTax/target)*100).toFixed(1)+'%':'—';$('kBal').textContent=target!==null?money(target-gsvWithoutTax):'—'}
 const execRegionControl=$('execRegion');if(execRegionControl)execRegionControl.addEventListener('change',updateExecuteRegionKpis);
 function targetAnchor(t){return String(field(t,['AnchorName','Anchor','Anchor Name','ANCHOR'])||'Unspecified').trim()}
 function destroy(id){if(charts[id]){charts[id].destroy();delete charts[id]}}
 function group(rows,key,val){const m=new Map();rows.forEach(r=>{const k=String(r[key]||'Unspecified');m.set(k,(m.get(k)||0)+num(r[val]))});return [...m.entries()].sort((a,b)=>b[1]-a[1])}
-function renderAll(){activeRows=currentFiltered();const g=activeRows.reduce((s,r)=>s+r.__gsv,0),c=activeRows.reduce((s,r)=>s+r.__cbb,0),disc=activeRows.filter(r=>!r.__returnInvoice).reduce((s,r)=>s+r.__disc,0),inv=new Set(activeRows.map(r=>r.__invoice).filter(Boolean)).size,db=new Set(activeRows.map(r=>r.__dbrCode||r.__dbrName).filter(Boolean)).size,target=targetRowsForPeriod().reduce((s,r)=>s+targetValue(r),0);$('kInv').textContent=inv.toLocaleString('en-IN');$('kDbr').textContent=db.toLocaleString('en-IN');$('kCbb').textContent=c.toLocaleString('en-IN',{maximumFractionDigits:1});$('kDisc').textContent=money(disc);updateExecuteRegionKpis();$('salesSourceLabel').textContent=salesSource+' source';$('trendSource').textContent=salesSource;renderExecutive();renderTarget();renderSales();renderItem();renderDBR();renderInvoice();renderAlerts()}
-function renderExecutive(){const target=targetRowsForPeriod().reduce((s,r)=>s+targetValue(r),0),g=activeRows.reduce((s,r)=>s+r.__gsv,0);destroy('target');charts.target=new Chart($('targetChart'),{type:'bar',data:{labels:['Target','Achievement'],datasets:[{data:[target,g],backgroundColor:['#1769e0','#159a6a'],borderRadius:8}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>money(v)}}}}});const mm=new Map();activeRows.forEach(r=>{if(r.__date){const k=monthKey(r.__date);mm.set(k,(mm.get(k)||0)+r.__gsv)}});const ks=[...mm.keys()].sort();destroy('trend');charts.trend=new Chart($('trendChart'),{type:'line',data:{labels:ks.map(k=>{const [y,m]=k.split('-');return new Date(+y,+m-1,1).toLocaleDateString('en',{month:'short',year:'2-digit'})}),datasets:[{label:'GSV',data:ks.map(k=>mm.get(k)),borderColor:'#1769e0',backgroundColor:'rgba(23,105,224,.12)',fill:true,tension:.25}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>money(v)}}}}});const a=group(activeRows,'__anchor','__gsv').slice(0,6);$('topAnchors').innerHTML=a.map((x,i)=>`<div class="minirow"><span>${i+1}. ${esc(x[0])}</span><b>${money(x[1])}</b></div>`).join('')||'<div class="empty">No data</div>';const im=new Map();activeRows.forEach(r=>{const k=r.__itemCode+'|'+r.__desc;const z=im.get(k)||{c:0,g:0,code:r.__itemCode,desc:r.__desc};z.c+=r.__cbb;z.g+=r.__gsv;im.set(k,z)});const its=[...im.values()].sort((a,b)=>b.c-a.c).slice(0,6);$('topItems').innerHTML=its.map((x,i)=>`<div class="minirow"><span>${i+1}. <b>${esc(x.code)}</b> - ${esc(x.desc)}</span><b>${x.c.toLocaleString('en-IN',{maximumFractionDigits:1})} CBB</b></div>`).join('')||'<div class="empty">No data</div>';renderWarehouseMini()}
+function renderAll(){activeRows=currentFiltered();const g=activeRows.reduce((s,r)=>s+r.__gsv,0),c=activeRows.reduce((s,r)=>s+r.__cbb,0),disc=activeRows.filter(r=>!r.__returnInvoice).reduce((s,r)=>s+r.__disc,0),inv=new Set(activeRows.map(r=>r.__invoice).filter(Boolean)).size,db=new Set(activeRows.map(r=>r.__dbrCode||r.__dbrName).filter(Boolean)).size,target=sumTargetValues(targetRowsForPeriod());$('kInv').textContent=inv.toLocaleString('en-IN');$('kDbr').textContent=db.toLocaleString('en-IN');$('kCbb').textContent=c.toLocaleString('en-IN',{maximumFractionDigits:1});$('kDisc').textContent=money(disc);updateExecuteRegionKpis();$('salesSourceLabel').textContent=salesSource+' source';$('trendSource').textContent=salesSource;renderExecutive();renderTarget();renderSales();renderItem();renderDBR();renderInvoice();renderAlerts()}
+function renderExecutive(){const target=sumTargetValues(targetRowsForPeriod()),g=activeRows.reduce((s,r)=>s+r.__gsv,0);destroy('target');charts.target=new Chart($('targetChart'),{type:'bar',data:{labels:['Target','Achievement'],datasets:[{data:[target===null?0:target,g],backgroundColor:['#1769e0','#159a6a'],borderRadius:8}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>money(v)}}}}});const mm=new Map();activeRows.forEach(r=>{if(r.__date){const k=monthKey(r.__date);mm.set(k,(mm.get(k)||0)+r.__gsv)}});const ks=[...mm.keys()].sort();destroy('trend');charts.trend=new Chart($('trendChart'),{type:'line',data:{labels:ks.map(k=>{const [y,m]=k.split('-');return new Date(+y,+m-1,1).toLocaleDateString('en',{month:'short',year:'2-digit'})}),datasets:[{label:'GSV',data:ks.map(k=>mm.get(k)),borderColor:'#1769e0',backgroundColor:'rgba(23,105,224,.12)',fill:true,tension:.25}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>money(v)}}}}});const a=group(activeRows,'__anchor','__gsv').slice(0,6);$('topAnchors').innerHTML=a.map((x,i)=>`<div class="minirow"><span>${i+1}. ${esc(x[0])}</span><b>${money(x[1])}</b></div>`).join('')||'<div class="empty">No data</div>';const im=new Map();activeRows.forEach(r=>{const k=r.__itemCode+'|'+r.__desc;const z=im.get(k)||{c:0,g:0,code:r.__itemCode,desc:r.__desc};z.c+=r.__cbb;z.g+=r.__gsv;im.set(k,z)});const its=[...im.values()].sort((a,b)=>b.c-a.c).slice(0,6);$('topItems').innerHTML=its.map((x,i)=>`<div class="minirow"><span>${i+1}. <b>${esc(x.code)}</b> - ${esc(x.desc)}</span><b>${x.c.toLocaleString('en-IN',{maximumFractionDigits:1})} CBB</b></div>`).join('')||'<div class="empty">No data</div>';renderWarehouseMini()}
 function sohDate(v){
   if(v===null||v===undefined||String(v).trim()==='') return '';
   const s=String(v).trim();
@@ -4327,110 +4349,55 @@ function safeSourceRows(){
   return Array.isArray(gsvRows) ? gsvRows : [];
 }
 
-function safeValue(r,key){
-
-  const d=r.__date;
-
-  if(key==='year')
-    return d ? String(d.getFullYear()) : '';
-
-  if(key==='month')
-    return d ? d.toLocaleString('en',{month:'short'}) : '';
-
-  if(key==='day')
-    return d ? String(d.getDate()) : '';
-
-  if(key==='customer')
-    return String(r.__customer||'');
-
-  if(key==='invoice')
-    return String(r.__invoice||'');
-
-  if(key==='item')
-    return String(r.__itemCode||'');
-
-  if(key==='dbr')
-    return String(r.__dbrName||r.__dbrCode||'');
-
-  return '';
-}
-
-function safeValues(key){
-
-  const set=new Set();
-
-  safeSourceRows().forEach(r=>{
-    const v=safeValue(r,key);
-    if(v) set.add(v);
-  });
-
-  return [...set].sort((a,b)=>{
-    if(key==='year'||key==='day')
-      return Number(a)-Number(b);
-
-    if(key==='month'){
-      const m=['Jan','Feb','Mar','Apr','May','Jun',
-               'Jul','Aug','Sep','Oct','Nov','Dec'];
-      return m.indexOf(a)-m.indexOf(b);
-    }
-
-    return a.localeCompare(
-      b,
-      undefined,
-      {numeric:true,sensitivity:'base'}
-    );
-  });
-}
-
-function safeBuildMenus(){
-
+function safeValfunction safeBuildMenus(){
+  const OPTION_LIMIT=200;
+  const escapeHTML=(v)=>String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   SAFE_FILTERS.forEach(f=>{
-
-    const menu=document.getElementById(
-      'safeMenu_'+f.key
-    );
-
+    const menu=document.getElementById('safeMenu_'+f.key);
     if(!menu) return;
-
     const vals=safeValues(f.key);
-    const selected=state[f.key] instanceof Set
-      ? state[f.key]
-      : new Set();
+    if(!(state[f.key] instanceof Set)) state[f.key]=new Set();
+    const selected=state[f.key];
+    menu.innerHTML=`<input class="safeRCSearch" placeholder="Search ${f.label}..." data-search="${f.key}">
+      <label class="safeRCAll"><input type="checkbox" data-all="${f.key}"> Select All (${vals.length.toLocaleString('en-IN')})</label>
+      <div class="safeRCOptionInfo" data-info="${f.key}" style="font-size:11px;opacity:.7;padding:4px 8px"></div>
+      <div class="safeRCOptionList" data-list="${f.key}"></div>`;
+    const list=menu.querySelector('[data-list="'+f.key+'"]');
+    const info=menu.querySelector('[data-info="'+f.key+'"]');
+    const search=menu.querySelector('[data-search="'+f.key+'"]');
+    const all=menu.querySelector('[data-all="'+f.key+'"]');
+    const renderOptions=(query='')=>{
+      const q=String(query||'').trim().toLocaleLowerCase();
+      const matched=q?vals.filter(v=>v.toLocaleLowerCase().includes(q)):vals;
+      const shown=matched.slice(0,OPTION_LIMIT);
+      list.innerHTML=shown.map(v=>`<label class="safeRCOption" data-text="${escapeHTML(v.toLocaleLowerCase())}"><input type="checkbox" data-value="${f.key}" value="${escapeHTML(v)}" ${selected.has(v)?'checked':''}><span>${escapeHTML(v)}</span></label>`).join('') || '<div style="padding:8px;opacity:.7">No matching values</div>';
+      info.textContent=matched.length>shown.length?`Showing ${shown.length} of ${matched.length.toLocaleString('en-IN')} matches — type more to narrow results.`:`${matched.length.toLocaleString('en-IN')} values`;
+      all.checked=vals.length>0&&vals.every(v=>selected.has(v));
+      all.indeterminate=selected.size>0&&!all.checked;
+    };
+    renderOptions('');
+    search.oninput=()=>renderOptions(search.value);
+    all.onchange=()=>{
+      if(all.checked) vals.forEach(v=>selected.add(v));
+      else selected.clear();
+      renderOptions(search.value);
+      safeUpdateCount(f.key);
+      scheduleSafeUpdateStatus();
+    };
+    list.onchange=(e)=>{
+      const cb=e.target;
+      if(!cb.matches('input[data-value="'+f.key+'"]')) return;
+      if(cb.checked) selected.add(cb.value); else selected.delete(cb.value);
+      all.checked=vals.length>0&&vals.every(v=>selected.has(v));
+      all.indeterminate=selected.size>0&&!all.checked;
+      safeUpdateCount(f.key);
+      scheduleSafeUpdateStatus();
+    };
+    safeUpdateCount(f.key);
+  });
+}
 
-    menu.innerHTML=`
-      <input class="safeRCSearch"
-             placeholder="Search ${f.label}..."
-             data-search="${f.key}">
-
-      <label class="safeRCAll">
-        <input type="checkbox"
-               data-all="${f.key}">
-        Select All
-      </label>
-
-      ${vals.map(v=>`
-        <label class="safeRCOption"
-               data-text="${String(v).toLowerCase()}">
-          <input type="checkbox"
-                 data-value="${f.key}"
-                 value="${String(v).replace(/"/g,'&quot;')}"
-                 ${selected.has(v)?'checked':''}>
-          <span>${String(v)}</span>
-        </label>
-      `).join('')}
-    `;
-
-    const all=menu.querySelector(
-      '[data-all="'+f.key+'"]'
-    );
-
-    if(all){
-      all.checked=
-        vals.length>0 &&
-        vals.every(v=>selected.has(v));
-
-      all.onchange=()=>{
-        if(!state[f.key])
+f(!state[f.key])
           state[f.key]=new Set();
 
         if(all.checked)
@@ -4600,6 +4567,12 @@ function safeUpdateStatus(){
        of <b>${total.toLocaleString('en-IN')}</b> records`;
 
   }
+}
+
+let safeStatusTimer=null;
+function scheduleSafeUpdateStatus(){
+  if(safeStatusTimer!==null) clearTimeout(safeStatusTimer);
+  safeStatusTimer=setTimeout(()=>{safeStatusTimer=null;safeUpdateStatus();},120);
 }
 
 /* ------------------------------------------------------------
