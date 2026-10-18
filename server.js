@@ -6,6 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const zlib = require('zlib');
 const { pipeline } = require('stream/promises');
+const { performance } = require('perf_hooks');
 const XLSX = require('xlsx');
 const ExcelJS = require('exceljs');
 
@@ -137,12 +138,18 @@ function normalizeRow(r) {
 }
 
 async function buildGsvCache(cachePath) {
+  const buildStarted = performance.now();
+  let downloadMs = 0, rowLoopMs = 0, normalizeMs = 0, writeWaitMs = 0;
   gsvStatus.stage = 'downloading workbook'; gsvStatus.rows = 0; gsvStatus.startedAt = new Date().toISOString(); gsvStatus.updatedAt = gsvStatus.startedAt; gsvStatus.error = null;
   console.log('GSV status: downloading source workbook');
   await fs.promises.mkdir(CACHE_DIR, { recursive: true });
   const source = path.join(CACHE_DIR, 'gsv-source.xlsx');
   const temp = cachePath + '.tmp';
+  const downloadStarted = performance.now();
   await downloadToFile(GSV_URL, source);
+  downloadMs = performance.now() - downloadStarted;
+  const sourceBytes = (await fs.promises.stat(source)).size;
+  console.log('GSV timing: download complete', JSON.stringify({ seconds: +(downloadMs / 1000).toFixed(2), megabytes: +(sourceBytes / 1048576).toFixed(2) }));
   gsvStatus.stage = 'processing workbook'; gsvStatus.updatedAt = new Date().toISOString();
   console.log('GSV status: download complete; processing worksheet', GSV_SHEET);
   const output = fs.createWriteStream(temp, { encoding: 'utf8' });
@@ -150,8 +157,11 @@ async function buildGsvCache(cachePath) {
   // Batch serialized rows so the streaming writer does not await two file writes per row.
   let outputBatch = [];
   const write = chunk => new Promise((resolve, reject) => {
-    if (output.write(chunk)) resolve();
-    else { output.once('drain', resolve); output.once('error', reject); }
+    const started = performance.now();
+    const onDrain = () => { output.removeListener('error', onError); writeWaitMs += performance.now() - started; resolve(); };
+    const onError = error => { output.removeListener('drain', onDrain); writeWaitMs += performance.now() - started; reject(error); };
+    if (output.write(chunk)) { writeWaitMs += performance.now() - started; resolve(); }
+    else { output.once('drain', onDrain); output.once('error', onError); }
   });
 
   try {
@@ -163,6 +173,7 @@ async function buildGsvCache(cachePath) {
       if (sheet.name !== GSV_SHEET) continue;
       selectedSheetFound = true;
       for await (const row of sheet) {
+        const rowStarted = performance.now();
         const values = row.values || [];
         if (!header) {
           header = values.map(v => String(cellValue(v) ?? '').trim());
@@ -186,7 +197,9 @@ async function buildGsvCache(cachePath) {
         if (!hasRawField) continue;
 
         // Clean & Normalize each row before writing JSON
+        const normalizeStarted = performance.now();
         const obj = normalizeRow(rawObj);
+        normalizeMs += performance.now() - normalizeStarted;
 
         outputBatch.push((first ? '' : ',') + JSON.stringify(obj));
         first = false;
@@ -203,8 +216,11 @@ async function buildGsvCache(cachePath) {
           }
           gsvStatus.rows = rowCount;
           gsvStatus.updatedAt = new Date().toISOString();
-          console.log('GSV processing rows:', rowCount);
+          rowLoopMs = performance.now() - downloadStarted - downloadMs;
+          console.log('GSV processing rows:', rowCount, '| elapsed seconds:', +((performance.now() - buildStarted) / 1000).toFixed(1), '| normalize seconds:', +(normalizeMs / 1000).toFixed(1), '| write-wait seconds:', +(writeWaitMs / 1000).toFixed(1));
         }
+        // Includes ExcelJS row delivery, field selection and serialization for this row.
+        void rowStarted;
       }
       break;
     }
@@ -215,6 +231,7 @@ async function buildGsvCache(cachePath) {
     await fs.promises.rename(temp, cachePath);
     gsvStatus.stage = 'ready'; gsvStatus.rows = rowCount; gsvStatus.updatedAt = new Date().toISOString(); gsvStatus.error = null;
     console.log('GSV compact cache ready:', rowCount, 'rows');
+    console.log('GSV timing: complete', JSON.stringify({ downloadSeconds: +(downloadMs / 1000).toFixed(2), processingAndWritingSeconds: +((performance.now() - buildStarted - downloadMs) / 1000).toFixed(2), normalizationSeconds: +(normalizeMs / 1000).toFixed(2), writeWaitSeconds: +(writeWaitMs / 1000).toFixed(2), totalSeconds: +((performance.now() - buildStarted) / 1000).toFixed(2), sourceMB: +(sourceBytes / 1048576).toFixed(2), rows: rowCount }));
   } catch (error) {
     gsvStatus.stage = 'failed'; gsvStatus.updatedAt = new Date().toISOString(); gsvStatus.error = error.message;
     output.destroy();
