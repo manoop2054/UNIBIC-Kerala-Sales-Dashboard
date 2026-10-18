@@ -139,7 +139,7 @@ function normalizeRow(r) {
 
 async function buildGsvCache(cachePath) {
   const buildStarted = performance.now();
-  let downloadMs = 0, rowLoopMs = 0, normalizeMs = 0, writeWaitMs = 0;
+  let downloadMs = 0, normalizeMs = 0, writeWaitMs = 0;
   gsvStatus.stage = 'downloading workbook'; gsvStatus.rows = 0; gsvStatus.startedAt = new Date().toISOString(); gsvStatus.updatedAt = gsvStatus.startedAt; gsvStatus.error = null;
   console.log('GSV status: downloading source workbook');
   await fs.promises.mkdir(CACHE_DIR, { recursive: true });
@@ -173,7 +173,6 @@ async function buildGsvCache(cachePath) {
       if (sheet.name !== GSV_SHEET) continue;
       selectedSheetFound = true;
       for await (const row of sheet) {
-        const rowStarted = performance.now();
         const values = row.values || [];
         if (!header) {
           header = values.map(v => String(cellValue(v) ?? '').trim());
@@ -216,11 +215,8 @@ async function buildGsvCache(cachePath) {
           }
           gsvStatus.rows = rowCount;
           gsvStatus.updatedAt = new Date().toISOString();
-          rowLoopMs = performance.now() - downloadStarted - downloadMs;
           console.log('GSV processing rows:', rowCount, '| elapsed seconds:', +((performance.now() - buildStarted) / 1000).toFixed(1), '| normalize seconds:', +(normalizeMs / 1000).toFixed(1), '| write-wait seconds:', +(writeWaitMs / 1000).toFixed(1));
         }
-        // Includes ExcelJS row delivery, field selection and serialization for this row.
-        void rowStarted;
       }
       break;
     }
