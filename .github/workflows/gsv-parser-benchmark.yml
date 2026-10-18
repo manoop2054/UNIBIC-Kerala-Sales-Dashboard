@@ -61,6 +61,7 @@ jobs:
           NODE
           node --max-old-space-size=4096 benchmark-exceljs.cjs
       - name: Benchmark SheetJS full-workbook parser
+        continue-on-error: true
         run: |
           cat > benchmark-sheetjs.cjs <<'NODE'
           const XLSX = require('xlsx');
