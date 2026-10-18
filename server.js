@@ -147,6 +147,8 @@ async function buildGsvCache(cachePath) {
   console.log('GSV status: download complete; processing worksheet', GSV_SHEET);
   const output = fs.createWriteStream(temp, { encoding: 'utf8' });
   let first = true, header = null, rowCount = 0, selectedSheetFound = false;
+  // Batch serialized rows so the streaming writer does not await two file writes per row.
+  let outputBatch = [];
   const write = chunk => new Promise((resolve, reject) => {
     if (output.write(chunk)) resolve();
     else { output.once('drain', resolve); output.once('error', reject); }
@@ -178,15 +180,28 @@ async function buildGsvCache(cachePath) {
         // Clean & Normalize each row before writing JSON
         const obj = normalizeRow(rawObj);
 
-        if (!first) await write(',');
-        await write(JSON.stringify(obj));
+        outputBatch.push((first ? '' : ',') + JSON.stringify(obj));
         first = false;
         rowCount++;
-        if (rowCount % 10000 === 0) { gsvStatus.rows = rowCount; gsvStatus.updatedAt = new Date().toISOString(); console.log('GSV processing rows:', rowCount); }
+        // Write in chunks of 1,000 rows instead of awaiting disk output for every row.
+        if (outputBatch.length >= 1000) {
+          await write(outputBatch.join(''));
+          outputBatch = [];
+        }
+        if (rowCount % 10000 === 0) {
+          if (outputBatch.length) {
+            await write(outputBatch.join(''));
+            outputBatch = [];
+          }
+          gsvStatus.rows = rowCount;
+          gsvStatus.updatedAt = new Date().toISOString();
+          console.log('GSV processing rows:', rowCount);
+        }
       }
       break;
     }
     if (!selectedSheetFound) throw new Error('GSV worksheet not found: ' + GSV_SHEET);
+    if (outputBatch.length) await write(outputBatch.join(''));
     await write(']}');
     await new Promise((resolve, reject) => output.end(err => err ? reject(err) : resolve()));
     await fs.promises.rename(temp, cachePath);
