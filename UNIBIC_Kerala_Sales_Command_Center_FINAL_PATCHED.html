@@ -2986,9 +2986,18 @@ function targetRowsForPeriod(){
 
 function targetColumnForMonth(month){
   const aliases={
-    oct:['Oct MC Tgt 26','OCT MC TARGET 26','OCT MC TGT 26'],
+    jan:['Jan MC Tgt 26','Jan MC Target 26','Plan Jan MC-26'],
+    feb:['Feb MC Tgt 26','Feb MC Target 26','Plan Feb MC-26'],
+    mar:['Mar MC Tgt 26','Mar MC Target 26','Plan Mar MC-26'],
+    apr:['Apr MC Tgt 26','Apr MC Target 26','Plan Apr MC-26'],
+    may:['May MC Tgt 26','May MC Target 26','Plan May MC-26'],
+    jun:['Jun MC Tgt 26','Jun MC Target 26','Plan Jun MC-26'],
+    jul:['Jul MC Tgt 26','Jul MC Target 26','Plan Jul MC-26'],
+    aug:['Aug MC Tgt 26','Aug MC Target 26','Plan Aug MC-26'],
+    sep:['Sep MC Tgt 26','Sept MC Tgt 26','Sep MC Target 26','Sept MC Target 26','Plan Sep MC-26','Plan Sept MC-26'],
+    oct:['Oct MC Tgt 26','Oct MC Target 26','OCT MC TARGET 26','OCT MC TGT 26'],
     nov:['NOV MC Tgt 26','Nov MC Target 26','Plan NOV MC-26','NOV MC TGT 26'],
-    dec:['Dec MC Tgt 26','DEC MC Target 26','Plan Dec MC-26','DEC MC TGT 26']
+    dec:['Dec MC Tgt 26','Dec MC Target 26','Plan Dec MC-26','DEC MC TGT 26']
   };
   const normalize=v=>String(v??'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
   const keys=(aliases[String(month||'').trim().toLowerCase()]||[]).map(normalize);
@@ -3004,8 +3013,8 @@ function targetValue(t){
     const value=Number(String(raw).replace(/,/g,''));
     return Number.isFinite(value)?value*100000:null;
   };
-  if(['jan','feb','mar','apr','may','jun','jul','aug','sep'].includes(m)) return null;
-  if(['oct','nov','dec'].includes(m)) return read(m);
+  const months=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  if(months.includes(m)) return read(m);
   const values=['oct','nov','dec'].map(read).filter(v=>v!==null);
   return values.length?values.reduce((sum,v)=>sum+v,0):null;
 }
