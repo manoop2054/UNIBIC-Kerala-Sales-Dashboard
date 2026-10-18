@@ -146,7 +146,7 @@ async function buildGsvCache(cachePath) {
   gsvStatus.stage = 'processing workbook'; gsvStatus.updatedAt = new Date().toISOString();
   console.log('GSV status: download complete; processing worksheet', GSV_SHEET);
   const output = fs.createWriteStream(temp, { encoding: 'utf8' });
-  let first = true, header = null, rowCount = 0, selectedSheetFound = false;
+  let first = true, header = null, selectedColumns = null, rowCount = 0, selectedSheetFound = false;
   // Batch serialized rows so the streaming writer does not await two file writes per row.
   let outputBatch = [];
   const write = chunk => new Promise((resolve, reject) => {
@@ -166,16 +166,24 @@ async function buildGsvCache(cachePath) {
         const values = row.values || [];
         if (!header) {
           header = values.map(v => String(cellValue(v) ?? '').trim());
+          // Preselect relevant worksheet columns once instead of scanning every Excel column for every row.
+          selectedColumns = [];
+          for (let i = 1; i < header.length; i++) {
+            const key = header[i];
+            if (key && GSV_FIELDS.has(key)) selectedColumns.push({ index: i, key });
+          }
           continue;
         }
         const rawObj = {};
-        for (let i = 1; i < values.length; i++) {
-          const key = header[i];
-          if (!key || !GSV_FIELDS.has(key)) continue;
-          const value = cellValue(values[i]);
-          if (value !== undefined && value !== null && value !== '') rawObj[key] = value;
+        let hasRawField = false;
+        for (const column of selectedColumns) {
+          const value = cellValue(values[column.index]);
+          if (value !== undefined && value !== null && value !== '') {
+            rawObj[column.key] = value;
+            hasRawField = true;
+          }
         }
-        if (!Object.keys(rawObj).length) continue;
+        if (!hasRawField) continue;
 
         // Clean & Normalize each row before writing JSON
         const obj = normalizeRow(rawObj);
