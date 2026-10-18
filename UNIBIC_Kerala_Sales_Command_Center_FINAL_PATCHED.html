@@ -8356,3 +8356,61 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
 })();
 </script>
 
+<script id="UNIBIC_REPORT_CENTER_MAKE_CACHE_20261018">
+(function(){
+  'use strict';
+  if(window.__unibicReportMakeCache20261018) return;
+  window.__unibicReportMakeCache20261018 = true;
+
+  function getSourceRows(){
+    if(typeof gsvRows !== 'undefined' && Array.isArray(gsvRows)) return gsvRows;
+    return Array.isArray(window.gsvRows) ? window.gsvRows : [];
+  }
+
+  // Cache only Report Center report outputs. A report result is reused only
+  // when both the source dataset and the exact filtered-row array are unchanged.
+  // A changed filter creates a new filtered-row array; a data refresh replaces
+  // the source array, so both automatically invalidate the cached result.
+  function installReportCaches(){
+    if(typeof reports === 'undefined' || !reports || typeof reports !== 'object') return false;
+    Object.keys(reports).forEach(function(key){
+      var cfg = reports[key];
+      if(!cfg || typeof cfg.make !== 'function' || cfg.make.__unibicMakeCacheWrapped) return;
+      var originalMake = cfg.make;
+      var cachedSource = null;
+      var cachedRows = null;
+      var cachedData = null;
+      function cachedMake(rows){
+        var source = getSourceRows();
+        if(arguments.length === 1 && Array.isArray(rows) &&
+           source === cachedSource && rows === cachedRows && Array.isArray(cachedData)){
+          return cachedData;
+        }
+        var data = originalMake.apply(this, arguments);
+        if(arguments.length === 1 && Array.isArray(rows) && Array.isArray(data)){
+          cachedSource = source;
+          cachedRows = rows;
+          cachedData = data;
+        } else {
+          cachedSource = null;
+          cachedRows = null;
+          cachedData = null;
+        }
+        return data;
+      }
+      cachedMake.__unibicMakeCacheWrapped = true;
+      cfg.make = cachedMake;
+    });
+    return true;
+  }
+
+  if(!installReportCaches()){
+    var tries = 0;
+    var timer = setInterval(function(){
+      tries++;
+      if(installReportCaches() || tries >= 120) clearInterval(timer);
+    }, 250);
+  }
+})();
+</script>
+
