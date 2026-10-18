@@ -55,7 +55,7 @@ jobs:
             console.log('BENCHMARK_RESULT ' + JSON.stringify({
               parser: 'ExcelJS streaming (current settings)', rows,
               seconds: +((performance.now() - t) / 1000).toFixed(2),
-              peakRssMiB: +(process.memoryUsage().rss / 1048576).toFixed(1)
+              rssAtEndMiB: +(process.memoryUsage().rss / 1048576).toFixed(1)
             }));
           })().catch(e => { console.error(e); process.exit(1); });
           NODE
@@ -82,7 +82,7 @@ jobs:
           console.log('BENCHMARK_RESULT ' + JSON.stringify({
             parser: 'SheetJS full workbook', rows,
             seconds: +((performance.now() - t) / 1000).toFixed(2),
-            peakRssMiB: +(process.memoryUsage().rss / 1048576).toFixed(1),
+            rssAtEndMiB: +(process.memoryUsage().rss / 1048576).toFixed(1),
             worksheetRows: data.length
           }));
           NODE
