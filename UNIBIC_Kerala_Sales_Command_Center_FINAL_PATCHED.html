@@ -8758,10 +8758,16 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       if(grouped){const k=group==='none'?'item':group,get=fields[k]||fields.item,map=new Map();stockRows.forEach(r=>{const name=String(get(r)||'Unknown').trim()||'Unknown';map.set(name,(map.get(name)||0)+numVal(r,['CBB','CBO','CBO_QTY','TOTAL_MAIN_QRT','TOTAL_MAIN_QTY','Grand Total','GRAND TOTAL','Qty','Quantity','QTY']));});const arr=[...map].sort((a,b)=>plan.ranking_order==='lowest'?a[1]-b[1]:b[1]-a[1]).slice(0,Math.min(Number(plan.top_n)||20,100));return period+'\nStock '+k+' wise (available quantity fields):\n'+arr.map((x,i)=>(i+1)+'. '+x[0]+' | Qty '+x[1].toLocaleString('en-IN')).join('\n')+'\nMatching stock rows: '+stockRows.length;}
       return period+'\nMatching SOH rows: '+stockRows.length+'\nItems: '+items+'\nStock quantity field sum: '+stockRows.reduce((a,r)=>a+numVal(r,['CBB','CBO','CBO_QTY','TOTAL_MAIN_QRT','TOTAL_MAIN_QTY','Grand Total','GRAND TOTAL','Qty','Quantity','QTY']),0).toLocaleString('en-IN');
     }
-    if(metric==='area_summary'){\n      const areaMap=new Map();\n      rows.forEach(r=>{const raw=String(fields.area(r)||'').trim();const name=raw||'Area not mapped';let x=areaMap.get(name);if(!x){x={gsv:0,cbb:0,discount:0,rows:0,invoices:new Set(),customers:new Set()};areaMap.set(name,x);}x.gsv+=gsvVal(r);x.cbb+=cbbVal(r);x.discount+=discVal(r);x.rows++;const iv=invVal(r);if(iv)x.invoices.add(iv);const cu=customerVal(r);if(cu)x.customers.add(norm(cu));});
+    if(metric==='area_summary'){
+      const areaMap=new Map();
+      rows.forEach(r=>{const raw=String(fields.area(r)||'').trim();const name=raw||'Area not mapped';let x=areaMap.get(name);if(!x){x={gsv:0,cbb:0,discount:0,rows:0,invoices:new Set(),customers:new Set()};areaMap.set(name,x);}x.gsv+=gsvVal(r);x.cbb+=cbbVal(r);x.discount+=discVal(r);x.rows++;const iv=invVal(r);if(iv)x.invoices.add(iv);const cu=customerVal(r);if(cu)x.customers.add(norm(cu));});
       if(!areaMap.size)return 'No area-wise sales rows found for the selected period.';
       const out=['Area | GSV | CBB | INDV Discount | Distinct Invoices | Customers/DBRs | Matching Rows'];
-      const list=[...areaMap.entries()].sort((a,b)=>b[1].gsv-a[1].gsv);\n      list.forEach(([name,x])=>out.push(name+' | '+moneyVal(x.gsv)+' | '+x.cbb.toLocaleString('en-IN')+' | '+moneyVal(x.discount)+' | '+x.invoices.size+' | '+x.customers.size+' | '+x.rows));\n      out.push('GRAND TOTAL | '+moneyVal(gsvTotal)+' | '+cbbTotal.toLocaleString('en-IN')+' | '+moneyVal(discTotal)+' | '+invoices+' | '+customers+' | '+rows.length);\n      return 'Area-wise sales summary — '+period+'\\n'+out.join('\\n');\n    }
+      const list=[...areaMap.entries()].sort((a,b)=>b[1].gsv-a[1].gsv);
+      list.forEach(([name,x])=>out.push(name+' | '+moneyVal(x.gsv)+' | '+x.cbb.toLocaleString('en-IN')+' | '+moneyVal(x.discount)+' | '+x.invoices.size+' | '+x.customers.size+' | '+x.rows));
+      out.push('GRAND TOTAL | '+moneyVal(gsvTotal)+' | '+cbbTotal.toLocaleString('en-IN')+' | '+moneyVal(discTotal)+' | '+invoices+' | '+customers+' | '+rows.length);
+      return 'Area-wise sales summary — '+period+'\n'+out.join('\n');
+    }
     if(metric==='invoice_details'){
       const invoiceMap=new Map();
       rows.forEach(r=>{
