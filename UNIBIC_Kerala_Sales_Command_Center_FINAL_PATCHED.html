@@ -8713,7 +8713,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     const val=(r,keys)=>getVal(r,keys), norm=v=>normText(v), parseDate=s=>{if(!s)return null;const d=new Date(s+'T00:00:00');return Number.isNaN(d.getTime())?null:d;};
     const start=parseDate(plan.start_date),end=parseDate(plan.end_date);
     const fields={
-      item:r=>val(r,['__itemCode','ItemId','Item ID','ItemCode','Item Code','ITEMID']), desc:r=>val(r,['__desc','Description','Item Description','DESCRIPTION']),
+      item:r=>val(r,['__itemCode','ItemId','Item ID','ItemCode','Item Code','ITEMID','ITEM CODE']), desc:r=>val(r,['__desc','Description','Item Description','DESCRIPTION']),
       customer:r=>val(r,['__customer','Customer_Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name']),
       dbr:r=>val(r,['__dbrName','DBR_Name','DBR Name','Sell_to_Customer_Name','DBR / Customer Name']),
       region:r=>val(r,['__region','REGION','Region','region','Region Name']), area:r=>val(r,['__area','AreaCode','Area Code','Area']),
@@ -8727,7 +8727,8 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     };
     const dateOf=r=>{const d=new Date(fields.date(r));return Number.isNaN(d.getTime())?null:new Date(d.getFullYear(),d.getMonth(),d.getDate());};
     const filterKeys=['item','customer','dbr','region','area','anchor_zone','anchor','cfa','warehouse'];
-    const rows=source.filter(r=>{if(start||end){const d=dateOf(r);if(!d||(start&&d<start)||(end&&d>end))return false;}for(const k of filterKeys){const wanted=plan[k];if(wanted&&String(wanted).trim()&&!norm(String(fields[k](r)||'')).includes(norm(wanted)))return false;}return true;});
+    const compactKey=v=>String(v??'').toLowerCase().replace(/[^a-z0-9]/g,'');
+    const rows=source.filter(r=>{if(start||end){const d=dateOf(r);if(!d||(start&&d<start)||(end&&d>end))return false;}for(const k of filterKeys){const wanted=plan[k],actual=String(fields[k](r)||'').trim();if(wanted&&String(wanted).trim()){if(k==='item'){const w=String(wanted).trim();if(/^[A-Za-z0-9_-]+$/.test(w)&&/[0-9]/.test(w)){if(compactKey(actual)!==compactKey(w))return false;}else if(!compactKey(actual).includes(compactKey(w)))return false;}else if(k==='cfa'||k==='warehouse'){if(!compactKey(actual).includes(compactKey(wanted)))return false;}else if(!norm(actual).includes(norm(wanted)))return false;}}return true;});
     if(!rows.length)return 'തിരഞ്ഞെടുത്ത filters/date period-ൽ matching dashboard data കണ്ടെത്തിയില്ല. Item/code, date, filter values പരിശോധിക്കുക.';
     const numVal=(r,keys)=>{const n=Number(String(val(r,keys)??0).replace(/,/g,'').replace(/₹/g,''));return Number.isFinite(n)?n:0;};
     const gsvVal=r=>r&&r['GSV IN LAKH']!==undefined&&r.__gsv===undefined?numVal(r,['GSV IN LAKH'])*100000:numVal(r,['__gsv','GSV','GSV Amount','AmountToCustomer','Amount To Customer']);
@@ -8748,9 +8749,10 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       if(asksTransit&&!typeKnown)return 'LIVE STOCK source-ൽ TYPE/Stock Type field കണ്ടെത്തിയില്ല. In-Transit quantity-യെ SOH-இൽ നിന്ന് വേർതിരിച്ച് ഉറപ്പിക്കാൻ source column mapping പരിശോധിക്കണം.';
       if(asksShelf||plan.item||plan.cfa||plan.warehouse||group==='item'||group==='cfa'||group==='warehouse'){
         const itemRows=stockRows.slice(0,Math.min(Number(plan.top_n)||100,100));
-        const heads=['Item Code','Description','CFA','Warehouse','TYPE','CBB / Qty','Available Shelf Life','Balance Shelf Life %'];
-        const detail=itemRows.map(r=>[fields.item(r),fields.desc(r),fields.cfa(r),fields.warehouse(r),fields.type(r),fields.stock_qty(r),fields.shelf_available(r),fields.shelf_balance(r)].map(v=>String(v??'').trim()));
-        if(!detail.length)return 'തിരഞ്ഞെടുത്ത filters-ൽ matching '+(asksTransit?'In-Transit':'SOH')+' row കണ്ടെത്തിയില്ല. Item/CFA/Warehouse values പരിശോധിക്കുക.';
+        const wantsShelfDetails=asksShelf||/available shelf|balance shelf|expiry|shelf life/i.test(q);
+        const heads=wantsShelfDetails?['Item Code','Description','CFA','Warehouse','TYPE','CBB / Qty','Available Shelf Life','Balance Shelf Life %']:['Item Code','Description','CFA','TYPE','CBB / Qty'];
+        const detail=itemRows.map(r=>(wantsShelfDetails?[fields.item(r),fields.desc(r),fields.cfa(r),fields.warehouse(r),fields.type(r),fields.stock_qty(r),fields.shelf_available(r),fields.shelf_balance(r)]:[fields.item(r),fields.desc(r),fields.cfa(r),fields.type(r),fields.stock_qty(r)]).map(v=>String(v??'').trim()));
+        if(!detail.length)return 'Matching SOH row കണ്ടെത്തിയില്ല. Item Code/CFA പരിശോധിക്കുക. Source-ൽ matching row ഇല്ലെങ്കിൽ chatbot കണക്ക് ഊഹിച്ച് നൽകില്ല.';
         return (asksTransit?'IN-TRANSIT':'SOH')+' details — '+period+'\n'+heads.join(' | ')+'\n'+detail.map((r,i)=>(i+1)+'. '+r.join(' | ')).join('\n')+'\nMatching rows: '+stockRows.length;
       }
       if(grouped){const k=group==='none'?'item':group,get=fields[k]||fields.item,map=new Map();stockRows.forEach(r=>{const name=String(get(r)||'Unknown').trim()||'Unknown';map.set(name,(map.get(name)||0)+numVal(r,['CBB','CBO','CBO_QTY','TOTAL_MAIN_QRT','TOTAL_MAIN_QTY','Grand Total','GRAND TOTAL','Qty','Quantity','QTY']));});const arr=[...map].sort((a,b)=>plan.ranking_order==='lowest'?a[1]-b[1]:b[1]-a[1]).slice(0,Math.min(Number(plan.top_n)||20,100));return period+'\nStock '+k+' wise (available quantity fields):\n'+arr.map((x,i)=>(i+1)+'. '+x[0]+' | Qty '+x[1].toLocaleString('en-IN')).join('\n')+'\nMatching stock rows: '+stockRows.length;}
