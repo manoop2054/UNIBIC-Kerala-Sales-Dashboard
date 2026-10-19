@@ -8432,6 +8432,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
 #unibicLocalChatbotForm{display:flex;gap:7px;padding:10px;border-top:1px solid #e2e8e4;background:#fff}
 #unibicLocalChatbotInput{min-width:0;flex:1;border:1px solid #ccd6d0;border-radius:9px;padding:10px;font-size:13px}
 #unibicLocalChatbotSend{border:0;border-radius:9px;padding:0 14px;background:#174a35;color:#fff;font-weight:700;cursor:pointer}
+#unibicLocalChatbotClear{border:1px solid #b9c9bf;border-radius:9px;padding:0 10px;background:#fff;color:#174a35;font-weight:600;cursor:pointer}
 #unibicLocalChatbotHint{padding:0 12px 9px;color:#65736b;font-size:10px;background:#fff}
 @media(max-width:520px){#unibicLocalChatbot{right:10px;bottom:10px}#unibicLocalChatbotPanel{right:-2px}}
 </style>
@@ -8441,6 +8442,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     <div id="unibicLocalChatbotMessages"><div class="unibicChatMsg unibicChatBot">Namaskaram! Item billing, last month sales, billed customers, non-billed customers enna chodyangal chodikkam. / Ask a question about available dashboard data.</div></div>
     <form id="unibicLocalChatbotForm">
       <input id="unibicLocalChatbotInput" autocomplete="off" placeholder="Type your question..." aria-label="Type your question">
+      <button id="unibicLocalChatbotClear" type="button" title="Clear chat messages">Clear Chat</button>
       <button id="unibicLocalChatbotSend" type="submit">Ask</button>
     </form>
     <div id="unibicLocalChatbotHint">Answers use loaded dashboard rows; unsupported questions are not guessed.</div>
@@ -8458,6 +8460,13 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   const form=byId('unibicLocalChatbotForm');
   const input=byId('unibicLocalChatbotInput');
   const messages=byId('unibicLocalChatbotMessages');
+  const clearButton=byId('unibicLocalChatbotClear');
+  clearButton.addEventListener('click',function(){
+    messages.innerHTML='';
+    pendingCustomerQuestion=null;
+    addMessage('Namaskaram! Ask questions about any data available in the dashboard sources. / Dashboard data-il ullathine kurichu chodikku.','bot');
+    input.focus();
+  });
   toggle.addEventListener('click',function(){
     panel.classList.toggle('open');
     if(panel.classList.contains('open')) input.focus();
@@ -8717,7 +8726,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       date:r=>val(r,['__date','PostingDate','Posting Date','Date','Invoice Date'])
     };
     const dateOf=r=>{const d=new Date(fields.date(r));return Number.isNaN(d.getTime())?null:new Date(d.getFullYear(),d.getMonth(),d.getDate());};
-    const filterKeys=['item','customer','dbr','region','area','anchor_zone','anchor','cfa'];
+    const filterKeys=['item','customer','dbr','region','area','anchor_zone','anchor','cfa','warehouse'];
     const rows=source.filter(r=>{if(start||end){const d=dateOf(r);if(!d||(start&&d<start)||(end&&d>end))return false;}for(const k of filterKeys){const wanted=plan[k];if(wanted&&String(wanted).trim()&&!norm(String(fields[k](r)||'')).includes(norm(wanted)))return false;}return true;});
     if(!rows.length)return 'തിരഞ്ഞെടുത്ത filters/date period-ൽ matching dashboard data കണ്ടെത്തിയില്ല. Item/code, date, filter values പരിശോധിക്കുക.';
     const numVal=(r,keys)=>{const n=Number(String(val(r,keys)??0).replace(/,/g,'').replace(/₹/g,''));return Number.isFinite(n)?n:0;};
@@ -8862,38 +8871,45 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     }
     return p;
   }
-  form.addEventListener('submit',function(e){
-    e.preventDefault();const q=input.value.trim();if(!q)return;
-    addMessage(q,'user');input.value='';
+  form.addEventListener('submit',async function(e){
+    e.preventDefault();
+    const q=input.value.trim();
+    if(!q)return;
+    addMessage(q,'user');
+    input.value='';
     let queryQuestion=q;
     if(pendingCustomerQuestion){
       if(periodOnlyReply(q)){queryQuestion=pendingCustomerQuestion+' for '+q;pendingCustomerQuestion=null;}
       else{pendingCustomerQuestion=null;}
     }
-    let localAnswer;
+    const botMessage=addMessage('Checking the available dashboard data…','bot');
     try{
-      localAnswer=answer(queryQuestion);const botMessage=addMessage(localAnswer,'bot');
-      fetch('/api/chat/interpret',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:queryQuestion})})
-        .then(async response=>{if(!response.ok)return null;const data=await response.json();return data&&data.success&&data.plan?data.plan:null;})
-        .then(async plan=>{
-          if(!plan)return;
-          try{
-            await loadChatSharedDatasets();
-            const normalized=normalizeDashboardPlan(queryQuestion,plan);
-            const asksCustomerPeriod=normalized.dataset==='sales'&&!!(normalized.customer||normalized.dbr)&&!normalized.start_date&&!normalized.end_date&&!/\b(top|rank|ranking|overall|all customers)\b/.test(normText(queryQuestion));
-            if(asksCustomerPeriod){
-              pendingCustomerQuestion=queryQuestion;
-              botMessage.textContent='Which period do you need for this customer’s sales? Please specify a year/month (for example, September 2026 or October 2026) or an exact date (for example, 15 October 2026). You can reply in Malayalam, English, or Manglish.';
-              return;
-            }
-            chatRenderResult(botMessage,dashboardQuery(normalized,queryQuestion),queryQuestion);
-          }catch(err){console.error('Dashboard query error',err);}
-        })
-        .catch(()=>{/* Local answer remains available if AI interpretation is unavailable. */});
-      fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:queryQuestion,fallbackAnswer:localAnswer})})
-        .then(async response=>{if(!response.ok)return null;const data=await response.json();return data&&typeof data.answer==='string'&&data.answer.trim()?data.answer.trim():null;})
-        .then(aiAnswer=>{if(aiAnswer&&botMessage.textContent===localAnswer)botMessage.textContent=aiAnswer;}).catch(()=>{});
-    }catch(err){console.error('UNIBIC chatbot error',err);addMessage('I could not safely process that question. Please try again with item/date or region details.','bot');}
+      const response=await fetch('/api/chat/interpret',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:queryQuestion})});
+      if(!response.ok)throw new Error('Query planner HTTP '+response.status);
+      const data=await response.json();
+      if(!data||!data.success||!data.plan)throw new Error('Query planner returned no plan');
+      await loadChatSharedDatasets();
+      const normalized=normalizeDashboardPlan(queryQuestion,data.plan);
+      const asksCustomerPeriod=normalized.dataset==='sales'&&!!(normalized.customer||normalized.dbr)&&!normalized.start_date&&!normalized.end_date&&!/\b(top|rank|ranking|overall|all customers)\b/.test(normText(queryQuestion));
+      if(asksCustomerPeriod){
+        pendingCustomerQuestion=queryQuestion;
+        botMessage.textContent='Which period do you need? Please specify year/month or an exact date. / Eth period aanu vendathu? Year/month/date parayuka.';
+        return;
+      }
+      const result=dashboardQuery(normalized,queryQuestion);
+      chatRenderResult(botMessage,result,queryQuestion);
+    }catch(err){
+      console.error('UNIBIC unified dashboard query failed:',err);
+      let fallback='';
+      try{fallback=answer(queryQuestion);}catch(fallbackError){console.warn('Local chatbot fallback failed:',fallbackError);}
+      if(/exact Item Code|first chatbot version answers sales and invoice questions only/i.test(fallback)){
+        botMessage.textContent='I could not interpret this question against the available dashboard data right now. Please retry in a moment; I will not guess a value. / Ippol query process cheyyan pattiyilla; kurachu kazhinju veendum chodikkuka.';
+      }else if(fallback){
+        chatRenderResult(botMessage,fallback,queryQuestion);
+      }else{
+        botMessage.textContent='Query processing failed. No figures have been guessed. Please retry.';
+      }
+    }
   });
 })();
 </script>
