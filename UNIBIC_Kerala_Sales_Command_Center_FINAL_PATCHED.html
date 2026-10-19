@@ -8933,7 +8933,8 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     if(!q)return;
     addMessage(q,'user');
     input.value='';
-    if(/^(hi|hello|hey|hai|good morning|good afternoon|good evening|namaskaram|നമസ്കാരം|ഹായ്)[!.\s]*$/i.test(q)){addMessage('Hi! UNIBIC Dashboard data-ne kurichu chodikku. / നമസ്കാരം! Dashboard data സംബന്ധിച്ച ചോദ്യം ചോദിക്കൂ.','bot');return;}\n    if(/^(can i ask (you )?(one )?question|may i ask (you )?(a )?question|oru chodyam chodikkatte|oru question chodikkatte|oru chodyam chodikatte)[?.!\\s]*$/i.test(q.trim())){addMessage('തീർച്ചയായും, ചോദിക്കൂ.','bot');return;}
+    if(/^(hi|hello|hey|hai|good morning|good afternoon|good evening|namaskaram|നമസ്കാരം|ഹായ്)[!.\s]*$/i.test(q)){addMessage('Hi! UNIBIC Dashboard data-ne kurichu chodikku. / നമസ്കാരം! Dashboard data സംബന്ധിച്ച ചോദ്യം ചോദിക്കൂ.','bot');return;}
+    if(/^(can i ask (you )?(one )?question|may i ask (you )?(a )?question|oru chodyam chodikkatte|oru question chodikkatte|oru chodyam chodikatte)[?.!\\s]*$/i.test(q.trim())){addMessage('തീർച്ചയായും, ചോദിക്കൂ.','bot');return;}
     let queryQuestion=q;
     if(pendingCustomerQuestion){
       if(periodOnlyReply(q)){queryQuestion=pendingCustomerQuestion+' for '+q;pendingCustomerQuestion=null;}
