@@ -8555,6 +8555,52 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     const say=(en,mlg,ml)=>lang==='ml'?ml:(lang==='mlg'?mlg:en);
     if(!rows.length)return say('Dashboard sales data is not loaded yet. Please wait until the dashboard shows Connected, then ask again.','Dashboard sales data load aayittilla. Connected aayittu veendum chodikkuka.','ഡാഷ്ബോർഡിലെ സെയിൽസ് ഡാറ്റ ഇതുവരെ ലോഡ് ആയിട്ടില്ല. Connected എന്ന് കാണിച്ച ശേഷം വീണ്ടും ചോദിക്കുക.');
     const period=dateWindow(q);
+    // Multi-item billing detail: group only explicitly requested item codes and show billed customers.
+    const requestedItemCodes=[...new Set((clean(q).toUpperCase().match(/\\b[A-Z]{2,}[A-Z0-9]*\\d{3,}[A-Z0-9]*\\b/g)||[]))];
+    if(period&&requestedItemCodes.length>=2){
+      const availableCodes=new Set(rows.map(r=>itemCode(r)).filter(Boolean));
+      const selectedCodes=requestedItemCodes.filter(code=>availableCodes.has(code));
+      if(selectedCodes.length>=2){
+        const inPeriod=rows.filter(r=>{const d=rowDate(r);return d&&d>=period.start&&d<period.end;});
+        const detailRows=[];
+        const summaryRows=[];
+        for(const code of selectedCodes){
+          const itemRows=inPeriod.filter(r=>itemCode(r)===code);
+          const groups=new Map();
+          itemRows.forEach(r=>{
+            const name=customer(r);
+            if(!name)return;
+            const key=normText(name);
+            let x=groups.get(key);
+            if(!x){
+              x={name,area:clean(getVal(r,['__area','AreaCode','Area Code','Area','Area Name'])),zone:clean(getVal(r,['__anchorZone','AnchorZoneName','Anchor Zone Name','Anchor Zone','AnchorZone'])),cbb:0,gsv:0,invoices:new Set()};
+              groups.set(key,x);
+            }
+            x.cbb+=Number(String(getVal(r,['__cbb','QuantityinCBO','Quantity in CBO','CBB','CBO'])||0).replace(/,/g,''))||0;
+            x.gsv+=gsv(r);
+            const inv=invoice(r);if(inv)x.invoices.add(inv);
+            if(!x.area)x.area=clean(getVal(r,['__area','AreaCode','Area Code','Area','Area Name']));
+            if(!x.zone)x.zone=clean(getVal(r,['__anchorZone','AnchorZoneName','Anchor Zone Name','Anchor Zone','AnchorZone']));
+          });
+          const customers=[...groups.values()].sort((a,b)=>a.name.localeCompare(b.name));
+          customers.forEach(x=>detailRows.push([code,x.name,x.area||'Not mapped',x.zone||'Not mapped',x.cbb.toLocaleString('en-IN',{maximumFractionDigits:2}),money(x.gsv),String(x.invoices.size)]));
+          const totalCbb=itemRows.reduce((sum,r)=>sum+(Number(String(getVal(r,['__cbb','QuantityinCBO','Quantity in CBO','CBB','CBO'])||0).replace(/,/g,''))||0),0);
+          const totalGsv=itemRows.reduce((sum,r)=>sum+gsv(r),0);
+          const totalInvoices=new Set(itemRows.map(invoice).filter(Boolean)).size;
+          summaryRows.push([code,'TOTAL — '+customers.length+' billed customers','','',totalCbb.toLocaleString('en-IN',{maximumFractionDigits:2}),money(totalGsv),String(totalInvoices)]);
+        }
+        if(detailRows.length){
+          const header='Item Code | Customer/Distributor Name | Area | Anchor Zone | Total CBB | Total GSV | Distinct Invoice Count';
+          const allRows=[];
+          for(const code of selectedCodes){
+            allRows.push(...detailRows.filter(r=>r[0]===code));
+            const summary=summaryRows.find(r=>r[0]===code);if(summary)allRows.push(summary);
+          }
+          return 'Billed customers by item — '+period.label+'\\n'+header+'\\n'+allRows.map(r=>r.join(' | ')).join('\\n')+'\\n\\nOnly customers with matching item billing rows are listed. Area/Anchor Zone are taken from loaded sales records; missing values are marked Not mapped.';
+        }
+        return 'No billing rows found for the requested items during '+period.label+'.';
+      }
+    }
     // General dashboard aggregation: region/area/DBR/customer and overall GSV without requiring an item code.
     if(!resolveItem(q,rows)){
       const isGsvQuestion=/\b(gsv|sales|sale|revenue|amount|value|total|achievement)\b/.test(n) || /gsv|sales|amount|value/.test(n);
