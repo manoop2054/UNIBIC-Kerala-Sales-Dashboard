@@ -8714,6 +8714,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     const start=parseDate(plan.start_date),end=parseDate(plan.end_date);
     const fields={
       item:r=>val(r,['__itemCode','ItemId','Item ID','ItemCode','Item Code','ITEMID','ITEM CODE']), desc:r=>val(r,['__desc','Description','Item Description','DESCRIPTION']),
+      invoice:r=>val(r,['__invoice','Invoice_No','Invoice No','Invoice','INVOICE NO','INVOICE NUMBER','Document No','Document Number']),
       customer:r=>val(r,['__customer','Customer_Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name']),
       dbr:r=>val(r,['__dbrName','DBR_Name','DBR Name','Sell_to_Customer_Name','DBR / Customer Name']),
       region:r=>val(r,['__region','REGION','Region','region','Region Name']), area:r=>val(r,['__area','AreaCode','Area Code','Area']),
@@ -8726,9 +8727,9 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       date:r=>val(r,['__date','PostingDate','Posting Date','Date','Invoice Date'])
     };
     const dateOf=r=>{const d=new Date(fields.date(r));return Number.isNaN(d.getTime())?null:new Date(d.getFullYear(),d.getMonth(),d.getDate());};
-    const filterKeys=['item','customer','dbr','region','area','anchor_zone','anchor','cfa','warehouse'];
+    const filterKeys=['item','customer','dbr','region','area','anchor_zone','anchor','cfa','warehouse','invoice'];
     const compactKey=v=>String(v??'').toLowerCase().replace(/[^a-z0-9]/g,'');
-    const rows=source.filter(r=>{if(start||end){const d=dateOf(r);if(!d||(start&&d<start)||(end&&d>end))return false;}for(const k of filterKeys){const wanted=plan[k],actual=String(fields[k](r)||'').trim();if(wanted&&String(wanted).trim()){if(k==='item'){const w=String(wanted).trim();if(/^[A-Za-z0-9_-]+$/.test(w)&&/[0-9]/.test(w)){if(compactKey(actual)!==compactKey(w))return false;}else if(!compactKey(actual).includes(compactKey(w)))return false;}else if(k==='cfa'||k==='warehouse'){if(!compactKey(actual).includes(compactKey(wanted)))return false;}else if(!norm(actual).includes(norm(wanted)))return false;}}return true;});
+    const rows=source.filter(r=>{if(start||end){const d=dateOf(r);if(!d||(start&&d<start)||(end&&d>end))return false;}for(const k of filterKeys){const wanted=plan[k],actual=String(fields[k](r)||'').trim();if(wanted&&String(wanted).trim()){if(k==='item'||k==='invoice'){const w=String(wanted).trim();if(k==='invoice'||(/^[A-Za-z0-9_-]+$/.test(w)&&/[0-9]/.test(w))){if(compactKey(actual)!==compactKey(w))return false;}else if(!compactKey(actual).includes(compactKey(w)))return false;}else if(k==='cfa'||k==='warehouse'){if(!compactKey(actual).includes(compactKey(wanted)))return false;}else if(!norm(actual).includes(norm(wanted)))return false;}}return true;});
     if(!rows.length)return 'തിരഞ്ഞെടുത്ത filters/date period-ൽ matching dashboard data കണ്ടെത്തിയില്ല. Item/code, date, filter values പരിശോധിക്കുക.';
     const numVal=(r,keys)=>{const n=Number(String(val(r,keys)??0).replace(/,/g,'').replace(/₹/g,''));return Number.isFinite(n)?n:0;};
     const gsvVal=r=>r&&r['GSV IN LAKH']!==undefined&&r.__gsv===undefined?numVal(r,['GSV IN LAKH'])*100000:numVal(r,['__gsv','GSV','GSV Amount','AmountToCustomer','Amount To Customer']);
@@ -8763,7 +8764,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     if(metric==='customer_count')return period+'\nDistinct customers/DBRs: '+customers+'\nMatching rows: '+rows.length;
     if(metric==='item_count')return period+'\nDistinct items: '+items+'\nMatching rows: '+rows.length;
     if(metric==='discount_percent'){const keys=['Line_Discount_Percent','Line Discount Percent','LineDiscountPercent','Discount_Percent','Discount Percent','Scheme_Discount_Percent','Scheme Discount Percent'];const vals=rows.map(r=>({raw:val(r,keys),n:numVal(r,keys)})).filter(x=>x.raw!==''&&x.raw!==null&&x.raw!==undefined);return period+'\nRows matching query: '+rows.length+'\nRows with an explicit line/scheme discount % field: '+vals.length+'\nAverage explicit line/scheme discount %: '+(vals.length?(vals.reduce((a,x)=>a+x.n,0)/vals.length).toFixed(2)+'%':'Not available in loaded columns')+'\nINDV discount amount: '+moneyVal(discTotal);}
-    if(metric==='records')return period+'\nMatching rows: '+rows.length+'\n'+rows.slice(0,Math.min(plan.top_n,30)).map((r,i)=>(i+1)+'. '+itemVal(r)+' | '+fields.desc(r)+' | Customer '+customerVal(r)+' | Invoice '+invVal(r)+' | GSV '+moneyVal(gsvVal(r))+' | Discount '+moneyVal(discVal(r))).join('\n');
+    if(metric==='records')return period+'\nMatching rows: '+rows.length+'\n'+rows.slice(0,Math.min(plan.top_n,100)).map((r,i)=>(i+1)+'. '+itemVal(r)+' | '+fields.desc(r)+' | Customer '+customerVal(r)+' | Invoice '+invVal(r)+' | CBB '+cbbVal(r).toLocaleString('en-IN')+' | GSV '+moneyVal(gsvVal(r))+' | Discount '+moneyVal(discVal(r))).join('\n');
     return period+'\nGSV: '+moneyVal(gsvTotal)+'\nCBB: '+cbbTotal.toLocaleString('en-IN')+'\nINDV discount: '+moneyVal(discTotal)+'\nDistinct invoices: '+invoices+'\nCustomers/DBRs: '+customers+'\nItems: '+items+'\nMatching rows: '+rows.length;
   }
   function chatRenderResult(message,result,question){
@@ -8879,7 +8880,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   // API-independent local planner: normal questions are parsed in-browser; no paid API call is required.
   function buildLocalDashboardPlan(question){
     const n=normText(question), rows=getRows();
-    const p={dataset:'sales',metric:'gsv',start_date:null,end_date:null,item:null,customer:null,dbr:null,region:null,area:null,anchor_zone:null,anchor:null,cfa:null,warehouse:null,group_by:'none',ranking_order:'none',top_n:20};
+    const p={dataset:'sales',metric:'gsv',start_date:null,end_date:null,item:null,customer:null,dbr:null,region:null,area:null,anchor_zone:null,anchor:null,cfa:null,warehouse:null,invoice:null,group_by:'none',ranking_order:'none',top_n:20};
     const hasAny=(re)=>re.test(n);
     const monthOrDate=dateWindow(question);
     const claims=hasAny(/\b(dcr|lep|leap|claim|claims|claim tracker)\b/);
@@ -8910,6 +8911,8 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       const matched=customerNames.find(name=>(' '+n+' ').includes(' '+normText(name)+' '));
       if(matched&&!ranking){p.customer=matched;p.group_by='none';}
       const choose=(keys)=>{const names=[...new Set(rows.map(r=>String(getVal(r,keys)||'').trim()).filter(Boolean))].sort((a,b)=>b.length-a.length);return names.find(name=>name.length>1&&(' '+n+' ').includes(' '+normText(name)+' '))||null;};
+      const invoiceValues=[...new Set(rows.map(r=>String(getVal(r,['__invoice','Invoice_No','Invoice No','Invoice','INVOICE NO','INVOICE NUMBER','Document No','Document Number'])||'').trim()).filter(Boolean))].sort((a,b)=>b.length-a.length);
+      p.invoice=invoiceValues.find(v=>v.length>=4&&n.includes(normText(v)))||null;
       p.region=choose(['__region','REGION','Region','region','Region Name']);
       p.area=choose(['__area','AreaCode','Area Code','Area']);
       p.anchor_zone=choose(['__anchorZone','AnchorZoneName','Anchor Zone Name','Anchor Zone','AnchorZone']);
@@ -8918,6 +8921,11 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       p.cfa=choose(['CFA','CFA Name','CFA_NAME','CFA / WAREHOUSE','CFA/Warehouse']);
     }
     if(monthOrDate){const start=new Date(monthOrDate.start),end=new Date(monthOrDate.end-1);const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');p.start_date=iso(start);p.end_date=iso(end);}
+    // Query intent overrides: invoice line details and item-to-customer lists must not fall back to totals.
+    if(p.invoice){p.dataset='sales';p.metric='records';p.group_by='none';p.ranking_order='none';p.top_n=100;}
+    const customerListIntent=/\b(which customers|what customers|customers? (?:did|have|has) (?:buy|bought|purchased)|who (?:bought|purchased|was billed)|customer names?|list customers|billed to whom)\b/.test(n)||/eathokke customer|ethokke customer|aarokke.*bill|customer.*bill cheytha/.test(n);
+    if(p.item&&customerListIntent){p.dataset='sales';p.group_by='customer';p.ranking_order='none';p.metric=/\bcbb\b|\bcbo\b|carton|quantity|qty/.test(n)?'cbb':'gsv';p.top_n=100;p.customer=null;p.dbr=null;}
+    if(/\b(anchor|anchor zone|area|dbr)\b/.test(n)&&/\b(achievement|ach %|ranking|rank|top|highest)\b/.test(n)&&!soh){p.dataset='target';p.metric='achievement_percent';p.group_by=/\bdbr\b/.test(n)?'dbr':/\barea\b/.test(n)?'area':/\banchor zone\b/.test(n)?'anchor_zone':'anchor';p.ranking_order='highest';p.top_n=100;}
     return normalizeDashboardPlan(question,p);
   }
   form.addEventListener('submit',async function(e){
