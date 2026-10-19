@@ -8538,6 +8538,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     el.textContent=text;
     messages.appendChild(el);
     messages.scrollTop=messages.scrollHeight;
+    return el;
   }
   function answer(q){
     const rows=getRows();
@@ -8626,7 +8627,23 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     e.preventDefault();
     const q=input.value.trim();if(!q)return;
     addMessage(q,'user');input.value='';
-    try{addMessage(answer(q),'bot');}catch(err){console.error('UNIBIC chatbot error',err);addMessage('I could not safely process that question. Please try an exact item code and month.','bot');}
+    let localAnswer;
+    try{
+      localAnswer=answer(q);
+      const botMessage=addMessage(localAnswer,'bot');
+      // OpenAI is an optional language layer. Local dashboard calculations remain the fallback.
+      fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q,fallbackAnswer:localAnswer})})
+        .then(async response=>{
+          if(!response.ok)return null;
+          const data=await response.json();
+          return data&&typeof data.answer==='string'&&data.answer.trim()?data.answer.trim():null;
+        })
+        .then(aiAnswer=>{if(aiAnswer)botMessage.textContent=aiAnswer;})
+        .catch(()=>{/* Keep the already displayed local answer when API is unavailable. */});
+    }catch(err){
+      console.error('UNIBIC chatbot error',err);
+      addMessage('I could not safely process that question. Please try an exact item code and month.','bot');
+    }
   });
 })();
 </script>
