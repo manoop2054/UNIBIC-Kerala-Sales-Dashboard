@@ -8511,7 +8511,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     }
     const months={january:0,jan:0,february:1,feb:1,march:2,mar:2,april:3,apr:3,may:4,june:5,jun:5,july:6,jul:6,august:7,aug:7,september:8,sep:8,october:9,oct:9,november:10,nov:10,december:11,dec:11};
     for(const [name,m] of Object.entries(months)){
-      const re=new RegExp('\\b'+name+'\\b');
+      const re=new RegExp('\b'+name+'\b');
       if(re.test(n)){
         const ym=n.match(/\b(20\d{2})\b/), y=ym?Number(ym[1]):year;
         return {start:new Date(y,m,1),end:new Date(y,m+1,1),label:new Date(y,m,1).toLocaleString('en-IN',{month:'long',year:'numeric'})};
@@ -8556,7 +8556,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     if(!rows.length)return say('Dashboard sales data is not loaded yet. Please wait until the dashboard shows Connected, then ask again.','Dashboard sales data load aayittilla. Connected aayittu veendum chodikkuka.','ഡാഷ്ബോർഡിലെ സെയിൽസ് ഡാറ്റ ഇതുവരെ ലോഡ് ആയിട്ടില്ല. Connected എന്ന് കാണിച്ച ശേഷം വീണ്ടും ചോദിക്കുക.');
     const period=dateWindow(q);
     // Multi-item billing detail: group only explicitly requested item codes and show billed customers.
-    const requestedItemCodes=[...new Set((clean(q).toUpperCase().match(/\\b[A-Z]{2,}[A-Z0-9]*\\d{3,}[A-Z0-9]*\\b/g)||[]))];
+    const requestedItemCodes=[...new Set((clean(q).toUpperCase().match(/\b[A-Z]{2,}[A-Z0-9]*\d{3,}[A-Z0-9]*\b/g)||[]))];
     if(period&&requestedItemCodes.length>=2){
       const availableCodes=new Set(rows.map(r=>itemCode(r)).filter(Boolean));
       const selectedCodes=requestedItemCodes.filter(code=>availableCodes.has(code));
@@ -8596,7 +8596,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
             allRows.push(...detailRows.filter(r=>r[0]===code));
             const summary=summaryRows.find(r=>r[0]===code);if(summary)allRows.push(summary);
           }
-          return 'Billed customers by item — '+period.label+'\\n'+header+'\\n'+allRows.map(r=>r.join(' | ')).join('\\n')+'\\n\\nOnly customers with matching item billing rows are listed. Area/Anchor Zone are taken from loaded sales records; missing values are marked Not mapped.';
+          return 'Billed customers by item — '+period.label+'\n'+header+'\n'+allRows.map(r=>r.join(' | ')).join('\n')+'\n\nOnly customers with matching item billing rows are listed. Area/Anchor Zone are taken from loaded sales records; missing values are marked Not mapped.';
         }
         return 'No billing rows found for the requested items during '+period.label+'.';
       }
@@ -8612,7 +8612,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
         {key:'dbr',label:'DBR',get:r=>clean(getVal(r,['__dbrName','DBR_Name','DBR Name','Sell_to_Customer_Name'])) || clean(getVal(r,['__dbrCode','DBR_Code','DBR Code']))},
         {key:'customer',label:'Customer',get:r=>customer(r)}
       ];
-      const dims=dimensionDefs.filter(d=>new RegExp('\\b'+d.key.replace(' ','\\s+')+'\\b').test(n));
+      const dims=dimensionDefs.filter(d=>new RegExp('\b'+d.key.replace(' ','\\s+')+'\b').test(n));
       const dimension=dims[0]||null;
       let candidates=rows;
       if(period)candidates=candidates.filter(r=>{const d=rowDate(r);return d&&d>=period.start&&d<period.end;});
