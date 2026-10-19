@@ -8756,9 +8756,9 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   let pendingCustomerQuestion=null;
   function periodOnlyReply(q){
     const n=normText(q);
-    return /^(last month|previous month|this month|current month|january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|october|oct|november|nov|december|dec)(\\s+20\\d{2})?$/.test(n)
-      || /^(\\d{1,2}[\\/.-]\\d{1,2}[\\/.-]20\\d{2}|20\\d{2}-\\d{2}-\\d{2})$/.test(n)
-      || /^\\d{1,2}\\s+(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)\\s+20\\d{2}$/.test(n);
+    return /^(last month|previous month|this month|current month|january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|october|oct|november|nov|december|dec)(\s+20\d{2})?$/.test(n)
+      || /^(\d{1,2}[\/.-]\d{1,2}[\/.-]20\d{2}|20\d{2}-\d{2}-\d{2})$/.test(n)
+      || /^\d{1,2}\s+(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)\s+20\d{2}$/.test(n);
   }
   function normalizeDashboardPlan(question,plan){
     const p={...plan};
@@ -8769,18 +8769,18 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
       p.start_date=iso(start);p.end_date=iso(end);
     }else{
-      let d=null,m=question.match(/\\b(20\\d{2})-(\\d{2})-(\\d{2})\\b/);
+      let d=null,m=question.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
       if(m)d=new Date(Number(m[1]),Number(m[2])-1,Number(m[3]));
-      if(!d){m=question.match(/\\b(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](20\\d{2})\\b/);if(m)d=new Date(Number(m[3]),Number(m[2])-1,Number(m[1]));}
-      if(!d){m=question.match(/\\b(\\d{1,2})\\s+(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)\\s+(20\\d{2})\\b/);if(m){const months={jan:0,january:0,feb:1,february:1,mar:2,march:2,apr:3,april:3,may:4,jun:5,june:5,jul:6,july:6,aug:7,august:7,sep:8,sept:8,september:8,oct:9,october:9,nov:10,november:10,dec:11,december:11};d=new Date(Number(m[3]),months[m[2]],Number(m[1]));}}
+      if(!d){m=question.match(/\b(\d{1,2})[\/.-](\d{1,2})[\/.-](20\d{2})\b/);if(m)d=new Date(Number(m[3]),Number(m[2])-1,Number(m[1]));}
+      if(!d){m=question.match(/\b(\d{1,2})\s+(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)\s+(20\d{2})\b/);if(m){const months={jan:0,january:0,feb:1,february:1,mar:2,march:2,apr:3,april:3,may:4,jun:5,june:5,jul:6,july:6,aug:7,august:7,sep:8,sept:8,september:8,oct:9,october:9,nov:10,november:10,dec:11,december:11};d=new Date(Number(m[3]),months[m[2]],Number(m[1]));}}
       if(d&&!Number.isNaN(d.getTime())){const iso=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');p.start_date=iso(d);p.end_date=iso(d);}
     }
-    const topMatch=n.match(/\\btop\\s+(\\d{1,2})\\b/);
-    const rankingIntent=/\\b(top|rank|ranking|highest|most|best|bottom|lowest|least)\\b/.test(n)||/ഏറ്റവും കൂടുതല്|ഏറ്റവും കൂടുതൽ|മികച്ച/.test(question);
-    const itemIntent=/\\b(item|items|product|products|sku|item code)\\b/.test(n)||/ഐറ്റം|ഇനങ്ങള്|ഇനങ്ങൾ|ഉൽപ്പന്ന/.test(question);
-    const gsvIntent=/\\b(gsv|sales|sale|revenue|value|amount|വിറ്റുവരവ്|സെയില്|സെയിൽസ്)\\b/.test(n)||/gsv|sales|sale|revenue/.test(n);
+    const topMatch=n.match(/\btop\s+(\d{1,2})\b/);
+    const rankingIntent=/\b(top|rank|ranking|highest|most|best|bottom|lowest|least)\b/.test(n)||/ഏറ്റവും കൂടുതല്|ഏറ്റവും കൂടുതൽ|മികച്ച/.test(question);
+    const itemIntent=/\b(item|items|product|products|sku|item code)\b/.test(n)||/ഐറ്റം|ഇനങ്ങള്|ഇനങ്ങൾ|ഉൽപ്പന്ന/.test(question);
+    const gsvIntent=/\b(gsv|sales|sale|revenue|value|amount|വിറ്റുവരവ്|സെയില്|സെയിൽസ്)\b/.test(n)||/gsv|sales|sale|revenue/.test(n);
     if(rankingIntent&&itemIntent&&gsvIntent){
-      p.dataset='sales';p.metric='gsv';p.group_by='item';p.ranking_order=/\\b(bottom|lowest|least)\\b/.test(n)?'lowest':'highest';p.top_n=topMatch?Math.max(1,Math.min(50,Number(topMatch[1]))):Math.max(1,Math.min(50,Number(p.top_n)||10));
+      p.dataset='sales';p.metric='gsv';p.group_by='item';p.ranking_order=/\b(bottom|lowest|least)\b/.test(n)?'lowest':'highest';p.top_n=topMatch?Math.max(1,Math.min(50,Number(topMatch[1]))):Math.max(1,Math.min(50,Number(p.top_n)||10));
       p.item=null;
     }
     return p;
