@@ -8414,3 +8414,177 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
 })();
 </script>
 
+
+
+<!-- UNIBIC_LOCAL_DATA_CHATBOT_V1_20261019: isolated dashboard-data chatbot; no other tabs or calculations modified -->
+<style id="unibicLocalChatbotStyle">
+#unibicLocalChatbot{position:fixed;right:18px;bottom:18px;z-index:99999;font-family:Arial,sans-serif;color:#172033}
+#unibicLocalChatbot *{box-sizing:border-box}
+#unibicLocalChatbotToggle{border:0;border-radius:28px;padding:13px 18px;background:#174a35;color:#fff;font-weight:700;box-shadow:0 5px 22px #0003;cursor:pointer}
+#unibicLocalChatbotPanel{display:none;position:absolute;right:0;bottom:58px;width:min(390px,calc(100vw - 28px));height:min(540px,calc(100vh - 105px));background:#fff;border:1px solid #d6ded9;border-radius:15px;box-shadow:0 10px 35px #0003;overflow:hidden;flex-direction:column}
+#unibicLocalChatbotPanel.open{display:flex}
+#unibicLocalChatbotHead{padding:13px 15px;background:#174a35;color:#fff;font-weight:700}
+#unibicLocalChatbotSub{font-size:11px;font-weight:400;opacity:.9;margin-top:4px}
+#unibicLocalChatbotMessages{padding:12px;overflow:auto;flex:1;background:#f6f8f7;font-size:13px;line-height:1.45}
+.unibicChatMsg{padding:9px 11px;margin:0 0 9px;border-radius:11px;white-space:pre-wrap;overflow-wrap:anywhere;max-width:96%}
+.unibicChatBot{background:#fff;border:1px solid #e1e7e3;margin-right:auto}
+.unibicChatUser{background:#e1f2e8;margin-left:auto}
+#unibicLocalChatbotForm{display:flex;gap:7px;padding:10px;border-top:1px solid #e2e8e4;background:#fff}
+#unibicLocalChatbotInput{min-width:0;flex:1;border:1px solid #ccd6d0;border-radius:9px;padding:10px;font-size:13px}
+#unibicLocalChatbotSend{border:0;border-radius:9px;padding:0 14px;background:#174a35;color:#fff;font-weight:700;cursor:pointer}
+#unibicLocalChatbotHint{padding:0 12px 9px;color:#65736b;font-size:10px;background:#fff}
+@media(max-width:520px){#unibicLocalChatbot{right:10px;bottom:10px}#unibicLocalChatbotPanel{right:-2px}}
+</style>
+<div id="unibicLocalChatbot" aria-live="polite">
+  <div id="unibicLocalChatbotPanel" role="dialog" aria-label="UNIBIC Dashboard Chatbot">
+    <div id="unibicLocalChatbotHead">UNIBIC Sales Assistant<div id="unibicLocalChatbotSub">Dashboard data only · Malayalam / English / Manglish</div></div>
+    <div id="unibicLocalChatbotMessages"><div class="unibicChatMsg unibicChatBot">Namaskaram! Item billing, last month sales, billed customers, non-billed customers enna chodyangal chodikkam. / Ask a question about available dashboard data.</div></div>
+    <form id="unibicLocalChatbotForm">
+      <input id="unibicLocalChatbotInput" autocomplete="off" placeholder="Type your question..." aria-label="Type your question">
+      <button id="unibicLocalChatbotSend" type="submit">Ask</button>
+    </form>
+    <div id="unibicLocalChatbotHint">Answers use loaded dashboard rows; unsupported questions are not guessed.</div>
+  </div>
+  <button id="unibicLocalChatbotToggle" type="button">💬 Ask Dashboard</button>
+</div>
+<script id="UNIBIC_LOCAL_DATA_CHATBOT_V1_20261019">
+(function(){
+  'use strict';
+  if(window.__unibicLocalChatbotLoaded) return;
+  window.__unibicLocalChatbotLoaded=true;
+  const byId=id=>document.getElementById(id);
+  const panel=byId('unibicLocalChatbotPanel');
+  const toggle=byId('unibicLocalChatbotToggle');
+  const form=byId('unibicLocalChatbotForm');
+  const input=byId('unibicLocalChatbotInput');
+  const messages=byId('unibicLocalChatbotMessages');
+  toggle.addEventListener('click',function(){
+    panel.classList.toggle('open');
+    if(panel.classList.contains('open')) input.focus();
+  });
+  const clean=v=>v===undefined||v===null?'':String(v).trim();
+  const normText=s=>clean(s).toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\u0D00-\u0D7F]+/g,' ').trim();
+  function getRows(){
+    try{if(typeof gsvRows!=='undefined'&&Array.isArray(gsvRows)&&gsvRows.length)return gsvRows;}catch(e){}
+    try{if(typeof activeRows!=='undefined'&&Array.isArray(activeRows)&&activeRows.length)return activeRows;}catch(e){}
+    if(Array.isArray(window.gsvRows)&&window.gsvRows.length)return window.gsvRows;
+    if(Array.isArray(window.activeRows)&&window.activeRows.length)return window.activeRows;
+    return [];
+  }
+  function getVal(r,keys){
+    for(const k of keys){if(r&&r[k]!==undefined&&r[k]!==null&&clean(r[k])!=='')return r[k];}
+    return '';
+  }
+  function rowDate(r){
+    const v=getVal(r,['__date','PostingDate','Posting Date','Date','Invoice Date']);
+    if(v instanceof Date&&!Number.isNaN(v.getTime()))return v;
+    if(v===null||v===undefined||v==='')return null;
+    const d=new Date(v);
+    return Number.isNaN(d.getTime())?null:d;
+  }
+  function itemCode(r){return clean(getVal(r,['__itemCode','ItemId','Item ID','ItemCode','Item Code']));}
+  function itemDesc(r){return clean(getVal(r,['__desc','Description','Item Description']));}
+  function customer(r){return clean(getVal(r,['__customer','Customer_Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name']));}
+  function invoice(r){return clean(getVal(r,['__invoice','Invoice_No','Invoice No','Invoice']));}
+  function gsv(r){
+    let v=getVal(r,['__gsv','GSV','GSV Amount','AmountToCustomer']);
+    let n=Number(String(v??0).replace(/,/g,''));
+    if(!Number.isFinite(n))n=0;
+    if(r&&r['GSV IN LAKH']!==undefined&&r.__gsv===undefined)n=Number(r['GSV IN LAKH']||0)*100000;
+    return Number.isFinite(n)?n:0;
+  }
+  function dateWindow(q){
+    const n=normText(q), now=new Date(), year=now.getFullYear(), month=now.getMonth();
+    if(/last month|previous month|past month|kazhinja masam|kazhinja month|kazhinja maasam|mun masam/.test(n)){
+      return {start:new Date(year,month-1,1),end:new Date(year,month,1),label:new Date(year,month-1,1).toLocaleString('en-IN',{month:'long',year:'numeric'})};
+    }
+    if(/this month|current month|ee masam|ee month|ippozhathe masam/.test(n)){
+      return {start:new Date(year,month,1),end:new Date(year,month+1,1),label:now.toLocaleString('en-IN',{month:'long',year:'numeric'})};
+    }
+    const months={january:0,jan:0,february:1,feb:1,march:2,mar:2,april:3,apr:3,may:4,june:5,jun:5,july:6,jul:6,august:7,aug:7,september:8,sep:8,october:9,oct:9,november:10,nov:10,december:11,dec:11};
+    for(const [name,m] of Object.entries(months)){
+      const re=new RegExp('\\b'+name+'\\b');
+      if(re.test(n)){
+        const ym=n.match(/\b(20\d{2})\b/), y=ym?Number(ym[1]):year;
+        return {start:new Date(y,m,1),end:new Date(y,m+1,1),label:new Date(y,m,1).toLocaleString('en-IN',{month:'long',year:'numeric'})};
+      }
+    }
+    return null;
+  }
+  function resolveItem(q,rows){
+    const nq=normText(q);
+    const byCode=new Map();
+    for(const r of rows){
+      const c=itemCode(r); if(c&&!byCode.has(c))byCode.set(c,{code:c,desc:itemDesc(r)});
+    }
+    const codes=[...byCode.values()].sort((a,b)=>b.code.length-a.code.length);
+    const exact=codes.find(x=>nq.includes(normText(x.code)));
+    if(exact)return exact;
+    const qTokens=nq.split(' ').filter(t=>t.length>=4);
+    let best=null,bestScore=0;
+    for(const x of byCode.values()){
+      const desc=normText(x.desc);
+      if(!desc)continue;
+      const tokens=[...new Set(desc.split(' ').filter(t=>t.length>=4))];
+      const score=tokens.filter(t=>qTokens.includes(t)).length;
+      if(score>bestScore){bestScore=score;best=x;}
+    }
+    return bestScore>=2?best:null;
+  }
+  function money(n){return '₹'+Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:2,minimumFractionDigits:2});}
+  function addMessage(text,who){
+    const el=document.createElement('div');
+    el.className='unibicChatMsg '+(who==='user'?'unibicChatUser':'unibicChatBot');
+    el.textContent=text;
+    messages.appendChild(el);
+    messages.scrollTop=messages.scrollHeight;
+  }
+  function answer(q){
+    const rows=getRows();
+    if(!rows.length)return 'Dashboard sales data is not loaded yet. Please wait until the dashboard shows Connected, then ask again. / Sales data load aayittilla.';
+    const period=dateWindow(q);
+    const nq=normText(q);
+    const item=resolveItem(q,rows);
+    if(!item){
+      if(/stock|soh|warehouse|shelf life|stock undo|stock ethra/.test(nq)){
+        return 'Live SOH data is available in the dashboard, but this first chatbot version answers sales/invoice questions only. / Ippol sales and invoice questions aanu support cheyyunnathu.';
+      }
+      return 'Please include an exact Item Code (for example FGUNIB1874) and, if needed, a period such as “last month” or “October 2026”. I can answer only from loaded dashboard data. / Item code koode type cheyyamo?';
+    }
+    if(!period)return 'Please specify the month or period, for example “last month”, “this month”, or “October 2026”, so I can check the correct invoice rows.';
+    const within=rows.filter(r=>{const d=rowDate(r);return d&&d>=period.start&&d<period.end;});
+    const matching=within.filter(r=>itemCode(r)===item.code||(!itemCode(r)&&normText(itemDesc(r))===normText(item.desc)));
+    const wantsNot=/not billed|did not bill|didnt bill|didn t bill|no bill|not bought|did not buy|non billed|bill cheythilla|bill cheythittilla|eduthilla|vaangiyilla|vangiyilla|billed cheyyatha|bill cheyyatha|bill cheytha illa/.test(nq);
+    const wantsList=/who|which customer|customer list|customers|aarokke|aarellam|aaru|list|details|billed|bill cheyth|bill cheyy/.test(nq);
+    const wantsGsv=/gsv|sales amount|sales value|total sales|amount|value|ethra sales|sales ethra/.test(nq);
+    const billedNames=new Set(matching.map(customer).filter(Boolean).map(normText));
+    const totalGsv=matching.reduce((s,r)=>s+gsv(r),0);
+    const totalCbb=matching.reduce((s,r)=>s+Number(String(getVal(r,['__cbb','QuantityinCBO','Quantity in CBO','CBB','CBO'])||0).replace(/,/g,''))||0,0);
+    const uniqueInvoices=new Set(matching.map(invoice).filter(Boolean));
+    const head='Item: '+item.code+(item.desc?' — '+item.desc:'')+'\nPeriod: '+period.label+'\n';
+    if(wantsNot){
+      const allCustomers=new Map();
+      within.forEach(r=>{const c=customer(r);if(c&&!allCustomers.has(normText(c)))allCustomers.set(normText(c),c);});
+      const notBilled=[...allCustomers.entries()].filter(([key])=>!billedNames.has(key)).map(([,name])=>name).sort((a,b)=>a.localeCompare(b));
+      if(!allCustomers.size)return head+'No customer billing rows were found for this period in the loaded dashboard data, so I cannot build a reliable non-billed list.';
+      if(!notBilled.length)return head+'All customers appearing in sales rows for this period have billing for this item.\nThis comparison covers customers with at least one sales row in the selected period, not a separate master customer list.';
+      return head+'Customers with other billing in this period but no matching invoice row for this item: '+notBilled.length+'\n\n'+notBilled.slice(0,60).map((x,i)=>(i+1)+'. '+x).join('\n')+(notBilled.length>60?'\n… and '+(notBilled.length-60)+' more.':'')+'\n\nNote: This uses customers present in sales rows for this period; it is not a complete customer master.';
+    }
+    if(!matching.length)return head+'No matching invoice rows found for this item in the selected period. Please check the item code and period.';
+    const distinctCustomers=new Map();
+    matching.forEach(r=>{const c=customer(r);if(c&&!distinctCustomers.has(normText(c)))distinctCustomers.set(normText(c),c);});
+    const names=[...distinctCustomers.values()].sort((a,b)=>a.localeCompare(b));
+    if(wantsGsv&&!wantsList){
+      return head+'GSV: '+money(totalGsv)+'\nCBB: '+totalCbb.toLocaleString('en-IN',{maximumFractionDigits:2})+'\nInvoice rows: '+matching.length+'\nDistinct invoices: '+uniqueInvoices.size+'\nCustomers: '+names.length;
+    }
+    return head+'Customers billed: '+names.length+'\nInvoice rows: '+matching.length+'\nDistinct invoices: '+uniqueInvoices.size+'\nGSV: '+money(totalGsv)+'\n\n'+names.slice(0,60).map((x,i)=>(i+1)+'. '+x).join('\n')+(names.length>60?'\n… and '+(names.length-60)+' more.':'');
+  }
+  form.addEventListener('submit',function(e){
+    e.preventDefault();
+    const q=input.value.trim();if(!q)return;
+    addMessage(q,'user');input.value='';
+    try{addMessage(answer(q),'bot');}catch(err){console.error('UNIBIC chatbot error',err);addMessage('I could not safely process that question. Please try an exact item code and month.','bot');}
+  });
+})();
+</script>
+
