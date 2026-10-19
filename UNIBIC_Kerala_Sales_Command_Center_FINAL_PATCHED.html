@@ -8623,27 +8623,62 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     }
     return head+say('Customers billed: ','Bill cheytha customers: ','ബിൽ ചെയ്ത ഉപഭോക്താക്കൾ: ')+names.length+'\n'+say('Invoice rows: ','Invoice rows: ','ഇൻവോയ്സ് വരികൾ: ')+matching.length+'\n'+say('Distinct invoices: ','Different invoices: ','വ്യത്യസ്ത ഇൻവോയ്സുകൾ: ')+uniqueInvoices.size+'\n'+say('GSV: ','GSV: ','GSV: ')+money(totalGsv)+'\n\n'+names.slice(0,60).map((x,i)=>(i+1)+'. '+x).join('\n')+(names.length>60?'\n… '+(names.length-60)+say(' more.',' per koodi.',' പേർ കൂടി.'):'');
   }
-  form.addEventListener('submit',function(e){
-    e.preventDefault();
-    const q=input.value.trim();if(!q)return;
-    addMessage(q,'user');input.value='';
-    let localAnswer;
-    try{
-      localAnswer=answer(q);
-      const botMessage=addMessage(localAnswer,'bot');
-      // OpenAI is an optional language layer. Local dashboard calculations remain the fallback.
-      fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q,fallbackAnswer:localAnswer})})
-        .then(async response=>{
-          if(!response.ok)return null;
-          const data=await response.json();
-          return data&&typeof data.answer==='string'&&data.answer.trim()?data.answer.trim():null;
-        })
-        .then(aiAnswer=>{if(aiAnswer)botMessage.textContent=aiAnswer;})
-        .catch(()=>{/* Keep the already displayed local answer when API is unavailable. */});
-    }catch(err){
-      console.error('UNIBIC chatbot error',err);
-      addMessage('I could not safely process that question. Please try an exact item code and month.','bot');
+  function dashboardQuery(plan,q){
+    if(plan.dataset==='target')return 'Target vs Achievement-ന് ഉപയോഗിക്കുന്ന target source-ുമായി ഈ chatbot query ഇനിയും ബന്ധിപ്പിച്ചിട്ടില്ല; target value ഊഹിച്ച് നൽകുന്നില്ല.';
+    if(plan.dataset==='unknown')return 'ചോദ്യം Dashboard data query ആയി തിരിച്ചറിയാനായില്ല. Item/date/Region/DBR പോലുള്ള കൂടുതൽ വിവരങ്ങൾ ചേർത്ത് ചോദിക്കൂ.';
+    const sales=getRows(), isSoh=plan.dataset==='soh', source=isSoh?(Array.isArray(window.soh)?window.soh:[]):sales;
+    if(!source.length)return 'Dashboard-il ee data source ippol load aayittilla. Connected aayennu urappakki veendum chodikkuka.';
+    const val=(r,keys)=>getVal(r,keys), norm=v=>normText(v), parseDate=s=>{if(!s)return null;const d=new Date(s+'T00:00:00');return Number.isNaN(d.getTime())?null:d;};
+    const start=parseDate(plan.start_date),end=parseDate(plan.end_date);
+    const fields={
+      item:r=>val(r,['__itemCode','ItemId','Item ID','ItemCode','Item Code','ITEMID']), desc:r=>val(r,['__desc','Description','Item Description','DESCRIPTION']),
+      customer:r=>val(r,['__customer','Customer_Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name']),
+      dbr:r=>val(r,['__dbrName','DBR_Name','DBR Name','Sell_to_Customer_Name','DBR / Customer Name']),
+      region:r=>val(r,['__region','REGION','Region','region','Region Name']), area:r=>val(r,['__area','AreaCode','Area Code','Area']),
+      anchor_zone:r=>val(r,['__anchorZone','AnchorZoneName','Anchor Zone Name','Anchor Zone','AnchorZone']), anchor:r=>val(r,['__anchor','AnchorName','Anchor']),
+      cfa:r=>val(r,['CFA','CFA Name','CFA_NAME','LocationCode','Location Code','WAREHOUSE','Warehouse','Warehouse Name']),
+      warehouse:r=>val(r,['WAREHOUSE','Warehouse','Warehouse Name','LocationCode','Location Code']), type:r=>val(r,['TYPE','Type']),
+      date:r=>val(r,['__date','PostingDate','Posting Date','Date','Invoice Date'])
+    };
+    const dateOf=r=>{const d=new Date(fields.date(r));return Number.isNaN(d.getTime())?null:new Date(d.getFullYear(),d.getMonth(),d.getDate());};
+    const filterKeys=['item','customer','dbr','region','area','anchor_zone','anchor','cfa'];
+    const rows=source.filter(r=>{if(start||end){const d=dateOf(r);if(!d||(start&&d<start)||(end&&d>end))return false;}for(const k of filterKeys){const wanted=plan[k];if(wanted&&String(wanted).trim()&&!norm(String(fields[k](r)||'')).includes(norm(wanted)))return false;}return true;});
+    if(!rows.length)return 'തിരഞ്ഞെടുത്ത filters/date period-ൽ matching dashboard data കണ്ടെത്തിയില്ല. Item/code, date, filter values പരിശോധിക്കുക.';
+    const numVal=(r,keys)=>{const n=Number(String(val(r,keys)??0).replace(/,/g,'').replace(/₹/g,''));return Number.isFinite(n)?n:0;};
+    const gsvVal=r=>r&&r['GSV IN LAKH']!==undefined&&r.__gsv===undefined?numVal(r,['GSV IN LAKH'])*100000:numVal(r,['__gsv','GSV','GSV Amount','AmountToCustomer','Amount To Customer']);
+    const cbbVal=r=>numVal(r,['__cbb','QuantityinCBO','Quantity in CBO','CBB','CBO','CBO_QTY']), discVal=r=>numVal(r,['__disc','INDV_discount','INDV Discount','Discount','INDV Amount']);
+    const invVal=r=>String(val(r,['__invoice','Invoice_No','Invoice No','Invoice'])||'').trim(), itemVal=r=>String(fields.item(r)||'').trim(), customerVal=r=>String(fields.customer(r)||fields.dbr(r)||'').trim();
+    const moneyVal=n=>'₹'+Number(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const metric=plan.metric, group=plan.group_by, grouped=group!=='none'||plan.ranking_order!=='none'||metric==='ranking';
+    const gsvTotal=rows.reduce((a,r)=>a+gsvVal(r),0), cbbTotal=rows.reduce((a,r)=>a+cbbVal(r),0), discTotal=rows.reduce((a,r)=>a+discVal(r),0);
+    const invoices=new Set(rows.map(invVal).filter(Boolean)).size, customers=new Set(rows.map(customerVal).filter(Boolean).map(norm)).size, items=new Set(rows.map(itemVal).filter(Boolean)).size;
+    const period=(start||end)?'Period: '+(plan.start_date||'earliest')+' to '+(plan.end_date||'latest'):'Period: all available dates';
+    if(isSoh){
+      const stockRows=rows.filter(r=>!String(val(r,['TYPE','Type'])||'').trim()||String(val(r,['TYPE','Type'])||'').toUpperCase()==='SOH');
+      if(grouped){const k=group==='none'?'item':group,get=fields[k]||fields.item,map=new Map();stockRows.forEach(r=>{const name=String(get(r)||'Unknown').trim()||'Unknown';map.set(name,(map.get(name)||0)+numVal(r,['CBB','CBO','CBO_QTY','TOTAL_MAIN_QRT','TOTAL_MAIN_QTY']));});const arr=[...map].sort((a,b)=>plan.ranking_order==='lowest'?a[1]-b[1]:b[1]-a[1]).slice(0,plan.top_n);return period+'\nStock '+k+' wise (available quantity fields):\n'+arr.map((x,i)=>(i+1)+'. '+x[0]+' | Qty '+x[1].toLocaleString('en-IN')).join('\n')+'\nMatching stock rows: '+stockRows.length;}
+      return period+'\nMatching SOH rows: '+stockRows.length+'\nItems: '+items+'\nStock quantity field sum: '+rows.reduce((a,r)=>a+numVal(r,['CBB','CBO','CBO_QTY','TOTAL_MAIN_QRT','TOTAL_MAIN_QTY']),0).toLocaleString('en-IN');
     }
+    if(grouped){const k=group==='none'?'item':group,get=fields[k]||fields.item,map=new Map();rows.forEach(r=>{const name=String(get(r)||'Unknown').trim()||'Unknown';const x=map.get(name)||{gsv:0,cbb:0,discount:0,rows:0,invoices:new Set()};x.gsv+=gsvVal(r);x.cbb+=cbbVal(r);x.discount+=discVal(r);x.rows++;if(invVal(r))x.invoices.add(invVal(r));map.set(name,x);});const sortKey=metric==='cbb'?'cbb':metric==='discount'?'discount':'gsv';const arr=[...map].sort((a,b)=>plan.ranking_order==='lowest'?a[1][sortKey]-b[1][sortKey]:b[1][sortKey]-a[1][sortKey]).slice(0,plan.top_n);return period+'\n'+k.replace('_',' ')+' wise '+sortKey.toUpperCase()+':\n'+arr.map((x,i)=>(i+1)+'. '+x[0]+' | GSV '+moneyVal(x[1].gsv)+' | CBB '+x[1].cbb.toLocaleString('en-IN')+' | INDV discount '+moneyVal(x[1].discount)+' | Invoices '+x[1].invoices.size).join('\n')+'\n\nFiltered GSV: '+moneyVal(gsvTotal)+'\nMatching rows: '+rows.length;}
+    if(metric==='invoice_count')return period+'\nDistinct invoices: '+invoices+'\nMatching invoice rows: '+rows.length;
+    if(metric==='customer_count')return period+'\nDistinct customers/DBRs: '+customers+'\nMatching rows: '+rows.length;
+    if(metric==='item_count')return period+'\nDistinct items: '+items+'\nMatching rows: '+rows.length;
+    if(metric==='discount_percent'){const base=rows.reduce((a,r)=>a+numVal(r,['GST_Base_Amount','GST Base Amount','GST_Base','AssesableValue','AssessableValue','Assesable Value']),0);return period+'\nINDV discount: '+moneyVal(discTotal)+'\nGST/assessable base: '+moneyVal(base)+'\nCalculated discount/base %: '+(base?(discTotal/base*100).toFixed(2)+'%':'Unavailable (base amount missing)');}
+    if(metric==='records')return period+'\nMatching rows: '+rows.length+'\n'+rows.slice(0,Math.min(plan.top_n,30)).map((r,i)=>(i+1)+'. '+itemVal(r)+' | '+fields.desc(r)+' | Customer '+customerVal(r)+' | Invoice '+invVal(r)+' | GSV '+moneyVal(gsvVal(r))+' | Discount '+moneyVal(discVal(r))).join('\n');
+    return period+'\nGSV: '+moneyVal(gsvTotal)+'\nCBB: '+cbbTotal.toLocaleString('en-IN')+'\nINDV discount: '+moneyVal(discTotal)+'\nDistinct invoices: '+invoices+'\nCustomers/DBRs: '+customers+'\nItems: '+items+'\nMatching rows: '+rows.length;
+  }
+  form.addEventListener('submit',function(e){
+    e.preventDefault();const q=input.value.trim();if(!q)return;
+    addMessage(q,'user');input.value='';let localAnswer;
+    try{
+      localAnswer=answer(q);const botMessage=addMessage(localAnswer,'bot');
+      fetch('/api/chat/interpret',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q})})
+        .then(async response=>{if(!response.ok)return null;const data=await response.json();return data&&data.success&&data.plan?data.plan:null;})
+        .then(plan=>{if(plan){try{botMessage.textContent=dashboardQuery(plan,q);}catch(err){console.error('Dashboard query error',err);}}})
+        .catch(()=>{/* Local answer remains available if AI interpretation is unavailable. */});
+      fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q,fallbackAnswer:localAnswer})})
+        .then(async response=>{if(!response.ok)return null;const data=await response.json();return data&&typeof data.answer==='string'&&data.answer.trim()?data.answer.trim():null;})
+        .then(aiAnswer=>{if(aiAnswer&&botMessage.textContent===localAnswer)botMessage.textContent=aiAnswer;}).catch(()=>{});
+    }catch(err){console.error('UNIBIC chatbot error',err);addMessage('I could not safely process that question. Please try again with item/date or region details.','bot');}
   });
 })();
 </script>
