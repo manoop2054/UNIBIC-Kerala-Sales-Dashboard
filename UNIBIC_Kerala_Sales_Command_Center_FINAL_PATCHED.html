@@ -8548,8 +8548,8 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     const period=dateWindow(q);
     // General dashboard aggregation: region/area/DBR/customer and overall GSV without requiring an item code.
     if(!resolveItem(q,rows)){
-      const isGsvQuestion=/\\b(gsv|sales|sale|revenue|amount|value|total|achievement)\\b/.test(n) || /gsv|sales|amount|value/.test(n);
-      const wantsTable=/\\b(table|report|excel|export|download|details|breakdown|wise|wise|list)\\b/.test(n);
+      const isGsvQuestion=/\b(gsv|sales|sale|revenue|amount|value|total|achievement)\b/.test(n) || /gsv|sales|amount|value/.test(n);
+      const wantsTable=/\b(table|report|excel|export|download|details|breakdown|wise|wise|list)\b/.test(n);
       const dimensionDefs=[
         {key:'region',label:'Region',get:r=>clean(getVal(r,['__region','REGION','Region','region','Region Name']))},
         {key:'area',label:'Area',get:r=>clean(getVal(r,['__area','AreaCode','Area Code','Area']))},
@@ -8557,7 +8557,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
         {key:'dbr',label:'DBR',get:r=>clean(getVal(r,['__dbrName','DBR_Name','DBR Name','Sell_to_Customer_Name'])) || clean(getVal(r,['__dbrCode','DBR_Code','DBR Code']))},
         {key:'customer',label:'Customer',get:r=>customer(r)}
       ];
-      const dims=dimensionDefs.filter(d=>new RegExp('\\\\b'+d.key.replace(' ','\\\\s+')+'\\\\b').test(n));
+      const dims=dimensionDefs.filter(d=>new RegExp('\\b'+d.key.replace(' ','\\s+')+'\\b').test(n));
       const dimension=dims[0]||null;
       let candidates=rows;
       if(period)candidates=candidates.filter(r=>{const d=rowDate(r);return d&&d>=period.start&&d<period.end;});
@@ -8569,22 +8569,22 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
         if(found){scope={dim:d,value:found};break;}
       }
       if(scope)candidates=candidates.filter(r=>normText(scope.dim.get(r))===normText(scope.value));
-      const regionPhrase=/\\b(region|area|anchor zone|zone|dbr|customer|overall|all kerala|kerala)\\b/.test(n);
+      const regionPhrase=/\b(region|area|anchor zone|zone|dbr|customer|overall|all kerala|kerala)\b/.test(n);
       if(isGsvQuestion && (dimension || scope || regionPhrase)){
         const total=candidates.reduce((s,r)=>s+gsv(r),0);
         const invoices=new Set(candidates.map(invoice).filter(Boolean));
         const customers=new Set(candidates.map(customer).filter(Boolean).map(normText));
         const items=new Set(candidates.map(itemCode).filter(Boolean));
-        const head=(period?'Period: '+period.label+'\\n':'Period: All available dates\\n')+
-          (scope?scope.dim.label+': '+scope.value+'\\n':'');
+        const head=(period?'Period: '+period.label+'\n':'Period: All available dates\n')+
+          (scope?scope.dim.label+': '+scope.value+'\n':'');
         if(dimension && !scope && wantsTable){
           const grouped=new Map();
           candidates.forEach(r=>{const key=dimension.get(r);if(!key)return;let x=grouped.get(key);if(!x){x={name:key,gsv:0,rows:0,invoices:new Set(),customers:new Set()};grouped.set(key,x);}x.gsv+=gsv(r);x.rows++;const iv=invoice(r);if(iv)x.invoices.add(iv);const cu=customer(r);if(cu)x.customers.add(normText(cu));});
           const list=[...grouped.values()].sort((a,b)=>b.gsv-a.gsv);
           if(!list.length)return say('No rows found for this period and grouping.','Ee period/grouping-il rows kandilla.','ഈ കാലയളവിലും വിഭാഗത്തിലും രേഖകൾ കണ്ടെത്തിയില്ല.');
-          return head+dimension.label+'-wise GSV (top 40)\\n'+list.slice(0,40).map((x,i)=>(i+1)+'. '+x.name+' | GSV '+money(x.gsv)+' | Invoices '+x.invoices.size+' | Customers '+x.customers.size).join('\\n')+'\\n\\nTotal GSV: '+money(total)+'\\nInvoice rows: '+candidates.length+' | Distinct invoices: '+invoices.size;
+          return head+dimension.label+'-wise GSV (top 40)\n'+list.slice(0,40).map((x,i)=>(i+1)+'. '+x.name+' | GSV '+money(x.gsv)+' | Invoices '+x.invoices.size+' | Customers '+x.customers.size).join('\n')+'\n\nTotal GSV: '+money(total)+'\nInvoice rows: '+candidates.length+' | Distinct invoices: '+invoices.size;
         }
-        return head+'Total GSV: '+money(total)+'\\nInvoice rows: '+candidates.length+'\\nDistinct invoices: '+invoices.size+'\\nCustomers: '+customers.size+'\\nItems: '+items.size;
+        return head+'Total GSV: '+money(total)+'\nInvoice rows: '+candidates.length+'\nDistinct invoices: '+invoices.size+'\nCustomers: '+customers.size+'\nItems: '+items.size;
       }
     }
     const item=resolveItem(q,rows);
