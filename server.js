@@ -321,6 +321,46 @@ app.get(['/api/soh', '/api/live-soh'], async (req, res) => {
 });
 
 
+// Natural-language query planner. It parses the question only; dashboard figures are calculated from loaded rows in the browser.
+const queryRate = new Map();
+app.post('/api/chat/interpret', async (req, res) => {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'AI query interpretation unavailable.' });
+  const question = typeof req.body?.question === 'string' ? req.body.question.trim().slice(0, 2000) : '';
+  if (!question) return res.status(400).json({ error: 'Question is required.' });
+  const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
+  const now = Date.now(), entry = queryRate.get(ip);
+  if (entry && now - entry.start < 60000 && entry.count >= 20) return res.status(429).json({ error: 'Chat request limit reached.' });
+  if (!entry || now - entry.start >= 60000) queryRate.set(ip, { start: now, count: 1 }); else entry.count++;
+  const nullableString = { anyOf: [{ type: 'string' }, { type: 'null' }] };
+  const schema = { type: 'object', properties: {
+    dataset: { type: 'string', enum: ['sales','soh','target','unknown'] },
+    metric: { type: 'string', enum: ['gsv','cbb','discount','discount_percent','invoice_count','customer_count','item_count','stock_cbb','stock_rows','achievement_percent','ranking','records','unknown'] },
+    start_date: nullableString, end_date: nullableString, item: nullableString, customer: nullableString, dbr: nullableString,
+    region: nullableString, area: nullableString, anchor_zone: nullableString, anchor: nullableString, cfa: nullableString,
+    group_by: { type: 'string', enum: ['none','date','item','customer','dbr','region','area','anchor_zone','anchor','cfa','warehouse','type'] },
+    ranking_order: { type: 'string', enum: ['none','highest','lowest'] }, top_n: { type: 'integer' }
+  }, required: ['dataset','metric','start_date','end_date','item','customer','dbr','region','area','anchor_zone','anchor','cfa','group_by','ranking_order','top_n'], additionalProperties: false };
+  try {
+    const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 20000);
+    let response;
+    try {
+      response = await fetch('https://api.openai.com/v1/responses', { method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
+          instructions: 'Convert the user question into a query plan for a business dashboard. The question can be Malayalam, English, or Manglish. Return only schema JSON, never answer with figures. Choose sales for GSV/invoice/item/DBR/anchor/region/discount; soh for stock/CFA/warehouse/shelf life; target for target/achievement. Dates must be ISO YYYY-MM-DD; both endpoints inclusive. A single date fills both. Use null for unspecified filters. Use group_by for wise/by/per, ranking for rank/top/bottom/best/worst. Extract filter names/codes only when actually mentioned; never invent values. top_n defaults to 20.',
+          input: question, text: { format: { type: 'json_schema', name: 'dashboard_query_plan', strict: true, schema } }, max_output_tokens: 500 }),
+        signal: controller.signal });
+    } finally { clearTimeout(timeout); }
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) { console.warn('Chat query planner failed:', response.status, payload.error?.code || payload.error?.type || 'API error'); return res.status(502).json({ error: 'AI query interpretation failed.' }); }
+    let raw = typeof payload.output_text === 'string' ? payload.output_text.trim() : '';
+    if (!raw && Array.isArray(payload.output)) raw = payload.output.flatMap(item => Array.isArray(item.content) ? item.content : []).filter(item => item.type === 'output_text').map(item => item.text || '').join('');
+    const plan = JSON.parse(raw); plan.top_n = Math.max(1, Math.min(50, Number(plan.top_n) || 20));
+    res.json({ success: true, plan });
+  } catch (error) { console.warn('Chat query planner unavailable:', error.name || 'request error'); res.status(502).json({ error: 'AI query interpretation failed.' }); }
+});
+
 // Optional OpenAI language layer for the dashboard chatbot.
 // All figures are computed by the existing local chatbot; the model may only clarify/rephrase that verified answer.
 const chatRate = new Map();
