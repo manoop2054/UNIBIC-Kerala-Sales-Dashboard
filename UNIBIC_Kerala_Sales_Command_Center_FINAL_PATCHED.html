@@ -8871,6 +8871,50 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     }
     return p;
   }
+  // API-independent local planner: normal questions are parsed in-browser; no paid API call is required.
+  function buildLocalDashboardPlan(question){
+    const n=normText(question), rows=getRows();
+    const p={dataset:'sales',metric:'gsv',start_date:null,end_date:null,item:null,customer:null,dbr:null,region:null,area:null,anchor_zone:null,anchor:null,cfa:null,warehouse:null,group_by:'none',ranking_order:'none',top_n:20};
+    const hasAny=(re)=>re.test(n);
+    const monthOrDate=dateWindow(question);
+    const claims=hasAny(/\b(dcr|lep|leap|claim|claims|claim tracker)\b/);
+    const soh=hasAny(/\b(soh|stock|in.?transit|transit|shelf life|expiry|warehouse|cfa)\b/)||/സ്റ്റോക്ക്|ഷെൽഫ്/.test(question);
+    const target=hasAny(/\b(target|q3|q2|achievement|ach %)\b/);
+    const ranking=hasAny(/\b(top|bottom|rank|ranking|highest|lowest|most|least|best|worst)\b/)||/ഏറ്റവും കൂടുതൽ|ഏറ്റവും കൂടുതല്|മികച്ച/.test(question);
+    const itemIntent=hasAny(/\b(item|items|product|products|sku|item code)\b/)||/ഐറ്റം|ഉൽപ്പന്ന/.test(question);
+    const customerIntent=hasAny(/\b(customer|customers|distributor|dbr|billed|non.?billed|invoice|bill)\b/)||/ഉപഭോക്ത|ബിൽ/.test(question);
+    const topMatch=n.match(/\btop\s+(\d{1,3})\b/);
+    if(claims){p.dataset='claims';p.metric=hasAny(/\b(count|number of|records|how many)\b/)?'claim_count':'claim_amount';if(ranking){p.ranking_order=hasAny(/\b(bottom|lowest|least|worst)\b/)?'lowest':'highest';p.group_by=hasAny(/reason|type/)?'claim_reason':hasAny(/month/)?'claim_month':hasAny(/status/)?'status':'distributor';}}
+    else if(target){p.dataset='target';p.metric=hasAny(/achievement|ach %|percentage/)?'achievement_percent':'records';p.group_by='none';}
+    else if(soh){p.dataset='soh';p.metric=hasAny(/shelf|expiry/)?'stock_rows':'stock_cbb';if(ranking){p.ranking_order=hasAny(/\b(bottom|lowest|least|worst)\b/)?'lowest':'highest';p.group_by=itemIntent?'item':hasAny(/cfa/)?'cfa':hasAny(/warehouse/)?'warehouse':'item';}}
+    else{
+      if(ranking){p.ranking_order=hasAny(/\b(bottom|lowest|least|worst)\b/)?'lowest':'highest';p.top_n=topMatch?Math.max(1,Math.min(100,Number(topMatch[1]))):10;p.group_by=itemIntent?'item':customerIntent?'customer':'item';}
+      if(hasAny(/\bcbb\b|\bcbo\b|carton|cartons|quantity|qty|box|boxes/))p.metric='cbb';
+      else if(hasAny(/discount/))p.metric=hasAny(/percent|percentage|%/)?'discount_percent':'discount';
+      else if(hasAny(/\binvoice count\b|how many invoices|number of invoices/))p.metric='invoice_count';
+      else if(hasAny(/customer count|number of customers|how many customers/))p.metric='customer_count';
+      else if(hasAny(/item count|number of items|how many items/))p.metric='item_count';
+      else p.metric='gsv';
+      if(hasAny(/\b(invoice|bill) details\b|show records|line details|transaction details/)){p.metric='records';p.group_by='none';}
+    }
+    // Resolve exact item codes/names and customer names only from rows actually loaded.
+    if(rows.length){
+      const resolved=resolveItem(question,rows);
+      if(resolved&&resolved.code&&(/\b(item|items|product|sku|code|sale|sales|gsv|cbb|stock)\b/i.test(question)||String(question).toLowerCase().includes(String(resolved.code).toLowerCase()))){p.item=resolved.code;}
+      const customerNames=[...new Set(rows.map(r=>String(getVal(r,['__customer','Customer_Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name','__dbrName','DBR_Name','DBR Name'])||'').trim()).filter(x=>x.length>2))].sort((a,b)=>b.length-a.length);
+      const matched=customerNames.find(name=>(' '+n+' ').includes(' '+normText(name)+' '));
+      if(matched&&!ranking){p.customer=matched;p.group_by='none';}
+      const choose=(keys)=>{const names=[...new Set(rows.map(r=>String(getVal(r,keys)||'').trim()).filter(Boolean))].sort((a,b)=>b.length-a.length);return names.find(name=>name.length>1&&(' '+n+' ').includes(' '+normText(name)+' '))||null;};
+      p.region=choose(['__region','REGION','Region','region','Region Name']);
+      p.area=choose(['__area','AreaCode','Area Code','Area']);
+      p.anchor_zone=choose(['__anchorZone','AnchorZoneName','Anchor Zone Name','Anchor Zone','AnchorZone']);
+      p.anchor=choose(['__anchor','AnchorName','Anchor']);
+      p.warehouse=choose(['WAREHOUSE','Warehouse','Warehouse Name','LocationCode','Location Code']);
+      p.cfa=choose(['CFA','CFA Name','CFA_NAME','CFA / WAREHOUSE','CFA/Warehouse']);
+    }
+    if(monthOrDate){const start=new Date(monthOrDate.start),end=new Date(monthOrDate.end-1);const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');p.start_date=iso(start);p.end_date=iso(end);}
+    return normalizeDashboardPlan(question,p);
+  }
   form.addEventListener('submit',async function(e){
     e.preventDefault();
     const q=input.value.trim();
@@ -8884,12 +8928,9 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     }
     const botMessage=addMessage('Checking the available dashboard data…','bot');
     try{
-      const response=await fetch('/api/chat/interpret',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:queryQuestion})});
-      if(!response.ok)throw new Error('Query planner HTTP '+response.status);
-      const data=await response.json();
-      if(!data||!data.success||!data.plan)throw new Error('Query planner returned no plan');
+      // No OpenAI/API request: process the question using the loaded dashboard data.
       await loadChatSharedDatasets();
-      const normalized=normalizeDashboardPlan(queryQuestion,data.plan);
+      const normalized=buildLocalDashboardPlan(queryQuestion);
       const asksCustomerPeriod=normalized.dataset==='sales'&&!!(normalized.customer||normalized.dbr)&&!normalized.start_date&&!normalized.end_date&&!/\b(top|rank|ranking|overall|all customers)\b/.test(normText(queryQuestion));
       if(asksCustomerPeriod){
         pendingCustomerQuestion=queryQuestion;
@@ -8899,16 +8940,11 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       const result=dashboardQuery(normalized,queryQuestion);
       chatRenderResult(botMessage,result,queryQuestion);
     }catch(err){
-      console.error('UNIBIC unified dashboard query failed:',err);
+      console.error('UNIBIC local dashboard query failed:',err);
       let fallback='';
       try{fallback=answer(queryQuestion);}catch(fallbackError){console.warn('Local chatbot fallback failed:',fallbackError);}
-      if(/exact Item Code|first chatbot version answers sales and invoice questions only/i.test(fallback)){
-        botMessage.textContent='I could not interpret this question against the available dashboard data right now. Please retry in a moment; I will not guess a value. / Ippol query process cheyyan pattiyilla; kurachu kazhinju veendum chodikkuka.';
-      }else if(fallback){
-        chatRenderResult(botMessage,fallback,queryQuestion);
-      }else{
-        botMessage.textContent='Query processing failed. No figures have been guessed. Please retry.';
-      }
+      if(fallback)chatRenderResult(botMessage,fallback,queryQuestion);
+      else botMessage.textContent='ഈ ചോദ്യത്തിന് ആവശ്യമായ data/field ഇപ്പോൾ ലഭ്യമല്ല. കണക്കുകൾ ഊഹിച്ച് നൽകുന്നില്ല. / Required source data is not available; no figures were guessed.';
     }
   });
 })();
