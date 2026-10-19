@@ -8541,43 +8541,45 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   }
   function answer(q){
     const rows=getRows();
-    if(!rows.length)return 'Dashboard sales data is not loaded yet. Please wait until the dashboard shows Connected, then ask again. / Sales data load aayittilla.';
+    const n=normText(q);
+    const lang=/[\u0D00-\u0D7F]/.test(q)?'ml':(/\b(aarokke|aarellam|aaru|cheythu|cheythilla|kazhinja|masam|maasam|kaanikku|tharamo|ethra|undo|venam|eduthilla|vangiyilla|vaangiyilla)\b/.test(n)?'mlg':'en');
+    const say=(en,mlg,ml)=>lang==='ml'?ml:(lang==='mlg'?mlg:en);
+    if(!rows.length)return say('Dashboard sales data is not loaded yet. Please wait until the dashboard shows Connected, then ask again.','Dashboard sales data load aayittilla. Connected aayittu veendum chodikkuka.','ഡാഷ്ബോർഡിലെ സെയിൽസ് ഡാറ്റ ഇതുവരെ ലോഡ് ആയിട്ടില്ല. Connected എന്ന് കാണിച്ച ശേഷം വീണ്ടും ചോദിക്കുക.');
     const period=dateWindow(q);
-    const nq=normText(q);
     const item=resolveItem(q,rows);
     if(!item){
-      if(/stock|soh|warehouse|shelf life|stock undo|stock ethra/.test(nq)){
-        return 'Live SOH data is available in the dashboard, but this first chatbot version answers sales/invoice questions only. / Ippol sales and invoice questions aanu support cheyyunnathu.';
+      if(/stock|soh|warehouse|shelf life|stock undo|stock ethra/.test(n)){
+        return say('This first chatbot version answers sales and invoice questions only.','Ippol sales-um invoice-um sambandhicha chodyangal aanu support cheyyunnathu.','ഈ ആദ്യ പതിപ്പിൽ സെയിൽസ്, ഇൻവോയ്സ് സംബന്ധമായ ചോദ്യങ്ങൾ മാത്രമാണ് പിന്തുണയ്ക്കുന്നത്.');
       }
-      return 'Please include an exact Item Code (for example FGUNIB1874) and, if needed, a period such as “last month” or “October 2026”. I can answer only from loaded dashboard data. / Item code koode type cheyyamo?';
+      return say('Please include an exact Item Code (for example FGUNIB1874) and, if needed, a period such as “last month” or “October 2026”.','Item Code (udaharanam FGUNIB1874) koode type cheyyamo? Period venamenkil “last month” allenkil “October 2026” ennu parayuka.','ദയവായി കൃത്യമായ Item Code (ഉദാ: FGUNIB1874) നൽകുക. കാലയളവ് വേണമെങ്കിൽ “last month” അല്ലെങ്കിൽ “October 2026” എന്നും ചേർക്കുക.');
     }
-    if(!period)return 'Please specify the month or period, for example “last month”, “this month”, or “October 2026”, so I can check the correct invoice rows.';
+    if(!period)return say('Please specify the month or period, for example “last month”, “this month”, or “October 2026”.','Eth month/period aanu ennu parayuka — “last month”, “this month”, allenkil “October 2026”.','ഏത് മാസമോ കാലയളവോ എന്ന് വ്യക്തമാക്കുക — “last month”, “this month”, അല്ലെങ്കിൽ “October 2026”.');
     const within=rows.filter(r=>{const d=rowDate(r);return d&&d>=period.start&&d<period.end;});
     const matching=within.filter(r=>itemCode(r)===item.code||(!itemCode(r)&&normText(itemDesc(r))===normText(item.desc)));
-    const wantsNot=/not billed|did not bill|didnt bill|didn t bill|no bill|not bought|did not buy|non billed|bill cheythilla|bill cheythittilla|eduthilla|vaangiyilla|vangiyilla|billed cheyyatha|bill cheyyatha|bill cheytha illa/.test(nq);
-    const wantsList=/who|which customer|customer list|customers|aarokke|aarellam|aaru|list|details|billed|bill cheyth|bill cheyy/.test(nq);
-    const wantsGsv=/gsv|sales amount|sales value|total sales|amount|value|ethra sales|sales ethra/.test(nq);
+    const wantsNot=/not billed|did not bill|didnt bill|didn t bill|no bill|not bought|did not buy|non billed|bill cheythilla|bill cheythittilla|eduthilla|vaangiyilla|vangiyilla|billed cheyyatha|bill cheyyatha|bill cheytha illa/.test(n);
+    const wantsList=/who|which customer|customer list|customers|aarokke|aarellam|aaru|list|details|billed|bill cheyth|bill cheyy/.test(n);
+    const wantsGsv=/gsv|sales amount|sales value|total sales|amount|value|ethra sales|sales ethra/.test(n);
     const billedNames=new Set(matching.map(customer).filter(Boolean).map(normText));
     const totalGsv=matching.reduce((s,r)=>s+gsv(r),0);
-    const totalCbb=matching.reduce((s,r)=>s+Number(String(getVal(r,['__cbb','QuantityinCBO','Quantity in CBO','CBB','CBO'])||0).replace(/,/g,''))||0,0);
+    const totalCbb=matching.reduce((s,r)=>s+(Number(String(getVal(r,['__cbb','QuantityinCBO','Quantity in CBO','CBB','CBO'])||0).replace(/,/g,''))||0),0);
     const uniqueInvoices=new Set(matching.map(invoice).filter(Boolean));
-    const head='Item: '+item.code+(item.desc?' — '+item.desc:'')+'\nPeriod: '+period.label+'\n';
+    const head=say('Item: ','Item: ','ഇനം: ')+item.code+(item.desc?' — '+item.desc:'')+'\\n'+say('Period: ','Period: ','കാലയളവ്: ')+period.label+'\\n';
     if(wantsNot){
       const allCustomers=new Map();
       within.forEach(r=>{const c=customer(r);if(c&&!allCustomers.has(normText(c)))allCustomers.set(normText(c),c);});
       const notBilled=[...allCustomers.entries()].filter(([key])=>!billedNames.has(key)).map(([,name])=>name).sort((a,b)=>a.localeCompare(b));
-      if(!allCustomers.size)return head+'No customer billing rows were found for this period in the loaded dashboard data, so I cannot build a reliable non-billed list.';
-      if(!notBilled.length)return head+'All customers appearing in sales rows for this period have billing for this item.\nThis comparison covers customers with at least one sales row in the selected period, not a separate master customer list.';
-      return head+'Customers with other billing in this period but no matching invoice row for this item: '+notBilled.length+'\n\n'+notBilled.slice(0,60).map((x,i)=>(i+1)+'. '+x).join('\n')+(notBilled.length>60?'\n… and '+(notBilled.length-60)+' more.':'')+'\n\nNote: This uses customers present in sales rows for this period; it is not a complete customer master.';
+      if(!allCustomers.size)return head+say('No customer billing rows were found for this period, so I cannot build a reliable non-billed list.','Ee period-il customer billing rows kandethiyilla; athukondu non-billed list urappayi tharān pattilla.','ഈ കാലയളവിൽ customer billing rows കണ്ടെത്താനായില്ല. അതിനാൽ ബിൽ ചെയ്യാത്തവരുടെ വിശ്വസനീയമായ പട്ടിക നൽകാനാവില്ല.');
+      if(!notBilled.length)return head+say('All customers appearing in sales rows for this period have billing for this item. This compares only customers with other sales in the selected period.','Ee period-il sales ulla ella customers-um ee item bill cheythittundu. Selected period-il vere sales ulla customers-ne maathram compare cheythathaanu.','ഈ കാലയളവിൽ സെയിൽസ് രേഖകളിലുള്ള എല്ലാ ഉപഭോക്താക്കളും ഈ ഇനം ബിൽ ചെയ്തിട്ടുണ്ട്. തിരഞ്ഞെടുത്ത കാലയളവിൽ മറ്റ് സെയിൽസ് ഉള്ള ഉപഭോക്താക്കളെ മാത്രമാണ് താരതമ്യം ചെയ്തത്.');
+      return head+say('Customers with other billing in this period but no matching invoice row for this item: ','Ee period-il vere billing und, pakshe ee item bill cheytha row illaatha customers: ','ഈ കാലയളവിൽ മറ്റ് ബില്ലിംഗ് ഉണ്ടായിട്ടും ഈ ഇനത്തിന് ഇൻവോയ്സ് രേഖയില്ലാത്ത ഉപഭോക്താക്കൾ: ')+notBilled.length+'\\n\\n'+notBilled.slice(0,60).map((x,i)=>(i+1)+'. '+x).join('\\n')+(notBilled.length>60?'\\n… '+(notBilled.length-60)+say(' more.',' per koodi.',' പേർ കൂടി.'):'')+'\\n\\n'+say('Note: This uses customers present in sales rows for this period, not a complete customer master.','Note: Ee period-il sales rows-il ullavare maathram aanu compare cheythathu; full customer master alla.','കുറിപ്പ്: ഈ കാലയളവിലെ സെയിൽസ് രേഖകളിലുള്ള ഉപഭോക്താക്കളെ മാത്രമാണ് താരതമ്യം ചെയ്തത്; പൂർണ്ണ customer master അല്ല.');
     }
-    if(!matching.length)return head+'No matching invoice rows found for this item in the selected period. Please check the item code and period.';
+    if(!matching.length)return head+say('No matching invoice rows found for this item in the selected period. Please check the item code and period.','Ee period-il ee item-inu matching invoice row kandilla. Item code-um period-um check cheyyuka.','തിരഞ്ഞെടുത്ത കാലയളവിൽ ഈ ഇനത്തിന് അനുയോജ്യമായ ഇൻവോയ്സ് രേഖകൾ കണ്ടെത്തിയില്ല. Item Code, കാലയളവ് എന്നിവ പരിശോധിക്കുക.');
     const distinctCustomers=new Map();
     matching.forEach(r=>{const c=customer(r);if(c&&!distinctCustomers.has(normText(c)))distinctCustomers.set(normText(c),c);});
     const names=[...distinctCustomers.values()].sort((a,b)=>a.localeCompare(b));
     if(wantsGsv&&!wantsList){
-      return head+'GSV: '+money(totalGsv)+'\nCBB: '+totalCbb.toLocaleString('en-IN',{maximumFractionDigits:2})+'\nInvoice rows: '+matching.length+'\nDistinct invoices: '+uniqueInvoices.size+'\nCustomers: '+names.length;
+      return head+say('GSV: ','GSV: ','GSV: ')+money(totalGsv)+'\\n'+say('CBB: ','CBB: ','CBB: ')+totalCbb.toLocaleString('en-IN',{maximumFractionDigits:2})+'\\n'+say('Invoice rows: ','Invoice rows: ','ഇൻവോയ്സ് വരികൾ: ')+matching.length+'\\n'+say('Distinct invoices: ','Different invoices: ','വ്യത്യസ്ത ഇൻവോയ്സുകൾ: ')+uniqueInvoices.size+'\\n'+say('Customers: ','Customers: ','ഉപഭോക്താക്കൾ: ')+names.length;
     }
-    return head+'Customers billed: '+names.length+'\nInvoice rows: '+matching.length+'\nDistinct invoices: '+uniqueInvoices.size+'\nGSV: '+money(totalGsv)+'\n\n'+names.slice(0,60).map((x,i)=>(i+1)+'. '+x).join('\n')+(names.length>60?'\n… and '+(names.length-60)+' more.':'');
+    return head+say('Customers billed: ','Bill cheytha customers: ','ബിൽ ചെയ്ത ഉപഭോക്താക്കൾ: ')+names.length+'\\n'+say('Invoice rows: ','Invoice rows: ','ഇൻവോയ്സ് വരികൾ: ')+matching.length+'\\n'+say('Distinct invoices: ','Different invoices: ','വ്യത്യസ്ത ഇൻവോയ്സുകൾ: ')+uniqueInvoices.size+'\\n'+say('GSV: ','GSV: ','GSV: ')+money(totalGsv)+'\\n\\n'+names.slice(0,60).map((x,i)=>(i+1)+'. '+x).join('\\n')+(names.length>60?'\\n… '+(names.length-60)+say(' more.',' per koodi.',' പേർ കൂടി.'):'');
   }
   form.addEventListener('submit',function(e){
     e.preventDefault();
