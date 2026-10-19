@@ -334,11 +334,11 @@ app.post('/api/chat/interpret', async (req, res) => {
   if (!entry || now - entry.start >= 60000) queryRate.set(ip, { start: now, count: 1 }); else entry.count++;
   const nullableString = { anyOf: [{ type: 'string' }, { type: 'null' }] };
   const schema = { type: 'object', properties: {
-    dataset: { type: 'string', enum: ['sales','soh','target','unknown'] },
-    metric: { type: 'string', enum: ['gsv','cbb','discount','discount_percent','invoice_count','customer_count','item_count','stock_cbb','stock_rows','achievement_percent','ranking','records','unknown'] },
+    dataset: { type: 'string', enum: ['sales','soh','target','claims','unknown'] },
+    metric: { type: 'string', enum: ['gsv','cbb','discount','discount_percent','invoice_count','customer_count','item_count','stock_cbb','stock_rows','achievement_percent','claim_amount','claim_count','ranking','records','unknown'] },
     start_date: nullableString, end_date: nullableString, item: nullableString, customer: nullableString, dbr: nullableString,
     region: nullableString, area: nullableString, anchor_zone: nullableString, anchor: nullableString, cfa: nullableString,
-    group_by: { type: 'string', enum: ['none','date','item','customer','dbr','region','area','anchor_zone','anchor','cfa','warehouse','type'] },
+    group_by: { type: 'string', enum: ['none','date','item','customer','dbr','region','area','anchor_zone','anchor','cfa','warehouse','type','distributor','claim_reason','claim_month','status','pending_role'] },
     ranking_order: { type: 'string', enum: ['none','highest','lowest'] }, top_n: { type: 'integer' }
   }, required: ['dataset','metric','start_date','end_date','item','customer','dbr','region','area','anchor_zone','anchor','cfa','group_by','ranking_order','top_n'], additionalProperties: false };
   try {
@@ -348,7 +348,7 @@ app.post('/api/chat/interpret', async (req, res) => {
       response = await fetch('https://api.openai.com/v1/responses', { method: 'POST',
         headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
-          instructions: 'Convert the user question into a query plan for a business dashboard. The question can be Malayalam, English, or Manglish. Return only schema JSON, never answer with figures. Choose sales for GSV/invoice/item/DBR/anchor/region/discount; soh for stock/CFA/warehouse/shelf life; target for target/achievement. Dates must be ISO YYYY-MM-DD; both endpoints inclusive. A single date fills both. Use null for unspecified filters. Use group_by for wise/by/per, ranking for rank/top/bottom/best/worst. For top-N item-by-GSV questions, set dataset=sales, metric=gsv, group_by=item, ranking_order=highest, top_n=10, and item=null; broad item rankings do NOT require an item code. Extract a customer filter only when a specific customer is named. If a customer-specific sales question has no period, keep start_date and end_date null so the chatbot can ask which year/month/date. Extract filter names/codes only when actually mentioned; never invent values. top_n defaults to 20.',
+          instructions: 'Convert the user question into a query plan for a business dashboard. The question can be Malayalam, English, or Manglish. Return only schema JSON, never answer with figures. Choose sales for GSV/invoice/item/DBR/anchor/region/discount/CBB/customer billing; soh for stock/CFA/warehouse/in-transit/shelf life; target for target/achievement/Q2/Q3; claims for DCR/LEP/daily claim/claim amount/status/reason. Dates must be ISO YYYY-MM-DD; both endpoints inclusive. A single date fills both. Use null for unspecified filters. Use group_by for wise/by/per, ranking for rank/top/bottom/best/worst. Top-N item and customer rankings do not require an item code; set item=null unless the user explicitly names one. Customer-specific billing questions may ask for all items for that customer; do not require an item code. If a customer-specific sales question has no period, keep start_date and end_date null so the chatbot can ask which year/month/date. Extract filter names/codes only when actually mentioned; never invent values. top_n defaults to 20 and may be up to 100.',
           input: question, text: { format: { type: 'json_schema', name: 'dashboard_query_plan', strict: true, schema } }, max_output_tokens: 500 }),
         signal: controller.signal });
     } finally { clearTimeout(timeout); }
@@ -356,7 +356,7 @@ app.post('/api/chat/interpret', async (req, res) => {
     if (!response.ok) { console.warn('Chat query planner failed:', response.status, payload.error?.code || payload.error?.type || 'API error'); return res.status(502).json({ error: 'AI query interpretation failed.' }); }
     let raw = typeof payload.output_text === 'string' ? payload.output_text.trim() : '';
     if (!raw && Array.isArray(payload.output)) raw = payload.output.flatMap(item => Array.isArray(item.content) ? item.content : []).filter(item => item.type === 'output_text').map(item => item.text || '').join('');
-    const plan = JSON.parse(raw); plan.top_n = Math.max(1, Math.min(50, Number(plan.top_n) || 20));
+    const plan = JSON.parse(raw); plan.top_n = Math.max(1, Math.min(100, Number(plan.top_n) || 20));
     res.json({ success: true, plan });
   } catch (error) { console.warn('Chat query planner unavailable:', error.name || 'request error'); res.status(502).json({ error: 'AI query interpretation failed.' }); }
 });
