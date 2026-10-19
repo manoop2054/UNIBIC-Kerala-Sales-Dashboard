@@ -8447,7 +8447,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     </form>
     <div id="unibicLocalChatbotHint">Answers use loaded dashboard rows; unsupported questions are not guessed.</div>
   </div>
-  <button id="unibicLocalChatbotToggle" type="button">💬 Ask Dashboard</button>
+  <button id="unibicLocalChatbotToggle" type="button" aria-expanded="false" onclick="var p=document.getElementById('unibicLocalChatbotPanel');if(p){p.classList.toggle('open');this.setAttribute('aria-expanded',p.classList.contains('open')?'true':'false');}">💬 Ask Dashboard</button>
 </div>
 <script id="UNIBIC_LOCAL_DATA_CHATBOT_V1_20261019">
 (function(){
@@ -8468,8 +8468,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     input.focus();
   });
   toggle.addEventListener('click',function(){
-    panel.classList.toggle('open');
-    if(panel.classList.contains('open')) input.focus();
+    if(panel.classList.contains('open')&&input) input.focus();
   });
   const clean=v=>v===undefined||v===null?'':String(v).trim();
   const normText=s=>clean(s).toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\u0D00-\u0D7F]+/g,' ').trim();
