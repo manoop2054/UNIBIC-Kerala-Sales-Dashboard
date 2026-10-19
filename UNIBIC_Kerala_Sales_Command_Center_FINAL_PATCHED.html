@@ -8733,7 +8733,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     const numVal=(r,keys)=>{const n=Number(String(val(r,keys)??0).replace(/,/g,'').replace(/₹/g,''));return Number.isFinite(n)?n:0;};
     const gsvVal=r=>r&&r['GSV IN LAKH']!==undefined&&r.__gsv===undefined?numVal(r,['GSV IN LAKH'])*100000:numVal(r,['__gsv','GSV','GSV Amount','AmountToCustomer','Amount To Customer']);
     const cbbVal=r=>numVal(r,['__cbb','QuantityinCBO','Quantity in CBO','CBB','CBO','CBO_QTY']), discVal=r=>numVal(r,['__disc','INDV_discount','INDV Discount','Discount','INDV Amount']);
-    const invVal=r=>String(val(r,['__invoice','Invoice_No','Invoice No','Invoice'])||'').trim(), itemVal=r=>String(fields.item(r)||'').trim(), customerVal=r=>String(fields.customer(r)||fields.dbr(r)||'').trim();
+    const invVal=r=>String(val(r,['__invoice','Invoice_No','Invoice No','Invoice','INVOICE NO','INVOICE NUMBER','Document No','Document Number'])||'').trim(), itemVal=r=>String(fields.item(r)||'').trim(), customerVal=r=>String(fields.customer(r)||fields.dbr(r)||'').trim();
     const moneyVal=n=>'₹'+Number(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
     const metric=plan.metric, group=plan.group_by, grouped=group!=='none'||plan.ranking_order!=='none'||metric==='ranking';
     const gsvTotal=rows.reduce((a,r)=>a+gsvVal(r),0), cbbTotal=rows.reduce((a,r)=>a+cbbVal(r),0), discTotal=rows.reduce((a,r)=>a+discVal(r),0);
@@ -8757,6 +8757,28 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       }
       if(grouped){const k=group==='none'?'item':group,get=fields[k]||fields.item,map=new Map();stockRows.forEach(r=>{const name=String(get(r)||'Unknown').trim()||'Unknown';map.set(name,(map.get(name)||0)+numVal(r,['CBB','CBO','CBO_QTY','TOTAL_MAIN_QRT','TOTAL_MAIN_QTY','Grand Total','GRAND TOTAL','Qty','Quantity','QTY']));});const arr=[...map].sort((a,b)=>plan.ranking_order==='lowest'?a[1]-b[1]:b[1]-a[1]).slice(0,Math.min(Number(plan.top_n)||20,100));return period+'\nStock '+k+' wise (available quantity fields):\n'+arr.map((x,i)=>(i+1)+'. '+x[0]+' | Qty '+x[1].toLocaleString('en-IN')).join('\n')+'\nMatching stock rows: '+stockRows.length;}
       return period+'\nMatching SOH rows: '+stockRows.length+'\nItems: '+items+'\nStock quantity field sum: '+stockRows.reduce((a,r)=>a+numVal(r,['CBB','CBO','CBO_QTY','TOTAL_MAIN_QRT','TOTAL_MAIN_QTY','Grand Total','GRAND TOTAL','Qty','Quantity','QTY']),0).toLocaleString('en-IN');
+    }
+    if(metric==='invoice_details'){
+      const invoiceMap=new Map();
+      rows.forEach(r=>{
+        const invoice=invVal(r);
+        if(!invoice)return;
+        const key=compactKey(invoice);
+        const date=dateOf(r);
+        const current=invoiceMap.get(key)||{invoice,date,gsv:0,rows:0};
+        if(!current.date&&date)current.date=date;
+        current.gsv+=gsvVal(r);current.rows++;
+        invoiceMap.set(key,current);
+      });
+      if(!invoiceMap.size)return 'Matching sales rows were found, but invoice number fields are missing. Invoice-level totals cannot be calculated reliably.';
+      const dateText=d=>d?String(d.getFullYear())+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'):'Date unavailable';
+      const invoiceList=[...invoiceMap.values()].sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||a.invoice.localeCompare(b.invoice));
+      const total=invoiceList.reduce((sum,x)=>sum+x.gsv,0);
+      const out=['Invoice Number | Invoice Date | GSV Value'];
+      invoiceList.forEach(x=>out.push(x.invoice+' | '+dateText(x.date)+' | '+moneyVal(x.gsv)));
+      out.push('TOTAL INVOICE COUNT | — | '+invoiceList.length);
+      out.push('TOTAL GSV | — | '+moneyVal(total));
+      return 'Invoice-level details — '+period+'\n'+out.join('\n')+'\nMatching invoice rows: '+rows.length;
     }
     if(grouped){const k=group==='none'?'item':group,get=fields[k]||fields.item,map=new Map();rows.forEach(r=>{const name=String(get(r)||'Unknown').trim()||'Unknown';const x=map.get(name)||{gsv:0,cbb:0,discount:0,rows:0,pctSum:0,pctCount:0,invoices:new Set()};x.gsv+=gsvVal(r);x.cbb+=cbbVal(r);x.discount+=discVal(r);x.rows++;const pctRaw=val(r,['Line_Discount_Percent','Line Discount Percent','LineDiscountPercent','Discount_Percent','Discount Percent','Scheme_Discount_Percent','Scheme Discount Percent']);if(pctRaw!==''&&pctRaw!==null&&pctRaw!==undefined){const pct=numVal(r,['Line_Discount_Percent','Line Discount Percent','LineDiscountPercent','Discount_Percent','Discount Percent','Scheme_Discount_Percent','Scheme Discount Percent']);x.pctSum+=pct;x.pctCount++;}if(invVal(r))x.invoices.add(invVal(r));map.set(name,x);});const sortKey=metric==='cbb'?'cbb':metric==='discount'?'discount':metric==='invoice_count'?'invoices':'gsv';const score=x=>sortKey==='invoices'?x[1].invoices.size:x[1][sortKey];const arr=[...map].sort((a,b)=>plan.ranking_order==='lowest'?score(a)-score(b):score(b)-score(a)).slice(0,Math.min(Number(plan.top_n)||20,100));const metricLabel=sortKey==='cbb'?'CBB':sortKey==='discount'?'INDV Discount':sortKey==='invoices'?'Invoice Count':'GSV';const metricValue=x=>sortKey==='cbb'?x[1].cbb.toLocaleString('en-IN'):sortKey==='discount'?moneyVal(x[1].discount):sortKey==='invoices'?String(x[1].invoices.size):moneyVal(x[1].gsv);return period+'\n'+k.replace('_',' ')+' wise '+metricLabel+':\n'+arr.map((x,i)=>(i+1)+'. '+x[0]+' | '+metricLabel+' '+metricValue(x)).join('\n');}
     if(metric==='invoice_count')return period+'\nDistinct invoices: '+invoices+'\nMatching invoice rows: '+rows.length;
@@ -8922,6 +8944,8 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     if(monthOrDate){const start=new Date(monthOrDate.start),end=new Date(monthOrDate.end-1);const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');p.start_date=iso(start);p.end_date=iso(end);}
     // Query intent overrides: invoice line details and item-to-customer lists must not fall back to totals.
     if(p.invoice){p.dataset='sales';p.metric='records';p.group_by='none';p.ranking_order='none';p.top_n=100;}
+    const invoiceListIntent=/\b(all|each|every)\s+invoices?\b/.test(n)&&/\b(invoice number|invoice no|invoice date|each invoice|per invoice)\b/.test(n)&&/\b(gsv|value|amount)\b/.test(n);
+    if(invoiceListIntent){p.dataset='sales';p.metric='invoice_details';p.group_by='none';p.ranking_order='none';p.top_n=100;}
     const customerListIntent=/\b(which customers|what customers|customers? (?:did|have|has) (?:buy|bought|purchased)|who (?:bought|purchased|was billed)|customer names?|list customers|billed to whom)\b/.test(n)||/eathokke customer|ethokke customer|aarokke.*bill|customer.*bill cheytha/.test(n);
     if(p.item&&customerListIntent){p.dataset='sales';p.group_by='customer';p.ranking_order='none';p.metric=/\bcbb\b|\bcbo\b|carton|quantity|qty/.test(n)?'cbb':'gsv';p.top_n=100;p.customer=null;p.dbr=null;}
     if(/\b(anchor|anchor zone|area|dbr)\b/.test(n)&&/\b(achievement|ach %|ranking|rank|top|highest)\b/.test(n)&&!soh){p.dataset='target';p.metric='achievement_percent';p.group_by=/\bdbr\b/.test(n)?'dbr':/\barea\b/.test(n)?'area':/\banchor zone\b/.test(n)?'anchor_zone':'anchor';p.ranking_order='highest';p.top_n=100;}
