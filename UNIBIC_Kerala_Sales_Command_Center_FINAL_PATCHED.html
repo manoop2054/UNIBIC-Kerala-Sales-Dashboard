@@ -8924,7 +8924,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     if(!q)return;
     addMessage(q,'user');
     input.value='';
-    if(/^(hi|hello|hey|hai|good morning|good afternoon|good evening|namaskaram|നമസ്കാരം|ഹായ്)[!.\\s]*$/i.test(q)){addMessage('Hi! UNIBIC Dashboard data-ne kurichu chodikku. Example: FGUNIB2000 September 2026 sale CBB and GSV. / നമസ്കാരം! Dashboard data സംബന്ധിച്ച ചോദ്യം ചോദിക്കൂ.','bot');return;}
+    if(/^(hi|hello|hey|hai|good morning|good afternoon|good evening|namaskaram|നമസ്കാരം|ഹായ്)[!.\s]*$/i.test(q)){addMessage('Hi! UNIBIC Dashboard data-ne kurichu chodikku. Example: FGUNIB2000 September 2026 sale CBB and GSV. / നമസ്കാരം! Dashboard data സംബന്ധിച്ച ചോദ്യം ചോദിക്കൂ.','bot');return;}
     let queryQuestion=q;
     if(pendingCustomerQuestion){
       if(periodOnlyReply(q)){queryQuestion=pendingCustomerQuestion+' for '+q;pendingCustomerQuestion=null;}
@@ -8935,12 +8935,12 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       // No OpenAI/API request: process the question using the loaded dashboard data.
       await loadChatSharedDatasets();
       let normalized=buildLocalDashboardPlan(queryQuestion);
-      const followupCustomerList=/\\b(who|which customers|customer names?|billed customers|names of customers|list customers)\\b/i.test(queryQuestion)||/customer names?|customers? aarokke|aarokke bill|bill cheytha customer|customer peru/i.test(queryQuestion);
-      const shortFollowup=/^(and|also|then|details|show details|invoice details|bill details|customer names?|billed customers|who billed|list them|same period|same item|athinte details|aarokke bill cheythu|bill cheytha customer names|customer names parayu)[?.!\\s]*$/i.test(queryQuestion.trim());
+      const followupCustomerList=/\b(who|which customers|customer names?|billed customers|names of customers|list customers)\b/i.test(queryQuestion)||/customer names?|customers? aarokke|aarokke bill|bill cheytha customer|customer peru/i.test(queryQuestion);
+      const shortFollowup=/^(and|also|then|details|show details|invoice details|bill details|customer names?|billed customers|who billed|list them|same period|same item|athinte details|aarokke bill cheythu|bill cheytha customer names|customer names parayu)[?.!\s]*$/i.test(queryQuestion.trim());
       if(lastChatPlan&&lastChatPlan.dataset==='sales'&&(followupCustomerList||shortFollowup)){
         for(const k of ['start_date','end_date','item','customer','dbr','region','area','anchor_zone','anchor','cfa','warehouse'])if((normalized[k]===null||normalized[k]===undefined||normalized[k]==='')&&lastChatPlan[k])normalized[k]=lastChatPlan[k];
         normalized.dataset='sales';
-        if(followupCustomerList){normalized.group_by='customer';normalized.ranking_order='none';normalized.top_n=100;normalized.metric=/\\bcbb\\b|cbo|carton|quantity|qty\\b/i.test(queryQuestion)?'cbb':'gsv';normalized.customer=null;normalized.dbr=null;}
+        if(followupCustomerList){normalized.group_by='customer';normalized.ranking_order='none';normalized.top_n=100;normalized.metric=/\bcbb\b|cbo|carton|quantity|qty\b/i.test(queryQuestion)?'cbb':'gsv';normalized.customer=null;normalized.dbr=null;}
       }
       const asksCustomerPeriod=normalized.dataset==='sales'&&!!(normalized.customer||normalized.dbr)&&!normalized.start_date&&!normalized.end_date&&!/\b(top|rank|ranking|overall|all customers)\b/.test(normText(queryQuestion));
       if(asksCustomerPeriod){
