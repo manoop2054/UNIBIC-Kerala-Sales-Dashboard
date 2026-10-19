@@ -8651,7 +8651,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       ];
       const compact=cols.filter(([,get])=>targetFiltered.some(r=>String(get(r)??'').trim()!==''));
       const shown=targetFiltered.slice(0,Math.min(Number(plan.top_n)||20,50));
-      return 'Target Management data | Matching rows: '+targetFiltered.length+' | Showing: '+shown.length+'\\n'+compact.map(([label])=>label).join(' | ')+'\\n'+shown.map(r=>compact.map(([,get])=>String(get(r)??'')).join(' | ')).join('\\n');
+      return 'Target Management data | Matching rows: '+targetFiltered.length+' | Showing: '+shown.length+'\n'+compact.map(([label])=>label).join(' | ')+'\n'+shown.map(r=>compact.map(([,get])=>String(get(r)??'')).join(' | ')).join('\n');
     }
     if(plan.dataset==='unknown')return 'ചോദ്യം Dashboard data query ആയി തിരിച്ചറിയാനായില്ല. Item/date/Region/DBR പോലുള്ള കൂടുതൽ വിവരങ്ങൾ ചേർത്ത് ചോദിക്കൂ.';
     const sales=getRows(), isSoh=plan.dataset==='soh', source=isSoh?(Array.isArray(window.soh)?window.soh:[]):sales;
@@ -8697,23 +8697,23 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   function chatRenderResult(message,result,question){
     const text=String(result??'').trim();
     message.textContent='';
-    const lines=text.split(/\\r?\\n/).map(x=>x.trim()).filter(Boolean);
+    const lines=text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
     let dataRows=[],headers=[],tableTitle='';
     const pipeLines=lines.filter(x=>x.includes('|'));
     if(pipeLines.length){
       tableTitle=lines.find(x=>!x.includes('|'))||'Dashboard result';
       const first=pipeLines[0].split('|').map(x=>x.trim());
-      const isRanked=/^\\d+[.)]?$/.test((first[0].match(/^\\d+[.)]?/)||[''])[0]);
+      const isRanked=/^\d+[.)]?$/.test((first[0].match(/^\d+[.)]?/)||[''])[0]);
       headers=first.map((_,i)=>i===0?(isRanked?'Rank / Name':'Field 1'):'Detail '+i);
       dataRows=pipeLines.map(line=>line.split('|').map(x=>x.trim())).filter(row=>row.length>1);
-      if(dataRows.length&&/^\\d+[.)]?\\s*/.test(dataRows[0][0])){
-        dataRows=dataRows.map(row=>{row[0]=row[0].replace(/^\\d+[.)]?\\s*/,'');return row;});
+      if(dataRows.length&&/^\d+[.)]?\s*/.test(dataRows[0][0])){
+        dataRows=dataRows.map(row=>{row[0]=row[0].replace(/^\d+[.)]?\s*/,'');return row;});
         headers[0]='Name / Item';
       }
       const maxCols=Math.max(headers.length,...dataRows.map(r=>r.length));
       while(headers.length<maxCols)headers.push('Detail '+headers.length);
     }else{
-      tableTitle=text.split(/\\r?\\n/)[0]||'Dashboard answer';
+      tableTitle=text.split(/\r?\n/)[0]||'Dashboard answer';
       for(const line of lines){
         const ix=line.indexOf(':');
         if(ix>0&&ix<100)dataRows.push([line.slice(0,ix).trim(),line.slice(ix+1).trim()]);
@@ -8735,7 +8735,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     dataRows.forEach(row=>{const tr=document.createElement('tr');headers.forEach((_,i)=>{const td=document.createElement('td');td.textContent=row[i]??'';td.style.cssText='border:1px solid #cbd5e1;padding:6px;vertical-align:top;';tr.appendChild(td);});tbody.appendChild(tr);});
     table.appendChild(tbody);wrap.appendChild(table);
     const actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;';
-    const exportButton=document.createElement('button');exportButton.type='button';exportButton.textContent=/\\b(excel|xlsx|download|export)\\b|excel|download|export/i.test(question)?'Download Excel':'Download this table as Excel';
+    const exportButton=document.createElement('button');exportButton.type='button';exportButton.textContent=/\b(excel|xlsx|download|export)\b|excel|download|export/i.test(question)?'Download Excel':'Download this table as Excel';
     exportButton.style.cssText='border:0;border-radius:6px;padding:7px 10px;background:#176b45;color:#fff;cursor:pointer;font-weight:600;';
     exportButton.addEventListener('click',function(){
       try{
