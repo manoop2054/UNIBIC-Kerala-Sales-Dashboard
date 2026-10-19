@@ -8624,7 +8624,35 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     return head+say('Customers billed: ','Bill cheytha customers: ','ബിൽ ചെയ്ത ഉപഭോക്താക്കൾ: ')+names.length+'\n'+say('Invoice rows: ','Invoice rows: ','ഇൻവോയ്സ് വരികൾ: ')+matching.length+'\n'+say('Distinct invoices: ','Different invoices: ','വ്യത്യസ്ത ഇൻവോയ്സുകൾ: ')+uniqueInvoices.size+'\n'+say('GSV: ','GSV: ','GSV: ')+money(totalGsv)+'\n\n'+names.slice(0,60).map((x,i)=>(i+1)+'. '+x).join('\n')+(names.length>60?'\n… '+(names.length-60)+say(' more.',' per koodi.',' പേർ കൂടി.'):'');
   }
   function dashboardQuery(plan,q){
-    if(plan.dataset==='target')return 'Target vs Achievement-ന് ഉപയോഗിക്കുന്ന target source-ുമായി ഈ chatbot query ഇനിയും ബന്ധിപ്പിച്ചിട്ടില്ല; target value ഊഹിച്ച് നൽകുന്നില്ല.';
+    if(plan.dataset==='target'){
+      const targetRows=Array.isArray(window.targets)?window.targets:[];
+      if(!targetRows.length)return 'Target Management data ഇപ്പോൾ dashboard-ൽ load ആയിട്ടില്ല. Target source ലഭ്യമാകുമ്പോൾ വീണ്ടും ചോദിക്കുക; target value ഊഹിച്ച് നൽകുന്നില്ല.';
+      const tg=(r,keys)=>{for(const k of keys){if(r&&r[k]!==undefined&&r[k]!==null&&String(r[k]).trim()!=='')return r[k];}return '';};
+      const tf={
+        region:r=>tg(r,['__region','REGION','Region']),
+        area:r=>tg(r,['__area','AREA','Area']),
+        anchor_zone:r=>tg(r,['__anchorZone','Anchor Zone','AnchorZone','ANCHOR ZONE']),
+        dbr:r=>tg(r,['__tbiName','TBI Name','TBIName','CUSTOMER NAME','Customer Name']),
+        customer:r=>tg(r,['__customerName','CUSTOMER NAME','Customer Name','__tbiName','TBI Name']),
+        item:r=>tg(r,['__customerCode','CUSTOMER CODE','Customer Code','__tbiId','TBI ID'])
+      };
+      const targetFiltered=targetRows.filter(r=>['region','area','anchor_zone','dbr','customer'].every(k=>!plan[k]||normText(String(tf[k](r)||'')).includes(normText(plan[k]))));
+      if(!targetFiltered.length)return 'Target data source load ആയിട്ടുണ്ട്, പക്ഷേ നൽകിയ filter-ന് matching target row കണ്ടെത്തിയില്ല.';
+      const cols=[
+        ['Region',r=>tf.region(r)],['Area',r=>tf.area(r)],['Anchor Zone',r=>tf.anchor_zone(r)],
+        ['TBI ID',r=>tg(r,['__tbiId','TBI ID','TBIID'])],['TBI Name',r=>tf.dbr(r)],
+        ['Customer Code',r=>tg(r,['__customerCode','CUSTOMER CODE','Customer Code'])],
+        ['Customer Name',r=>tf.customer(r)],['Q2 Target',r=>tg(r,['Q2TGT','Q2 TGT'])],
+        ['Q2 Achievement',r=>tg(r,['Q2 Ach','Q2 ACH'])],['Q2 Achievement %',r=>tg(r,['Q2 Ach %','Q2 ACH %'])],
+        ['Sep Target',r=>tg(r,['SEP PRI PLAN','SEP  PRI PLAN'])],['Sep Achievement',r=>tg(r,['Sept MC Ach','SEP MC ACH'])],
+        ['Oct Target',r=>tg(r,['Oct MC Tgt 26'])],['Oct CBB Target',r=>tg(r,['Oct MC CBB Tgt 26'])],
+        ['Nov Target',r=>tg(r,['Plan NOV MC-26'])],['Nov CBB Target',r=>tg(r,['Nov CBB'])],
+        ['Dec Target',r=>tg(r,['Plan Dec MC-26'])],['Dec CBB Target',r=>tg(r,['Dec CBB'])]
+      ];
+      const compact=cols.filter(([,get])=>targetFiltered.some(r=>String(get(r)??'').trim()!==''));
+      const shown=targetFiltered.slice(0,Math.min(Number(plan.top_n)||20,50));
+      return 'Target Management data | Matching rows: '+targetFiltered.length+' | Showing: '+shown.length+'\\n'+compact.map(([label])=>label).join(' | ')+'\\n'+shown.map(r=>compact.map(([,get])=>String(get(r)??'')).join(' | ')).join('\\n');
+    }
     if(plan.dataset==='unknown')return 'ചോദ്യം Dashboard data query ആയി തിരിച്ചറിയാനായില്ല. Item/date/Region/DBR പോലുള്ള കൂടുതൽ വിവരങ്ങൾ ചേർത്ത് ചോദിക്കൂ.';
     const sales=getRows(), isSoh=plan.dataset==='soh', source=isSoh?(Array.isArray(window.soh)?window.soh:[]):sales;
     if(!source.length)return 'Dashboard-il ee data source ippol load aayittilla. Connected aayennu urappakki veendum chodikkuka.';
@@ -8666,6 +8694,64 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     if(metric==='records')return period+'\nMatching rows: '+rows.length+'\n'+rows.slice(0,Math.min(plan.top_n,30)).map((r,i)=>(i+1)+'. '+itemVal(r)+' | '+fields.desc(r)+' | Customer '+customerVal(r)+' | Invoice '+invVal(r)+' | GSV '+moneyVal(gsvVal(r))+' | Discount '+moneyVal(discVal(r))).join('\n');
     return period+'\nGSV: '+moneyVal(gsvTotal)+'\nCBB: '+cbbTotal.toLocaleString('en-IN')+'\nINDV discount: '+moneyVal(discTotal)+'\nDistinct invoices: '+invoices+'\nCustomers/DBRs: '+customers+'\nItems: '+items+'\nMatching rows: '+rows.length;
   }
+  function chatRenderResult(message,result,question){
+    const text=String(result??'').trim();
+    message.textContent='';
+    const lines=text.split(/\\r?\\n/).map(x=>x.trim()).filter(Boolean);
+    let dataRows=[],headers=[],tableTitle='';
+    const pipeLines=lines.filter(x=>x.includes('|'));
+    if(pipeLines.length){
+      tableTitle=lines.find(x=>!x.includes('|'))||'Dashboard result';
+      const first=pipeLines[0].split('|').map(x=>x.trim());
+      const isRanked=/^\\d+[.)]?$/.test((first[0].match(/^\\d+[.)]?/)||[''])[0]);
+      headers=first.map((_,i)=>i===0?(isRanked?'Rank / Name':'Field 1'):'Detail '+i);
+      dataRows=pipeLines.map(line=>line.split('|').map(x=>x.trim())).filter(row=>row.length>1);
+      if(dataRows.length&&/^\\d+[.)]?\\s*/.test(dataRows[0][0])){
+        dataRows=dataRows.map(row=>{row[0]=row[0].replace(/^\\d+[.)]?\\s*/,'');return row;});
+        headers[0]='Name / Item';
+      }
+      const maxCols=Math.max(headers.length,...dataRows.map(r=>r.length));
+      while(headers.length<maxCols)headers.push('Detail '+headers.length);
+    }else{
+      tableTitle=text.split(/\\r?\\n/)[0]||'Dashboard answer';
+      for(const line of lines){
+        const ix=line.indexOf(':');
+        if(ix>0&&ix<100)dataRows.push([line.slice(0,ix).trim(),line.slice(ix+1).trim()]);
+        else if(line&&!/^Target Management data/.test(line))dataRows.push(['Result',line]);
+      }
+      headers=['Metric / Detail','Value'];
+    }
+    if(!dataRows.length){message.textContent=text;return;}
+    const wrap=document.createElement('div');
+    wrap.style.cssText='margin-top:6px;max-width:100%;overflow:auto;';
+    const title=document.createElement('div');title.textContent=tableTitle;title.style.cssText='font-weight:700;margin:2px 0 8px;';
+    wrap.appendChild(title);
+    const table=document.createElement('table');
+    table.style.cssText='border-collapse:collapse;width:100%;font-size:12px;min-width:360px;';
+    const thead=document.createElement('thead'),hr=document.createElement('tr');
+    headers.forEach(label=>{const th=document.createElement('th');th.textContent=label;th.style.cssText='border:1px solid #b9c4d0;padding:6px;text-align:left;background:#edf2f7;color:#18212b;';hr.appendChild(th);});
+    thead.appendChild(hr);table.appendChild(thead);
+    const tbody=document.createElement('tbody');
+    dataRows.forEach(row=>{const tr=document.createElement('tr');headers.forEach((_,i)=>{const td=document.createElement('td');td.textContent=row[i]??'';td.style.cssText='border:1px solid #cbd5e1;padding:6px;vertical-align:top;';tr.appendChild(td);});tbody.appendChild(tr);});
+    table.appendChild(tbody);wrap.appendChild(table);
+    const actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;';
+    const exportButton=document.createElement('button');exportButton.type='button';exportButton.textContent=/\\b(excel|xlsx|download|export)\\b|excel|download|export/i.test(question)?'Download Excel':'Download this table as Excel';
+    exportButton.style.cssText='border:0;border-radius:6px;padding:7px 10px;background:#176b45;color:#fff;cursor:pointer;font-weight:600;';
+    exportButton.addEventListener('click',function(){
+      try{
+        if(!window.XLSX)throw new Error('Excel library is not loaded');
+        const exportData=dataRows.map(row=>{const obj={};headers.forEach((head,i)=>obj[head]=row[i]??'');return obj;});
+        const ws=window.XLSX.utils.json_to_sheet(exportData);
+        const wb=window.XLSX.utils.book_new();
+        window.XLSX.utils.book_append_sheet(wb,ws,'Chatbot Result');
+        const stamp=new Date().toISOString().slice(0,10);
+        window.XLSX.writeFile(wb,'UNIBIC_Chatbot_Result_'+stamp+'.xlsx');
+      }catch(err){console.error('Chatbot Excel export failed',err);exportButton.textContent='Excel export failed - retry';}
+    });
+    actions.appendChild(exportButton);
+    const count=document.createElement('span');count.textContent=dataRows.length+' row(s)';count.style.cssText='font-size:11px;opacity:.8;';actions.appendChild(count);
+    wrap.appendChild(actions);message.appendChild(wrap);
+  }
   form.addEventListener('submit',function(e){
     e.preventDefault();const q=input.value.trim();if(!q)return;
     addMessage(q,'user');input.value='';let localAnswer;
@@ -8673,7 +8759,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       localAnswer=answer(q);const botMessage=addMessage(localAnswer,'bot');
       fetch('/api/chat/interpret',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q})})
         .then(async response=>{if(!response.ok)return null;const data=await response.json();return data&&data.success&&data.plan?data.plan:null;})
-        .then(plan=>{if(plan){try{botMessage.textContent=dashboardQuery(plan,q);}catch(err){console.error('Dashboard query error',err);}}})
+        .then(plan=>{if(plan){try{chatRenderResult(botMessage,dashboardQuery(plan,q),q);}catch(err){console.error('Dashboard query error',err);}}})
         .catch(()=>{/* Local answer remains available if AI interpretation is unavailable. */});
       fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q,fallbackAnswer:localAnswer})})
         .then(async response=>{if(!response.ok)return null;const data=await response.json();return data&&typeof data.answer==='string'&&data.answer.trim()?data.answer.trim():null;})
