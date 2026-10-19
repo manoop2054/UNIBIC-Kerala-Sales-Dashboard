@@ -8623,9 +8623,54 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     }
     return head+say('Customers billed: ','Bill cheytha customers: ','ബിൽ ചെയ്ത ഉപഭോക്താക്കൾ: ')+names.length+'\n'+say('Invoice rows: ','Invoice rows: ','ഇൻവോയ്സ് വരികൾ: ')+matching.length+'\n'+say('Distinct invoices: ','Different invoices: ','വ്യത്യസ്ത ഇൻവോയ്സുകൾ: ')+uniqueInvoices.size+'\n'+say('GSV: ','GSV: ','GSV: ')+money(totalGsv)+'\n\n'+names.slice(0,60).map((x,i)=>(i+1)+'. '+x).join('\n')+(names.length>60?'\n… '+(names.length-60)+say(' more.',' per koodi.',' പേർ കൂടി.'):'');
   }
+  async function loadChatSharedDatasets(){
+    const base='https://unibic-shared-api.manumulanthuruthy.workers.dev/api/shared-upload/';
+    const tasks=[['target','chatTargetRows'],['claims','chatClaimsRows']];
+    await Promise.all(tasks.map(async ([dataset,key])=>{
+      try{
+        const response=await fetch(base+dataset,{cache:'no-store'});
+        if(!response.ok)return;
+        const result=await response.json();
+        if(result&&result.ok===true&&result.uploaded&&result.data&&Array.isArray(result.data.rows)){
+          window[key]=result.data.rows;
+          if(dataset==='target'&&!Array.isArray(window.targets))window.targets=result.data.rows;
+        }
+      }catch(error){console.warn('Chatbot shared dataset unavailable:',dataset,error);}
+    }));
+  }
   function dashboardQuery(plan,q){
+    if(plan.dataset==='claims'){
+      const claimRows=Array.isArray(window.chatClaimsRows)?window.chatClaimsRows:[];
+      if(!claimRows.length)return 'DCR/LEP Claims data ഇപ്പോൾ shared Excel source-ൽ ലഭ്യമല്ല. Dashboard-ലെ DCR From Leap / Daily Claim Tracker source load/share ചെയ്തിട്ടുണ്ടോ എന്ന് പരിശോധിക്കുക.';
+      const get=(r,keys)=>{for(const key of keys){const k=Object.keys(r||{}).find(x=>normText(x)===normText(key));if(k&&r[k]!==''&&r[k]!==null&&r[k]!==undefined)return r[k];}return '';};
+      const n=normText(q), amountKeys=['CLAIM AMOUNT','CLAIM VALUE','AMOUNT','CLAIM AMT','TOTAL CLAIM AMOUNT'];
+      const distributorKeys=['DISTRIBUTOR','CUSTOMER','DBR','DISTRIBUTOR NAME','DBR NAME'];
+      const reasonKeys=['CLAIM REASON','REASON','CLAIM TYPE'], statusKeys=['UI STATUS','STATUS','CLAIM STATUS'];
+      const filtered=claimRows.filter(r=>{
+        const distributor=String(get(r,distributorKeys)||''), area=String(get(r,['AREA','REGION','BUSINESS GROUP','CPG'])||'');
+        const status=String(get(r,statusKeys)||''), pending=String(get(r,['PENDING WITH ROLE','APPROVAL TYPE'])||'');
+        if(plan.customer&&!normText(distributor).includes(normText(plan.customer)))return false;
+        if(plan.dbr&&!normText(distributor).includes(normText(plan.dbr)))return false;
+        if(plan.area&&!normText(area).includes(normText(plan.area)))return false;
+        if(plan.region&&!normText(String(get(r,['REGION'])||'')).includes(normText(plan.region)))return false;
+        if(/pending|awaiting|approval/.test(n)&&!(/pending|awaiting|approval/.test(normText(status))||/pending|approval/.test(normText(pending))))return false;
+        return true;
+      });
+      const num=v=>{const x=Number(String(v??0).replace(/[₹,\s]/g,''));return Number.isFinite(x)?x:0;};
+      const amount=r=>num(get(r,amountKeys));
+      if(plan.group_by!=='none'||plan.ranking_order!=='none'){
+        const key=plan.group_by==='claim_reason'?reasonKeys:plan.group_by==='claim_month'?['CLAIM MONTH','MONTH']:plan.group_by==='status'?statusKeys:plan.group_by==='pending_role'?['PENDING WITH ROLE']:distributorKeys;
+        const map=new Map();filtered.forEach(r=>{const name=String(get(r,key)||'Unknown').trim()||'Unknown';const v=map.get(name)||{amount:0,count:0};v.amount+=amount(r);v.count++;map.set(name,v);});
+        const sortKey=plan.metric==='claim_count'?'count':'amount';const arr=[...map].sort((a,b)=>plan.ranking_order==='lowest'?a[1][sortKey]-b[1][sortKey]:b[1][sortKey]-a[1][sortKey]).slice(0,Math.min(Number(plan.top_n)||20,100));
+        return 'DCR / LEP Claims — '+(sortKey==='count'?'Record count':'Claim amount')+'\nGroup | Claim Amount | Records\n'+arr.map((x,i)=>(i+1)+'. '+x[0]+' | ₹'+x[1].amount.toLocaleString('en-IN',{maximumFractionDigits:2})+' | '+x[1].count).join('\n')+'\nFiltered records: '+filtered.length;
+      }
+      const total=filtered.reduce((sum,r)=>sum+amount(r),0);
+      const columns=[['Claim Month',['CLAIM MONTH','MONTH','CLAIM DATE','DATE']],['Distributor',distributorKeys],['Claim Reason',reasonKeys],['Claim Amount',amountKeys],['Status',statusKeys],['Approval Type',['APPROVAL TYPE']],['Pending With',['PENDING WITH ROLE']],['Area',['AREA']],['Region',['REGION']],['Business Group',['BUSINESS GROUP']],['Pushed to ERP',['PUSHED TO ERP']],['CPG',['CPG']]];
+      const activeCols=columns.filter(([,keys])=>filtered.some(r=>String(get(r,keys)||'').trim()!==''));
+      return 'DCR / LEP Claims — Records: '+filtered.length+' — Total claim amount: ₹'+total.toLocaleString('en-IN',{maximumFractionDigits:2})+'\n'+activeCols.map(([name])=>name).join(' | ')+'\n'+filtered.slice(0,Math.min(Number(plan.top_n)||100,100)).map((r,i)=>(i+1)+'. '+activeCols.map(([,keys])=>String(get(r,keys)||'')).join(' | ')).join('\n');
+    }
     if(plan.dataset==='target'){
-      const targetRows=Array.isArray(window.targets)?window.targets:[];
+      const targetRows=Array.isArray(window.chatTargetRows)&&window.chatTargetRows.length?window.chatTargetRows:(Array.isArray(window.targets)?window.targets:[]);
       if(!targetRows.length)return 'Target Management data ഇപ്പോൾ dashboard-ൽ load ആയിട്ടില്ല. Target source ലഭ്യമാകുമ്പോൾ വീണ്ടും ചോദിക്കുക; target value ഊഹിച്ച് നൽകുന്നില്ല.';
       const tg=(r,keys)=>{for(const k of keys){if(r&&r[k]!==undefined&&r[k]!==null&&String(r[k]).trim()!=='')return r[k];}return '';};
       const tf={
@@ -8650,7 +8695,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
         ['Dec Target',r=>tg(r,['Plan Dec MC-26'])],['Dec CBB Target',r=>tg(r,['Dec CBB'])]
       ];
       const compact=cols.filter(([,get])=>targetFiltered.some(r=>String(get(r)??'').trim()!==''));
-      const shown=targetFiltered.slice(0,Math.min(Number(plan.top_n)||20,50));
+      const shown=targetFiltered.slice(0,Math.min(Number(plan.top_n)||20,100));
       return 'Target Management data — Matching rows: '+targetFiltered.length+' — Showing: '+shown.length+'\n'+compact.map(([label])=>label).join(' | ')+'\n'+shown.map(r=>compact.map(([,get])=>String(get(r)??'')).join(' | ')).join('\n');
     }
     if(plan.dataset==='unknown')return 'ചോദ്യം Dashboard data query ആയി തിരിച്ചറിയാനായില്ല. Item/date/Region/DBR പോലുള്ള കൂടുതൽ വിവരങ്ങൾ ചേർത്ത് ചോദിക്കൂ.';
@@ -8664,8 +8709,11 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       dbr:r=>val(r,['__dbrName','DBR_Name','DBR Name','Sell_to_Customer_Name','DBR / Customer Name']),
       region:r=>val(r,['__region','REGION','Region','region','Region Name']), area:r=>val(r,['__area','AreaCode','Area Code','Area']),
       anchor_zone:r=>val(r,['__anchorZone','AnchorZoneName','Anchor Zone Name','Anchor Zone','AnchorZone']), anchor:r=>val(r,['__anchor','AnchorName','Anchor']),
-      cfa:r=>val(r,['CFA','CFA Name','CFA_NAME','LocationCode','Location Code','WAREHOUSE','Warehouse','Warehouse Name']),
-      warehouse:r=>val(r,['WAREHOUSE','Warehouse','Warehouse Name','LocationCode','Location Code']), type:r=>val(r,['TYPE','Type']),
+      cfa:r=>val(r,['CFA','CFA Name','CFA_NAME','CFA / WAREHOUSE','CFA/Warehouse','LocationCode','Location Code','WAREHOUSE','Warehouse','Warehouse Name']),
+      warehouse:r=>val(r,['WAREHOUSE','Warehouse','Warehouse Name','CFA / WAREHOUSE','CFA/Warehouse','LocationCode','Location Code']), type:r=>val(r,['TYPE','Type','STOCK TYPE','Stock Type']),
+      shelf_available:r=>val(r,['Available Shelf Life','Available Shelf Life %','AVAILABLE SHELF LIFE','Shelf Life','SHELF LIFE']),
+      shelf_balance:r=>val(r,['Balance Shelf Life %','BALANCE SHELF LIFE %','Balance Shelf Life Percent','Balance Shelf Life']),
+      stock_qty:r=>val(r,['CBB','CBO','CBO_QTY','TOTAL_MAIN_QRT','TOTAL_MAIN_QTY','Grand Total','GRAND TOTAL','Qty','Quantity','QTY']),
       date:r=>val(r,['__date','PostingDate','Posting Date','Date','Invoice Date'])
     };
     const dateOf=r=>{const d=new Date(fields.date(r));return Number.isNaN(d.getTime())?null:new Date(d.getFullYear(),d.getMonth(),d.getDate());};
@@ -8682,11 +8730,24 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     const invoices=new Set(rows.map(invVal).filter(Boolean)).size, customers=new Set(rows.map(customerVal).filter(Boolean).map(norm)).size, items=new Set(rows.map(itemVal).filter(Boolean)).size;
     const period=(start||end)?'Period: '+(plan.start_date||'earliest')+' to '+(plan.end_date||'latest'):'Period: all available dates';
     if(isSoh){
-      const stockRows=rows.filter(r=>!String(val(r,['TYPE','Type'])||'').trim()||String(val(r,['TYPE','Type'])||'').toUpperCase()==='SOH');
-      if(grouped){const k=group==='none'?'item':group,get=fields[k]||fields.item,map=new Map();stockRows.forEach(r=>{const name=String(get(r)||'Unknown').trim()||'Unknown';map.set(name,(map.get(name)||0)+numVal(r,['CBB','CBO','CBO_QTY','TOTAL_MAIN_QRT','TOTAL_MAIN_QTY']));});const arr=[...map].sort((a,b)=>plan.ranking_order==='lowest'?a[1]-b[1]:b[1]-a[1]).slice(0,plan.top_n);return period+'\nStock '+k+' wise (available quantity fields):\n'+arr.map((x,i)=>(i+1)+'. '+x[0]+' | Qty '+x[1].toLocaleString('en-IN')).join('\n')+'\nMatching stock rows: '+stockRows.length;}
-      return period+'\nMatching SOH rows: '+stockRows.length+'\nItems: '+items+'\nStock quantity field sum: '+rows.reduce((a,r)=>a+numVal(r,['CBB','CBO','CBO_QTY','TOTAL_MAIN_QRT','TOTAL_MAIN_QTY']),0).toLocaleString('en-IN');
+      const typeOf=r=>norm(String(fields.type(r)||''));
+      const asksTransit=/in[ -]?transit|transit stock|transit quantity|intrancit|intransit/.test(norm(q));
+      const asksShelf=/shelf\s*life|expiry|balance shelf|available shelf/.test(norm(q))||/ഷെൽഫ്|കാലാവധി/.test(q);
+      const typeKnown=source.some(r=>String(fields.type(r)||'').trim()!=='');
+      const stockRows=rows.filter(r=>{const t=typeOf(r);return asksTransit?/transit/.test(t):(!t||/^soh$|stock on hand/.test(t));});
+      if(asksTransit&&typeKnown&&!stockRows.length)return 'ഈ filter-ൽ IN-TRANSIT type-ിലുള്ള row കണ്ടെത്തിയില്ല. SOH rows-നെ transit ആയി കണക്കാക്കുന്നില്ല.';
+      if(asksTransit&&!typeKnown)return 'LIVE STOCK source-ൽ TYPE/Stock Type field കണ്ടെത്തിയില്ല. In-Transit quantity-യെ SOH-இൽ നിന്ന് വേർതിരിച്ച് ഉറപ്പിക്കാൻ source column mapping പരിശോധിക്കണം.';
+      if(asksShelf||plan.item||plan.cfa||plan.warehouse||group==='item'||group==='cfa'||group==='warehouse'){
+        const itemRows=stockRows.slice(0,Math.min(Number(plan.top_n)||100,100));
+        const heads=['Item Code','Description','CFA','Warehouse','TYPE','CBB / Qty','Available Shelf Life','Balance Shelf Life %'];
+        const detail=itemRows.map(r=>[fields.item(r),fields.desc(r),fields.cfa(r),fields.warehouse(r),fields.type(r),fields.stock_qty(r),fields.shelf_available(r),fields.shelf_balance(r)].map(v=>String(v??'').trim()));
+        if(!detail.length)return 'തിരഞ്ഞെടുത്ത filters-ൽ matching '+(asksTransit?'In-Transit':'SOH')+' row കണ്ടെത്തിയില്ല. Item/CFA/Warehouse values പരിശോധിക്കുക.';
+        return (asksTransit?'IN-TRANSIT':'SOH')+' details — '+period+'\n'+heads.join(' | ')+'\n'+detail.map((r,i)=>(i+1)+'. '+r.join(' | ')).join('\n')+'\nMatching rows: '+stockRows.length;
+      }
+      if(grouped){const k=group==='none'?'item':group,get=fields[k]||fields.item,map=new Map();stockRows.forEach(r=>{const name=String(get(r)||'Unknown').trim()||'Unknown';map.set(name,(map.get(name)||0)+numVal(r,['CBB','CBO','CBO_QTY','TOTAL_MAIN_QRT','TOTAL_MAIN_QTY','Grand Total','GRAND TOTAL','Qty','Quantity','QTY']));});const arr=[...map].sort((a,b)=>plan.ranking_order==='lowest'?a[1]-b[1]:b[1]-a[1]).slice(0,Math.min(Number(plan.top_n)||20,100));return period+'\nStock '+k+' wise (available quantity fields):\n'+arr.map((x,i)=>(i+1)+'. '+x[0]+' | Qty '+x[1].toLocaleString('en-IN')).join('\n')+'\nMatching stock rows: '+stockRows.length;}
+      return period+'\nMatching SOH rows: '+stockRows.length+'\nItems: '+items+'\nStock quantity field sum: '+stockRows.reduce((a,r)=>a+numVal(r,['CBB','CBO','CBO_QTY','TOTAL_MAIN_QRT','TOTAL_MAIN_QTY','Grand Total','GRAND TOTAL','Qty','Quantity','QTY']),0).toLocaleString('en-IN');
     }
-    if(grouped){const k=group==='none'?'item':group,get=fields[k]||fields.item,map=new Map();rows.forEach(r=>{const name=String(get(r)||'Unknown').trim()||'Unknown';const x=map.get(name)||{gsv:0,cbb:0,discount:0,rows:0,pctSum:0,pctCount:0,invoices:new Set()};x.gsv+=gsvVal(r);x.cbb+=cbbVal(r);x.discount+=discVal(r);x.rows++;const pctRaw=val(r,['Line_Discount_Percent','Line Discount Percent','LineDiscountPercent','Discount_Percent','Discount Percent','Scheme_Discount_Percent','Scheme Discount Percent']);if(pctRaw!==''&&pctRaw!==null&&pctRaw!==undefined){const pct=numVal(r,['Line_Discount_Percent','Line Discount Percent','LineDiscountPercent','Discount_Percent','Discount Percent','Scheme_Discount_Percent','Scheme Discount Percent']);x.pctSum+=pct;x.pctCount++;}if(invVal(r))x.invoices.add(invVal(r));map.set(name,x);});const sortKey=metric==='cbb'?'cbb':metric==='discount'?'discount':'gsv';const arr=[...map].sort((a,b)=>plan.ranking_order==='lowest'?a[1][sortKey]-b[1][sortKey]:b[1][sortKey]-a[1][sortKey]).slice(0,plan.top_n);return period+'\n'+k.replace('_',' ')+' wise '+sortKey.toUpperCase()+':\n'+arr.map((x,i)=>(i+1)+'. '+x[0]+' | GSV '+moneyVal(x[1].gsv)+' | CBB '+x[1].cbb.toLocaleString('en-IN')+' | INDV discount '+moneyVal(x[1].discount)+' | Avg line discount '+(x[1].pctCount?(x[1].pctSum/x[1].pctCount).toFixed(2)+'%':'N/A')+' | Invoices '+x[1].invoices.size).join('\n')+'\n\nFiltered GSV: '+moneyVal(gsvTotal)+'\nMatching rows: '+rows.length;}
+    if(grouped){const k=group==='none'?'item':group,get=fields[k]||fields.item,map=new Map();rows.forEach(r=>{const name=String(get(r)||'Unknown').trim()||'Unknown';const x=map.get(name)||{gsv:0,cbb:0,discount:0,rows:0,pctSum:0,pctCount:0,invoices:new Set()};x.gsv+=gsvVal(r);x.cbb+=cbbVal(r);x.discount+=discVal(r);x.rows++;const pctRaw=val(r,['Line_Discount_Percent','Line Discount Percent','LineDiscountPercent','Discount_Percent','Discount Percent','Scheme_Discount_Percent','Scheme Discount Percent']);if(pctRaw!==''&&pctRaw!==null&&pctRaw!==undefined){const pct=numVal(r,['Line_Discount_Percent','Line Discount Percent','LineDiscountPercent','Discount_Percent','Discount Percent','Scheme_Discount_Percent','Scheme Discount Percent']);x.pctSum+=pct;x.pctCount++;}if(invVal(r))x.invoices.add(invVal(r));map.set(name,x);});const sortKey=metric==='cbb'?'cbb':metric==='discount'?'discount':metric==='invoice_count'?'invoices':'gsv';const score=x=>sortKey==='invoices'?x[1].invoices.size:x[1][sortKey];const arr=[...map].sort((a,b)=>plan.ranking_order==='lowest'?score(a)-score(b):score(b)-score(a)).slice(0,Math.min(Number(plan.top_n)||20,100));return period+'\n'+k.replace('_',' ')+' wise '+sortKey.toUpperCase()+':\n'+arr.map((x,i)=>(i+1)+'. '+x[0]+' | GSV '+moneyVal(x[1].gsv)+' | CBB '+x[1].cbb.toLocaleString('en-IN')+' | INDV discount '+moneyVal(x[1].discount)+' | Avg line discount '+(x[1].pctCount?(x[1].pctSum/x[1].pctCount).toFixed(2)+'%':'N/A')+' | Invoices '+x[1].invoices.size).join('\n')+'\n\nFiltered GSV: '+moneyVal(gsvTotal)+'\nMatching rows: '+rows.length;}
     if(metric==='invoice_count')return period+'\nDistinct invoices: '+invoices+'\nMatching invoice rows: '+rows.length;
     if(metric==='customer_count')return period+'\nDistinct customers/DBRs: '+customers+'\nMatching rows: '+rows.length;
     if(metric==='item_count')return period+'\nDistinct items: '+items+'\nMatching rows: '+rows.length;
@@ -8776,13 +8837,28 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       if(!d){m=question.match(/\b(\d{1,2})\s+(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)\s+(20\d{2})\b/i);if(m){const months={jan:0,january:0,feb:1,february:1,mar:2,march:2,apr:3,april:3,may:4,jun:5,june:5,jul:6,july:6,aug:7,august:7,sep:8,sept:8,september:8,oct:9,october:9,nov:10,november:10,dec:11,december:11};d=new Date(Number(m[3]),months[m[2].toLowerCase()],Number(m[1]));}}
       if(d&&!Number.isNaN(d.getTime())){const iso=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');p.start_date=iso(d);p.end_date=iso(d);}
     }
-    const topMatch=n.match(/\btop\s+(\d{1,2})\b/);
+    const topMatch=n.match(/\btop\s+(\d{1,3})\b/);
     const rankingIntent=/\b(top|rank|ranking|highest|most|best|bottom|lowest|least)\b/.test(n)||/ഏറ്റവും കൂടുതല്|ഏറ്റവും കൂടുതൽ|മികച്ച/.test(question);
     const itemIntent=/\b(item|items|product|products|sku|item code)\b/.test(n)||/ഐറ്റം|ഇനങ്ങള്|ഇനങ്ങൾ|ഉൽപ്പന്ന/.test(question);
     const gsvIntent=/\b(gsv|sales|sale|revenue|value|amount|വിറ്റുവരവ്|സെയില്|സെയിൽസ്)\b/.test(n)||/gsv|sales|sale|revenue/.test(n);
-    if(rankingIntent&&itemIntent&&gsvIntent){
-      p.dataset='sales';p.metric='gsv';p.group_by='item';p.ranking_order=/\b(bottom|lowest|least)\b/.test(n)?'lowest':'highest';p.top_n=topMatch?Math.max(1,Math.min(50,Number(topMatch[1]))):Math.max(1,Math.min(50,Number(p.top_n)||10));
-      p.item=null;
+    const customerIntentWord=/\b(customer|customers|distributor|dbr|billed|billing|bill|sale|sales|gsv|cbb|invoice)\b/.test(n)||/ഉപഭോക്ത|ബിൽ|ബില്ല്/.test(question);
+    const claimsIntent=/\b(dcr|lep|leap|claim|claims|claim tracker|claim amount)\b/.test(n);
+    const sohIntent=/\b(soh|stock|in.?transit|transit|shelf life|expiry|warehouse|cfa)\b/.test(n)||/ഷെൽഫ്|സ്റ്റോക്ക്/.test(question);
+    if(claimsIntent){p.dataset='claims';if(/top|highest|most|rank/.test(n)){p.ranking_order='highest';p.group_by=/reason|type/.test(n)?'claim_reason':/month/.test(n)?'claim_month':/status/.test(n)?'status':'distributor';}p.metric=/count|number of|records/.test(n)?'claim_count':'claim_amount';}
+    if(sohIntent){p.dataset='soh';p.metric=/shelf|expiry/.test(n)?'stock_rows':'stock_cbb';if(/transit/.test(n))p.group_by=/item|item-wise/.test(n)?'item':/cfa/.test(n)?'cfa':'none';}
+    if(customerIntentWord&&!/\b(top|rank|ranking|overall|all customers|customer count|number of customers)\b/.test(n)){
+      const allRows=getRows();const names=new Map();
+      allRows.forEach(r=>{const name=String(getVal(r,['__customer','Customer_Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name','__dbrName','DBR_Name','DBR Name'])||'').trim();if(name&&name.length>2)names.set(normText(name),name);});
+      const matched=[...names.values()].filter(name=>name.length>=3&&(' '+n+' ').includes(' '+normText(name)+' ')).sort((a,b)=>b.length-a.length)[0];
+      if(matched&&!p.item){p.dataset='sales';p.customer=matched;p.item=null;if(/\bcbb\b|cbo|carton|box/.test(n))p.metric='cbb';else if(/discount/.test(n))p.metric=/percent|%|percentage/.test(n)?'discount_percent':'discount';else if(/invoice/.test(n)&&/count|number|how many/.test(n))p.metric='invoice_count';else if(/gsv|sales|sale|revenue|amount/.test(n))p.metric='gsv';else p.metric='cbb';p.group_by='none';}
+    }
+    if(rankingIntent&&itemIntent){
+      p.dataset='sales';p.group_by='item';p.ranking_order=/\b(bottom|lowest|least)\b/.test(n)?'lowest':'highest';
+      p.top_n=topMatch?Math.max(1,Math.min(100,Number(topMatch[1]))):Math.max(1,Math.min(100,Number(p.top_n)||10));p.item=null;
+      p.metric=/\bcbb\b|cbo|carton|quantity|qty/.test(n)?'cbb':/discount/.test(n)?'discount':/invoice|billed|billing/.test(n)?'invoice_count':'gsv';
+    }else if(rankingIntent&&/\b(customer|customers|distributor|dbr)\b/.test(n)){
+      p.dataset='sales';p.group_by='customer';p.ranking_order=/\b(bottom|lowest|least)\b/.test(n)?'lowest':'highest';p.top_n=topMatch?Math.max(1,Math.min(100,Number(topMatch[1]))):Math.max(1,Math.min(100,Number(p.top_n)||10));p.customer=null;
+      p.metric=/\bcbb\b|cbo|carton|quantity|qty/.test(n)?'cbb':/invoice|billed|billing/.test(n)?'invoice_count':/discount/.test(n)?'discount':'gsv';
     }
     return p;
   }
@@ -8799,11 +8875,12 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       localAnswer=answer(queryQuestion);const botMessage=addMessage(localAnswer,'bot');
       fetch('/api/chat/interpret',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:queryQuestion})})
         .then(async response=>{if(!response.ok)return null;const data=await response.json();return data&&data.success&&data.plan?data.plan:null;})
-        .then(plan=>{
+        .then(async plan=>{
           if(!plan)return;
           try{
+            await loadChatSharedDatasets();
             const normalized=normalizeDashboardPlan(queryQuestion,plan);
-            const asksCustomerPeriod=normalized.dataset==='sales'&&!!(normalized.customer||normalized.dbr)&&!normalized.start_date&&!normalized.end_date&&!/\\b(top|rank|ranking|overall|all customers)\\b/.test(normText(queryQuestion));
+            const asksCustomerPeriod=normalized.dataset==='sales'&&!!(normalized.customer||normalized.dbr)&&!normalized.start_date&&!normalized.end_date&&!/\b(top|rank|ranking|overall|all customers)\b/.test(normText(queryQuestion));
             if(asksCustomerPeriod){
               pendingCustomerQuestion=queryQuestion;
               botMessage.textContent='Which period do you need for this customer’s sales? Please specify a year/month (for example, September 2026 or October 2026) or an exact date (for example, 15 October 2026). You can reply in Malayalam, English, or Manglish.';
