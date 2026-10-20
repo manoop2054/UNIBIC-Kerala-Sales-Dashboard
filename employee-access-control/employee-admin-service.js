@@ -3,7 +3,7 @@
 // Transactional employee-admin operations. This module is intentionally not
 // exposed as an HTTP route until server-side session authentication is mounted.
 const SUPER_ADMIN_ID = 'P2PUF7638';
-const ROLES = new Set(['EMPLOYEE', 'ADMIN', 'SUPER_ADMIN']);
+const ROLES = new Set(['EMPLOYEE', 'ADMIN', 'SUPER_ADMIN', 'REGIONAL_MANAGER', 'AREA_MANAGER', 'ANCHOR_ZONE_MANAGER']);
 const STATUSES = new Set(['ACTIVE', 'INACTIVE']);
 
 function clean(value, field, max = 200) {
