@@ -362,6 +362,73 @@ async function callGemini(prompt, maxOutputTokens = 1200, jsonMode = false) {
   }
 }
 
+
+// Gemini native function calling: Gemini selects a dashboard tool and returns
+// arguments; the existing local query engine executes the query and calculates results.
+async function callGeminiDashboardTool(prompt) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('Gemini API key is not configured');
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
+  const functionDeclaration = {
+    name: 'query_dashboard',
+    description: 'Select the correct UNIBIC dashboard dataset, filters, metric and grouping for the user question. The application executes the query on real dashboard data; never invent results.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        dataset: { type: 'STRING', enum: ['sales','soh','target','claims','unknown'] },
+        metric: { type: 'STRING', enum: ['gsv','cbb','discount','discount_percent','invoice_count','customer_count','item_count','stock_cbb','stock_rows','achievement_percent','claim_amount','claim_count','ranking','records','unknown'] },
+        start_date: { type: 'STRING', description: 'Inclusive start date YYYY-MM-DD; empty if unspecified' },
+        end_date: { type: 'STRING', description: 'Inclusive end date YYYY-MM-DD; empty if unspecified' },
+        item: { type: 'STRING', description: 'Item code/name filter or empty' },
+        customer: { type: 'STRING', description: 'Customer filter or empty' },
+        dbr: { type: 'STRING', description: 'DBR/distributor filter or empty' },
+        region: { type: 'STRING', description: 'Region filter or empty' },
+        area: { type: 'STRING', description: 'Area filter or empty' },
+        anchor_zone: { type: 'STRING', description: 'Anchor Zone filter or empty' },
+        anchor: { type: 'STRING', description: 'Anchor filter or empty' },
+        cfa: { type: 'STRING', description: 'CFA filter or empty' },
+        warehouse: { type: 'STRING', description: 'Warehouse filter or empty' },
+        invoice: { type: 'STRING', description: 'Invoice filter or empty' },
+        group_by: { type: 'STRING', enum: ['none','date','item','customer','dbr','region','area','anchor_zone','anchor','cfa','warehouse','type','distributor','claim_reason','claim_month','status','pending_role'] },
+        ranking_order: { type: 'STRING', enum: ['none','highest','lowest'] },
+        top_n: { type: 'INTEGER', description: 'Number of ranked results, 1 to 100; default 20' }
+      },
+      required: ['dataset','metric','group_by','ranking_order','top_n']
+    }
+  };
+  try {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' +
+      encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(apiKey), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        tools: [{ functionDeclarations: [functionDeclaration] }],
+        toolConfig: { functionCallingConfig: { mode: 'ANY', allowedFunctionNames: ['query_dashboard'] } },
+        generationConfig: { temperature: 0.1, maxOutputTokens: 900 }
+      }),
+      signal: controller.signal
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.warn('Gemini function-calling request failed:', response.status, payload.error?.status || payload.error?.message || 'API error');
+      throw new Error('Gemini function-calling request failed');
+    }
+    const call = (payload.candidates || []).flatMap(c => c.content?.parts || [])
+      .find(part => part.functionCall && part.functionCall.name === 'query_dashboard');
+    if (!call || !call.functionCall.args) throw new Error('Gemini did not return a dashboard tool call');
+    const plan = call.functionCall.args;
+    if (!['sales','soh','target','claims','unknown'].includes(plan.dataset)) plan.dataset = 'unknown';
+    if (!['gsv','cbb','discount','discount_percent','invoice_count','customer_count','item_count','stock_cbb','stock_rows','achievement_percent','claim_amount','claim_count','ranking','records','unknown'].includes(plan.metric)) plan.metric = 'unknown';
+    plan.top_n = Math.max(1, Math.min(100, Number(plan.top_n) || 20));
+    return plan;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 app.post('/api/chat/interpret', async (req, res) => {
   if (!process.env.GEMINI_API_KEY) return res.status(503).json({ error: 'Gemini unavailable; local chatbot fallback remains available.' });
   const question = typeof req.body?.question === 'string' ? req.body.question.trim().slice(0, 2000) : '';
@@ -383,9 +450,7 @@ app.post('/api/chat/interpret', async (req, res) => {
   const prompt = 'Convert the dashboard question into JSON only, with exactly these fields and no markdown: ' +
     JSON.stringify(schema) + '. The question may be Malayalam, English, or Manglish. Choose sales for GSV/CBB/invoices/customers/items/discounts/region/area/anchor zone/DBR; soh for live stock/CFA/warehouse/shelf life; target for targets and achievement; claims for DCR/LEP claims. Dates inclusive. Use null for unspecified filters. Use group_by for wise/by/per requests and ranking_order for rank/top/bottom. Never invent customer/filter values or figures. For records/details choose metric records and the closest group_by. top_n defaults to 20. Question: ' + question;
   try {
-    const raw = await callGemini(prompt, 900, true);
-    const clean = raw.replace(/^\uFEFF/, '').replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
-    const plan = JSON.parse(clean);
+    const plan = await callGeminiDashboardTool(prompt);
     plan.top_n = Math.max(1, Math.min(100, Number(plan.top_n) || 20));
     res.json({ success: true, plan });
   } catch (error) {
