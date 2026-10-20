@@ -9227,6 +9227,9 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
           const aiPayload=await aiResponse.json();
           const aiPlan=aiPayload&&aiPayload.success&&aiPayload.plan?aiPayload.plan:null;
           if(aiPlan){
+            // Gemini native function-call arguments select the dashboard query tool parameters.
+            if(['sales','soh','target','claims'].includes(aiPlan.dataset))normalized.dataset=aiPlan.dataset;
+            if(['gsv','cbb','discount','discount_percent','invoice_count','customer_count','item_count','stock_cbb','stock_rows','achievement_percent','claim_amount','claim_count','ranking','records'].includes(aiPlan.metric))normalized.metric=aiPlan.metric;
             for(const key of ['start_date','end_date','item','customer','dbr','region','area','anchor_zone','anchor','cfa','warehouse','invoice']){
               if((normalized[key]===null||normalized[key]===undefined||normalized[key]==='')&&aiPlan[key])normalized[key]=aiPlan[key];
             }
