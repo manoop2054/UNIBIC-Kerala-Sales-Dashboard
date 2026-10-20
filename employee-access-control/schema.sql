@@ -27,6 +27,23 @@ CREATE TABLE IF NOT EXISTS employee_permissions (
   FOREIGN KEY (employee_id) REFERENCES employees(employee_id) ON DELETE CASCADE
 );
 
+-- Each resource can have its own allowed geographic scope.
+-- Multiple rows allow an employee to access multiple Areas/Anchor Zones
+-- within one tab/report without granting that scope to other resources.
+CREATE TABLE IF NOT EXISTS employee_resource_scopes (
+  employee_id TEXT NOT NULL,
+  resource_key TEXT NOT NULL,
+  region TEXT NOT NULL,
+  area TEXT NOT NULL,
+  anchor_zone TEXT NOT NULL,
+  PRIMARY KEY (employee_id, resource_key, region, area, anchor_zone),
+  FOREIGN KEY (employee_id, resource_key)
+    REFERENCES employee_permissions(employee_id, resource_key) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_employee_scope_lookup
+  ON employee_resource_scopes(employee_id, resource_key, region, area, anchor_zone);
+
 CREATE TABLE IF NOT EXISTS employee_sessions (
   session_id_hash TEXT PRIMARY KEY,
   employee_id TEXT NOT NULL,
