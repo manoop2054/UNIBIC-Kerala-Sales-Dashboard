@@ -8538,10 +8538,11 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     const items=[...byCode.values()];
     const compact=v=>String(v??'').toLowerCase().replace(/[^a-z0-9]/g,'');
     const queryCompact=compact(q);
+    const codeTokens=(String(q).match(/[A-Za-z0-9_-]{4,}/g)||[]).map(compact).filter(Boolean);
     // Exact or partial item-code searches; only resolve partial codes when unique.
-    const exact=items.filter(x=>queryCompact.includes(compact(x.code)));
+    const exact=items.filter(x=>codeTokens.some(t=>t===compact(x.code)));
     if(exact.length===1)return exact[0];
-    const partial=items.filter(x=>compact(x.code).includes(queryCompact)&&queryCompact.length>=4);
+    const partial=items.filter(x=>codeTokens.some(t=>t.length>=4&&compact(x.code).includes(t)));
     if(partial.length===1)return partial[0];
     // Full or partial description search. Prefer a unique phrase match.
     const phrase=items.filter(x=>normText(x.desc).length>=3&&(' '+nq+' ').includes(' '+normText(x.desc)+' '));
