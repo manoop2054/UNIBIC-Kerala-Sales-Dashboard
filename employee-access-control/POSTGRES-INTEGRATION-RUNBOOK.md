@@ -1,7 +1,9 @@
 # Employee Access Control — PostgreSQL integration runbook
 
 ## Current state
-This branch is isolated from main. The PostgreSQL schema is preparatory. No production server route, dashboard HTML, login screen, or Render setting has been changed. Do not merge or deploy this branch until the checklist below is complete.
+This branch is isolated from main. The PostgreSQL schema, Super Admin policy helper, Employee Master row validator, and Node test workflow are preparatory. The validator forces employee ID `P2PUF7638` to `SUPER_ADMIN`/`ACTIVE` only when the authenticated actor is that same Super Admin, rejects ordinary Admin attempts to import an `ADMIN` role, detects duplicate IDs and invalid required fields, and treats `All Access` as a label rather than a permission grant. The validator is not yet connected to a database-backed upload route. No login/session route, employee import API, endpoint enforcement, or Render setting is live. Do not merge or deploy this branch until the checklist below is complete.
+
+Run the branch tests with `npm test`. A GitHub Actions workflow has been added to run the tests on changes to the access-control files; confirm its actual run result in the Actions tab before claiming tests pass.
 
 ## Database
 Use a persistent PostgreSQL database. The server expects a standard DATABASE_URL connection string when the PostgreSQL adapter is integrated. Keep credentials in the hosting provider's environment-secret settings, never in GitHub files, screenshots, the employee spreadsheet, or browser storage.
@@ -25,7 +27,7 @@ Use a unique generated admin token, keep it in a password manager, and rotate it
 ## Activation gates — all are mandatory
 1. Add the PostgreSQL driver and connection pool without changing the dashboard's existing data-loading logic.
 2. Integrate login/session routes and verify HttpOnly, SameSite=Strict, HTTPS-only cookies in production.
-3. Implement an authenticated Admin API for employee master import and permission updates. Validate file type, size, required headers, duplicate IDs, allowed statuses, and scope values. Never accept client-supplied permission claims as authoritative.
+3. Mount `employee-master-import-validation.js` behind the authenticated Admin API; the route must pass the actor ID from the verified server-side session, not from the request body. Implement the employee master import and permission-update APIs with database transactions and audit records. Validate file type, size, required headers, duplicate IDs, allowed statuses, and scope values. Never accept client-supplied permission claims as authoritative.
 4. Reconcile every sidebar tab and every Report Center report key against the actual dashboard HTML.
 5. Apply server-side authorization to every protected GSV, SOH, target, claims, chatbot, report, and export endpoint. A check that only hides UI controls is not authorization.
 6. Filter returned rows using the resource's assigned Region, Area, and Anchor Zone on the server. Do not trust geography values supplied by the browser; derive them from trusted query/data context.
