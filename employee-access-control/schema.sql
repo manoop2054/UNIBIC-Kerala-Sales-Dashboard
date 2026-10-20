@@ -9,7 +9,6 @@ CREATE TABLE IF NOT EXISTS employees (
   region TEXT,
   area TEXT,
   anchor_zone TEXT,
-  dbr_customer_scope TEXT,
   status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','INACTIVE')),
   password_hash TEXT,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
