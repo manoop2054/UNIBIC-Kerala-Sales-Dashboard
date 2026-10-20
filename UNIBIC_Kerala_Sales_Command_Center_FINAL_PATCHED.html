@@ -8509,7 +8509,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     if(/this month|current month|ee masam|ee month|ippozhathe masam/.test(n)){
       return {start:new Date(year,month,1),end:new Date(year,month+1,1),label:now.toLocaleString('en-IN',{month:'long',year:'numeric'})};
     }
-    const months={january:0,jan:0,february:1,feb:1,march:2,mar:2,april:3,apr:3,may:4,june:5,jun:5,july:6,jul:6,august:7,aug:7,september:8,sep:8,october:9,oct:9,november:10,nov:10,december:11,dec:11};
+    const months={january:0,jan:0,february:1,feb:1,march:2,mar:2,april:3,apr:3,may:4,june:5,jun:5,july:6,jul:6,august:7,aug:7,september:8,sept:8,sep:8,october:9,oct:9,november:10,nov:10,december:11,dec:11};
     for(const [name,m] of Object.entries(months)){
       const re=new RegExp('\\b'+name+'\\b');
       if(re.test(n)){
@@ -8878,6 +8878,11 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     if(metric==='item_count')return period+'\nDistinct items: '+items+'\nMatching rows: '+rows.length;
     if(metric==='discount_percent'){const keys=['Line_Discount_Percent','Line Discount Percent','LineDiscountPercent','Discount_Percent','Discount Percent','Scheme_Discount_Percent','Scheme Discount Percent'];const vals=rows.map(r=>({raw:val(r,keys),n:numVal(r,keys)})).filter(x=>x.raw!==''&&x.raw!==null&&x.raw!==undefined);return period+'\nRows matching query: '+rows.length+'\nRows with an explicit line/scheme discount % field: '+vals.length+'\nAverage explicit line/scheme discount %: '+(vals.length?(vals.reduce((a,x)=>a+x.n,0)/vals.length).toFixed(2)+'%':'Not available in loaded columns')+'\nINDV discount amount: '+moneyVal(discTotal);}
     if(metric==='records'){const invoiceOnly=!!plan.invoice;const detailRows=rows.slice(0,Math.min(plan.top_n,100));return (invoiceOnly?'Invoice '+plan.invoice+' — Item details':'Matching sales details')+'\n'+detailRows.map((r,i)=>invoiceOnly?(i+1)+'. '+itemVal(r)+' | '+fields.desc(r)+' | CBB '+cbbVal(r).toLocaleString('en-IN'):(i+1)+'. '+itemVal(r)+' | '+fields.desc(r)+' | Customer '+customerVal(r)+' | Invoice '+invVal(r)+' | CBB '+cbbVal(r).toLocaleString('en-IN')).join('\n');}
+    const explicitGsvIntent=/\b(gsv|sales?|sale|revenue|amount|value|turnover)\b/.test(norm(q))||/വിറ്റുവരവ്|വിൽപ്പന|സെയിൽസ്/.test(q);
+    const hasSpecificScope=!!(plan.item||plan.customer||plan.dbr||plan.invoice||plan.region||plan.area||plan.anchor_zone||plan.anchor||plan.cfa||plan.warehouse||start||end);
+    if(metric==='gsv'&&!explicitGsvIntent&&!hasSpecificScope&&!plan.__followupPeriod){
+      return 'ചോദ്യത്തിൽ ആവശ്യമായ കണക്ക് വ്യക്തമല്ല. GSV/Sales Amount, CBB, INDV Discount, Invoice Count, Customer Count, അല്ലെങ്കിൽ Item/Customer details എന്ന് വ്യക്തമാക്കുക. / Please specify the metric or details you want; no generic all-date summary was substituted.';
+    }
     return period+'\nGSV: '+moneyVal(gsvTotal)+'\nCBB: '+cbbTotal.toLocaleString('en-IN')+'\nINDV discount: '+moneyVal(discTotal)+'\nDistinct invoices: '+invoices+'\nCustomers/DBRs: '+customers+'\nItems: '+items+'\nMatching rows: '+rows.length;
   }
   function chatRenderResult(message,result,question){
@@ -9073,10 +9078,21 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       let normalized=buildLocalDashboardPlan(queryQuestion);
       const followupCustomerList=/\b(who|which customers|customer names?|billed customers|names of customers|list customers)\b/i.test(queryQuestion)||/customer names?|customers? aarokke|aarokke bill|bill cheytha customer|customer peru/i.test(queryQuestion);
       const shortFollowup=/^(and|also|then|details|show details|invoice details|bill details|customer names?|billed customers|who billed|list them|same period|same item|athinte details|aarokke bill cheythu|bill cheytha customer names|customer names parayu)[?.!\s]*$/i.test(queryQuestion.trim());
-      if(lastChatPlan&&lastChatPlan.dataset==='sales'&&(followupCustomerList||shortFollowup)){
-        for(const k of ['start_date','end_date','item','customer','dbr','region','area','anchor_zone','anchor','cfa','warehouse'])if((normalized[k]===null||normalized[k]===undefined||normalized[k]==='')&&lastChatPlan[k])normalized[k]=lastChatPlan[k];
-        normalized.dataset='sales';
-        if(followupCustomerList){normalized.group_by='customer';normalized.ranking_order='none';normalized.top_n=100;normalized.metric=/\bcbb\b|cbo|carton|quantity|qty\b/i.test(queryQuestion)?'cbb':'gsv';normalized.customer=null;normalized.dbr=null;}
+      const periodFollowup=periodOnlyReply(queryQuestion);
+      if(lastChatPlan&&((lastChatPlan.dataset==='sales'&&(followupCustomerList||shortFollowup))||periodFollowup)){
+        for(const k of ['start_date','end_date','item','customer','dbr','region','area','anchor_zone','anchor','cfa','warehouse','invoice'])if((normalized[k]===null||normalized[k]===undefined||normalized[k]==='')&&lastChatPlan[k])normalized[k]=lastChatPlan[k];
+        if(periodFollowup){
+          // A year/month-only follow-up changes the period, not the metric or dataset of the previous question.
+          normalized.dataset=lastChatPlan.dataset;
+          normalized.metric=lastChatPlan.metric;
+          normalized.group_by=lastChatPlan.group_by;
+          normalized.ranking_order=lastChatPlan.ranking_order;
+          normalized.top_n=lastChatPlan.top_n;
+          normalized.__followupPeriod=true;
+        }else{
+          normalized.dataset='sales';
+          if(followupCustomerList){normalized.group_by='customer';normalized.ranking_order='none';normalized.top_n=100;normalized.metric=/\bcbb\b|cbo|carton|quantity|qty\b/i.test(queryQuestion)?'cbb':'gsv';normalized.customer=null;normalized.dbr=null;}
+        }
       }
       const asksCustomerPeriod=normalized.dataset==='sales'&&!!(normalized.customer||normalized.dbr)&&!normalized.start_date&&!normalized.end_date&&!/\b(top|rank|ranking|overall|all customers)\b/.test(normText(queryQuestion));
       if(asksCustomerPeriod){
