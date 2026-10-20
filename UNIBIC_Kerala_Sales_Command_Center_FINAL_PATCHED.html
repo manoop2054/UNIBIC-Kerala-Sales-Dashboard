@@ -8793,7 +8793,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       region:r=>val(r,['__region','REGION','Region','region','Region Name']), area:r=>val(r,['__area','AreaCode','Area Code','Area']),
       anchor_zone:r=>val(r,['__anchorZone','AnchorZoneName','Anchor Zone Name','Anchor Zone','AnchorZone']), anchor:r=>val(r,['__anchor','AnchorName','Anchor']),
       cfa:r=>val(r,['CFA','CFA Name','CFA_NAME','CFA / WAREHOUSE','CFA/Warehouse','LocationCode','Location Code','WAREHOUSE','Warehouse','Warehouse Name']),
-      warehouse:r=>val(r,['WAREHOUSE','Warehouse','Warehouse Name','CFA / WAREHOUSE','CFA/Warehouse','LocationCode','Location Code']), type:r=>val(r,['TYPE','Type','STOCK TYPE','Stock Type']),
+      warehouse:r=>val(r,['WAREHOUSE','Warehouse','Warehouse Name','CFA','CFA Name','CFA_NAME','CFA / WAREHOUSE','CFA/Warehouse','LocationCode','Location Code','Location_Code']), type:r=>val(r,['TYPE','Type','STOCK TYPE','Stock Type']),
       shelf_available:r=>val(r,['Available Shelf Life','Available Shelf Life %','AVAILABLE SHELF LIFE','Shelf Life','SHELF LIFE']),
       shelf_balance:r=>val(r,['Balance Shelf Life %','BALANCE SHELF LIFE %','Balance Shelf Life Percent','Balance Shelf Life']),
       stock_qty:r=>val(r,['CBB','CBO','CBO_QTY','TOTAL_MAIN_QRT','TOTAL_MAIN_QTY','Grand Total','GRAND TOTAL','Qty','Quantity','QTY']),
@@ -9039,11 +9039,19 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       const matchedStockCode=stockCodes.find(code=>n.includes(normText(code)));
       if(matchedStockCode)p.item=matchedStockCode;
       else{
-        const matchedDescription=stockSource.find(r=>{
-          const d=String(stockVal(r,['DESCRIPTION','Description','ITEM DESCRIPTION','Item Description'])||'').trim();
-          return d.length>3&&(' '+n+' ').includes(' '+normText(d)+' ');
-        });
-        if(matchedDescription)p.item=String(stockVal(matchedDescription,stockCodeKeys)||'').trim()||p.item;
+        const descriptionRows=stockSource.map(r=>({r,code:String(stockVal(r,stockCodeKeys)||'').trim(),description:String(stockVal(r,['DESCRIPTION','Description','ITEM DESCRIPTION','Item Description'])||'').trim()})).filter(x=>x.code&&x.description.length>3);
+        let matchedDescription=descriptionRows.find(x=>(' '+n+' ').includes(' '+normText(x.description)+' '));
+        if(!matchedDescription){
+          const qTokens=new Set(n.split(' ').filter(t=>t.length>=4));
+          let bestScore=0;
+          for(const candidate of descriptionRows){
+            const tokens=[...new Set(normText(candidate.description).split(' ').filter(t=>t.length>=4))];
+            const score=tokens.filter(t=>qTokens.has(t)).length;
+            if(score>bestScore){bestScore=score;matchedDescription=candidate;}
+          }
+          if(bestScore<2)matchedDescription=null;
+        }
+        if(matchedDescription)p.item=matchedDescription.code;
       }
       const stockLocation=stockChoose(['WAREHOUSE','Warehouse','Warehouse Name','CFA','CFA Name','CFA_NAME','CFA / WAREHOUSE','CFA/Warehouse','LocationCode','Location Code','Location_Code']);
       if(stockLocation){
