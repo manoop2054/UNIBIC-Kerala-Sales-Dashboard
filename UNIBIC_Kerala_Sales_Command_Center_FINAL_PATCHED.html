@@ -9098,7 +9098,8 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     // Resolve sales-register fields only for sales questions; SOH has its own source lookup above.
     if(!soh && rows.length){
       const resolved=resolveItem(question,rows);
-      if(resolved&&resolved.code&&(/\b(item|items|product|sku|code|sale|sales|gsv|cbb|stock)\b/i.test(question)||String(question).toLowerCase().includes(String(resolved.code).toLowerCase()))){p.item=resolved.code;}
+      const itemBillingIntent=/\b(billed|billing|bill|sold|sale|sales|purchase|purchased|bought|details|invoice|cbb|cbo|gsv|mrp)\b/i.test(question);
+      if(resolved&&resolved.code&&(itemIntent||itemBillingIntent||/\b[A-Z]{2,}[A-Z0-9_-]*\d[A-Z0-9_-]*\b/i.test(question)||String(question).toLowerCase().includes(String(resolved.code).toLowerCase()))){p.item=resolved.code;}
       const customerNames=[...new Set(rows.map(r=>String(getVal(r,['__customer','Customer_Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name','__dbrName','DBR_Name','DBR Name'])||'').trim()).filter(x=>x.length>2))].sort((a,b)=>b.length-a.length);
       const matched=customerNames.find(name=>(' '+n+' ').includes(' '+normText(name)+' '));
       if(matched&&!ranking){p.customer=matched;p.group_by='none';}
@@ -9145,6 +9146,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     if(invoiceListIntent){p.dataset='sales';p.metric='invoice_details';p.group_by='none';p.ranking_order='none';p.top_n=100;}
     const customerListIntent=/\b(which customers|what customers|customers? (?:did|have|has) (?:buy|bought|purchased)|who (?:bought|purchased|was billed)|customer names?|list customers|billed to whom)\b/.test(n)||/eathokke customer|ethokke customer|aarokke.*bill|customer.*bill cheytha/.test(n);
     if(p.item&&customerListIntent){p.dataset='sales';p.group_by='customer';p.ranking_order='none';p.metric=/\bcbb\b|\bcbo\b|carton|quantity|qty/.test(n)?'cbb':'gsv';p.top_n=100;p.customer=null;p.dbr=null;}
+    else if(p.item&&customerIntent&&/\b(billed|billing|bill|sold|sale|sales|purchase|purchased|bought|details|invoice)\b/.test(n)){p.dataset='sales';p.metric='records';p.group_by='none';p.ranking_order='none';p.top_n=100;}
     if(/\b(anchor|anchor zone|area|dbr)\b/.test(n)&&/\b(achievement|ach %|ranking|rank|top|highest)\b/.test(n)&&!soh){p.dataset='target';p.metric='achievement_percent';p.group_by=/\bdbr\b/.test(n)?'dbr':/\barea\b/.test(n)?'area':/\banchor zone\b/.test(n)?'anchor_zone':'anchor';p.ranking_order='highest';p.top_n=100;}
     const result=normalizeDashboardPlan(question,p);
     const resultRangeMatch=question.match(/\bfrom\s+(\d{4}-\d{2}-\d{2}|\d{1,2}[\/.-]\d{1,2}[\/.-]\d{4})\s+(?:to|through|until)\s+(\d{4}-\d{2}-\d{2}|\d{1,2}[\/.-]\d{1,2}[\/.-]\d{4})\b/i);
