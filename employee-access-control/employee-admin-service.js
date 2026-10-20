@@ -43,7 +43,7 @@ function normalizeEmployee(input, actor) {
   const area = clean(input.area, 'Area', 120);
   const anchorZone = clean(input.anchor_zone, 'Anchor Zone', 120);
   const allowedTabs = Array.isArray(input.allowed_tabs)
-    ? [...new Set(input.allowed_tabs.map(v => clean(v, 'Allowed tab', 120))] )
+    ? [...new Set(input.allowed_tabs.map(v => clean(v, 'Allowed tab', 120)))]
     : [];
   if (!allowedTabs.length) throw new Error('At least one allowed tab is required');
   const effectiveFrom = input.effective_from ? clean(input.effective_from, 'Effective From', 10) : null;
