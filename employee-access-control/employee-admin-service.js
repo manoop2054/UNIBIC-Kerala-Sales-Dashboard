@@ -35,7 +35,7 @@ function normalizeEmployee(input, actor) {
     throw new Error('Only Super Admin may grant ADMIN role');
   }
   if (employeeId === SUPER_ADMIN_ID) {
-    if (actor.role !== 'SUPER_ADMIN') throw new Error('Protected Super Admin can only be managed by itself');
+    if (actor.role !== 'SUPER_ADMIN') throw new Error('Only Super Admin may manage the protected Super Admin account');
     role = 'SUPER_ADMIN';
     if (status !== 'ACTIVE') throw new Error('Protected Super Admin must remain ACTIVE');
   } else if (role === 'SUPER_ADMIN') {
