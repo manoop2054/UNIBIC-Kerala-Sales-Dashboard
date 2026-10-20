@@ -8532,21 +8532,37 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     const nq=normText(q);
     const byCode=new Map();
     for(const r of rows){
-      const c=itemCode(r); if(c&&!byCode.has(c))byCode.set(c,{code:c,desc:itemDesc(r)});
+      const c=itemCode(r);
+      if(c&&!byCode.has(c))byCode.set(c,{code:c,desc:itemDesc(r),mrp:getVal(r,['__mrp','MRP_Price','MRP Price','MRP'])});
     }
-    const codes=[...byCode.values()].sort((a,b)=>b.code.length-a.code.length);
-    const exact=codes.find(x=>nq.includes(normText(x.code)));
-    if(exact)return exact;
-    const qTokens=nq.split(' ').filter(t=>t.length>=4);
-    let best=null,bestScore=0;
-    for(const x of byCode.values()){
+    const items=[...byCode.values()];
+    const compact=v=>String(v??'').toLowerCase().replace(/[^a-z0-9]/g,'');
+    const queryCompact=compact(q);
+    // Exact or partial item-code searches; only resolve partial codes when unique.
+    const exact=items.filter(x=>queryCompact.includes(compact(x.code)));
+    if(exact.length===1)return exact[0];
+    const partial=items.filter(x=>compact(x.code).includes(queryCompact)&&queryCompact.length>=4);
+    if(partial.length===1)return partial[0];
+    // Full or partial description search. Prefer a unique phrase match.
+    const phrase=items.filter(x=>normText(x.desc).length>=3&&(' '+nq+' ').includes(' '+normText(x.desc)+' '));
+    if(phrase.length===1)return phrase[0];
+    const qTokens=[...new Set(nq.split(/\s+/).filter(t=>t.length>=4&&!/^\d+$/.test(t)))];
+    const scored=items.map(x=>{
       const desc=normText(x.desc);
-      if(!desc)continue;
-      const tokens=[...new Set(desc.split(' ').filter(t=>t.length>=4))];
-      const score=tokens.filter(t=>qTokens.includes(t)).length;
-      if(score>bestScore){bestScore=score;best=x;}
+      const tokens=[...new Set(desc.split(/\s+/).filter(t=>t.length>=4&&!/^\d+$/.test(t)))];
+      const hits=tokens.filter(t=>qTokens.some(qt=>t.includes(qt)||qt.includes(t)));
+      return {...x,score:hits.length,coverage:tokens.length?hits.length/tokens.length:0};
+    }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||b.coverage-a.coverage);
+    if(scored.length===1)return scored[0];
+    if(scored.length>1&&(scored[0].score>scored[1].score||scored[0].coverage>scored[1].coverage))return scored[0];
+    // MRP search is only auto-resolved here when it identifies one item.
+    const mrpMatch=nq.match(/\bmrp\s*[:=₹]?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    if(mrpMatch){
+      const wanted=Number(mrpMatch[1].replace(/,/g,''));
+      const matches=items.filter(x=>{const v=Number(String(x.mrp??'').replace(/[₹,\s]/g,''));return Number.isFinite(v)&&Math.abs(v-wanted)<0.005;});
+      if(matches.length===1)return matches[0];
     }
-    return bestScore>=2?best:null;
+    return null;
   }
   function money(n){return '₹'+Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:2,minimumFractionDigits:2});}
   function addMessage(text,who){
@@ -8787,6 +8803,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     const start=parseDate(plan.start_date),end=parseDate(plan.end_date);
     const fields={
       item:r=>val(r,['__itemCode','ItemId','Item ID','ItemCode','Item Code','ITEMID','ITEM CODE']), desc:r=>val(r,['__desc','Description','Item Description','DESCRIPTION']),
+      mrp:r=>val(r,['__mrp','MRP_Price','MRP Price','MRP']),
       invoice:r=>val(r,['__invoice','Invoice_No','Invoice No','Invoice','INVOICE NO','INVOICE NUMBER','Document No','Document Number']),
       customer:r=>val(r,['__customer','Customer_Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name']),
       dbr:r=>val(r,['__dbrName','DBR_Name','DBR Name','Sell_to_Customer_Name','DBR / Customer Name']),
@@ -8802,7 +8819,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     const dateOf=r=>{const d=new Date(fields.date(r));return Number.isNaN(d.getTime())?null:new Date(d.getFullYear(),d.getMonth(),d.getDate());};
     const filterKeys=['item','customer','dbr','region','area','anchor_zone','anchor','cfa','warehouse','invoice'];
     const compactKey=v=>String(v??'').toLowerCase().replace(/[^a-z0-9]/g,'');
-    const rows=source.filter(r=>{if(start||end){const d=dateOf(r);if(!d||(start&&d<start)||(end&&d>end))return false;}for(const k of filterKeys){const wanted=plan[k],actual=String(fields[k](r)||'').trim();if(wanted&&String(wanted).trim()){if(k==='item'||k==='invoice'){const w=String(wanted).trim();if(k==='invoice'||(/^[A-Za-z0-9_-]+$/.test(w)&&/[0-9]/.test(w))){if(compactKey(actual)!==compactKey(w))return false;}else if(!compactKey(actual).includes(compactKey(w)))return false;}else if(k==='cfa'||k==='warehouse'){if(!compactKey(actual).includes(compactKey(wanted)))return false;}else if(!norm(actual).includes(norm(wanted)))return false;}}return true;});
+    const rows=source.filter(r=>{if(start||end){const d=dateOf(r);if(!d||(start&&d<start)||(end&&d>end))return false;}for(const k of filterKeys){const wanted=plan[k],actual=String(fields[k](r)||'').trim();if(wanted&&String(wanted).trim()){if(k==='item'||k==='invoice'){const w=String(wanted).trim();if(k==='invoice'||(/^[A-Za-z0-9_-]+$/.test(w)&&/[0-9]/.test(w))){if(compactKey(actual)!==compactKey(w))return false;}else if(!compactKey(actual).includes(compactKey(w)))return false;}else if(k==='cfa'||k==='warehouse'){if(!compactKey(actual).includes(compactKey(wanted)))return false;}else if(!norm(actual).includes(norm(wanted)))return false;}}if(plan.mrp!==null&&plan.mrp!==undefined&&plan.mrp!==''){const raw=fields.mrp(r);const price=Number(String(raw??'').replace(/[₹,\s]/g,''));if(!Number.isFinite(price)||Math.abs(price-Number(plan.mrp))>=0.005)return false;}return true;});
     if(!rows.length)return 'തിരഞ്ഞെടുത്ത filters/date period-ൽ matching dashboard data കണ്ടെത്തിയില്ല. Item/code, date, filter values പരിശോധിക്കുക.';
     const numVal=(r,keys)=>{const n=Number(String(val(r,keys)??0).replace(/,/g,'').replace(/₹/g,''));return Number.isFinite(n)?n:0;};
     const gsvVal=r=>r&&r['GSV IN LAKH']!==undefined&&r.__gsv===undefined?numVal(r,['GSV IN LAKH'])*100000:numVal(r,['__gsv','GSV','GSV Amount','AmountToCustomer','Amount To Customer']);
@@ -9010,7 +9027,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   // API-independent local planner: normal questions are parsed in-browser; no paid API call is required.
   function buildLocalDashboardPlan(question){
     const n=normText(question), rows=getRows();
-    const p={dataset:'sales',metric:'gsv',start_date:null,end_date:null,item:null,customer:null,dbr:null,region:null,area:null,anchor_zone:null,anchor:null,cfa:null,warehouse:null,invoice:null,group_by:'none',ranking_order:'none',top_n:20};
+    const p={dataset:'sales',metric:'gsv',start_date:null,end_date:null,item:null,mrp:null,customer:null,dbr:null,region:null,area:null,anchor_zone:null,anchor:null,cfa:null,warehouse:null,invoice:null,group_by:'none',ranking_order:'none',top_n:20};
     const hasAny=(re)=>re.test(n);
     const monthOrDate=dateWindow(question);
     const claims=hasAny(/\b(dcr|lep|leap|claim|claims|claim tracker)\b/);
@@ -9084,6 +9101,16 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       const customerNames=[...new Set(rows.map(r=>String(getVal(r,['__customer','Customer_Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name','__dbrName','DBR_Name','DBR Name'])||'').trim()).filter(x=>x.length>2))].sort((a,b)=>b.length-a.length);
       const matched=customerNames.find(name=>(' '+n+' ').includes(' '+normText(name)+' '));
       if(matched&&!ranking){p.customer=matched;p.group_by='none';}
+      // Customer / DBR / distributor codes resolve through the loaded sales source.
+      const codeKeys=['__dbrCode','DBR_Code','DBR Code','Customer_Code','Customer Code','Customer No','Sell_to_Customer_No','Customer_Account','Billed_to_Code','Ship_to_Code','Ship to Code'];
+      const codeRows=rows.map(r=>({r,code:String(getVal(r,codeKeys)||'').trim()})).filter(x=>x.code);
+      const codeMatches=codeRows.filter(x=>{const c=normText(x.code);return c.length>=3&&n.includes(c);});
+      const uniqueCodes=[...new Set(codeMatches.map(x=>normText(x.code)))];
+      if(uniqueCodes.length===1&&!ranking){
+        const hit=codeMatches[0].r;
+        const resolvedName=String(getVal(hit,['__customer','Customer_Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name','__dbrName','DBR_Name','DBR Name'])||'').trim();
+        if(resolvedName){p.customer=resolvedName;p.group_by='none';}
+      }
       const choose=(keys)=>{const names=[...new Set(rows.map(r=>String(getVal(r,keys)||'').trim()).filter(Boolean))].sort((a,b)=>b.length-a.length);return names.find(name=>name.length>1&&(' '+n+' ').includes(' '+normText(name)+' '))||null;};
       const invoiceValues=[...new Set(rows.map(r=>String(getVal(r,['__invoice','Invoice_No','Invoice No','Invoice','INVOICE NO','INVOICE NUMBER','Document No','Document Number'])||'').trim()).filter(Boolean))].sort((a,b)=>b.length-a.length);
       p.invoice=invoiceValues.find(v=>v.length>=4&&n.includes(normText(v)))||null;
@@ -9093,6 +9120,18 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       p.anchor=choose(['__anchor','AnchorName','Anchor']);
       p.warehouse=choose(['WAREHOUSE','Warehouse','Warehouse Name','LocationCode','Location Code']);
       p.cfa=choose(['CFA','CFA Name','CFA_NAME','CFA / WAREHOUSE','CFA/Warehouse']);
+      // MRP lookup supports exact price searches, including comma/currency formatting.
+      const mrpMatch=question.match(/\bmrp\s*[:=₹]?\s*([\d,]+(?:\.\d{1,2})?)/i);
+      if(mrpMatch){
+        const wanted=Number(mrpMatch[1].replace(/,/g,''));
+        if(Number.isFinite(wanted)){
+          p.mrp=wanted;
+          p.metric='records';
+          p.group_by='none';
+          p.ranking_order='none';
+          p.top_n=100;
+        }
+      }
     }
     if(monthOrDate){const start=new Date(monthOrDate.start),end=new Date(monthOrDate.end-1);const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');p.start_date=iso(start);p.end_date=iso(end);}
     if(/\b(last year|previous year)\b/.test(n)){p.start_date='2025-01-01';p.end_date='2025-12-31';}
