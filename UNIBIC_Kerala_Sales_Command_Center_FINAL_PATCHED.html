@@ -9214,6 +9214,29 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       // No OpenAI/API request: process the question using the loaded dashboard data.
       await loadChatSharedDatasets();
       let normalized=buildLocalDashboardPlan(queryQuestion);
+      // Gemini is an optional query-planning aid only. Local parsing/calculation remains the fallback and source of truth.
+      // If Gemini is unavailable, rate-limited, or out of quota, continue with the local plan without interrupting chat.
+      try{
+        const aiResponse=await fetch('/api/chat/interpret',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({question:queryQuestion})
+        });
+        if(aiResponse.ok){
+          const aiPayload=await aiResponse.json();
+          const aiPlan=aiPayload&&aiPayload.success&&aiPayload.plan?aiPayload.plan:null;
+          if(aiPlan){
+            for(const key of ['start_date','end_date','item','customer','dbr','region','area','anchor_zone','anchor','cfa','warehouse','invoice']){
+              if((normalized[key]===null||normalized[key]===undefined||normalized[key]==='')&&aiPlan[key])normalized[key]=aiPlan[key];
+            }
+            if((!normalized.group_by||normalized.group_by==='none')&&aiPlan.group_by&&aiPlan.group_by!=='none')normalized.group_by=aiPlan.group_by;
+            if((!normalized.ranking_order||normalized.ranking_order==='none')&&aiPlan.ranking_order&&aiPlan.ranking_order!=='none')normalized.ranking_order=aiPlan.ranking_order;
+            if((!normalized.top_n||normalized.top_n===20)&&Number(aiPlan.top_n)>0)normalized.top_n=Math.max(1,Math.min(100,Number(aiPlan.top_n)));
+          }
+        }
+      }catch(geminiError){
+        console.warn('Optional Gemini planner unavailable; continuing with local query plan:',geminiError&&geminiError.name||'request error');
+      }
       const followupCustomerList=/\b(who|which customers|customer names?|billed customers|names of customers|list customers)\b/i.test(queryQuestion)||/customer names?|customers? aarokke|aarokke bill|bill cheytha customer|customer peru/i.test(queryQuestion);
       const shortFollowup=/^(and|also|then|details|show details|invoice details|bill details|customer names?|billed customers|who billed|list them|same period|same item|athinte details|aarokke bill cheythu|bill cheytha customer names|customer names parayu)[?.!\s]*$/i.test(queryQuestion.trim());
       const periodFollowup=periodOnlyReply(queryQuestion);
