@@ -1,0 +1,33 @@
+{
+  "status": "catalog-only-not-enforced",
+  "geographicScopeLevels": ["region", "area", "anchorZone"],
+  "actions": ["view", "filter", "export", "print"],
+  "sidebarResources": [
+    {"key":"tab.executive","dashboardTabId":"executive","label":"Executive"},
+    {"key":"tab.target-vs-achievement","dashboardTabId":"target","label":"Target vs Achievement"},
+    {"key":"tab.sales-analysis","dashboardTabId":"sales","label":"Sales Analysis"},
+    {"key":"tab.item-intelligence","dashboardTabId":"item","label":"Item Intelligence"},
+    {"key":"tab.dcr-from-leap","dashboardTabId":"dbr","label":"DCR From Leap"},
+    {"key":"tab.invoice-customer","dashboardTabId":"invoice","label":"Invoice / Customer"},
+    {"key":"tab.live-soh","dashboardTabId":"soh","label":"LIVE SOH"},
+    {"key":"tab.alerts","dashboardTabId":"alerts","label":"Alerts"},
+    {"key":"tab.report-center","dashboardTabId":"reports","label":"Report Center"},
+    {"key":"tab.monthly-upload","dashboardTabId":"upload","label":"Monthly Upload"},
+    {"key":"tab.target-management","dashboardTabId":"targetworking","label":"Target Management"}
+  ],
+  "reportCenterResources": [
+    {"key":"report-center.gsv2","reportKey":"gsv2","label":"KL LIVE GSV Report 2 - GSV Detailed"},
+    {"key":"report-center.product","reportKey":"product","label":"Report 3 - GSV Invoice/Product Detail"},
+    {"key":"report-center.item","reportKey":"item","label":"Report 5 - Item-wise Sales"},
+    {"key":"report-center.dbr","reportKey":"dbr","label":"ABM / DBR"},
+    {"key":"report-center.management","reportKey":"management","label":"Executive Report"},
+    {"key":"report-center.alerts","reportKey":"alerts","label":"Business Alerts - Top Exceptions"},
+    {"key":"report-center.soh","reportKey":"soh","label":"LIVE SOH - CFA Wise"}
+  ],
+  "notes": [
+    "Keys must be reconciled against the complete report registry before production enforcement.",
+    "Each tab and each report must have independent action permissions and independent Region/Area/Anchor Zone scope.",
+    "Do not include DBR/customer as a geographic authorization level.",
+    "This catalog does not enforce access by itself."
+  ]
+}
