@@ -9212,6 +9212,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     const botMessage=addMessage('Checking the available dashboard data…','bot');
     try{
       // No OpenAI/API request: process the question using the loaded dashboard data.
+      let geminiFallbackNotice=false;
       await loadChatSharedDatasets();
       let normalized=buildLocalDashboardPlan(queryQuestion);
       // Gemini is an optional query-planning aid only. Local parsing/calculation remains the fallback and source of truth.
@@ -9233,8 +9234,12 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
             if((!normalized.ranking_order||normalized.ranking_order==='none')&&aiPlan.ranking_order&&aiPlan.ranking_order!=='none')normalized.ranking_order=aiPlan.ranking_order;
             if((!normalized.top_n||normalized.top_n===20)&&Number(aiPlan.top_n)>0)normalized.top_n=Math.max(1,Math.min(100,Number(aiPlan.top_n)));
           }
+        }else{
+          geminiFallbackNotice=true;
+          console.warn('Gemini planner returned HTTP',aiResponse.status,'; continuing in local mode.');
         }
       }catch(geminiError){
+        geminiFallbackNotice=true;
         console.warn('Optional Gemini planner unavailable; continuing with local query plan:',geminiError&&geminiError.name||'request error');
       }
       const followupCustomerList=/\b(who|which customers|customer names?|billed customers|names of customers|list customers)\b/i.test(queryQuestion)||/customer names?|customers? aarokke|aarokke bill|bill cheytha customer|customer peru/i.test(queryQuestion);
@@ -9263,6 +9268,12 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       }
       const result=dashboardQuery(normalized,queryQuestion);
       chatRenderResult(botMessage,result,queryQuestion);
+      if(geminiFallbackNotice){
+        const notice=document.createElement('div');
+        notice.textContent='⚠️ Gemini AI quota/availability പ്രശ്നം. Local Mode ഉപയോഗിക്കുന്നു. Dashboard data ലഭ്യമെങ്കിൽ കണക്കുകൂട്ടൽ തുടരും; മറുപടി വീണ്ടും പരിശോധിക്കുക. / Gemini AI is unavailable or quota-limited. Using Local Mode.';
+        notice.style.cssText='margin-top:8px;padding:8px 10px;border-radius:8px;font-size:12px;line-height:1.45;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);';
+        botMessage.appendChild(notice);
+      }
       if(typeof result==='string'&&!/not loaded|not available|not found|could not|kandilla|കണ്ടെത്തിയില്ല|ലഭ്യമല്ല/i.test(result)){lastChatPlan={...normalized};lastChatQuestion=queryQuestion;}
     }catch(err){
       console.error('UNIBIC local dashboard query failed:',err);
