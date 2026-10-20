@@ -9,6 +9,7 @@ const { pipeline } = require('stream/promises');
 const { performance } = require('perf_hooks');
 const XLSX = require('xlsx');
 const ExcelJS = require('exceljs');
+const { initializeAccessControlDatabase, getAccessControlDatabaseStatus } = require('./employee-access-control/postgres-db');
 
 const app = express();
 app.use(express.json({ limit: '24kb' }));
@@ -483,6 +484,11 @@ app.post('/api/chat', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log('Server running on', PORT);
+  // Initialize the isolated Employee Access Control database without blocking
+  // startup of the existing dashboard if PostgreSQL is unavailable.
+  initializeAccessControlDatabase()
+    .then(() => console.log('Employee Access Control database status:', JSON.stringify(getAccessControlDatabaseStatus())))
+    .catch(() => console.warn('Employee Access Control database is not ready; existing dashboard remains available.'));
   // Warm caches in the background after the HTTP listener is ready. Keep the large GSV
   // and LIVE SOH workbook processing sequential to reduce peak memory on small Render plans.
   setTimeout(() => {
