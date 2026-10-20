@@ -8440,10 +8440,10 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   <div id="unibicLocalChatbotPanel" role="dialog" aria-label="UNIBIC Dashboard Chatbot">
     <div id="unibicLocalChatbotHead">UNIBIC Sales Assistant<div id="unibicLocalChatbotSub">Dashboard data only · Malayalam / English / Manglish</div></div>
     <div id="unibicLocalChatbotMessages"><div class="unibicChatMsg unibicChatBot">Namaskaram! Item billing, last month sales, billed customers, non-billed customers enna chodyangal chodikkam. / Ask a question about available dashboard data.</div></div>
-    <form id="unibicLocalChatbotForm">
+    <form id="unibicLocalChatbotForm" onsubmit="event.preventDefault();">
       <input id="unibicLocalChatbotInput" autocomplete="off" placeholder="Type your question..." aria-label="Type your question">
       <button id="unibicLocalChatbotClear" type="button" title="Clear chat messages">Clear Chat</button>
-      <button id="unibicLocalChatbotSend" type="submit">Ask</button>
+      <button id="unibicLocalChatbotSend" type="button" onclick="document.getElementById('unibicLocalChatbotForm').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));">Ask</button>
     </form>
     <div id="unibicLocalChatbotHint">Answers use loaded dashboard rows; unsupported questions are not guessed.</div>
   </div>
