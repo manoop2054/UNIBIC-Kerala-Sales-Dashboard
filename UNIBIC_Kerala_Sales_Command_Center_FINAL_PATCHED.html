@@ -9033,9 +9033,13 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     if(p.item&&customerListIntent){p.dataset='sales';p.group_by='customer';p.ranking_order='none';p.metric=/\bcbb\b|\bcbo\b|carton|quantity|qty/.test(n)?'cbb':'gsv';p.top_n=100;p.customer=null;p.dbr=null;}
     if(/\b(anchor|anchor zone|area|dbr)\b/.test(n)&&/\b(achievement|ach %|ranking|rank|top|highest)\b/.test(n)&&!soh){p.dataset='target';p.metric='achievement_percent';p.group_by=/\bdbr\b/.test(n)?'dbr':/\barea\b/.test(n)?'area':/\banchor zone\b/.test(n)?'anchor_zone':'anchor';p.ranking_order='highest';p.top_n=100;}
     const result=normalizeDashboardPlan(question,p);
+    const rangeMatch=question.match(/\bfrom\s+(\d{4}-\d{2}-\d{2}|\d{1,2}[\/.-]\d{1,2}[\/.-]\d{4})\s+(?:to|through|until)\s+(\d{4}-\d{2}-\d{2}|\d{1,2}[\/.-]\d{1,2}[\/.-]\d{4})\b/i);
+    if(rangeMatch){const parseRangeDate=x=>{let m=x.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(m)return new Date(+m[1],+m[2]-1,+m[3]);m=x.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);return m?new Date(+m[3],+m[2]-1,+m[1]):null;};const a=parseRangeDate(rangeMatch[1]),b=parseRangeDate(rangeMatch[2]);const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');if(a&&b&&!Number.isNaN(a.getTime())&&!Number.isNaN(b.getTime())&&a<=b){result.start_date=iso(a);result.end_date=iso(b);}}
     if(target&&/\b(target|achievement|ach %)\b/.test(n)&&(/\bfrom\b/.test(n)&&/\bto\b/.test(n)||result.start_date&&result.end_date&&result.start_date!==result.end_date)){result.dataset='target';result.metric='target_range_summary';result.group_by='none';result.ranking_order='none';}
     const indvInvoiceIntent=/\b(indv|individual discount)\b/.test(n)&&/\b(invoice|details|detail|customer|against|last year|previous year)\b/.test(n);
-    if(indvInvoiceIntent){result.dataset='sales';result.metric='indv_invoice_details';result.group_by='none';result.ranking_order='none';result.top_n=100;}
+    if(indvInvoiceIntent){result.dataset='sales';result.metric='indv_invoice_details';result.group_by='none';result.ranking_order='none';result.top_n=100;
+      const rows=getRows();const codeMatch=question.match(/\b[A-Z]\d{4,}\b/i);if(codeMatch){const wanted=normText(codeMatch[0]);const hit=rows.find(r=>normText(String(getVal(r,['__dbrCode','DBR_Code','DBR Code','Customer_Code','Customer Code','Sell_to_Customer_No','Customer No','TBI ID'])||''))===wanted);if(hit){result.customer=String(getVal(hit,['__customer','Customer_Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name','__dbrName','DBR_Name','DBR Name'])||'').trim();}}
+    }
     return result;
   }
   form.addEventListener('submit',async function(e){
