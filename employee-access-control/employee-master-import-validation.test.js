@@ -93,3 +93,10 @@ test('blocks a non-Super Admin from importing the protected Super Admin identity
   assert.equal(result.ok, false);
   assert.match(result.errors[0].message, /protected Super Admin record/);
 });
+
+
+test('reserves SUPER_ADMIN role exclusively for the protected employee ID', () => {
+  const result = validateEmployeeMaster(headers, [row({ Employee_ID: 'EMP009', Role: 'SUPER_ADMIN' })], { actorEmployeeId: 'P2PUF7638' });
+  assert.equal(result.ok, false);
+  assert.match(result.errors[0].message, /reserved exclusively/);
+});
