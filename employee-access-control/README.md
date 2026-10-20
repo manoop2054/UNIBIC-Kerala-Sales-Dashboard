@@ -6,9 +6,9 @@ Status: **Phase 1 schema and setup notes only — not live, not connected to Ren
 
 1. Admin authenticates using a protected credential configured outside GitHub.
 2. Admin uploads the Employee Master from their own computer.
-3. The service validates the spreadsheet and upserts employee ID/name/status and permitted geography.
+3. The service validates the spreadsheet and upserts employee ID/name/status and permitted Region, Area and Anchor Zone.
 4. Admin assigns permissions separately for sidebar tabs and each Report Center report, including view/filter/export/print.
-5. Backend checks the authenticated employee, active status, resource permission and Region → Area → Anchor Zone → DBR/customer scope on every protected API request.
+5. Backend checks the authenticated employee, active status, resource permission and Region → Area → Anchor Zone scope on every protected API request.
 6. Setting an employee to INACTIVE revokes that employee's sessions.
 
 ## Storage design
@@ -35,6 +35,8 @@ Status: **Phase 1 schema and setup notes only — not live, not connected to Ren
 Use stable keys such as `tab.executive-dashboard`, `tab.report-center`,
 `report-center.live-soh-cfa-wise`, and `report-center.indv-invoice-details`.
 The final list must be reconciled with the actual sidebar and Report Center headings before enforcing permissions.
+
+Geographic access scope is limited to Region → Area → Anchor Zone. DBR/customer-level permission is not required and must not be added.
 
 ## Important
 
