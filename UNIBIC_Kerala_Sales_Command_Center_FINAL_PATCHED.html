@@ -8845,11 +8845,22 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     if(metric==='indv_invoice_details'){
       const invoiceMap=new Map();
       const codeOf=r=>String(val(r,['__dbrCode','DBR_Code','DBR Code','Customer_Code','Customer Code','Sell_to_Customer_No','Customer No','TBI ID'])||'').trim();
+      const indvAmountKeys=['INDV Amount','INDV_Amount','INDV AMOUNT','INDV Amount (₹)'];
       const dateText=d=>d?String(d.getDate()).padStart(2,'0')+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+d.getFullYear():'';
-      rows.forEach(r=>{const invoice=invVal(r);if(!invoice)return;const customer=customerVal(r);const key=compactKey(invoice)+'|'+compactKey(customer);const date=dateOf(r);const entry=invoiceMap.get(key)||{code:codeOf(r),customer,invoice,date,amount:0};if(!entry.date&&date)entry.date=date;entry.amount+=discVal(r);if(!entry.code)entry.code=codeOf(r);invoiceMap.set(key,entry);});
+      rows.forEach(r=>{
+        const invoice=invVal(r);if(!invoice)return;
+        const customer=customerVal(r),key=compactKey(invoice)+'|'+compactKey(customer),date=dateOf(r);
+        const entry=invoiceMap.get(key)||{code:codeOf(r),customer,invoice,date,amount:0,amountRows:0};
+        if(!entry.date&&date)entry.date=date;
+        const rawAmount=val(r,indvAmountKeys);
+        if(rawAmount!==''&&rawAmount!==null&&rawAmount!==undefined){entry.amount+=numVal(r,indvAmountKeys);entry.amountRows++;}
+        if(!entry.code)entry.code=codeOf(r);
+        invoiceMap.set(key,entry);
+      });
       if(!invoiceMap.size)return 'Matching INDV invoice records കണ്ടെത്തിയില്ല. Customer Code/Name, date range, INDV source field പരിശോധിക്കുക.';
+      if(![...invoiceMap.values()].some(x=>x.amountRows))return 'ഈ source-ൽ INDV Amount field ലഭ്യമല്ല. INDV Discount-നെ INDV Amount ആയി മാറ്റിക്കണക്കാക്കുന്നില്ല.';
       const out=['DBR / Customer Code | Customer / DBR Name | Invoice No | Posting Date | INDV Amount'];
-      [...invoiceMap.values()].sort((a,b)=>(a.date||new Date(0))-(b.date||new Date(0))||a.invoice.localeCompare(b.invoice)).slice(0,Math.min(Number(plan.top_n)||100,100)).forEach(x=>out.push((x.code||'Unavailable')+' | '+(x.customer||'Unavailable')+' | '+x.invoice+' | '+(dateText(x.date)||'Unavailable')+' | '+moneyVal(x.amount)));
+      [...invoiceMap.values()].sort((a,b)=>(a.date||new Date(0))-(b.date||new Date(0))||a.invoice.localeCompare(b.invoice)).slice(0,Math.min(Number(plan.top_n)||100,100)).forEach(x=>out.push((x.code||'Unavailable')+' | '+(x.customer||'Unavailable')+' | '+x.invoice+' | '+(dateText(x.date)||'Unavailable')+' | '+(x.amountRows?moneyVal(x.amount):'Not available')));
       return 'INDV invoice details — '+period+'\n'+out.join('\n')+'\nMatching invoices: '+invoiceMap.size;
     }
     if(metric==='invoice_details'){
