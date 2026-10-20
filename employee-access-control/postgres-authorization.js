@@ -72,9 +72,21 @@ function createResourceGuard({ pool, resourceKey, action, getTrustedContext }) {
   return async function resourceGuard(req, res, next) {
     try {
       const user = req.accessUser;
-      if (!user || user.isAdmin === true || !user.employeeId) {
+      if (!user || !user.employeeId) {
         return res.status(401).json({ error: 'Employee authentication required.' });
       }
+
+      // The permanent Super Admin has intrinsic access after the upstream
+      // session middleware has authenticated the employee and checked ACTIVE
+      // status. Do not treat every Admin as a bypass: ordinary Admins still
+      // need explicit resource permissions and geographic scope.
+      if (
+        String(user.employeeId).trim().toUpperCase() === 'P2PUF7638' &&
+        String(user.role || '').trim().toUpperCase() === 'SUPER_ADMIN'
+      ) {
+        return next();
+      }
+
       const context = await getTrustedContext(req);
       const decision = await authorizeResource(pool, user.employeeId, resourceKey, action, context);
       if (!decision.allowed) {
