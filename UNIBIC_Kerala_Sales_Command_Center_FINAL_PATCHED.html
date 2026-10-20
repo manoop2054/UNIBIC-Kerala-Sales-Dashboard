@@ -9117,10 +9117,10 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       // including short names where the query omits or varies the legal suffix.
       if(!result.customer){
         const customerNames=[...new Set(rows.map(r=>String(getVal(r,['__customer','Customer_Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name','__dbrName','DBR_Name','DBR Name','DBR / Customer Name'])||'').trim()).filter(x=>x.length>1))];
-        const queryWords=new Set(normText(question).split(/\\s+/).filter(Boolean));
+        const queryWords=new Set(normText(question).split(/\s+/).filter(Boolean));
         const ignoredCustomerWords=new Set(['customer','customers','distributor','distributors','dbr','invoice','invoices','details','detail','indv','individual','discount','show','display','give','list','against','period','month','year','from','during','within','october','november','december','january','february','march','april','june','july','august','september','2025','2026']);
         const scored=customerNames.map(name=>{
-          const tokens=[...new Set(normText(name).split(/\\s+/).filter(t=>t.length>=4&&!ignoredCustomerWords.has(t)&&!/^20\\d{2}$/.test(t)))];
+          const tokens=[...new Set(normText(name).split(/\s+/).filter(t=>t.length>=4&&!ignoredCustomerWords.has(t)&&!/^20\d{2}$/.test(t)))];
           const hits=tokens.filter(t=>queryWords.has(t));
           return {name,score:hits.length,tokenCount:tokens.length};
         }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||b.tokenCount-a.tokenCount);
@@ -9128,7 +9128,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
           result.customer=scored[0].name;
         }
       }
-      const codeMatch=question.match(/\\b[A-Z]\\d{4,}\\b/i);if(codeMatch){const wanted=normText(codeMatch[0]);const hit=rows.find(r=>normText(String(getVal(r,['__dbrCode','DBR_Code','DBR Code','Customer_Code','Customer Code','Sell_to_Customer_No','Customer No','TBI ID'])||''))===wanted);if(hit){result.customer=String(getVal(hit,['__customer','Customer_Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name','__dbrName','DBR_Name','DBR Name'])||'').trim();}}
+      const codeMatch=question.match(/\b[A-Z]\d{4,}\b/i);if(codeMatch){const wanted=normText(codeMatch[0]);const hit=rows.find(r=>normText(String(getVal(r,['__dbrCode','DBR_Code','DBR Code','Customer_Code','Customer Code','Sell_to_Customer_No','Customer No','TBI ID'])||''))===wanted);if(hit){result.customer=String(getVal(hit,['__customer','Customer_Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name','__dbrName','DBR_Name','DBR Name'])||'').trim();}}
     }
     return result;
   }
