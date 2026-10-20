@@ -44,6 +44,7 @@ const GSV_FIELDS = new Set([
 const inFlight = new Map();
 const gsvStatus = { stage: 'idle', rows: 0, startedAt: null, updatedAt: null, error: null };
 app.get('/', (req, res) => res.sendFile(DASHBOARD));
+app.get('/admin-center-preview', (req, res) => res.sendFile(path.join(__dirname, 'employee-access-control', 'admin-panel-preview.html')));
 app.get('/health', (req, res) => res.json({ ok: true, service: 'UNIBIC Sales Dashboard API' }));
 app.get('/api/gsv/status', (req, res) => res.json({ ...gsvStatus, inProgress: inFlight.has('gsv-compact.json') }));
 
