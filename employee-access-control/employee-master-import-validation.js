@@ -29,7 +29,10 @@ function headerMap(headers) {
   }
   return map;
 }
-function validateEmployeeMaster(headers, rawRows) {
+function validateEmployeeMaster(headers, rawRows, options = {}) {
+  // actorEmployeeId must come from a verified server-side session, never the uploaded workbook.
+  const actorEmployeeId = clean(options.actorEmployeeId).toUpperCase();
+  const actorIsSuperAdmin = actorEmployeeId === SUPER_ADMIN_EMPLOYEE_ID;
   const errors = [];
   const warnings = [];
   const normalizedHeaders = headerMap(headers);
@@ -96,6 +99,14 @@ function validateEmployeeMaster(headers, rawRows) {
     }
 
     const isProtected = employeeId.toUpperCase() === SUPER_ADMIN_EMPLOYEE_ID;
+    if (isProtected && !actorIsSuperAdmin) {
+      errors.push({ row: excelRow, employeeId, message: 'Only the authenticated Super Admin can include or update the protected Super Admin record.' });
+      continue;
+    }
+    if (rawRole === 'ADMIN' && !actorIsSuperAdmin) {
+      errors.push({ row: excelRow, employeeId, message: 'Only the authenticated Super Admin can grant the ADMIN role.' });
+      continue;
+    }
     let role;
     if (isProtected) {
       role = SUPER_ADMIN_ROLE;
