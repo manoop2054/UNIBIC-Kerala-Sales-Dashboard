@@ -8878,12 +8878,16 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     if(metric==='item_count')return period+'\nDistinct items: '+items+'\nMatching rows: '+rows.length;
     if(metric==='discount_percent'){const keys=['Line_Discount_Percent','Line Discount Percent','LineDiscountPercent','Discount_Percent','Discount Percent','Scheme_Discount_Percent','Scheme Discount Percent'];const vals=rows.map(r=>({raw:val(r,keys),n:numVal(r,keys)})).filter(x=>x.raw!==''&&x.raw!==null&&x.raw!==undefined);return period+'\nRows matching query: '+rows.length+'\nRows with an explicit line/scheme discount % field: '+vals.length+'\nAverage explicit line/scheme discount %: '+(vals.length?(vals.reduce((a,x)=>a+x.n,0)/vals.length).toFixed(2)+'%':'Not available in loaded columns')+'\nINDV discount amount: '+moneyVal(discTotal);}
     if(metric==='records'){const invoiceOnly=!!plan.invoice;const detailRows=rows.slice(0,Math.min(plan.top_n,100));return (invoiceOnly?'Invoice '+plan.invoice+' — Item details':'Matching sales details')+'\n'+detailRows.map((r,i)=>invoiceOnly?(i+1)+'. '+itemVal(r)+' | '+fields.desc(r)+' | CBB '+cbbVal(r).toLocaleString('en-IN'):(i+1)+'. '+itemVal(r)+' | '+fields.desc(r)+' | Customer '+customerVal(r)+' | Invoice '+invVal(r)+' | CBB '+cbbVal(r).toLocaleString('en-IN')).join('\n');}
-    const explicitGsvIntent=/\b(gsv|sales?|sale|revenue|amount|value|turnover)\b/.test(norm(q))||/വിറ്റുവരവ്|വിൽപ്പന|സെയിൽസ്/.test(q);
-    const hasSpecificScope=!!(plan.item||plan.customer||plan.dbr||plan.invoice||plan.region||plan.area||plan.anchor_zone||plan.anchor||plan.cfa||plan.warehouse||start||end);
-    if(metric==='gsv'&&!explicitGsvIntent&&!hasSpecificScope&&!plan.__followupPeriod){
-      return 'ചോദ്യത്തിൽ ആവശ്യമായ കണക്ക് വ്യക്തമല്ല. GSV/Sales Amount, CBB, INDV Discount, Invoice Count, Customer Count, അല്ലെങ്കിൽ Item/Customer details എന്ന് വ്യക്തമാക്കുക. / Please specify the metric or details you want; no generic all-date summary was substituted.';
+    const explicitGsvIntent=/\b(gsv|sales?|sale|sell|sold|revenue|amount|value|turnover)\b/.test(norm(q))||/വിറ്റുവരവ്|വിൽപ്പന|സെയിൽസ്/.test(q);
+    if(metric==='gsv'){
+      if(!explicitGsvIntent&&!plan.__followupPeriod){
+        return 'ചോദ്യത്തിൽ ആവശ്യമായ കണക്ക് വ്യക്തമല്ല. GSV/Sales Amount, CBB, INDV Discount, Invoice Count, Customer Count, അല്ലെങ്കിൽ Item/Customer details എന്ന് വ്യക്തമാക്കുക. / Please specify the metric or details you want; no generic all-date summary was substituted.';
+      }
+      return period+'\nGSV: '+moneyVal(gsvTotal)+'\nMatching rows: '+rows.length;
     }
-    return period+'\nGSV: '+moneyVal(gsvTotal)+'\nCBB: '+cbbTotal.toLocaleString('en-IN')+'\nINDV discount: '+moneyVal(discTotal)+'\nDistinct invoices: '+invoices+'\nCustomers/DBRs: '+customers+'\nItems: '+items+'\nMatching rows: '+rows.length;
+    if(metric==='cbb')return period+'\nCBB billed: '+cbbTotal.toLocaleString('en-IN')+'\nMatching rows: '+rows.length;
+    if(metric==='discount')return period+'\nINDV discount: '+moneyVal(discTotal)+'\nMatching rows: '+rows.length;
+    return 'ചോദിച്ച കണക്ക് തിരിച്ചറിയാനായില്ല. GSV/Sales Amount, CBB, INDV Discount, Invoice Count, Customer Count, Item Count, അല്ലെങ്കിൽ വിശദാംശങ്ങൾ എന്ന് വ്യക്തമാക്കുക. / Requested metric was not identified; no unrelated totals are shown.';
   }
   function chatRenderResult(message,result,question){
     const text=String(result??'').trim();
