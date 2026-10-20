@@ -8517,6 +8517,15 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
         return {start:new Date(y,m,1),end:new Date(y,m+1,1),label:new Date(y,m,1).toLocaleString('en-IN',{month:'long',year:'numeric'})};
       }
     }
+    // A year-only query (for example "2026 only") means that calendar year, never all dates.
+    const yearMatch=n.match(/\b(20\d{2})\b/);
+    if(yearMatch && !/\b(from|between|to|through|until)\b/.test(n)){
+      const y=Number(yearMatch[1]);
+      if(/^\s*(20\d{2})(?:\s+only)?\s*$/.test(n) ||
+         /\b(year|annual|yearly|sales|sale|gsv|amount|revenue|cbb|discount|invoice|customer|item|stock|soh)\b/.test(n)){
+        return {start:new Date(y,0,1),end:new Date(y+1,0,1),label:String(y)};
+      }
+    }
     return null;
   }
   function resolveItem(q,rows){
@@ -8931,6 +8940,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   function periodOnlyReply(q){
     const n=normText(q), raw=String(q??'').trim();
     return /^(last month|previous month|this month|current month|january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|october|oct|november|nov|december|dec)(\s+20\d{2})?$/.test(n)
+      || /^(20\d{2})(?:\s+only)?$/i.test(raw)
       || /^(\d{1,2}[\/.-]\d{1,2}[\/.-]20\d{2}|20\d{2}-\d{2}-\d{2})$/.test(raw)
       || /^\d{1,2}\s+(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)\s+20\d{2}$/i.test(raw);
   }
@@ -9079,10 +9089,8 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       if(typeof result==='string'&&!/not loaded|not available|not found|could not|kandilla|കണ്ടെത്തിയില്ല|ലഭ്യമല്ല/i.test(result)){lastChatPlan={...normalized};lastChatQuestion=queryQuestion;}
     }catch(err){
       console.error('UNIBIC local dashboard query failed:',err);
-      let fallback='';
-      try{fallback=answer(queryQuestion);}catch(fallbackError){console.warn('Local chatbot fallback failed:',fallbackError);}
-      if(fallback)chatRenderResult(botMessage,fallback,queryQuestion);
-      else botMessage.textContent='ഈ ചോദ്യത്തിന് ആവശ്യമായ data/field ഇപ്പോൾ ലഭ്യമല്ല. കണക്കുകൾ ഊഹിച്ച് നൽകുന്നില്ല. / Required source data is not available; no figures were guessed.';
+      // Do not replace a failed, specific query with the legacy generic all-date sales summary.
+      botMessage.textContent='ഈ ചോദ്യം കണക്കാക്കുന്നതിനിടെ പിശക് സംഭവിച്ചു. അതിനാൽ ബന്ധമില്ലാത്ത മൊത്തം കണക്കുകൾ നൽകുന്നില്ല. ചോദ്യം വീണ്ടും ശ്രമിക്കുക; പ്രശ്നം തുടർന്നാൽ ഡാറ്റ/ഫീൽഡ് പരിശോധന ആവശ്യമാണ്. / The query failed, so no unrelated all-date totals are shown.';
     }
   });
 })();
