@@ -71,7 +71,7 @@ function validateEmployeeMaster(headers, rawRows, options = {}) {
     const effectiveTo = get(row, 'Effective_To');
     const remarks = get(row, 'Remarks');
 
-    if (![employeeId, name, designation, region, area, allowedTabs, rawStatus].every(Boolean)) {
+    if (![employeeId, name, designation, rawRole, region, area, allowedTabs, rawStatus].every(Boolean)) {
       errors.push({ row: excelRow, employeeId, message: 'Employee_ID, Employee_Name, Designation, Region, Area, Allowed_Tabs and Status are required.' });
       continue;
     }
@@ -101,6 +101,10 @@ function validateEmployeeMaster(headers, rawRows, options = {}) {
     const isProtected = employeeId.toUpperCase() === SUPER_ADMIN_EMPLOYEE_ID;
     if (isProtected && !actorIsSuperAdmin) {
       errors.push({ row: excelRow, employeeId, message: 'Only the authenticated Super Admin can include or update the protected Super Admin record.' });
+      continue;
+    }
+    if (rawRole === 'SUPER_ADMIN' && !isProtected) {
+      errors.push({ row: excelRow, employeeId, message: 'SUPER_ADMIN is reserved exclusively for the protected employee ID.' });
       continue;
     }
     if (rawRole === 'ADMIN' && !actorIsSuperAdmin) {
