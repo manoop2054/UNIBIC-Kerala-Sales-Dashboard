@@ -8780,6 +8780,8 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     }
     if(plan.dataset==='unknown')return 'ചോദ്യം Dashboard data query ആയി തിരിച്ചറിയാനായില്ല. Item/date/Region/DBR പോലുള്ള കൂടുതൽ വിവരങ്ങൾ ചേർത്ത് ചോദിക്കൂ.';
     const sales=getRows(), isSoh=plan.dataset==='soh', source=isSoh?(Array.isArray(window.soh)?window.soh:[]):sales;
+    if(isSoh&&plan.__unresolvedSohLocation)return 'ചോദിച്ച CFA/Warehouse പേര് നിലവിലെ SOH source-ൽ തിരിച്ചറിയാനായില്ല. എല്ലാ സ്റ്റോക്കും കാണിക്കുന്നതിന് പകരം ശരിയായ location പേര് പരിശോധിക്കുക.';
+    if(isSoh&&plan.__unresolvedSohItem)return 'ചോദിച്ച Item Code/Item പേര് നിലവിലെ SOH source-ൽ തിരിച്ചറിയാനായില്ല. എല്ലാ സ്റ്റോക്കും കാണിക്കുന്നതിന് പകരം Item Code പരിശോധിക്കുക.';
     if(!source.length)return 'Dashboard-il ee data source ippol load aayittilla. Connected aayennu urappakki veendum chodikkuka.';
     const val=(r,keys)=>getVal(r,keys), norm=v=>normText(v), parseDate=s=>{if(!s)return null;const d=new Date(s+'T00:00:00');return Number.isNaN(d.getTime())?null:d;};
     const start=parseDate(plan.start_date),end=parseDate(plan.end_date);
@@ -9025,6 +9027,8 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     // SOH identifiers must be resolved against the loaded SOH source, not the sales register.
     if(soh && Array.isArray(window.soh) && window.soh.length){
       const stockSource=window.soh;
+      // Do not carry location matches guessed from the sales register into a stock query.
+      p.cfa=null;p.warehouse=null;
       const stockVal=(r,keys)=>getVal(r,keys);
       const stockChoose=(keys)=>{
         const names=[...new Set(stockSource.map(r=>String(stockVal(r,keys)||'').trim()).filter(Boolean))].sort((a,b)=>b.length-a.length);
@@ -9047,6 +9051,11 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
         if(/\bwarehouse\b/.test(n))p.warehouse=stockLocation;
         // "SOH in <location>" may omit either label; treat the matched stock location as both aliases.
         if(!/\bcfa\b|\bwarehouse\b/.test(n)){p.cfa=stockLocation;p.warehouse=stockLocation;}
+      }else if(/\b(?:in|at|for)\s+[a-z0-9]+(?:\s+[a-z0-9]+){0,3}\s+(?:cfa|warehouse)\b|\b(?:cfa|warehouse)\s+(?!wise\b|summary\b|details\b|report\b|stock\b|data\b)([a-z0-9]+)/.test(n)){
+        p.__unresolvedSohLocation=true;
+      }
+      if(!p.item && (/\b(item|product|sku|item code)\b/.test(n)||/\b[A-Z]{2,}[A-Z0-9_-]*\d[A-Z0-9_-]*\b/i.test(question))){
+        p.__unresolvedSohItem=true;
       }
     }
     // Resolve exact item codes/names and customer names only from rows actually loaded.
