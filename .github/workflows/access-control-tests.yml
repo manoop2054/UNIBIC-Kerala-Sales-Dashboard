@@ -1,0 +1,28 @@
+name: Employee Access Control Tests
+
+on:
+  push:
+    branches:
+      - feature/employee-access-control-postgres
+    paths:
+      - 'employee-access-control/**'
+      - 'package.json'
+      - '.github/workflows/access-control-tests.yml'
+  pull_request:
+    paths:
+      - 'employee-access-control/**'
+      - 'package.json'
+      - '.github/workflows/access-control-tests.yml'
+
+jobs:
+  node-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run access-control tests
+        run: npm test
