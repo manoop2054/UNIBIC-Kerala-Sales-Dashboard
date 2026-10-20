@@ -8737,6 +8737,23 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       };
       const targetFiltered=targetRows.filter(r=>['region','area','anchor_zone','dbr','customer'].every(k=>!plan[k]||normText(String(tf[k](r)||'')).includes(normText(plan[k]))));
       if(!targetFiltered.length)return 'Target data source load ആയിട്ടുണ്ട്, പക്ഷേ നൽകിയ filter-ന് matching target row കണ്ടെത്തിയില്ല.';
+      if(plan.metric==='target_range_summary'){
+        const parseYmd=x=>{if(!x)return null;const m=String(x).match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?new Date(+m[1],+m[2]-1,+m[3]):null;};
+        const start=parseYmd(plan.start_date),end=parseYmd(plan.end_date);
+        if(!start||!end||start>end)return 'Target vs Achievement: ദയവായി valid From Date, To Date നൽകുക.';
+        const monthly=[
+          {m:6,keys:['JUL PRI PLAN','JUL  PRI PLAN']},{m:7,keys:['AUG PRI PLAN','AUG  PRI PLAN']},{m:8,keys:['SEP PRI PLAN','SEP  PRI PLAN']},
+          {m:9,keys:['Oct MC Tgt 26','__octTarget']},{m:10,keys:['Plan NOV MC-26','__novTarget']},{m:11,keys:['Plan Dec MC-26','__decTarget']}
+        ];
+        const numeric=v=>{const z=Number(String(v??'').replace(/,/g,'').replace(/[₹\s]/g,''));return Number.isFinite(z)?z:0;};
+        const targetLakh=targetFiltered.reduce((sum,r)=>sum+monthly.reduce((sub,mo)=>{const y=2026,ms=new Date(y,mo.m,1),me=new Date(y,mo.m+1,0);const lo=start>ms?start:ms,hi=end<me?end:me;if(lo>hi)return sub;let raw='';for(const k of mo.keys){if(r[k]!==undefined&&r[k]!==null&&String(r[k]).trim()!==''){raw=r[k];break;}}const monthTarget=numeric(raw);return sub+monthTarget*((hi-lo)/(1000*60*60*24)+1)/me.getDate();},0),0);
+        const salesRows=getRows();
+        const salesInRange=salesRows.filter(r=>{const raw=r.__date||r.PostingDate||r['Posting Date']||r.Date||r['Invoice Date'];const d=raw instanceof Date?new Date(raw.getFullYear(),raw.getMonth(),raw.getDate()):(()=>{const x=new Date(raw);return Number.isNaN(x.getTime())?null:new Date(x.getFullYear(),x.getMonth(),x.getDate());})();return d&&d>=start&&d<=end;});
+        const achievementLakh=salesInRange.reduce((sum,r)=>{let v=r.__gsv!==undefined&&r.__gsv!==null?numeric(r.__gsv):r['GSV IN LAKH']!==undefined?numeric(r['GSV IN LAKH'])*100000:numeric(r.GSV??r['GSV Amount']??r.AmountToCustomer);return sum+v;},0)/100000;
+        const balance=targetLakh-achievementLakh,achPct=targetLakh?achievementLakh/targetLakh*100:0;
+        const f=v=>v.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+        return 'Target: '+f(targetLakh)+' lakh\nAchievement: '+f(achievementLakh)+' lakh\nAchievement %: '+f(achPct)+'%\nBalance: '+f(balance)+' lakh';
+      }
       const cols=[
         ['Region',r=>tf.region(r)],['Area',r=>tf.area(r)],['Anchor Zone',r=>tf.anchor_zone(r)],
         ['TBI ID',r=>tg(r,['__tbiId','TBI ID','TBIID'])],['TBI Name',r=>tf.dbr(r)],
@@ -8813,6 +8830,16 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       list.forEach(([name,x])=>out.push(name+' | '+moneyVal(x.gsv)+' | '+x.cbb.toLocaleString('en-IN')+' | '+moneyVal(x.discount)+' | '+x.invoices.size+' | '+x.customers.size+' | '+x.rows));
       out.push('GRAND TOTAL | '+moneyVal(gsvTotal)+' | '+cbbTotal.toLocaleString('en-IN')+' | '+moneyVal(discTotal)+' | '+invoices+' | '+customers+' | '+rows.length);
       return 'Area-wise sales summary — '+period+'\n'+out.join('\n');
+    }
+    if(metric==='indv_invoice_details'){
+      const invoiceMap=new Map();
+      const codeOf=r=>String(val(r,['__dbrCode','DBR_Code','DBR Code','Customer_Code','Customer Code','Sell_to_Customer_No','Customer No','TBI ID'])||'').trim();
+      const dateText=d=>d?String(d.getDate()).padStart(2,'0')+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+d.getFullYear():'';
+      rows.forEach(r=>{const invoice=invVal(r);if(!invoice)return;const customer=customerVal(r);const key=compactKey(invoice)+'|'+compactKey(customer);const date=dateOf(r);const entry=invoiceMap.get(key)||{code:codeOf(r),customer,invoice,date,amount:0};if(!entry.date&&date)entry.date=date;entry.amount+=discVal(r);if(!entry.code)entry.code=codeOf(r);invoiceMap.set(key,entry);});
+      if(!invoiceMap.size)return 'Matching INDV invoice records കണ്ടെത്തിയില്ല. Customer Code/Name, date range, INDV source field പരിശോധിക്കുക.';
+      const out=['DBR / Customer Code | Customer / DBR Name | Invoice No | Posting Date | INDV Amount'];
+      [...invoiceMap.values()].sort((a,b)=>(a.date||new Date(0))-(b.date||new Date(0))||a.invoice.localeCompare(b.invoice)).slice(0,Math.min(Number(plan.top_n)||100,100)).forEach(x=>out.push((x.code||'Unavailable')+' | '+(x.customer||'Unavailable')+' | '+x.invoice+' | '+(dateText(x.date)||'Unavailable')+' | '+moneyVal(x.amount)));
+      return 'INDV invoice details — '+period+'\n'+out.join('\n')+'\nMatching invoices: '+invoiceMap.size;
     }
     if(metric==='invoice_details'){
       const invoiceMap=new Map();
@@ -8994,6 +9021,9 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       p.cfa=choose(['CFA','CFA Name','CFA_NAME','CFA / WAREHOUSE','CFA/Warehouse']);
     }
     if(monthOrDate){const start=new Date(monthOrDate.start),end=new Date(monthOrDate.end-1);const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');p.start_date=iso(start);p.end_date=iso(end);}
+    if(/\b(last year|previous year)\b/.test(n)){p.start_date='2025-01-01';p.end_date='2025-12-31';}
+    const rangeMatch=question.match(/\bfrom\s+(\d{4}-\d{2}-\d{2}|\d{1,2}[\/.-]\d{1,2}[\/.-]\d{4})\s+(?:to|through|until)\s+(\d{4}-\d{2}-\d{2}|\d{1,2}[\/.-]\d{1,2}[\/.-]\d{4})\b/i);
+    if(rangeMatch){const parseRangeDate=x=>{let m=x.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(m)return new Date(+m[1],+m[2]-1,+m[3]);m=x.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);return m?new Date(+m[3],+m[2]-1,+m[1]):null;};const a=parseRangeDate(rangeMatch[1]),b=parseRangeDate(rangeMatch[2]);const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');if(a&&b&&!Number.isNaN(a.getTime())&&!Number.isNaN(b.getTime())&&a<=b){p.start_date=iso(a);p.end_date=iso(b);}}
     // Query intent overrides: invoice line details and item-to-customer lists must not fall back to totals.
     if(p.invoice){p.dataset='sales';p.metric='records';p.group_by='none';p.ranking_order='none';p.top_n=100;}
     if(areaWiseIntent&&!soh&&!claims&&!target){p.dataset='sales';p.metric='area_summary';p.group_by='area';p.ranking_order='none';p.top_n=100;}
@@ -9002,7 +9032,11 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     const customerListIntent=/\b(which customers|what customers|customers? (?:did|have|has) (?:buy|bought|purchased)|who (?:bought|purchased|was billed)|customer names?|list customers|billed to whom)\b/.test(n)||/eathokke customer|ethokke customer|aarokke.*bill|customer.*bill cheytha/.test(n);
     if(p.item&&customerListIntent){p.dataset='sales';p.group_by='customer';p.ranking_order='none';p.metric=/\bcbb\b|\bcbo\b|carton|quantity|qty/.test(n)?'cbb':'gsv';p.top_n=100;p.customer=null;p.dbr=null;}
     if(/\b(anchor|anchor zone|area|dbr)\b/.test(n)&&/\b(achievement|ach %|ranking|rank|top|highest)\b/.test(n)&&!soh){p.dataset='target';p.metric='achievement_percent';p.group_by=/\bdbr\b/.test(n)?'dbr':/\barea\b/.test(n)?'area':/\banchor zone\b/.test(n)?'anchor_zone':'anchor';p.ranking_order='highest';p.top_n=100;}
-    return normalizeDashboardPlan(question,p);
+    const result=normalizeDashboardPlan(question,p);
+    if(target&&/\b(target|achievement|ach %)\b/.test(n)&&(/\bfrom\b/.test(n)&&/\bto\b/.test(n)||result.start_date&&result.end_date&&result.start_date!==result.end_date)){result.dataset='target';result.metric='target_range_summary';result.group_by='none';result.ranking_order='none';}
+    const indvInvoiceIntent=/\b(indv|individual discount)\b/.test(n)&&/\b(invoice|details|detail|customer|against|last year|previous year)\b/.test(n);
+    if(indvInvoiceIntent){result.dataset='sales';result.metric='indv_invoice_details';result.group_by='none';result.ranking_order='none';result.top_n=100;}
+    return result;
   }
   form.addEventListener('submit',async function(e){
     e.preventDefault();
