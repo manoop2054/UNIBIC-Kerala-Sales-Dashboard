@@ -22,7 +22,14 @@ test('another admin cannot delete the protected Super Admin', () => {
 });
 
 test('another admin cannot disable, demote, or alter permissions of the protected Super Admin', () => {
-  for (const changes of [{ status: 'INACTIVE' }, { role: 'EMPLOYEE' }, { permissions: [] }, { allowedTabs: [] }]) {
+  for (const changes of [
+    { status: 'INACTIVE' },
+    { role: 'EMPLOYEE' },
+    { permissions: [] },
+    { allowedTabs: [] },
+    { allowed_tabs: [] },
+    { is_admin: false }
+  ]) {
     const result = checkEmployeeMutation({
       actorEmployeeId: 'ADMIN002',
       targetEmployeeId: SUPER_ADMIN_EMPLOYEE_ID,
