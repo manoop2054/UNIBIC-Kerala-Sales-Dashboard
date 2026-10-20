@@ -9058,8 +9058,8 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
         p.__unresolvedSohItem=true;
       }
     }
-    // Resolve exact item codes/names and customer names only from rows actually loaded.
-    if(rows.length){
+    // Resolve sales-register fields only for sales questions; SOH has its own source lookup above.
+    if(!soh && rows.length){
       const resolved=resolveItem(question,rows);
       if(resolved&&resolved.code&&(/\b(item|items|product|sku|code|sale|sales|gsv|cbb|stock)\b/i.test(question)||String(question).toLowerCase().includes(String(resolved.code).toLowerCase()))){p.item=resolved.code;}
       const customerNames=[...new Set(rows.map(r=>String(getVal(r,['__customer','Customer_Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name','__dbrName','DBR_Name','DBR Name'])||'').trim()).filter(x=>x.length>2))].sort((a,b)=>b.length-a.length);
