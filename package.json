@@ -6,7 +6,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test employee-access-control/*.test.js"
+    "test": "node --test employee-access-control/*.test.js",
+    "db:check": "node employee-access-control/check-postgres.js"
   },
   "engines": {
     "node": ">=20"
