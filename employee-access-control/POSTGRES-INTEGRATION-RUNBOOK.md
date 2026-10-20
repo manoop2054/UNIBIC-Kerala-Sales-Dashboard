@@ -1,21 +1,26 @@
 # Employee Access Control — PostgreSQL integration runbook
 
 ## Current state
-This branch is isolated from main. The PostgreSQL schema, Super Admin policy helper, Employee Master row validator, and Node test workflow are preparatory. The validator forces employee ID `P2PUF7638` to `SUPER_ADMIN`/`ACTIVE` only when the authenticated actor is that same Super Admin, rejects ordinary Admin attempts to import an `ADMIN` role, detects duplicate IDs and invalid required fields, and treats `All Access` as a label rather than a permission grant. The validator is not yet connected to a database-backed upload route. No login/session route, employee import API, endpoint enforcement, or Render setting is live. Do not merge or deploy this branch until the checklist below is complete.
+This branch is isolated from main. The PostgreSQL schema, Super Admin policy helper, Employee Master row validator, and Node test workflow are preparatory. The validator forces employee ID `P2PUF7638` to `SUPER_ADMIN`/`ACTIVE` only when the authenticated actor is that same Super Admin, rejects ordinary Admin attempts to import an `ADMIN` role, detects duplicate IDs and invalid required fields, and treats `All Access` as a label rather than a permission grant. The PostgreSQL schema now also includes database triggers that block deletion/demotion/disablement of `P2PUF7638` and prevent per-resource permission mutations for that identity. Static regression tests check these protections; they do not replace executing the schema against a real PostgreSQL instance.
+
+The validator is not yet connected to a database-backed upload route. No login/session route, employee import API, endpoint enforcement, or Render setting is live. Do not merge or deploy this branch until the checklist below is complete.
 
 Run the branch tests with `npm test`. A GitHub Actions workflow has been added to run the tests on changes to the access-control files; confirm its actual run result in the Actions tab before claiming tests pass.
 
 ## Database
 Use a persistent PostgreSQL database. The server expects a standard DATABASE_URL connection string when the PostgreSQL adapter is integrated. Keep credentials in the hosting provider's environment-secret settings, never in GitHub files, screenshots, the employee spreadsheet, or browser storage.
 
-Apply postgres-schema.sql to a dedicated database after reviewing the SQL. It creates:
+Apply `employee-access-control/postgres-schema.sql` to a dedicated PostgreSQL database after review. It creates:
 - employee identity/status/password hash records
 - independent View / Filter / Export / Print permissions per resource
 - independent Region → Area → Anchor Zone scope rows per resource
 - hashed session identifiers, expiry and revocation fields
 - an access audit log
+- database-level protection triggers for the permanent Super Admin identity
 
-Do not apply the older schema.sql to PostgreSQL; it is a Cloudflare D1/SQLite-style schema.
+The schema's protection triggers are defense-in-depth; they do not authenticate a caller or replace authorization and audit checks in application APIs. The protected identity must be seeded/updated only through a controlled, authenticated bootstrap procedure with employee ID `P2PUF7638`, role `SUPER_ADMIN`, and status `ACTIVE`. Do not create a public setup endpoint.
+
+Do not apply the older `schema.sql` to PostgreSQL; it is a Cloudflare D1/SQLite-style schema.
 
 ## Required secrets and runtime settings
 - DATABASE_URL: private connection string for the persistent PostgreSQL database.
