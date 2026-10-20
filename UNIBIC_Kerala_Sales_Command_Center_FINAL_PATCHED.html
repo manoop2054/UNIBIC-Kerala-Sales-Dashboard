@@ -8796,6 +8796,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       return 'Target Management data — Matching rows: '+targetFiltered.length+' — Showing: '+shown.length+'\n'+compact.map(([label])=>label).join(' | ')+'\n'+shown.map(r=>compact.map(([,get])=>String(get(r)??'')).join(' | ')).join('\n');
     }
     if(plan.dataset==='unknown')return 'ചോദ്യം Dashboard data query ആയി തിരിച്ചറിയാനായില്ല. Item/date/Region/DBR പോലുള്ള കൂടുതൽ വിവരങ്ങൾ ചേർത്ത് ചോദിക്കൂ.';
+    if(plan.__unresolvedCustomer)return 'നൽകിയ Customer/Distributor പേര് നിലവിലെ sales data-യിൽ കൃത്യമായി തിരിച്ചറിയാനായില്ല. അതിനാൽ മറ്റുള്ള customer-കളുടെ invoice/discount വിവരങ്ങൾ കാണിക്കുന്നില്ല. Customer name അല്ലെങ്കിൽ code പരിശോധിക്കുക. / Customer could not be matched exactly; unrelated customer records are withheld.';
     const sales=getRows(), isSoh=plan.dataset==='soh', source=isSoh?(Array.isArray(window.soh)?window.soh:[]):sales;
     if(isSoh&&plan.__unresolvedSohLocation)return 'ചോദിച്ച CFA/Warehouse പേര് നിലവിലെ SOH source-ൽ തിരിച്ചറിയാനായില്ല. എല്ലാ സ്റ്റോക്കും കാണിക്കുന്നതിന് പകരം ശരിയായ location പേര് പരിശോധിക്കുക.';
     if(isSoh&&plan.__unresolvedSohItem)return 'ചോദിച്ച Item Code/Item പേര് നിലവിലെ SOH source-ൽ തിരിച്ചറിയാനായില്ല. എല്ലാ സ്റ്റോക്കും കാണിക്കുന്നതിന് പകരം Item Code പരിശോധിക്കുക.';
@@ -8877,8 +8878,11 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       });
       if(!invoiceMap.size)return 'Matching INDV invoice records കണ്ടെത്തിയില്ല. Customer Code/Name, date range, INDV source field പരിശോധിക്കുക.';
       if(![...invoiceMap.values()].some(x=>x.amountRows))return 'ഈ source-ൽ INDV Discount field ലഭ്യമല്ല.';
-      const out=['DBR / Customer Code | Customer / DBR Name | Invoice No | Posting Date | INDV Discount'];
-      [...invoiceMap.values()].sort((a,b)=>(a.date||new Date(0))-(b.date||new Date(0))||a.invoice.localeCompare(b.invoice)).slice(0,Math.min(Number(plan.top_n)||100,100)).forEach(x=>out.push((x.code||'Unavailable')+' | '+(x.customer||'Unavailable')+' | '+x.invoice+' | '+(dateText(x.date)||'Unavailable')+' | '+(x.amountRows?moneyVal(x.amount):'Not available')));
+      const minimalIndvColumns=/\b(display only|only these columns|just these columns)\b/.test(norm(q))&&/\binvoice\s*(?:no|number)\b/.test(norm(q));
+      const out=[minimalIndvColumns?'Invoice No | Posting Date | INDV_discount':'DBR / Customer Code | Customer / DBR Name | Invoice No | Posting Date | INDV Discount'];
+      const invoiceEntries=[...invoiceMap.values()].sort((a,b)=>(a.date||new Date(0))-(b.date||new Date(0))||a.invoice.localeCompare(b.invoice)).slice(0,Math.min(Number(plan.top_n)||100,100));
+      invoiceEntries.forEach(x=>out.push(minimalIndvColumns?[x.invoice,dateText(x.date)||'Unavailable',x.amountRows?moneyVal(x.amount):'Not available'].join(' | '):(x.code||'Unavailable')+' | '+(x.customer||'Unavailable')+' | '+x.invoice+' | '+(dateText(x.date)||'Unavailable')+' | '+(x.amountRows?moneyVal(x.amount):'Not available')));
+      if(minimalIndvColumns)out.push('TOTAL | — | '+moneyVal(invoiceEntries.reduce((sum,x)=>sum+(x.amountRows?x.amount:0),0)));
       return 'INDV invoice details — '+period+'\n'+out.join('\n')+'\nMatching invoices: '+invoiceMap.size;
     }
     if(metric==='invoice_details'){
@@ -9039,6 +9043,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     const customerIntent=hasAny(/\b(customer|customers|distributor|dbr|billed|non.?billed|invoice|bill)\b/)||/ഉപഭോക്ത|ബിൽ/.test(question);
     const topMatch=n.match(/\btop\s+(\d{1,3})\b/);
     const areaWiseIntent=hasAny(/\b(area\s*[- ]?wise|areas\s*wise|by\s+area|each\s+area|all\s+areas|area\s+wisea)\b/)||/area.?wise|ഓരോ ഏരിയ|ഏരിയ തിരിച്ച്/.test(n);
+    const groupingIntent=hasAny(/\b(?:region\s*[- ]?wise|by\s+region|each\s+region|all\s+regions)\b/)?'region':hasAny(/\b(?:area\s*[- ]?wise|by\s+area|each\s+area|all\s+areas)\b/)||/area.?wise|ഓരോ ഏരിയ|ഏരിയ തിരിച്ച്/.test(n)?'area':hasAny(/\b(?:anchor\s*zone\s*[- ]?wise|zone\s*[- ]?wise|by\s+anchor\s+zone|by\s+zone|each\s+anchor\s+zone)\b/)?'anchor_zone':hasAny(/\b(?:dbr\s*[- ]?wise|distributor\s*[- ]?wise|by\s+dbr|by\s+distributor|each\s+dbr|each\s+distributor)\b/)?'dbr':hasAny(/\b(?:customer\s*[- ]?wise|by\s+customer|each\s+customer)\b/)?'customer':null;
     if(claims){p.dataset='claims';p.metric=hasAny(/\b(count|number of|records|how many)\b/)?'claim_count':'claim_amount';if(ranking){p.ranking_order=hasAny(/\b(bottom|lowest|least|worst)\b/)?'lowest':'highest';p.group_by=hasAny(/reason|type/)?'claim_reason':hasAny(/month/)?'claim_month':hasAny(/status/)?'status':'distributor';}}
     else if(target){p.dataset='target';p.metric=hasAny(/achievement|ach %|percentage/)?'achievement_percent':'records';p.group_by='none';}
     else if(soh){p.dataset='soh';p.metric=hasAny(/shelf|expiry/)?'stock_rows':'stock_cbb';if(ranking){p.ranking_order=hasAny(/\b(bottom|lowest|least|worst)\b/)?'lowest':'highest';p.group_by=itemIntent?'item':hasAny(/cfa/)?'cfa':hasAny(/warehouse/)?'warehouse':'item';}}
@@ -9052,7 +9057,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       else p.metric='gsv';
       if(hasAny(/\b(invoice|bill) details\b|show records|line details|transaction details/)){p.metric='records';p.group_by='none';}
     }
-    if(areaWiseIntent&&!soh&&!claims&&!target){p.dataset='sales';p.metric='area_summary';p.group_by='area';p.ranking_order='none';p.top_n=100;}
+    if(groupingIntent&&!soh&&!claims&&!target){p.dataset='sales';p.group_by=groupingIntent;p.ranking_order='none';p.top_n=100;}
     // SOH identifiers must be resolved against the loaded SOH source, not the sales register.
     if(soh && Array.isArray(window.soh) && window.soh.length){
       const stockSource=window.soh;
@@ -9149,7 +9154,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     if(rangeMatch){const parseRangeDate=x=>{let m=x.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(m)return new Date(+m[1],+m[2]-1,+m[3]);m=x.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);return m?new Date(+m[3],+m[2]-1,+m[1]):null;};const a=parseRangeDate(rangeMatch[1]),b=parseRangeDate(rangeMatch[2]);const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');if(a&&b&&!Number.isNaN(a.getTime())&&!Number.isNaN(b.getTime())&&a<=b){p.start_date=iso(a);p.end_date=iso(b);}}
     // Query intent overrides: invoice line details and item-to-customer lists must not fall back to totals.
     if(p.invoice){p.dataset='sales';p.metric='records';p.group_by='none';p.ranking_order='none';p.top_n=100;}
-    if(areaWiseIntent&&!soh&&!claims&&!target){p.dataset='sales';p.metric='area_summary';p.group_by='area';p.ranking_order='none';p.top_n=100;}
+    if(groupingIntent&&!soh&&!claims&&!target){p.dataset='sales';p.group_by=groupingIntent;p.ranking_order='none';p.top_n=100;}
     const invoiceListIntent=/\b(all|each|every)\s+invoices?\b/.test(n)&&/\b(invoice number|invoice no|invoice date|each invoice|per invoice)\b/.test(n)&&/\b(gsv|value|amount)\b/.test(n);
     if(invoiceListIntent){p.dataset='sales';p.metric='invoice_details';p.group_by='none';p.ranking_order='none';p.top_n=100;}
     const customerListIntent=/\b(which customers|what customers|customers? (?:did|have|has) (?:buy|bought|purchased)|who (?:bought|purchased|was billed)|customer names?|list customers|billed to whom)\b/.test(n)||/eathokke customer|ethokke customer|aarokke.*bill|customer.*bill cheytha/.test(n);
@@ -9165,7 +9170,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       const rows=getRows();
       // INDV invoice queries: resolve a customer/distributor name from the actual sales rows,
       // including short names where the query omits or varies the legal suffix.
-      if(!result.customer){
+      {
         const customerNames=[...new Set(rows.map(r=>String(getVal(r,['__customer','Customer_Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name','__dbrName','DBR_Name','DBR Name','DBR / Customer Name'])||'').trim()).filter(x=>x.length>1))];
         const queryWords=new Set(normText(question).split(/\s+/).filter(Boolean));
         const ignoredCustomerWords=new Set(['customer','customers','distributor','distributors','dbr','invoice','invoices','details','detail','indv','individual','discount','show','display','give','list','against','period','month','year','from','during','within','october','november','december','january','february','march','april','june','july','august','september','2025','2026']);
@@ -9174,11 +9179,19 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
           const hits=tokens.filter(t=>queryWords.has(t));
           return {name,score:hits.length,tokenCount:tokens.length};
         }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||b.tokenCount-a.tokenCount);
-        if(scored.length && (scored.length===1 || scored[0].score>scored[1].score || scored[0].tokenCount>scored[1].tokenCount)){
+        if(scored.length && (scored.length===1 || scored[0].score>scored[1].score)){
           result.customer=scored[0].name;
+        }else{
+          result.customer=null;
         }
       }
       const codeMatch=question.match(/\b[A-Z]\d{4,}\b/i);if(codeMatch){const wanted=normText(codeMatch[0]);const hit=rows.find(r=>normText(String(getVal(r,['__dbrCode','DBR_Code','DBR Code','Customer_Code','Customer Code','Sell_to_Customer_No','Customer No','TBI ID'])||''))===wanted);if(hit){result.customer=String(getVal(hit,['__customer','Customer_Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name','__dbrName','DBR_Name','DBR Name'])||'').trim();}}
+      const normalizedQuestion=normText(question);
+      const explicitForMatch=normalizedQuestion.match(/\bfor\s+([a-z][a-z0-9 ]{1,35})/);
+      const periodOrGeneric=new Set(['october','oct','november','nov','december','dec','january','jan','february','feb','march','mar','april','apr','may','june','jun','july','jul','august','aug','september','sep','sept','2025','2026','the','all','available','dates','month','year','customer','customers','distributor','dbr','invoice','invoices','details','detail','indv','individual','discount','show','display','only','these','columns','and','total','sum','amount','posting','date','no','wise','by','during','within','for','from','to','on','in','against']);
+      const explicitNamedCustomer=!!explicitForMatch&&normText(explicitForMatch[1]).split(/\s+/).some(t=>t.length>2&&!periodOrGeneric.has(t));
+      const customerCue=/\b(?:customer|distributor|dbr|against)\s+[a-z]/.test(normalizedQuestion);
+      if(!result.customer&&(explicitNamedCustomer||customerCue))result.__unresolvedCustomer=true;
     }
     return result;
   }
