@@ -49,3 +49,12 @@ test('inactive employee session revocation is included in transaction', async ()
   assert.ok(calls.some(c => c.sql === 'COMMIT'));
   assert.equal(calls.at(-1).sql, 'RELEASE');
 });
+
+
+test('accepts every role in the Employee Master template', () => {
+  for (const role of ['EMPLOYEE', 'ADMIN', 'SUPER_ADMIN', 'REGIONAL_MANAGER', 'AREA_MANAGER', 'ANCHOR_ZONE_MANAGER']) {
+    const employeeId = role === 'SUPER_ADMIN' ? 'P2PUF7638' : '1511255';
+    const result = normalizeEmployee({ ...input, employee_id: employeeId, role, status: 'ACTIVE' }, actor);
+    assert.equal(result.role, role);
+  }
+});
