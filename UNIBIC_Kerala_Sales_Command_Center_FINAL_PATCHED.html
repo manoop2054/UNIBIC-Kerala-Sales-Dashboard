@@ -8443,7 +8443,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     <form id="unibicLocalChatbotForm" onsubmit="event.preventDefault();">
       <input id="unibicLocalChatbotInput" autocomplete="off" placeholder="Type your question..." aria-label="Type your question">
       <button id="unibicLocalChatbotClear" type="button" title="Clear chat messages">Clear Chat</button>
-      <button id="unibicLocalChatbotSend" type="button">Ask</button>
+      <button id="unibicLocalChatbotSend" type="button" onclick="document.getElementById(\'unibicLocalChatbotForm\').dispatchEvent(new Event(\'submit\',{bubbles:true,cancelable:true}));">Ask</button>
     </form>
     <div id="unibicLocalChatbotHint">Answers use loaded dashboard rows; unsupported questions are not guessed.</div>
   </div>
@@ -8461,10 +8461,6 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   const input=byId('unibicLocalChatbotInput');
   const messages=byId('unibicLocalChatbotMessages');
   const clearButton=byId('unibicLocalChatbotClear');
-  const sendButton=byId('unibicLocalChatbotSend');
-  sendButton.addEventListener('click',function(){
-    form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));
-  });
   clearButton.addEventListener('click',function(){
     messages.innerHTML='';
     pendingCustomerQuestion=null;
