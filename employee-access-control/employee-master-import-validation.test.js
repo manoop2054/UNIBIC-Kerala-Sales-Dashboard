@@ -44,7 +44,7 @@ test('forces the protected Manoob employee ID to SUPER_ADMIN and ACTIVE', () => 
     Employee_Name: 'Manoob',
     Role: 'Executive',
     Status: 'INACTIVE'
-  })]);
+  })], { actorEmployeeId: 'P2PUF7638' });
   assert.equal(result.ok, true);
   assert.equal(result.rows[0].role, 'SUPER_ADMIN');
   assert.equal(result.rows[0].status, 'ACTIVE');
@@ -79,4 +79,17 @@ test('rejects an end date before the effective start date', () => {
   })]);
   assert.equal(result.ok, false);
   assert.match(result.errors[0].message, /must not be earlier/);
+});
+
+
+test('blocks an ordinary admin from importing a row with ADMIN role', () => {
+  const result = validateEmployeeMaster(headers, [row({ Employee_ID: 'ADMIN003', Role: 'ADMIN' })], { actorEmployeeId: 'ADMIN002' });
+  assert.equal(result.ok, false);
+  assert.match(result.errors[0].message, /Only the authenticated Super Admin/);
+});
+
+test('blocks a non-Super Admin from importing the protected Super Admin identity', () => {
+  const result = validateEmployeeMaster(headers, [row({ Employee_ID: 'P2PUF7638', Employee_Name: 'Manoob' })], { actorEmployeeId: 'ADMIN002' });
+  assert.equal(result.ok, false);
+  assert.match(result.errors[0].message, /protected Super Admin record/);
 });
