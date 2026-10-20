@@ -25,7 +25,10 @@ function normalizeEmployee(input, actor) {
   const status = String(input.status || 'ACTIVE').trim().toUpperCase();
   if (!ROLES.has(role)) throw new Error('Invalid role');
   if (!STATUSES.has(status)) throw new Error('Invalid status');
-  if (role === 'SUPER_ADMIN' && (actor.role !== 'SUPER_ADMIN' || employeeId !== SUPER_ADMIN_ID)) {
+  if (role === 'SUPER_ADMIN' && employeeId !== SUPER_ADMIN_ID) {
+    throw new Error('SUPER_ADMIN role is reserved for P2PUF7638');
+  }
+  if (role === 'SUPER_ADMIN' && actor.role !== 'SUPER_ADMIN') {
     throw new Error('Only the protected Super Admin may assign SUPER_ADMIN to the protected account');
   }
   if (role === 'ADMIN' && actor.role !== 'SUPER_ADMIN') {
