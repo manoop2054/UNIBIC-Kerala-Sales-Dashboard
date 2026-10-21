@@ -5,6 +5,7 @@
 const SUPER_ADMIN_ID = 'P2PUF7638';
 const ROLES = new Set(['EMPLOYEE', 'ADMIN', 'SUPER_ADMIN', 'REGIONAL_MANAGER', 'AREA_MANAGER', 'ANCHOR_ZONE_MANAGER']);
 const STATUSES = new Set(['ACTIVE', 'INACTIVE']);
+const { normalizeResourceList } = require('./resource-catalog');
 
 function clean(value, field, max = 200) {
   const result = String(value == null ? '' : value).trim();
@@ -46,10 +47,7 @@ function normalizeEmployee(input, actor) {
   const area = clean(input.area || '', null, 120);
   const anchorZone = clean(input.anchor_zone || '', null, 120);
   if (anchorZone && !area) throw new Error('Anchor Zone requires an Area');
-  const allowedTabs = Array.isArray(input.allowed_tabs)
-    ? [...new Set(input.allowed_tabs.map(v => clean(v, 'Allowed tab', 120)))]
-    : [];
-  if (!allowedTabs.length) throw new Error('At least one allowed tab is required');
+  const allowedTabs = normalizeResourceList(input.allowed_tabs);
   const effectiveFrom = input.effective_from ? clean(input.effective_from, 'Effective From', 10) : null;
   const effectiveTo = input.effective_to ? clean(input.effective_to, 'Effective To', 10) : null;
   if (effectiveFrom && effectiveTo && effectiveFrom > effectiveTo) {
