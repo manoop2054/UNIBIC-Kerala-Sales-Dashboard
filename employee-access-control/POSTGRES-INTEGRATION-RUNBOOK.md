@@ -3,7 +3,7 @@
 ## Current state
 This branch is isolated from main. The PostgreSQL schema, Super Admin policy helper, Employee Master row validator, and Node test workflow are preparatory. The validator forces employee ID `P2PUF7638` to `SUPER_ADMIN`/`ACTIVE` only when the authenticated actor is that same Super Admin, rejects ordinary Admin attempts to import an `ADMIN` role, detects duplicate IDs and invalid required fields, and treats `All Access` as a label rather than a permission grant. The PostgreSQL schema now also includes database triggers that block deletion/demotion/disablement of `P2PUF7638` and prevent per-resource permission mutations for that identity. Static regression tests check these protections; they do not replace executing the schema against a real PostgreSQL instance.
 
-The validator is not yet connected to a database-backed upload route. No login/session route, employee import API, endpoint enforcement, or Render setting is live. Do not merge or deploy this branch until the checklist below is complete.
+The feature branch now includes database-backed login/session and Employee Master APIs, a JSON-based transactional import endpoint, and a one-off CLI bootstrap script. These are still feature-branch code only: the production service does not run them, the dashboard login UI is not integrated, and sales/data endpoints are not yet protected by the session or geographic permissions. Do not merge or deploy this branch until the checklist below is complete.
 
 Run the branch tests with `npm test`. A GitHub Actions workflow has been added to run the tests on changes to the access-control files; confirm its actual run result in the Actions tab before claiming tests pass.
 
@@ -24,17 +24,17 @@ Do not apply the older `schema.sql` to PostgreSQL; it is a Cloudflare D1/SQLite-
 
 ## Required secrets and runtime settings
 - DATABASE_URL: private connection string for the persistent PostgreSQL database.
-- ACCESS_CONTROL_ADMIN_TOKEN: high-entropy bootstrap credential for the initial Admin login. Set only in the hosting provider's secret environment; do not commit it or send it in chat.
-- NODE_ENV=production: enables secure-cookie behavior when HTTPS is used.
+- SUPER_ADMIN_INITIAL_PASSWORD: temporary strong password set only in a trusted one-off shell when running `npm run access-control:bootstrap`; never set it as a permanent public app setting or commit it.
+- NODE_ENV=production: enables Secure cookies when HTTPS is used.
 
-Use a unique generated admin token, keep it in a password manager, and rotate it after the initial Admin session has been established. Do not use the dashboard URL, an employee ID, or a human-chosen short password as the token.
+The bootstrap is a CLI command, not an HTTP endpoint. It only inserts `P2PUF7638` if the record does not already exist, sets role `SUPER_ADMIN` and status `ACTIVE`, and writes an audit event. After the one-time command succeeds, remove `SUPER_ADMIN_INITIAL_PASSWORD` from the shell/service environment. Never use an employee ID as a password.
 
 ## Activation gates — all are mandatory
 1. Add the PostgreSQL driver and connection pool without changing the dashboard's existing data-loading logic.
-2. Integrate login/session routes and verify HttpOnly, SameSite=Strict, HTTPS-only cookies in production.
-3. Mount `employee-master-import-validation.js` behind the authenticated Admin API; the route must pass the actor ID from the verified server-side session, not from the request body. Implement the employee master import and permission-update APIs with database transactions and audit records. Validate file type, size, required headers, duplicate IDs, allowed statuses, and scope values. Never accept client-supplied permission claims as authoritative.
+2. Integrate the login/session APIs with a real login screen; verify HttpOnly, SameSite=Strict, HTTPS-only cookies in production and verify logout/session revocation.
+3. Review and test the Employee Master create/update and JSON import APIs. The current import route accepts pre-parsed JSON rows (not raw XLSX uploads), validates headers/duplicates/statuses, writes all accepted rows in one transaction, and writes audit records. Add file upload parsing/size limits only if the UI needs direct XLSX upload. Implement a separate permission-update API for independent View/Filter/Export/Print toggles; do not treat the `Allowed_Tabs` column as a complete permission model.
 4. Reconcile every sidebar tab and every Report Center report key against the actual dashboard HTML.
-5. Apply server-side authorization to every protected GSV, SOH, target, claims, chatbot, report, and export endpoint. A check that only hides UI controls is not authorization.
+5. Apply server-side authorization to every protected GSV, SOH, target, claims, chatbot, report, and export endpoint. A check that only hides UI controls is not authorization. The current access-control APIs do not yet protect these data endpoints.
 6. Filter returned rows using the resource's assigned Region, Area, and Anchor Zone on the server. Do not trust geography values supplied by the browser; derive them from trusted query/data context.
 7. Ensure an INACTIVE employee is rejected on every request and all sessions are revoked in the same database transaction as the status change.
 8. Add integration tests for active/inactive users, missing permissions, cross-resource leakage, mismatched geography, export/print restrictions, expiry, logout/revocation, malformed uploads, and direct API requests.
