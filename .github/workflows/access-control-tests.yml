@@ -24,5 +24,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Check server and route syntax
+        run: |
+          node --check server.js
+          node --check employee-access-control/access-control-routes.js
       - name: Run access-control tests
         run: npm test
