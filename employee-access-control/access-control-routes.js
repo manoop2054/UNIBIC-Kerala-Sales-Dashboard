@@ -424,6 +424,46 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
         return res.status(400).json({ error: 'Unable to read the uploaded workbook. Use a valid XLSX or CSV file.' });
       }
     });
+  // Authenticated proxy for shared Target/Claims reads. The Cloudflare Worker
+  // must require SHARED_API_READ_SECRET for GET requests; never expose this secret to browsers.
+  app.get('/api/shared-upload/:dataset', requireSession, async (req, res) => {
+    const dataset = String(req.params.dataset || '').toLowerCase();
+    if (!['target', 'claims'].includes(dataset)) return res.status(404).json({ ok: false, error: 'Unknown dataset.' });
+    const isProtectedSuperAdmin =
+      String(req.accessUser.employeeId || '').toUpperCase() === SUPER_ADMIN_ID &&
+      String(req.accessUser.role || '').toUpperCase() === 'SUPER_ADMIN';
+    const resourceKey = dataset === 'target' ? 'tab.target' : 'tab.dbr';
+    if (!isProtectedSuperAdmin) {
+      const pool = await ensureReady(res);
+      if (!pool) return;
+      try {
+        const permission = await pool.query(
+          'SELECT can_view FROM employee_permissions WHERE employee_id = $1 AND resource_key = $2 LIMIT 1',
+          [req.accessUser.employeeId, resourceKey]
+        );
+        if (!permission.rows[0] || permission.rows[0].can_view !== true) {
+          return res.status(403).json({ ok: false, error: 'Your account does not have permission to view this dataset.' });
+        }
+      } catch (_) {
+        return res.status(503).json({ ok: false, error: 'Unable to verify dataset permission.' });
+      }
+    }
+    const secret = process.env.SHARED_API_READ_SECRET;
+    if (!secret) return res.status(503).json({ ok: false, error: 'Shared data access is not configured on the server.' });
+    const base = String(process.env.SHARED_UPLOAD_API || 'https://unibic-shared-api.manumulanthuruthy.workers.dev').replace(/\/$/, '');
+    try {
+      const upstream = await fetch(base + '/api/shared-upload/' + dataset, {
+        method: 'GET',
+        headers: { 'X-Shared-Read-Secret': secret, 'Accept': 'application/json' },
+        cache: 'no-store'
+      });
+      const body = await upstream.text();
+      res.status(upstream.status).type('application/json').send(body);
+    } catch (_) {
+      res.status(502).json({ ok: false, error: 'Shared data service is unavailable.' });
+    }
+  });
+
 }
 
 module.exports = { mountAccessControlRoutes };
