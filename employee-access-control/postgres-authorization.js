@@ -15,11 +15,19 @@ function normalize(value) {
 }
 
 function matchesScope(allowed, context) {
-  return ['region', 'area', 'anchorZone'].every(key =>
-    normalize(allowed && allowed[key]) !== '' &&
-    normalize(context && context[key]) !== '' &&
-    normalize(allowed[key]) === normalize(context[key])
-  );
+  const allowedRegion = normalize(allowed && allowed.region);
+  const contextRegion = normalize(context && context.region);
+  if (!allowedRegion || !contextRegion || allowedRegion !== contextRegion) return false;
+  // Empty Area means all areas in the assigned Region; empty Anchor Zone means
+  // all zones in the assigned Area. A zone can never be granted without an Area.
+  const allowedArea = normalize(allowed && allowed.area);
+  const contextArea = normalize(context && context.area);
+  const allowedZone = normalize(allowed && allowed.anchorZone);
+  const contextZone = normalize(context && context.anchorZone);
+  if (allowedZone && !allowedArea) return false;
+  if (allowedArea && (!contextArea || allowedArea !== contextArea)) return false;
+  if (allowedZone && (!contextZone || allowedZone !== contextZone)) return false;
+  return true;
 }
 
 async function authorizeResource(pool, employeeId, resourceKey, action, context) {
