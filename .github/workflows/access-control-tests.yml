@@ -7,6 +7,8 @@ on:
     paths:
       - 'employee-access-control/**'
       - 'package.json'
+      - 'server.js'
+      - 'UNIBIC_Kerala_Sales_Command_Center_FINAL_PATCHED.html'
       - '.github/workflows/access-control-tests.yml'
   pull_request:
     paths:
@@ -30,6 +32,7 @@ jobs:
         run: |
           node --check server.js
           node --check employee-access-control/access-control-routes.js
+          node --check employee-access-control/dashboard-data-security.js
           node employee-access-control/check-admin-panel.js
       - name: Run access-control tests
         run: npm test
