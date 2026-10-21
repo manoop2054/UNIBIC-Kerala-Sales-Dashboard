@@ -92,9 +92,14 @@ body.eac-locked #eacLoginGate{display:grid}
     gate.style.display='none';
   }
   function toastSafe(text){
-    const el=$('toast');if(!el)return;
-    el.textContent=text;el.style.display='block';
-    window.setTimeout(()=>{el.style.display='none';},3000);
+    const el=$('toast');
+    if(!el){window.alert(String(text||'Operation completed.'));return;}
+    el.textContent=String(text||'');
+    el.style.display='block';
+    el.setAttribute('role','status');
+    el.setAttribute('aria-live','polite');
+    if(window.__eacToastTimer)window.clearTimeout(window.__eacToastTimer);
+    window.__eacToastTimer=window.setTimeout(()=>{el.style.display='none';},10000);
   }
   async function showAuditLog(){
     try{
@@ -304,14 +309,22 @@ body.eac-locked #eacLoginGate{display:grid}
     }catch(error){toastSafe(error.message||'Password update failed.');}
   }
   async function importMaster(file){
-    if(!file)return;
+    if(!file){toastSafe('No Employee Master file selected.');return;}
     if(String(currentUser?.role).toUpperCase()!=='SUPER_ADMIN'){toastSafe('Only Super Admin can import the Employee Master.');return;}
-    if(file.size>5*1024*1024){toastSafe('File is larger than 5 MB.');return;}
+    if(file.size>5*1024*1024){toastSafe('File is larger than 5 MB. Please use a file under 5 MB.');return;}
+    const uploadButton=$('eacUpload');
+    if(uploadButton){uploadButton.disabled=true;uploadButton.textContent='Uploading Employee Master…';}
+    toastSafe('Uploading '+file.name+'… Please wait.');
     try{
-      const result=await api('/api/access-control/employees/import-file',{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream'},body:file});
-      await loadEmployees();toastSafe('Imported '+result.imported+' employee rows.');
+      const result=await api('/api/access-control/employees/import-file',{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream','X-Employee-Master-Filename':encodeURIComponent(file.name)},body:file});
+      await loadEmployees();
+      toastSafe('SUCCESS: Imported '+Number(result.imported||0)+' employee rows. Employee list refreshed.');
       if(result.warnings?.length)window.alert(result.warnings.map(w=>'Row '+w.row+': '+w.message).join('\n'));
-    }catch(error){toastSafe(error.message||'Import failed.');}
+    }catch(error){
+      toastSafe('UPLOAD FAILED: '+(error.message||'Import failed. No success was confirmed.'));
+    }finally{
+      if(uploadButton){uploadButton.disabled=false;uploadButton.textContent='Upload Employee Master';}
+    }
   }
   function installControls(){
     const role=$('role');role.innerHTML='';
