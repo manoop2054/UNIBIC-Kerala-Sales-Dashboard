@@ -77,10 +77,20 @@ body.eac-locked #eacLoginGate{display:grid}
   const esc=value=>String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   async function api(url,options){
     const opts=Object.assign({credentials:'same-origin'},options||{});
-    const response=await fetch(url,opts);
-    const data=await response.json().catch(()=>({error:'Unexpected server response.'}));
-    if(!response.ok)throw new Error(data.error||('Request failed ('+response.status+')'));
-    return data;
+    const controller=new AbortController();
+    const timeout=window.setTimeout(()=>controller.abort(),60000);
+    if(!opts.signal)opts.signal=controller.signal;
+    try{
+      const response=await fetch(url,opts);
+      const data=await response.json().catch(()=>({error:'Unexpected server response.'}));
+      if(!response.ok)throw new Error(data.error||('Request failed ('+response.status+')'));
+      return data;
+    }catch(error){
+      if(error&&error.name==='AbortError')throw new Error('Request timed out after 60 seconds. No success was confirmed; please check the server connection before retrying.');
+      throw error;
+    }finally{
+      window.clearTimeout(timeout);
+    }
   }
   function showGate(text){
     document.body.classList.add('eac-locked');
@@ -100,6 +110,16 @@ body.eac-locked #eacLoginGate{display:grid}
     el.setAttribute('aria-live','polite');
     if(window.__eacToastTimer)window.clearTimeout(window.__eacToastTimer);
     window.__eacToastTimer=window.setTimeout(()=>{el.style.display='none';},10000);
+  }
+  function uploadMessage(text){
+    const el=$('toast');
+    if(!el){window.alert(String(text||''));return;}
+    if(window.__eacToastTimer)window.clearTimeout(window.__eacToastTimer);
+    window.__eacToastTimer=null;
+    el.textContent=String(text||'');
+    el.style.display='block';
+    el.setAttribute('role','status');
+    el.setAttribute('aria-live','assertive');
   }
   async function showAuditLog(){
     try{
@@ -314,14 +334,18 @@ body.eac-locked #eacLoginGate{display:grid}
     if(file.size>5*1024*1024){toastSafe('File is larger than 5 MB. Please use a file under 5 MB.');return;}
     const uploadButton=$('eacUpload');
     if(uploadButton){uploadButton.disabled=true;uploadButton.textContent='Uploading Employee Master…';}
-    toastSafe('Uploading '+file.name+'… Please wait.');
+    uploadMessage('Uploading Employee Master: '+file.name+'. Please wait; do not close this page.');
     try{
       const result=await api('/api/access-control/employees/import-file',{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream'},body:file});
-      await loadEmployees();
-      toastSafe('SUCCESS: Imported '+Number(result.imported||0)+' employee rows. Employee list refreshed.');
-      if(result.warnings?.length)window.alert(result.warnings.map(w=>'Row '+w.row+': '+w.message).join('\n'));
+      try{
+        await loadEmployees();
+        uploadMessage('MASTER DATA UPLOADED SUCCESSFULLY: '+Number(result.imported||0)+' employee rows saved. Employee list refreshed.');
+      }catch(refreshError){
+        uploadMessage('MASTER DATA UPLOADED SUCCESSFULLY: '+Number(result.imported||0)+' employee rows saved, but the employee list could not refresh: '+(refreshError.message||'Unknown refresh error')+'. Do not re-upload; refresh the page and check the list.');
+      }
+      if(result.warnings?.length)window.alert(result.warnings.map(w=>'Row '+w.row+': '+w.message).join('\\n'));
     }catch(error){
-      toastSafe('UPLOAD FAILED: '+(error.message||'Import failed. No success was confirmed.'));
+      uploadMessage('UPLOAD FAILED: '+(error.message||'Import failed. No success was confirmed.'));
     }finally{
       if(uploadButton){uploadButton.disabled=false;uploadButton.textContent='Upload Employee Master';}
     }
