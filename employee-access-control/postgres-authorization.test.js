@@ -21,8 +21,13 @@ test('matches all three geography levels case-insensitively', () => {
   assert.equal(matchesScope({ region: 'SOUTH-KL', area: 'Kochi', anchorZone: 'ZONE-A' }, context), true);
 });
 
-test('fails closed if any geography level is missing', () => {
-  assert.equal(matchesScope({ region: 'SOUTH-KL', area: 'Kochi', anchorZone: '' }, context), false);
+test('supports Region-wide, Area-wide, and exact Anchor Zone scopes', () => {
+  assert.equal(matchesScope({ region: 'SOUTH-KL', area: '', anchorZone: '' }, context), true);
+  assert.equal(matchesScope({ region: 'SOUTH-KL', area: 'Kochi', anchorZone: '' }, context), true);
+  assert.equal(matchesScope({ region: 'SOUTH-KL', area: 'Kochi', anchorZone: 'ZONE-A' }, context), true);
+  assert.equal(matchesScope({ region: 'SOUTH-KL', area: 'Kottayam', anchorZone: '' }, context), false);
+  assert.equal(matchesScope({ region: 'SOUTH-KL', area: '', anchorZone: 'ZONE-A' }, context), false);
+  assert.equal(matchesScope({ region: '', area: '', anchorZone: '' }, context), false);
 });
 
 test('allows only a granted action for matching resource and scope', async () => {
