@@ -488,6 +488,43 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
         return res.status(400).json({ error: 'Unable to read the uploaded workbook. Use a valid XLSX or CSV file.' });
       }
     });
+  // Authenticated upload proxy: never let browser code call the shared Worker directly.
+  app.post('/api/shared-upload/:dataset', requireSession,
+    express.raw({ type: 'application/octet-stream', limit: '25mb' }),
+    async (req, res) => {
+      const dataset = String(req.params.dataset || '').toLowerCase();
+      if (!['target', 'claims'].includes(dataset)) return res.status(404).json({ ok: false, error: 'Unknown dataset.' });
+      if (String(req.accessUser.employeeId || '').toUpperCase() !== SUPER_ADMIN_ID ||
+          String(req.accessUser.role || '').toUpperCase() !== 'SUPER_ADMIN') {
+        return res.status(403).json({ ok: false, error: 'Only the protected Super Admin can upload shared Target or Claims data.' });
+      }
+      if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ ok: false, error: 'Upload payload is empty.' });
+      let input;
+      try { input = JSON.parse(req.body.toString('utf8')); }
+      catch (_) { return res.status(400).json({ ok: false, error: 'Upload payload is invalid JSON.' }); }
+      if (typeof input.pin !== 'string' || !input.pin.trim() ||
+          typeof input.filename !== 'string' || !Array.isArray(input.headers) ||
+          !Array.isArray(input.rows) || input.rows.length > 200000) {
+        return res.status(400).json({ ok: false, error: 'Provide upload PIN, filename, headers and rows (maximum 200,000 rows).' });
+      }
+      const base = String(process.env.SHARED_UPLOAD_API || 'https://unibic-shared-api.manumulanthuruthy.workers.dev').replace(/\/$/, '');
+      try {
+        const upstream = await fetch(base + '/api/shared-upload/' + dataset, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Upload-Pin': input.pin, 'Accept': 'application/json' },
+          body: JSON.stringify({ filename: input.filename, headers: input.headers, rows: input.rows }),
+          cache: 'no-store'
+        });
+        const body = await upstream.text();
+        let payload;
+        try { payload = JSON.parse(body); }
+        catch (_) { return res.status(502).json({ ok: false, error: 'Shared upload service returned invalid JSON.' }); }
+        return res.status(upstream.status).json(payload);
+      } catch (_) {
+        return res.status(502).json({ ok: false, error: 'Shared upload service is unavailable.' });
+      }
+    });
+
   // Authenticated proxy for shared Target/Claims reads. Geographic scopes are
   // enforced here on the server; hiding tabs in the browser is not authorization.
   app.get('/api/shared-upload/:dataset', requireSession, async (req, res) => {
