@@ -95,12 +95,14 @@ async function sendScopedJsonCache(req, res, file) {
   res.setHeader('Cache-Control', 'no-store');
   res.write('{"data":[');
   let emitted = 0;
+  let totalRows = 0;
   let inDataArray = false;
   let objectDepth = 0;
   let inString = false;
   let escaped = false;
   let objectBuffer = '';
   const emit = async row => {
+    totalRows++;
     if (!rowMatchesScopes(row, req.dataScopes)) return;
     if (emitted++) res.write(',');
     if (!res.write(JSON.stringify(row))) await once(res, 'drain');
@@ -152,7 +154,11 @@ async function sendScopedJsonCache(req, res, file) {
       // inDataArray is false after the closing bracket has been seen.
       if (objectDepth !== 0) throw new Error('Cached JSON ended in an incomplete row');
     }
-    res.end(']}');
+    if (emitted === 0 && totalRows > 0) {
+      res.end('],"accessLimited":true,"message":"No rows match the assigned geographic scope. The source may not include verifiable Region, Area and Anchor Zone fields."}');
+    } else {
+      res.end(']}');
+    }
   } catch (_) {
     if (!res.headersSent) return res.status(500).json({ error: 'Unable to filter cached dashboard data.' });
     res.destroy();
