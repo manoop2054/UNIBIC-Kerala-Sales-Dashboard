@@ -83,6 +83,10 @@ function validateEmployeeMaster(headers, rawRows, options = {}) {
       errors.push({ row: excelRow, employeeId, message: 'Employee_ID, Employee_Name, Designation, Region, Area, Allowed_Tabs and Status are required.' });
       continue;
     }
+    if ([region, area, anchorZone].some(value => value === '*')) {
+      errors.push({ row: excelRow, employeeId, message: 'Wildcard geographic scopes are reserved for the protected Super Admin.' });
+      continue;
+    }
     if (anchorZone && !area) {
       errors.push({ row: excelRow, employeeId, message: 'Anchor_Zone requires Area to be specified.' });
       continue;
