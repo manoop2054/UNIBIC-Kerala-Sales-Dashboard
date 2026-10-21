@@ -96,9 +96,42 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
     }
   });
 
-  app.get('/api/access-control/me', requireSession, (req, res) => {
+  app.get('/api/access-control/me', requireSession, async (req, res) => {
     const { employeeId, employeeName, designation, role } = req.accessUser;
-    res.json({ success: true, user: { employeeId, employeeName, designation, role } });
+    const pool = await ensureReady(res);
+    if (!pool) return;
+    try {
+      if (String(role).toUpperCase() === 'SUPER_ADMIN' && employeeId.toUpperCase() === SUPER_ADMIN_ID) {
+        return res.json({
+          success: true,
+          user: { employeeId, employeeName, designation, role },
+          permissions: Object.keys(require('./resource-catalog').RESOURCES).map(resourceKey => ({
+            resourceKey, canView: true, canFilter: true, canExport: true, canPrint: true,
+            scopes: [{ region: '*', area: '*', anchorZone: '*' }]
+          }))
+        });
+      }
+      const result = await pool.query(
+        `SELECT p.resource_key, p.can_view, p.can_filter, p.can_export, p.can_print,
+                COALESCE(jsonb_agg(DISTINCT jsonb_build_object(
+                  'region', s.region, 'area', s.area, 'anchorZone', s.anchor_zone
+                )) FILTER (WHERE s.region IS NOT NULL), '[]'::jsonb) AS scopes
+         FROM employee_permissions p
+         LEFT JOIN employee_resource_scopes s
+           ON s.employee_id = p.employee_id AND s.resource_key = p.resource_key
+         WHERE p.employee_id = $1
+         GROUP BY p.employee_id, p.resource_key, p.can_view, p.can_filter, p.can_export, p.can_print
+         ORDER BY p.resource_key`,
+        [employeeId]
+      );
+      const permissions = result.rows.map(row => ({
+        resourceKey: row.resource_key, canView: row.can_view, canFilter: row.can_filter,
+        canExport: row.can_export, canPrint: row.can_print, scopes: row.scopes
+      }));
+      return res.json({ success: true, user: { employeeId, employeeName, designation, role }, permissions });
+    } catch (_) {
+      return res.status(500).json({ error: 'Unable to load employee permissions.' });
+    }
   });
 
   app.get('/api/access-control/employees', requireSession, requireAdmin, async (req, res) => {
