@@ -14,7 +14,18 @@ const RESOURCES = Object.freeze({
   'tab.reports': ['report center', 'reports', 'report'],
   'tab.admincenter': ['admin center', 'admin panel'],
   'tab.upload': ['monthly upload', 'data management', 'upload'],
-  'tab.targetworking': ['target management', 'target working']
+  'tab.targetworking': ['target management', 'target working'],
+  'report.gsv': ['gsv report', 'sales gsv report'],
+  'report.target-achievement': ['target vs achievement report', 'target achievement report'],
+  'report.dbr-wise': ['dbr-wise report', 'dbr wise report'],
+  'report.area-wise': ['area-wise report', 'area wise report'],
+  'report.zone-wise': ['zone-wise report', 'zone wise report'],
+  'report.anchor-zone-wise': ['anchor zone-wise report', 'anchor zone wise report'],
+  'report.customer-wise': ['customer-wise report', 'customer wise report'],
+  'report.live-soh-cfa-wise': ['live soh cfa wise', 'live soh – cfa wise', 'live soh cfa-wise'],
+  'report.discount-returns': ['discount & returns', 'discount and returns'],
+  'report.stock': ['stock report'],
+  'report.export-all': ['excel export all reports', 'excel export']
 });
 
 const ALIAS_TO_RESOURCE = new Map();
