@@ -83,7 +83,13 @@ body.eac-locked #eacLoginGate{display:grid}
     try{
       const response=await fetch(url,opts);
       const data=await response.json().catch(()=>({error:'Unexpected server response.'}));
-      if(!response.ok)throw new Error(data.error||('Request failed ('+response.status+')'));
+      if(!response.ok){
+        const validationErrors=Array.isArray(data.validation?.errors)?data.validation.errors:[];
+        const details=validationErrors.slice(0,5).map(item=>(item.row?'Row '+item.row+': ':'')+(item.message||'Validation failed')).join(' | ');
+        const extra=validationErrors.length>5?' | '+(validationErrors.length-5)+' more validation errors.':'';
+        const missing=Array.isArray(data.validation?.summary?.missingHeaders)&&data.validation.summary.missingHeaders.length?'Missing required headers: '+data.validation.summary.missingHeaders.join(', '):'';
+        throw new Error(data.error||details+extra||missing||('Request failed ('+response.status+')'));
+      }
       return data;
     }catch(error){
       if(error&&error.name==='AbortError')throw new Error('Request timed out after 60 seconds. No success was confirmed; please check the server connection before retrying.');
