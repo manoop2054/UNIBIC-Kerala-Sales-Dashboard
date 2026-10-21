@@ -170,7 +170,7 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
           status: row.status,
           region: row.region,
           area: row.area,
-          anchor_zone: row.anchorZone || row.area,
+          anchor_zone: row.anchorZone || '',
           dbr_id: row.dbrId,
           dbr_name: row.dbrName,
           allowed_tabs: row.allowedTabs.split(';').map(value => value.trim()).filter(Boolean),
