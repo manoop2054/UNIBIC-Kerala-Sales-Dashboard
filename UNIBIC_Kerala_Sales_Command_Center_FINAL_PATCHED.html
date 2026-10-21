@@ -8003,7 +8003,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
 </script>
-</body></html>
+
 
 
 
@@ -9288,3 +9288,83 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
 })();
 </script>
 
+<style id="eac-login-gate-style">
+#eacLoginGate{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,#061b35ee,#0d3760ee);backdrop-filter:blur(8px);font-family:Inter,Arial,sans-serif}
+#eacLoginGate[hidden]{display:none!important}
+#eacLoginGate .eac-card{width:min(420px,100%);background:#fff;border-radius:16px;padding:28px;box-shadow:0 24px 80px #0005;color:#173454}
+#eacLoginGate .eac-brand{font-size:11px;letter-spacing:2px;font-weight:800;color:#1873d1}
+#eacLoginGate h2{margin:9px 0 6px;font-size:24px}
+#eacLoginGate p{font-size:13px;line-height:1.55;color:#657b93;margin:0 0 18px}
+#eacLoginGate label{display:block;font-size:12px;font-weight:700;margin:12px 0 6px}
+#eacLoginGate input{box-sizing:border-box;width:100%;height:44px;border:1px solid #cbd9e9;border-radius:7px;padding:0 12px;font-size:14px}
+#eacLoginGate button{width:100%;height:44px;border:0;border-radius:7px;background:#1769e0;color:#fff;font-weight:800;margin-top:16px;cursor:pointer}
+#eacLoginGate button:disabled{opacity:.6;cursor:wait}
+#eacLoginError{display:none;color:#b42318;background:#fff1f0;border:1px solid #ffd0cc;border-radius:7px;padding:9px;font-size:12px;margin-top:12px}
+#eacLogoutButton{position:fixed;right:18px;bottom:18px;z-index:1000;border:1px solid #d6e2f0;border-radius:7px;background:#fff;color:#23415f;padding:8px 12px;display:none;cursor:pointer}
+</style>
+<div id="eacLoginGate" role="dialog" aria-modal="true" aria-labelledby="eacLoginTitle">
+  <form class="eac-card" id="eacLoginForm">
+    <div class="eac-brand">UNIBIC · KERALA SALES</div>
+    <h2 id="eacLoginTitle">Employee Login</h2>
+    <p>Sign in with your Employee ID and password to access the dashboard according to your assigned permissions.</p>
+    <label for="eacLoginEmployee">Employee ID</label>
+    <input id="eacLoginEmployee" name="employee_id" autocomplete="username" maxlength="64" required>
+    <label for="eacLoginPassword">Password</label>
+    <input id="eacLoginPassword" name="password" type="password" autocomplete="current-password" maxlength="1024" required>
+    <button id="eacLoginSubmit" type="submit">Secure Sign In</button>
+    <div id="eacLoginError" role="alert"></div>
+  </form>
+</div>
+<button id="eacLogoutButton" type="button">Sign out</button>
+<script id="eac-dashboard-login-gate">
+(function(){
+  const gate=document.getElementById('eacLoginGate');
+  const form=document.getElementById('eacLoginForm');
+  const error=document.getElementById('eacLoginError');
+  const submit=document.getElementById('eacLoginSubmit');
+  const logout=document.getElementById('eacLogoutButton');
+  const showError=message=>{error.textContent=message;error.style.display='block';};
+  function applyPermissions(user){
+    const permissions=Array.isArray(user.permissions)?user.permissions:[];
+    const byKey=new Map(permissions.map(item=>[String(item.resourceKey||''),item]));
+    document.querySelectorAll('.nav button[data-tab]').forEach(button=>{
+      const key='tab.'+button.getAttribute('data-tab');
+      const permission=byKey.get(key);
+      const allowed=!!(permission&&permission.canView);
+      button.hidden=!allowed;
+      const section=document.getElementById(button.getAttribute('data-tab'));
+      if(section&&!allowed)section.style.display='none';
+    });
+    const first=document.querySelector('.nav button[data-tab]:not([hidden])');
+    if(first&&!document.querySelector('.nav button.active:not([hidden])'))first.click();
+  }
+  async function checkSession(){
+    try{
+      const response=await fetch('/api/access-control/me',{cache:'no-store',credentials:'same-origin'});
+      if(!response.ok){gate.hidden=false;logout.style.display='none';return;}
+      const payload=await response.json();
+      if(!payload.success||!payload.user){gate.hidden=false;return;}
+      gate.hidden=true;logout.style.display='block';
+      applyPermissions({...payload.user,permissions:payload.permissions||[]});
+    }catch(_){gate.hidden=false;showError('Unable to contact the login service. Please retry.');}
+  }
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();error.style.display='none';submit.disabled=true;submit.textContent='Signing in…';
+    try{
+      const response=await fetch('/api/access-control/login',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({employee_id:document.getElementById('eacLoginEmployee').value.trim(),password:document.getElementById('eacLoginPassword').value})});
+      const payload=await response.json().catch(()=>({}));
+      if(!response.ok||!payload.success)throw new Error(payload.error||'Sign in failed. Check your Employee ID and password.');
+      location.reload();
+    }catch(e){showError(e.message||'Sign in failed.');}
+    finally{submit.disabled=false;submit.textContent='Secure Sign In';}
+  });
+  logout.addEventListener('click',async()=>{
+    logout.disabled=true;
+    try{await fetch('/api/access-control/logout',{method:'POST',credentials:'same-origin'});}catch(_){}
+    location.reload();
+  });
+  checkSession();
+})();
+</script>
+
+</body></html>
