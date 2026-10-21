@@ -139,13 +139,11 @@ async function revokeSession(pool, token) {
   return Number(result.rowCount || 0) > 0;
 }
 
-async function bootstrapProtectedSuperAdmin(pool, input, bootstrapToken) {
-  const configuredToken = process.env.ACCESS_CONTROL_BOOTSTRAP_TOKEN;
-  if (!configuredToken || configuredToken.length < 32 || !safeEqualText(bootstrapToken, configuredToken)) {
-    throw new Error('Bootstrap authorization failed.');
-  }
-  const employeeName = String(input && input.employee_name || 'Manoob').trim().slice(0, 200);
-  const passwordHash = await hashPassword(input && input.password);
+async function bootstrapProtectedSuperAdmin(pool, input) {
+  // This function is used only by the one-off CLI bootstrap script, never an HTTP route.
+  const password = input && input.password || process.env.SUPER_ADMIN_INITIAL_PASSWORD;
+  const employeeName = String(input && input.employee_name || process.env.SUPER_ADMIN_NAME || 'Manoob').trim().slice(0, 200);
+  const passwordHash = await hashPassword(password);
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
