@@ -9324,19 +9324,80 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   const submit=document.getElementById('eacLoginSubmit');
   const logout=document.getElementById('eacLogoutButton');
   const showError=message=>{error.textContent=message;error.style.display='block';};
+  let permissionMap=new Map();
+  const reportResource={
+    gsv2:'report.gsv',product:'report.customer-wise',item:'report.item-wise',
+    dbr:'report.dbr-wise',management:'report.gsv',alerts:'report.discount-returns'
+  };
+  function activeReportResource(){
+    const active=document.querySelector('#reportTabs [data-r].active');
+    return active?reportResource[active.getAttribute('data-r')]||'': '';
+  }
+  function applyReportPermissions(){
+    const tabs=document.querySelectorAll('#reportTabs [data-r]');
+    tabs.forEach(button=>{
+      const key=reportResource[button.getAttribute('data-r')];
+      const permission=permissionMap.get(key);
+      button.hidden=!(permission&&permission.canView);
+    });
+    const active=document.querySelector('#reportTabs [data-r].active');
+    if(active&&active.hidden){
+      const first=document.querySelector('#reportTabs [data-r]:not([hidden])');
+      if(first)first.click();
+    }
+    const key=activeReportResource();
+    const permission=permissionMap.get(key)||{};
+    const excel=document.getElementById('enhExcel');
+    if(excel)excel.hidden=!permission.canExport;
+    const print=document.getElementById('enhPDF');
+    if(print)print.hidden=!permission.canPrint;
+    const reportTab=permissionMap.get('tab.reports')||{};
+    document.querySelectorAll('#reportFilters input,#reportFilters select,#reportFilters button,#safeRCAdvancedFilters input,#safeRCAdvancedFilters select').forEach(control=>{
+      control.disabled=!reportTab.canFilter;
+    });
+  }
+  function installReportPermissionWrappers(){
+    if(window.__eacReportWrappersInstalled)return;
+    window.__eacReportWrappersInstalled=true;
+    if(typeof window.renderReportTabs==='function'){
+      const originalTabs=window.renderReportTabs;
+      window.renderReportTabs=function(){const result=originalTabs.apply(this,arguments);applyReportPermissions();return result;};
+    }
+    if(typeof window.renderReport==='function'){
+      const originalRender=window.renderReport;
+      window.renderReport=function(){const result=originalRender.apply(this,arguments);applyReportPermissions();return result;};
+    }
+  }
   function applyPermissions(user){
     const permissions=Array.isArray(user.permissions)?user.permissions:[];
-    const byKey=new Map(permissions.map(item=>[String(item.resourceKey||''),item]));
+    permissionMap=new Map(permissions.map(item=>[String(item.resourceKey||''),item]));
+    window.__eacPermissions=permissionMap;
     document.querySelectorAll('.nav button[data-tab]').forEach(button=>{
       const key='tab.'+button.getAttribute('data-tab');
-      const permission=byKey.get(key);
+      const permission=permissionMap.get(key);
       const allowed=!!(permission&&permission.canView);
       button.hidden=!allowed;
       const section=document.getElementById(button.getAttribute('data-tab'));
       if(section&&!allowed)section.style.display='none';
     });
-    const first=document.querySelector('.nav button[data-tab]:not([hidden])');
-    if(first&&!document.querySelector('.nav button.active:not([hidden])'))first.click();
+    const adminButton=document.querySelector('.nav button[data-tab="admincenter"]');
+    const isAdmin=['ADMIN','SUPER_ADMIN'].includes(String(user.role||'').toUpperCase());
+    if(adminButton){
+      adminButton.hidden=!isAdmin||!(permissionMap.get('tab.admincenter')||{}).canView;
+      if(!adminButton.dataset.eacLinked){
+        adminButton.dataset.eacLinked='1';
+        adminButton.addEventListener('click',event=>{
+          event.preventDefault();
+          if(!adminButton.hidden)location.href='/admin-center-preview';
+        });
+      }
+    }
+    document.querySelectorAll('.nav button[data-tab="upload"],.nav button[data-tab="targetworking"]').forEach(button=>{
+      const key='tab.'+button.getAttribute('data-tab');
+      button.hidden=!(permissionMap.get(key)||{}).canView;
+    });
+    installReportPermissionWrappers();
+    applyReportPermissions();
   }
   async function checkSession(){
     try{
