@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { mountAccessControlRoutes } = require('./access-control-routes');
+const { mountAccessControlRoutes, filterSharedDatasetPayload } = require('./access-control-routes');
 
 test('mounts login, session, employee, password, permission and import APIs without public bootstrap', () => {
   const routes = [];
@@ -79,4 +79,34 @@ test('Employee Master and permission mutation routes require session and admin m
     const route = routes.find(item => item.method === method && item.path === path);
     assert.ok(route && route.handlers.length >= 3, key + ' must include session and role middleware');
   }
+});
+
+
+test('shared Target/Claims payloads are filtered to assigned geographic scope', () => {
+  const payload = {
+    ok: true, uploaded: true,
+    data: { headers: ['Region', 'Area', 'Anchor Zone', 'Value'], rows: [
+      ['North', 'Kozhikode', 'Zone A', 10],
+      ['North', 'Kannur', 'Zone B', 20],
+      ['South', 'Kollam', 'Zone C', 30]
+    ] }
+  };
+  const result = filterSharedDatasetPayload(payload, [{ region: 'North', area: 'Kozhikode', anchorZone: 'Zone A' }]);
+  assert.equal(result.data.rows.length, 1);
+  assert.equal(result.data.rows[0][3], 10);
+  assert.equal(result.data.accessLimited, true);
+  assert.equal(result.data.rowCount, 1);
+});
+
+test('shared dataset filtering fails closed when geography is missing or response shape is unsupported', () => {
+  const noGeography = filterSharedDatasetPayload({
+    ok: true, uploaded: true, data: { rows: [{ ITEMID: 'A1', WAREHOUSE: 'CFA 1' }] }
+  }, [{ region: 'North', area: '', anchorZone: '' }]);
+  assert.equal(noGeography.data.rows.length, 0);
+  assert.equal(noGeography.data.accessLimited, true);
+
+  const unsupported = filterSharedDatasetPayload({ ok: true, uploaded: true, data: { records: [{ Region: 'North' }] } },
+    [{ region: 'North', area: '', anchorZone: '' }]);
+  assert.equal(unsupported.ok, false);
+  assert.match(unsupported.error, /access denied/i);
 });
