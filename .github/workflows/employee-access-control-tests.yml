@@ -1,0 +1,30 @@
+name: Employee Access Control tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'employee-access-control/**'
+      - 'server.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/employee-access-control-tests.yml'
+  push:
+    branches: ['integration/employee-access-control-main-20261021']
+    paths:
+      - 'employee-access-control/**'
+      - 'server.js'
+      - 'package.json'
+      - 'package-lock.json'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
