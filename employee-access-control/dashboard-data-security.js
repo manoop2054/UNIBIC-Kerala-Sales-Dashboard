@@ -53,6 +53,13 @@ function createDashboardSessionGuard({ getPool, initializeDatabase, getDatabaseS
         req.isProtectedSuperAdmin = true;
         return next();
       }
+
+      // SOH source rows currently have CFA/Warehouse identifiers but no verified
+      // Region/Area/Anchor Zone mapping. Fail closed for non-Super-Admin users
+      // until a trusted server-side mapping is supplied and integration-tested.
+      if (dataKind === 'soh') {
+        return res.status(503).json({ error: 'SOH geographic access mapping is not configured; access is temporarily restricted.' });
+      }
       const resourceSets = {
         gsv: ['tab.executive','tab.sales','tab.item','tab.dbr','tab.invoice','tab.alerts','tab.reports','report.gsv','report.dbr-wise','report.area-wise','report.zone-wise','report.anchor-zone-wise','report.customer-wise','report.discount-returns','report.export-all'],
         soh: ['tab.soh','tab.reports','report.live-soh-cfa-wise','report.stock'],
