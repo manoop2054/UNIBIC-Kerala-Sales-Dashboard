@@ -543,8 +543,11 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
 // Filter shared Target/Claims rows on the server. Missing/unrecognized geography
 // fails closed for ordinary employees; only the protected Super Admin bypasses it.
 function filterSharedDatasetPayload(payload, scopes) {
-  if (!payload || typeof payload !== 'object' || !payload.data || !Array.isArray(payload.data.rows)) {
-    return payload;
+  if (!payload || typeof payload !== 'object') return { ok: false, error: 'Shared data response is invalid.' };
+  // A legitimate empty dataset carries no rows to disclose.
+  if (payload.uploaded === false) return payload;
+  if (!payload.data || !Array.isArray(payload.data.rows)) {
+    return { ok: false, error: 'Shared data response has no supported row list; access denied.' };
   }
   const headers = Array.isArray(payload.data.headers) ? payload.data.headers : [];
   const rows = payload.data.rows.filter(row => {
