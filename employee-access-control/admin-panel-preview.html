@@ -406,13 +406,10 @@ body.eac-locked #eacLoginGate{display:grid}
     if(warningTitles.length)warningTitles.forEach(el=>{el.textContent=el.textContent.replace('Tab Not Visible','Planned: Tab Visibility').replace('Report Not Accessible','Planned: Report Restriction').replace('API Blocked','Pending: API Enforcement').replace('Chatbot Restricted','Pending: Chatbot Restriction').replace('Export Blocked','Pending: Export Restriction');});
   }
   form.addEventListener('submit',login);
-  async function start(){
-    try{
-      const data=await api('/api/access-control/me');
-      currentUser=data.user;
-      if(!['ADMIN','SUPER_ADMIN'].includes(String(currentUser.role).toUpperCase()))throw new Error('This account does not have Admin Center access.');
-      hideGate();installControls();await loadEmployees();toastSafe('Access control connected.');
-    }catch(error){showGate(error.message==='This account does not have Admin Center access.'?error.message:'Sign in with an authorized employee account.');}
+  function start(){
+    // Require an explicit sign-in whenever the Admin Center page is opened.
+    // Do not silently restore a prior authenticated session into the visible UI.
+    showGate('Sign in with an authorized employee account.');
   }
   start();
 })();
