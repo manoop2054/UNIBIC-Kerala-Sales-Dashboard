@@ -14,7 +14,7 @@ test('validates employee and required geographic scope', () => {
   const e = normalizeEmployee(input, actor);
   assert.equal(e.employeeId, '1511255');
   assert.deepEqual(e.allowedTabs, ['Executive Dashboard', 'Report Center']);
-  assert.throws(() => normalizeEmployee({ ...input, area: '' }, actor), /Area is required/);
+  assert.throws(() => normalizeEmployee({ ...input, area: '' }, actor), /Anchor Zone requires an Area/);
 });
 
 test('only Super Admin can grant ADMIN and SUPER_ADMIN is reserved', () => {
