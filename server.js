@@ -9,7 +9,8 @@ const { pipeline } = require('stream/promises');
 const { performance } = require('perf_hooks');
 const XLSX = require('xlsx');
 const ExcelJS = require('exceljs');
-const { initializeAccessControlDatabase, getAccessControlDatabaseStatus } = require('./employee-access-control/postgres-db');
+const { getAccessControlPool, initializeAccessControlDatabase, getAccessControlDatabaseStatus } = require('./employee-access-control/postgres-db');
+const { mountAccessControlRoutes } = require('./employee-access-control/access-control-routes');
 
 const app = express();
 app.use(express.json({ limit: '24kb' }));
@@ -480,6 +481,12 @@ app.post('/api/chat', async (req, res) => {
     console.warn('Gemini chatbot unavailable:', error.name || 'request error');
     res.status(502).json({ error: 'Gemini unavailable; local chatbot fallback remains available.' });
   }
+});
+
+mountAccessControlRoutes(app, {
+  getPool: getAccessControlPool,
+  initializeDatabase: initializeAccessControlDatabase,
+  getDatabaseStatus: getAccessControlDatabaseStatus
 });
 
 app.listen(PORT, () => {
