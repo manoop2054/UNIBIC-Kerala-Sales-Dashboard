@@ -569,7 +569,10 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
       let payload;
       try { payload = JSON.parse(body); }
       catch (_) { return res.status(502).json({ ok: false, error: 'Shared data service returned invalid JSON.' }); }
-      if (!isProtectedSuperAdmin) payload = filterSharedDatasetPayload(payload, scopes);
+      if (!isProtectedSuperAdmin) {
+        payload = filterSharedDatasetPayload(payload, scopes);
+        if (!payload || payload.ok !== true) return res.status(502).json(payload || { ok: false, error: 'Shared data response could not be filtered safely.' });
+      }
       res.setHeader('Cache-Control', 'no-store');
       return res.status(upstream.status).json(payload);
     } catch (_) {
