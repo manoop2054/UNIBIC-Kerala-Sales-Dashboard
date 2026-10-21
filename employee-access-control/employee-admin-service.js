@@ -46,6 +46,7 @@ function normalizeEmployee(input, actor) {
   const region = clean(input.region, 'Region', 120);
   const area = clean(input.area || '', null, 120);
   const anchorZone = clean(input.anchor_zone || '', null, 120);
+  if ([region, area, anchorZone].some(value => value === '*')) throw new Error('Wildcard geographic scopes are reserved for the protected Super Admin.');
   if (anchorZone && !area) throw new Error('Anchor Zone requires an Area');
   const allowedTabs = normalizeResourceList(input.allowed_tabs);
   const effectiveFrom = input.effective_from ? clean(input.effective_from, 'Effective From', 10) : null;
