@@ -161,7 +161,7 @@ async function bootstrapProtectedSuperAdmin(pool, input) {
     );
     await client.query(
       `INSERT INTO access_audit_log (actor_employee_id, actor_is_admin, action, target_employee_id, details_json)
-       VALUES ($1, TRUE, 'SUPER_ADMIN_BOOTSTRAPPED', $1, '{"method":"one-time-env-token"}'::jsonb)`,
+       VALUES ($1, TRUE, 'SUPER_ADMIN_BOOTSTRAPPED', $1, '{"method":"one-off-cli"}'::jsonb)`,
       [SUPER_ADMIN_ID]
     );
     await client.query('COMMIT');
