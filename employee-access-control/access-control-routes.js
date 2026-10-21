@@ -332,15 +332,20 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
     }
     const validation = validateEmployeeMaster(headers, rows, { actorEmployeeId: req.accessUser.employeeId });
     if (!validation.ok) return res.status(400).json({ success: false, validation });
-    if (validation.rows.some(row => row.employeeId.toUpperCase() === SUPER_ADMIN_ID)) {
-      return res.status(400).json({ error: 'Do not import the protected Super Admin row; manage employee access without changing that account.' });
+    // Keep the protected Super Admin record untouched even when it appears in the
+    // master workbook. Import the remaining employee rows normally.
+    const protectedRowIncluded = validation.rows.some(row => row.employeeId.toUpperCase() === SUPER_ADMIN_ID);
+    const importRows = validation.rows.filter(row => row.employeeId.toUpperCase() !== SUPER_ADMIN_ID);
+    const importWarnings = validation.warnings.slice();
+    if (protectedRowIncluded) {
+      importWarnings.push({ row: 0, employeeId: SUPER_ADMIN_ID, message: 'Protected Super Admin record was skipped; its account and permissions were not changed.' });
     }
 
     // Normalize everything before opening a transaction. Bulk SQL below avoids
     // thousands of serial database round-trips for larger Employee Master files.
     let employees;
     try {
-      employees = validation.rows.map(row => normalizeEmployee({
+      employees = importRows.map(row => normalizeEmployee({
         employee_id: row.employeeId,
         employee_name: row.employeeName,
         designation: row.designation,
@@ -447,7 +452,7 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
           employeeId: employee.employeeId, status: employee.status,
           created: !existingIds.has(employee.employeeId.toUpperCase())
         })),
-        warnings: validation.warnings
+        warnings: importWarnings
       });
     } catch (error) {
       try { await client.query('ROLLBACK'); } catch (_) {}
