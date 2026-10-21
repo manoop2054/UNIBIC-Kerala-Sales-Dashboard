@@ -36,6 +36,14 @@ function validateEmployeeMaster(headers, rawRows, options = {}) {
   const errors = [];
   const warnings = [];
   const normalizedHeaders = headerMap(headers);
+  const headerKeys = (headers || []).map(key).filter(Boolean);
+  const duplicateHeaderKeys = [...new Set(headerKeys.filter((value, index) => headerKeys.indexOf(value) !== index))];
+  if (duplicateHeaderKeys.length) {
+    return {
+      ok: false, rows: [], errors: [{ row: 1, employeeId: '', message: 'Duplicate or ambiguous headers detected: ' + duplicateHeaderKeys.join(', ') }],
+      warnings, summary: { accepted: 0, rejected: (rawRows || []).length, missingHeaders: [] }
+    };
+  }
   const missingHeaders = REQUIRED_HEADERS.filter(h => !normalizedHeaders.has(key(h)));
   if (missingHeaders.length) {
     return {
