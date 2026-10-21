@@ -13,6 +13,8 @@ const { getAccessControlPool, initializeAccessControlDatabase, getAccessControlD
 const { mountAccessControlRoutes } = require('./employee-access-control/access-control-routes');
 
 const app = express();
+// Render terminates HTTPS at its trusted proxy; use one proxy hop for req.ip rate limiting.
+app.set('trust proxy', 1);
 app.use(express.json({ limit: '24kb' }));
 const PORT = process.env.PORT || 10000;
 const DASHBOARD = path.join(__dirname, 'UNIBIC_Kerala_Sales_Command_Center_FINAL_PATCHED.html');
