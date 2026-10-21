@@ -539,6 +539,7 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
       return res.status(502).json({ ok: false, error: 'Shared data service is unavailable.' });
     }
   });
+}
 
 // Filter shared Target/Claims rows on the server. Missing/unrecognized geography
 // fails closed for ordinary employees; only the protected Super Admin bypasses it.
@@ -560,9 +561,6 @@ function filterSharedDatasetPayload(payload, scopes) {
     return record && typeof record === 'object' && rowMatchesScopes(record, scopes);
   });
   return { ...payload, data: { ...payload.data, rows, rowCount: rows.length, accessLimited: true } };
-}
-
-
 }
 
 module.exports = { mountAccessControlRoutes, filterSharedDatasetPayload };
