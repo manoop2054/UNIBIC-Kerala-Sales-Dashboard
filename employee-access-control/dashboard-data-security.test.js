@@ -35,3 +35,102 @@ test('intersects geography scopes across resources so one permission cannot wide
   assert.equal(rowMatchesScopes({ Region: 'North', Area: 'Kannur' }, resourceScopes), false);
   assert.equal(rowMatchesScopes({ Region: 'South', Area: 'Kollam' }, resourceScopes), false);
 });
+
+const { createDashboardSessionGuard } = require('./dashboard-data-security');
+
+function responseRecorder() {
+  return {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; return this; }
+  };
+}
+
+test('dashboard API guard rejects requests without an authenticated employee session', async () => {
+  const guard = createDashboardSessionGuard({
+    getPool: () => ({ query: async () => ({ rows: [] }) }),
+    initializeDatabase: async () => {},
+    getDatabaseStatus: () => ({ ready: true }),
+    dataKind: 'gsv'
+  });
+  const res = responseRecorder();
+  await guard({ headers: {} }, res, () => { throw new Error('next must not run'); });
+  assert.equal(res.statusCode, 401);
+});
+
+test('dashboard API guard builds per-resource scope groups for authenticated employees', async () => {
+  const pool = {
+    query: async sql => {
+      if (sql.includes('FROM employee_sessions')) {
+        return { rows: [{ session_id_hash: 'hash', employee_id: 'EMP001', employee_name: 'Test Employee', designation: 'Executive', role: 'EMPLOYEE' }] };
+      }
+      if (sql.includes('FROM employee_permissions p')) {
+        return { rows: [
+          { resource_key: 'tab.sales', region: 'North', area: '', anchor_zone: '' },
+          { resource_key: 'tab.reports', region: 'North', area: 'Kozhikode', anchor_zone: '' }
+        ] };
+      }
+      throw new Error('Unexpected SQL in test');
+    }
+  };
+  const guard = createDashboardSessionGuard({
+    getPool: () => pool,
+    initializeDatabase: async () => {},
+    getDatabaseStatus: () => ({ ready: true }),
+    dataKind: 'gsv'
+  });
+  const req = { headers: { cookie: 'eac_session=' + 'A'.repeat(43) } };
+  const res = responseRecorder();
+  let continued = false;
+  await guard(req, res, () => { continued = true; });
+  assert.equal(continued, true);
+  assert.equal(req.dataScopes.length, 2);
+  assert.equal(rowMatchesScopes({ Region: 'North', Area: 'Kozhikode' }, req.dataScopes), true);
+  assert.equal(rowMatchesScopes({ Region: 'North', Area: 'Kannur' }, req.dataScopes), false);
+});
+
+test('dashboard API guard fails closed when an employee has no matching resource scopes', async () => {
+  const pool = {
+    query: async sql => {
+      if (sql.includes('FROM employee_sessions')) {
+        return { rows: [{ session_id_hash: 'hash', employee_id: 'EMP001', employee_name: 'Test Employee', designation: 'Executive', role: 'EMPLOYEE' }] };
+      }
+      if (sql.includes('FROM employee_permissions p')) return { rows: [] };
+      throw new Error('Unexpected SQL in test');
+    }
+  };
+  const guard = createDashboardSessionGuard({
+    getPool: () => pool,
+    initializeDatabase: async () => {},
+    getDatabaseStatus: () => ({ ready: true }),
+    dataKind: 'gsv'
+  });
+  const res = responseRecorder();
+  await guard({ headers: { cookie: 'eac_session=' + 'B'.repeat(43) } }, res, () => { throw new Error('next must not run'); });
+  assert.equal(res.statusCode, 403);
+});
+
+test('protected Super Admin session bypasses geographic filtering only after authentication', async () => {
+  const pool = {
+    query: async sql => {
+      if (sql.includes('FROM employee_sessions')) {
+        return { rows: [{ session_id_hash: 'hash', employee_id: 'P2PUF7638', employee_name: 'Manoob', designation: 'Super Admin', role: 'SUPER_ADMIN' }] };
+      }
+      throw new Error('Super Admin should not query ordinary resource scopes');
+    }
+  };
+  const guard = createDashboardSessionGuard({
+    getPool: () => pool,
+    initializeDatabase: async () => {},
+    getDatabaseStatus: () => ({ ready: true }),
+    dataKind: 'gsv'
+  });
+  const req = { headers: { cookie: 'eac_session=' + 'C'.repeat(43) } };
+  const res = responseRecorder();
+  let continued = false;
+  await guard(req, res, () => { continued = true; });
+  assert.equal(continued, true);
+  assert.equal(req.isProtectedSuperAdmin, true);
+  assert.equal(rowMatchesScopes({ ITEMID: 'A123' }, req.dataScopes), true);
+});
