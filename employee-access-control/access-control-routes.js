@@ -203,7 +203,7 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
     const actorId = String(req.accessUser.employeeId).trim().toUpperCase();
     if (!/^[A-Z0-9_-]{2,64}$/.test(targetId)) return res.status(400).json({ error: 'Invalid Employee ID.' });
     if (targetId === SUPER_ADMIN_ID) return res.status(403).json({ error: 'The protected Super Admin password cannot be reset through Employee Master.' });
-    if (targetId === actorId) return res.status(400).json({ error: 'Use the account password-change workflow to change your own password.' });
+    if (targetId === actorId) return res.status(403).json({ error: 'Employees and Admins cannot change their own password. Contact an authorized Admin for a password reset.' });
     const pool = await ensureReady(res);
     if (!pool) return;
     let passwordHash;
