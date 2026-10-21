@@ -7,7 +7,6 @@ on:
       - 'employee-access-control/**'
       - 'server.js'
       - 'package.json'
-      - 'package-lock.json'
       - '.github/workflows/employee-access-control-tests.yml'
   push:
     branches: ['integration/employee-access-control-main-20261021']
@@ -15,7 +14,6 @@ on:
       - 'employee-access-control/**'
       - 'server.js'
       - 'package.json'
-      - 'package-lock.json'
 
 jobs:
   test:
@@ -25,6 +23,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
+      - run: npm install --no-audit --no-fund
       - run: npm test
