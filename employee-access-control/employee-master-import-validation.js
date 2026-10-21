@@ -71,10 +71,15 @@ function validateEmployeeMaster(headers, rawRows, options = {}) {
     const effectiveTo = get(row, 'Effective_To');
     const remarks = get(row, 'Remarks');
 
-    if (![employeeId, name, designation, rawRole, region, area, allowedTabs, rawStatus].every(Boolean)) {
+    if (![employeeId, name, designation, rawRole, region, allowedTabs, rawStatus].every(Boolean)) {
       errors.push({ row: excelRow, employeeId, message: 'Employee_ID, Employee_Name, Designation, Region, Area, Allowed_Tabs and Status are required.' });
       continue;
     }
+    if (anchorZone && !area) {
+      errors.push({ row: excelRow, employeeId, message: 'Anchor_Zone requires Area to be specified.' });
+      continue;
+    }
+
     const idKey = employeeId.toUpperCase();
     if (seen.has(idKey)) {
       errors.push({ row: excelRow, employeeId, message: 'Duplicate Employee_ID in this upload.' });
