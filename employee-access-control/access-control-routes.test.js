@@ -31,6 +31,28 @@ test('mounts login, session, employee, password, permission and import APIs with
   assert.equal(keys.some(key => key.includes('/bootstrap')), false);
 });
 
+test('the authenticated Super Admin receives canonical unrestricted resource permissions', async () => {
+  const routes = [];
+  const app = {
+    get: (path, ...handlers) => routes.push({ method: 'GET', path, handlers }),
+    post: (path, ...handlers) => routes.push({ method: 'POST', path, handlers }),
+    put: (path, ...handlers) => routes.push({ method: 'PUT', path, handlers })
+  };
+  mountAccessControlRoutes(app, {
+    getPool: () => ({ query: async () => ({ rows: [] }) }),
+    initializeDatabase: async () => ({ configured: true, ready: true }),
+    getDatabaseStatus: () => ({ configured: true, ready: true })
+  });
+  const route = routes.find(item => item.method === 'GET' && item.path === '/api/access-control/me');
+  let payload;
+  await route.handlers[1]({
+    accessUser: { employeeId: 'P2PUF7638', employeeName: 'Manoob', designation: 'Super Admin', role: 'SUPER_ADMIN' }
+  }, { json(value) { payload = value; return this; }, status() { return this; } });
+  assert.equal(payload.success, true);
+  assert.ok(payload.permissions.some(permission => permission.resourceKey === 'tab.reports' && permission.canExport));
+  assert.ok(payload.permissions.every(permission => permission.canView && permission.canFilter && permission.canExport && permission.canPrint));
+});
+
 test('Employee Master and permission mutation routes require session and admin middleware', () => {
   const routes = [];
   const app = {
