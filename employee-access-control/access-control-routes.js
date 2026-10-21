@@ -136,6 +136,29 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
     }
   });
 
+  app.get('/api/access-control/audit-log', requireSession, requireAdmin, async (req, res) => {
+    const pool = await ensureReady(res);
+    if (!pool) return;
+    const parsedLimit = Number.parseInt(String(req.query?.limit || '50'), 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.max(1, Math.min(200, parsedLimit)) : 50;
+    try {
+      const result = await pool.query(
+        `SELECT a.id, a.actor_employee_id, actor.employee_name AS actor_name,
+                a.action, a.target_employee_id, target.employee_name AS target_name,
+                a.details_json, a.created_at
+         FROM access_audit_log a
+         LEFT JOIN employees actor ON actor.employee_id = a.actor_employee_id
+         LEFT JOIN employees target ON target.employee_id = a.target_employee_id
+         ORDER BY a.created_at DESC, a.id DESC
+         LIMIT $1`,
+        [limit]
+      );
+      return res.json({ success: true, entries: result.rows });
+    } catch (_) {
+      return res.status(500).json({ error: 'Unable to load access audit log.' });
+    }
+  });
+
   app.get('/api/access-control/employees', requireSession, requireAdmin, async (req, res) => {
     const pool = await ensureReady(res);
     if (!pool) return;
