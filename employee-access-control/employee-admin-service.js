@@ -94,6 +94,9 @@ async function saveEmployee(pool, input, actor) {
     if (employee.employeeId === SUPER_ADMIN_ID && !existing.rows.length) {
       throw new Error('Protected Super Admin must be bootstrapped through the reviewed setup process');
     }
+    if (existing.rows.length && ['ADMIN', 'SUPER_ADMIN'].includes(String(existing.rows[0].role).toUpperCase()) && actor.role !== 'SUPER_ADMIN') {
+      throw new Error('Only Super Admin may manage an existing Admin account');
+    }
     await client.query(
       `INSERT INTO employees (employee_id, employee_name, designation, role, status, updated_at)
        VALUES ($1,$2,$3,$4,$5,NOW())
