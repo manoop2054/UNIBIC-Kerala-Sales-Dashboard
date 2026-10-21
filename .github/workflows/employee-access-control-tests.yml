@@ -14,6 +14,7 @@ on:
       - 'employee-access-control/**'
       - 'server.js'
       - 'package.json'
+      - '.github/workflows/employee-access-control-tests.yml'
 
 jobs:
   test:
