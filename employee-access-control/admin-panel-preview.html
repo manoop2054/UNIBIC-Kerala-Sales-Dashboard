@@ -132,8 +132,8 @@ body.eac-locked #eacLoginGate{display:grid}
       }
       $('eacLoginPassword').value='';
       hideGate();
-      await loadEmployees();
       installControls();
+      await loadEmployees();
       toastSafe('Signed in securely as '+currentUser.employeeName+'.');
     }catch(error){message.textContent=error.message||'Sign in failed.';}
     finally{loginButton.disabled=false;loginButton.textContent='Secure Sign In';}
@@ -292,9 +292,9 @@ body.eac-locked #eacLoginGate{display:grid}
   }
   function installControls(){
     const role=$('role');role.innerHTML='';
-    const roles=[['EMPLOYEE','Employee'],['REGIONAL_MANAGER','Regional Manager'],['AREA_MANAGER','Area Manager'],['ANCHOR_ZONE_MANAGER','Anchor Zone Manager']];
+    const roles=[['SUPER_ADMIN','Super Admin (protected)'],['EMPLOYEE','Employee'],['REGIONAL_MANAGER','Regional Manager'],['AREA_MANAGER','Area Manager'],['ANCHOR_ZONE_MANAGER','Anchor Zone Manager']];
     if(String(currentUser.role).toUpperCase()==='SUPER_ADMIN')roles.push(['ADMIN','Administrator']);
-    roles.forEach(item=>{const option=document.createElement('option');option.value=item[0];option.textContent=item[1];role.appendChild(option);});
+    roles.forEach(item=>{const option=document.createElement('option');option.value=item[0];option.textContent=item[1];if(item[0]==='SUPER_ADMIN')option.disabled=true;role.appendChild(option);});
     $('status').outerHTML='<select id="status" aria-label="Employee status"><option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option></select>';
     $('empname').readOnly=false;
     const topRight=document.querySelector('.topright');
@@ -327,7 +327,7 @@ body.eac-locked #eacLoginGate{display:grid}
       const data=await api('/api/access-control/me');
       currentUser=data.user;
       if(!['ADMIN','SUPER_ADMIN'].includes(String(currentUser.role).toUpperCase()))throw new Error('This account does not have Admin Center access.');
-      hideGate();await loadEmployees();installControls();toastSafe('Access control connected.');
+      hideGate();installControls();await loadEmployees();toastSafe('Access control connected.');
     }catch(error){showGate(error.message==='This account does not have Admin Center access.'?error.message:'Sign in with an authorized employee account.');}
   }
   start();
