@@ -545,8 +545,9 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
 // fails closed for ordinary employees; only the protected Super Admin bypasses it.
 function filterSharedDatasetPayload(payload, scopes) {
   if (!payload || typeof payload !== 'object') return { ok: false, error: 'Shared data response is invalid.' };
-  // A legitimate empty dataset carries no rows to disclose.
-  if (payload.uploaded === false) return payload;
+  // A legitimate empty dataset carries no rows to disclose. If rows are present,
+  // still filter them even when the upstream metadata says "not uploaded".
+  if (payload.uploaded === false && (!payload.data || !Array.isArray(payload.data.rows))) return payload;
   if (!payload.data || !Array.isArray(payload.data.rows)) {
     return { ok: false, error: 'Shared data response has no supported row list; access denied.' };
   }
