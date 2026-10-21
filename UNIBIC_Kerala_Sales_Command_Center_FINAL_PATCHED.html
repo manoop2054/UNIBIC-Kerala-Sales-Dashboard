@@ -2501,6 +2501,10 @@ const charts={};
 /* ===== SHARED EXCEL UPLOAD API (Q3 TARGET + DCR CLAIMS) ===== */
 const SHARED_UPLOAD_API = 'https://unibic-shared-api.manumulanthuruthy.workers.dev';
 async function sharedSaveDataset(dataset, filename, rows, headers){
+  const authResponse=await fetch('/api/access-control/me',{cache:'no-store',credentials:'same-origin'});
+  if(!authResponse.ok)throw new Error('Sign in before uploading shared business datasets.');
+  const auth=await authResponse.json();
+  if(!auth.success||!auth.user||String(auth.user.employeeId||'').toUpperCase()!=='P2PUF7638'||String(auth.user.role||'').toUpperCase()!=='SUPER_ADMIN')throw new Error('Only the protected Super Admin can upload shared Target or Claims data.');
   const pin = window.prompt('Enter upload PIN to share this Excel file:');
   if(pin === null) return false;
   const response = await fetch(SHARED_UPLOAD_API + '/api/shared-upload/' + dataset, {
