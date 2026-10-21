@@ -261,6 +261,7 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
       if (!/^[a-z][a-z0-9._:-]{0,119}$/.test(resourceKey) || seenResources.has(resourceKey)) {
         return res.status(400).json({ error: 'Resource keys must be unique and use lowercase letters, digits, dot, underscore, colon or hyphen.' });
       }
+      if ([region, area, anchorZone].some(value => value === '*')) return res.status(400).json({ error: 'Wildcard geographic scopes are reserved for the protected Super Admin.' });
       if (!region || region.length > 120 || area.length > 120 || anchorZone.length > 120 || (anchorZone && !area)) {
         return res.status(400).json({ error: 'Each permission needs a Region; Anchor Zone requires an Area.' });
       }
