@@ -25,6 +25,7 @@ test('mounts login, session, employee, password, permission and import APIs with
     'GET /api/access-control/employees',
     'POST /api/access-control/employees',
     'POST /api/access-control/employees/import',
+    'POST /api/access-control/employees/import-file',
     'POST /api/access-control/employees/:employeeId/password',
     'PUT /api/access-control/employees/:employeeId/permissions'
   ]) assert.ok(keys.includes(expected), 'missing route: ' + expected);
