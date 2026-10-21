@@ -319,7 +319,11 @@ body.eac-locked #eacLoginGate{display:grid}
       const passwordButton=document.createElement('button');passwordButton.id='eacSetPassword';passwordButton.className='btn';passwordButton.textContent='Set Password';passwordButton.onclick=()=>setPassword();buttons.insertBefore(passwordButton,buttons.firstChild);
     }
     const note=document.querySelector('.pagehead .info');
-    if(note)note.textContent='Connected to Employee Access Control APIs. Production activation remains blocked until all dashboard data APIs enforce server-side permissions and geography.';
+    if(note)note.textContent='Connected to Employee Access Control APIs. Main dashboard data endpoints and geographic row filtering are not yet protected; production activation is blocked until verified.';
+    document.querySelectorAll('.demo-note').forEach((el,index)=>{el.textContent=index===0?'Connected: permissions are saved to PostgreSQL. Dashboard enforcement is still pending.':'Scope choices are loaded from configured Employee Master scopes, not yet from a verified master geography catalogue.';});
+    document.querySelectorAll('.applied').forEach(el=>{el.textContent='CONFIGURED';});
+    const warningTitles=document.querySelectorAll('.warningtile b');
+    if(warningTitles.length)warningTitles.forEach(el=>{el.textContent=el.textContent.replace('Tab Not Visible','Planned: Tab Visibility').replace('Report Not Accessible','Planned: Report Restriction').replace('API Blocked','Pending: API Enforcement').replace('Chatbot Restricted','Pending: Chatbot Restriction').replace('Export Blocked','Pending: Export Restriction');});
   }
   form.addEventListener('submit',login);
   async function start(){
