@@ -51,11 +51,14 @@ const gsvStatus = { stage: 'idle', rows: 0, startedAt: null, updatedAt: null, er
 app.get('/', (req, res) => res.sendFile(DASHBOARD));
 app.get('/admin-center-preview', (req, res) => res.sendFile(path.join(__dirname, 'employee-access-control', 'admin-panel-preview.html')));
 app.get('/health', (req, res) => res.json({ ok: true, service: 'UNIBIC Sales Dashboard API' }));
-const requireDashboardSession = createDashboardSessionGuard({
+const dashboardGuardOptions = {
   getPool: getAccessControlPool,
   initializeDatabase: initializeAccessControlDatabase,
   getDatabaseStatus: getAccessControlDatabaseStatus
-});
+};
+const requireDashboardSession = createDashboardSessionGuard({ ...dashboardGuardOptions, dataKind: 'gsv' });
+const requireSohSession = createDashboardSessionGuard({ ...dashboardGuardOptions, dataKind: 'soh' });
+const requireChatSession = createDashboardSessionGuard({ ...dashboardGuardOptions, dataKind: 'chat' });
 app.get('/api/gsv/status', requireDashboardSession, (req, res) => res.json({ ...gsvStatus, inProgress: inFlight.has('gsv-compact.json') }));
 
 app.get('/api/gsv/summary', requireDashboardSession, async (req, res) => {
@@ -326,7 +329,7 @@ app.get(['/api/gsv', '/api/live-gsv'], requireDashboardSession, async (req, res)
   }
 });
 
-app.get(['/api/soh', '/api/live-soh'], requireDashboardSession, async (req, res) => {
+app.get(['/api/soh', '/api/live-soh'], requireSohSession, async (req, res) => {
   try {
     const file = await getCache('soh.json', buildSohCache);
     if (req.isProtectedSuperAdmin) await sendJsonCache(req, res, file);
@@ -446,7 +449,7 @@ async function callGeminiDashboardTool(prompt) {
   }
 }
 
-app.post('/api/chat/interpret', requireDashboardSession, async (req, res) => {
+app.post('/api/chat/interpret', requireChatSession, async (req, res) => {
   if (!process.env.GEMINI_API_KEY) return res.status(503).json({ error: 'Gemini unavailable; local chatbot fallback remains available.' });
   const question = typeof req.body?.question === 'string' ? req.body.question.trim().slice(0, 2000) : '';
   if (!question) return res.status(400).json({ error: 'Question is required.' });
@@ -478,7 +481,7 @@ app.post('/api/chat/interpret', requireDashboardSession, async (req, res) => {
 
 // This optional language layer may only rephrase the already-computed local answer.
 // All figures and filtering remain in the dashboard's local query engine.
-app.post('/api/chat', requireDashboardSession, async (req, res) => {
+app.post('/api/chat', requireChatSession, async (req, res) => {
   if (!process.env.GEMINI_API_KEY) return res.status(503).json({ error: 'Gemini unavailable; local chatbot fallback remains available.' });
   const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
   const now = Date.now(), entry = chatRate.get(ip);
