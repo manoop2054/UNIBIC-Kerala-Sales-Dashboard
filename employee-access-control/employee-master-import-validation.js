@@ -4,6 +4,7 @@
 // This module does not write to the database and must be called only by an
 // authenticated, server-side import route. Unknown roles receive least privilege.
 const { SUPER_ADMIN_EMPLOYEE_ID, SUPER_ADMIN_ROLE } = require('./super-admin-policy');
+const { RESOURCES } = require('./resource-catalog');
 
 const REQUIRED_HEADERS = Object.freeze([
   'Employee_ID', 'Employee_Name', 'Designation', 'Role',
@@ -140,14 +141,15 @@ function validateEmployeeMaster(headers, rawRows, options = {}) {
       warnings.push({ row: excelRow, employeeId, message: 'Unrecognized Role "' + get(row, 'Role') + '" mapped to EMPLOYEE (least privilege); keep Designation in its own column.' });
     }
 
-    if (/^ALL ACCESS$/i.test(allowedTabs)) {
-      errors.push({ row: excelRow, employeeId, message: 'All Access is a display label, not a permission grant. List explicit dashboard tabs.' });
-      continue;
-    }
+    // "All Access" expands to every catalogued dashboard/report resource except
+    // Admin Center. It grants no elevated role; role validation above remains authoritative.
+    const normalizedAllowedTabs = /^ALL ACCESS$/i.test(allowedTabs)
+      ? Object.keys(RESOURCES).filter(resourceKey => resourceKey !== 'tab.admincenter').join(';')
+      : allowedTabs;
 
     accepted.push({
       employeeId, employeeName: name, designation, role,
-      region, area, anchorZone, dbrId, dbrName, allowedTabs,
+      region, area, anchorZone, dbrId, dbrName, allowedTabs: normalizedAllowedTabs,
       status: isProtected ? 'ACTIVE' : rawStatus,
       effectiveFrom: effectiveFrom || null,
       effectiveTo: effectiveTo || null,
