@@ -291,7 +291,7 @@ body.eac-locked #eacLoginGate{display:grid}
       await loadEmployees();await loadEmployee(id);
       toastSafe((result.employee.created?'Employee created':'Employee updated')+' and access rules saved.');
       if(result.employee.created){
-        const password=window.prompt('Set an initial password for '+id+' (minimum 12 characters). Leave blank to set it later.');
+        const password=await requestPassword('Set initial password for '+id+' (cancel to set later)');
         if(password){
           await api('/api/access-control/employees/'+encodeURIComponent(id)+'/password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});
           toastSafe('Initial password set. Share it securely with the employee.');
@@ -300,9 +300,25 @@ body.eac-locked #eacLoginGate{display:grid}
     }catch(error){toastSafe(error.message||'Save failed.');}
     finally{saveButton.disabled=false;}
   }
+  function requestPassword(title){
+    return new Promise(resolve=>{
+      const modal=document.createElement('div');
+      modal.style.cssText='position:fixed;inset:0;z-index:12000;background:#071d36bb;display:grid;place-items:center;padding:18px;';
+      modal.innerHTML='<form style="background:#fff;border-radius:10px;width:min(420px,100%);padding:22px;box-shadow:0 20px 70px #001a3544;color:#112d52">'+
+        '<h2 style="margin:0 0 8px;font-size:18px">'+esc(title)+'</h2><p style="font-size:12px;color:#637b9b;margin:0 0 12px">Use at least 12 characters. The password is sent only over this HTTPS session and is never displayed in the employee list.</p>'+
+        '<label style="display:block;font-weight:700;font-size:12px;margin:8px 0">New password</label><input type="password" id="eacPasswordValue" autocomplete="new-password" minlength="12" maxlength="1024" required style="width:100%;height:40px;border:1px solid #c7dbf3;border-radius:5px;padding:0 9px">'+
+        '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px"><button type="button" id="eacPasswordCancel" class="btn">Cancel</button><button type="submit" class="btn primary">Save Password</button></div></form>';
+      document.body.appendChild(modal);
+      const form=modal.querySelector('form'),input=modal.querySelector('#eacPasswordValue');
+      modal.querySelector('#eacPasswordCancel').onclick=()=>{modal.remove();resolve(null);};
+      modal.addEventListener('click',event=>{if(event.target===modal){modal.remove();resolve(null);}});
+      form.addEventListener('submit',event=>{event.preventDefault();const value=input.value;modal.remove();resolve(value);});
+      input.focus();
+    });
+  }
   async function setPassword(){
     if(!selected){toastSafe('Load an existing employee first.');return;}
-    const password=window.prompt('Enter a new temporary password (minimum 12 characters).');
+    const password=await requestPassword('Set employee password');
     if(password===null)return;
     try{
       await api('/api/access-control/employees/'+encodeURIComponent(selected.employee_id)+'/password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});
