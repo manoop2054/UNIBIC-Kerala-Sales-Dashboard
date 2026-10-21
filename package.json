@@ -4,11 +4,19 @@
   "private": true,
   "description": "UNIBIC Kerala Sales Command Center cloud starter",
   "main": "server.js",
-  "scripts": { "start": "node server.js" },
-  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test employee-access-control/*.test.js",
+    "db:check": "node employee-access-control/check-postgres.js",
+    "access-control:bootstrap": "node employee-access-control/bootstrap-super-admin.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "pg": "^8.16.3"
   }
 }

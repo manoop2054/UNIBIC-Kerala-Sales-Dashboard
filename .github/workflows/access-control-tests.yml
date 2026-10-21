@@ -1,0 +1,38 @@
+name: Employee Access Control Tests
+
+on:
+  push:
+    branches:
+      - feature/employee-access-control-postgres
+    paths:
+      - 'employee-access-control/**'
+      - 'package.json'
+      - 'server.js'
+      - 'UNIBIC_Kerala_Sales_Command_Center_FINAL_PATCHED.html'
+      - '.github/workflows/access-control-tests.yml'
+  pull_request:
+    paths:
+      - 'employee-access-control/**'
+      - 'package.json'
+      - '.github/workflows/access-control-tests.yml'
+
+jobs:
+  node-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Node dependencies
+        run: npm install --no-audit --no-fund
+      - name: Check server and route syntax
+        run: |
+          node --check server.js
+          node --check employee-access-control/access-control-routes.js
+          node --check employee-access-control/dashboard-data-security.js
+          node employee-access-control/check-admin-panel.js
+      - name: Run access-control tests
+        run: npm test
