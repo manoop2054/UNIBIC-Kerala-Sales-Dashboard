@@ -66,10 +66,10 @@ test('rejects incomplete blank rows and invalid status values', () => {
   assert.equal(result.errors.length, 2);
 });
 
-test('does not treat All Access as a permission grant', () => {
+test('rejects All Access labels because they are not explicit resource permissions', () => {
   const result = validateEmployeeMaster(headers, [row({ Allowed_Tabs: 'All Access' })]);
-  assert.equal(result.ok, true);
-  assert.ok(result.warnings.some(w => /resource permissions must be granted separately/.test(w.message)));
+  assert.equal(result.ok, false);
+  assert.match(result.errors[0].message, /display label, not a permission grant/);
 });
 
 test('rejects an end date before the effective start date', () => {
