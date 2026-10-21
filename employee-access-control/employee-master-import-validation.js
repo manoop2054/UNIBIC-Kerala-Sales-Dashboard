@@ -129,7 +129,8 @@ function validateEmployeeMaster(headers, rawRows, options = {}) {
     }
 
     if (/^ALL ACCESS$/i.test(allowedTabs)) {
-      warnings.push({ row: excelRow, employeeId, message: 'All Access is treated as a display label only; resource permissions must be granted separately by an authorized Admin.' });
+      errors.push({ row: excelRow, employeeId, message: 'All Access is a display label, not a permission grant. List explicit dashboard tabs.' });
+      continue;
     }
 
     accepted.push({
