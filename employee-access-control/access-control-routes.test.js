@@ -141,3 +141,13 @@ test('shared upload proxy rejects non-Super-Admin even when its handler is calle
   assert.equal(res.statusCode, 403);
   assert.match(res.body.error, /only the protected Super Admin/i);
 });
+
+
+test('does not skip geographic filtering merely because upstream marks data as not uploaded', () => {
+  const result = filterSharedDatasetPayload({
+    ok: true, uploaded: false,
+    data: { headers: ['Region', 'Value'], rows: [['North', 1], ['South', 2]] }
+  }, [{ region: 'North', area: '', anchorZone: '' }]);
+  assert.equal(result.data.rows.length, 1);
+  assert.equal(result.data.rows[0][1], 1);
+});
