@@ -1,0 +1,58 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { mountAccessControlRoutes } = require('./access-control-routes');
+
+test('mounts login, session, employee, password, permission and import APIs without public bootstrap', () => {
+  const routes = [];
+  const app = {
+    get: (path, ...handlers) => routes.push({ method: 'GET', path, handlers }),
+    post: (path, ...handlers) => routes.push({ method: 'POST', path, handlers }),
+    put: (path, ...handlers) => routes.push({ method: 'PUT', path, handlers })
+  };
+  mountAccessControlRoutes(app, {
+    getPool: () => null,
+    initializeDatabase: async () => ({ configured: false, ready: false }),
+    getDatabaseStatus: () => ({ configured: false, ready: false })
+  });
+  const keys = routes.map(route => route.method + ' ' + route.path);
+  for (const expected of [
+    'GET /api/access-control/status',
+    'POST /api/access-control/login',
+    'POST /api/access-control/logout',
+    'GET /api/access-control/me',
+    'GET /api/access-control/employees',
+    'POST /api/access-control/employees',
+    'POST /api/access-control/employees/import',
+    'POST /api/access-control/employees/:employeeId/password',
+    'PUT /api/access-control/employees/:employeeId/permissions'
+  ]) assert.ok(keys.includes(expected), 'missing route: ' + expected);
+  assert.equal(keys.some(key => key.includes('/bootstrap')), false);
+});
+
+test('Employee Master and permission mutation routes require session and admin middleware', () => {
+  const routes = [];
+  const app = {
+    get: (path, ...handlers) => routes.push({ method: 'GET', path, handlers }),
+    post: (path, ...handlers) => routes.push({ method: 'POST', path, handlers }),
+    put: (path, ...handlers) => routes.push({ method: 'PUT', path, handlers })
+  };
+  mountAccessControlRoutes(app, {
+    getPool: () => null,
+    initializeDatabase: async () => ({ configured: false, ready: false }),
+    getDatabaseStatus: () => ({ configured: false, ready: false })
+  });
+  const protectedPaths = [
+    'GET /api/access-control/employees',
+    'POST /api/access-control/employees',
+    'POST /api/access-control/employees/import',
+    'POST /api/access-control/employees/:employeeId/password',
+    'PUT /api/access-control/employees/:employeeId/permissions'
+  ];
+  for (const key of protectedPaths) {
+    const [method, path] = key.split(' ');
+    const route = routes.find(item => item.method === method && item.path === path);
+    assert.ok(route && route.handlers.length >= 3, key + ' must include session and role middleware');
+  }
+});
