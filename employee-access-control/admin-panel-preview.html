@@ -316,7 +316,7 @@ body.eac-locked #eacLoginGate{display:grid}
     if(uploadButton){uploadButton.disabled=true;uploadButton.textContent='Uploading Employee Master…';}
     toastSafe('Uploading '+file.name+'… Please wait.');
     try{
-      const result=await api('/api/access-control/employees/import-file',{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream','X-Employee-Master-Filename':encodeURIComponent(file.name)},body:file});
+      const result=await api('/api/access-control/employees/import-file',{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream'},body:file});
       await loadEmployees();
       toastSafe('SUCCESS: Imported '+Number(result.imported||0)+' employee rows. Employee list refreshed.');
       if(result.warnings?.length)window.alert(result.warnings.map(w=>'Row '+w.row+': '+w.message).join('\n'));
