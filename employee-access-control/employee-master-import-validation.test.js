@@ -29,6 +29,12 @@ test('requires the master columns needed for safe import', () => {
   assert.match(result.errors[0].message, /Missing required headers/);
 });
 
+test('rejects duplicate normalized headers before importing any employee', () => {
+  const result = validateEmployeeMaster([...headers, 'Employee ID'], [row()]);
+  assert.equal(result.ok, false);
+  assert.match(result.errors[0].message, /Duplicate or ambiguous headers/);
+});
+
 test('normalizes regular employees with least privilege when Role is a designation', () => {
   const result = validateEmployeeMaster(headers, [row()]);
   assert.equal(result.ok, true);
