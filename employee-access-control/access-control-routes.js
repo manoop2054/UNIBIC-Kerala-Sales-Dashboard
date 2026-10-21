@@ -1,7 +1,7 @@
 'use strict';
 
 const { authenticateCredentials, resolveSession, revokeSession, extractSessionToken,
-  sessionCookie, clearSessionCookie } = require('./session-auth');
+  sessionCookie, clearSessionCookie, hashPassword } = require('./session-auth');
 const { saveEmployee, normalizeEmployee, SUPER_ADMIN_ID } = require('./employee-admin-service');
 const { validateEmployeeMaster } = require('./employee-master-import-validation');
 
@@ -137,6 +137,126 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
     } catch (error) {
       const status = /Authenticated Admin|Only Super Admin|protected Super Admin|SUPER_ADMIN role is reserved|Only the protected/.test(error.message) ? 403 : 400;
       res.status(status).json({ error: error.message || 'Employee could not be saved.' });
+    }
+  });
+
+  app.post('/api/access-control/employees/:employeeId/password', requireSession, requireAdmin, async (req, res) => {
+    const targetId = String(req.params.employeeId || '').trim().toUpperCase();
+    const actorId = String(req.accessUser.employeeId).trim().toUpperCase();
+    if (!/^[A-Z0-9_-]{2,64}$/.test(targetId)) return res.status(400).json({ error: 'Invalid Employee ID.' });
+    if (targetId === SUPER_ADMIN_ID) return res.status(403).json({ error: 'The protected Super Admin password cannot be reset through Employee Master.' });
+    if (targetId === actorId) return res.status(400).json({ error: 'Use the account password-change workflow to change your own password.' });
+    const pool = await ensureReady(res);
+    if (!pool) return;
+    let passwordHash;
+    try {
+      passwordHash = await hashPassword(req.body?.password);
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const target = await client.query('SELECT employee_id, role FROM employees WHERE employee_id = $1 FOR UPDATE', [targetId]);
+      if (!target.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Employee not found.' });
+      }
+      if (String(req.accessUser.role).toUpperCase() !== 'SUPER_ADMIN' &&
+          ['ADMIN', 'SUPER_ADMIN'].includes(String(target.rows[0].role).toUpperCase())) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'Only Super Admin may reset an Admin password.' });
+      }
+      await client.query('UPDATE employees SET password_hash = $1, updated_at = NOW() WHERE employee_id = $2', [passwordHash, targetId]);
+      await client.query('UPDATE employee_sessions SET revoked_at = NOW() WHERE employee_id = $1 AND revoked_at IS NULL', [targetId]);
+      await client.query(
+        `INSERT INTO access_audit_log (actor_employee_id, actor_is_admin, action, target_employee_id, details_json)
+         VALUES ($1, TRUE, 'EMPLOYEE_PASSWORD_RESET', $2, '{}'::jsonb)`,
+        [actorId, targetId]
+      );
+      await client.query('COMMIT');
+      return res.json({ success: true, employeeId: targetId, sessionsRevoked: true });
+    } catch (_) {
+      try { await client.query('ROLLBACK'); } catch (_) {}
+      return res.status(500).json({ error: 'Password reset failed; no changes were saved.' });
+    } finally {
+      client.release();
+    }
+  });
+
+  app.put('/api/access-control/employees/:employeeId/permissions', requireSession, requireAdmin, async (req, res) => {
+    const targetId = String(req.params.employeeId || '').trim().toUpperCase();
+    const actorId = String(req.accessUser.employeeId).trim().toUpperCase();
+    if (!/^[A-Z0-9_-]{2,64}$/.test(targetId)) return res.status(400).json({ error: 'Invalid Employee ID.' });
+    if (targetId === SUPER_ADMIN_ID) return res.status(403).json({ error: 'The protected Super Admin access cannot be modified.' });
+    const permissions = req.body?.permissions;
+    if (!Array.isArray(permissions) || !permissions.length || permissions.length > 100) {
+      return res.status(400).json({ error: 'Provide 1–100 resource permission rows.' });
+    }
+    const seenResources = new Set();
+    const normalized = [];
+    for (const item of permissions) {
+      const resourceKey = String(item?.resourceKey || '').trim();
+      const region = String(item?.region || '').trim();
+      const area = String(item?.area || '').trim();
+      const anchorZone = String(item?.anchorZone || '').trim();
+      if (!/^[a-z][a-z0-9._:-]{0,119}$/.test(resourceKey) || seenResources.has(resourceKey)) {
+        return res.status(400).json({ error: 'Resource keys must be unique and use lowercase letters, digits, dot, underscore, colon or hyphen.' });
+      }
+      if (!region || region.length > 120 || area.length > 120 || anchorZone.length > 120 || (anchorZone && !area)) {
+        return res.status(400).json({ error: 'Each permission needs a Region; Anchor Zone requires an Area.' });
+      }
+      const flags = ['canView', 'canFilter', 'canExport', 'canPrint'];
+      if (flags.some(key => typeof item[key] !== 'boolean')) {
+        return res.status(400).json({ error: 'Every permission row must specify boolean View, Filter, Export and Print flags.' });
+      }
+      if (!item.canView && (item.canFilter || item.canExport || item.canPrint)) {
+        return res.status(400).json({ error: 'Filter, Export and Print cannot be granted when View is disabled.' });
+      }
+      seenResources.add(resourceKey);
+      normalized.push({ resourceKey, region, area, anchorZone, canView: item.canView, canFilter: item.canFilter, canExport: item.canExport, canPrint: item.canPrint });
+    }
+    const pool = await ensureReady(res);
+    if (!pool) return;
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const target = await client.query('SELECT employee_id, role FROM employees WHERE employee_id = $1 FOR UPDATE', [targetId]);
+      if (!target.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Employee not found.' });
+      }
+      if (String(req.accessUser.role).toUpperCase() !== 'SUPER_ADMIN' &&
+          ['ADMIN', 'SUPER_ADMIN'].includes(String(target.rows[0].role).toUpperCase())) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'Only Super Admin may change permissions for an Admin.' });
+      }
+      await client.query('DELETE FROM employee_permissions WHERE employee_id = $1', [targetId]);
+      for (const permission of normalized) {
+        await client.query(
+          `INSERT INTO employee_permissions
+           (employee_id, resource_key, can_view, can_filter, can_export, can_print)
+           VALUES ($1,$2,$3,$4,$5,$6)`,
+          [targetId, permission.resourceKey, permission.canView, permission.canFilter, permission.canExport, permission.canPrint]
+        );
+        await client.query(
+          `INSERT INTO employee_resource_scopes (employee_id, resource_key, region, area, anchor_zone)
+           VALUES ($1,$2,$3,$4,$5)`,
+          [targetId, permission.resourceKey, permission.region, permission.area, permission.anchorZone]
+        );
+      }
+      await client.query(
+        `INSERT INTO access_audit_log (actor_employee_id, actor_is_admin, action, target_employee_id, details_json)
+         VALUES ($1, TRUE, 'EMPLOYEE_PERMISSIONS_UPDATED', $2, $3::jsonb)`,
+        [actorId, targetId, JSON.stringify({ resources: normalized.length })]
+      );
+      await client.query('COMMIT');
+      return res.json({ success: true, employeeId: targetId, resourcesUpdated: normalized.length });
+    } catch (_) {
+      try { await client.query('ROLLBACK'); } catch (_) {}
+      return res.status(500).json({ error: 'Permission update failed; no changes were saved.' });
+    } finally {
+      client.release();
     }
   });
 
