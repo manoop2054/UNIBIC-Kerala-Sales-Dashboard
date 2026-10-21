@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test employee-access-control/*.test.js",
-    "db:check": "node employee-access-control/check-postgres.js"
+    "db:check": "node employee-access-control/check-postgres.js",
+    "access-control:bootstrap": "node employee-access-control/bootstrap-super-admin.js"
   },
   "engines": {
     "node": ">=20"
