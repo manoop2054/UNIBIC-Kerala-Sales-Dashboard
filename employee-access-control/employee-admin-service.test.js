@@ -13,7 +13,7 @@ const input = {
 test('validates employee and required geographic scope', () => {
   const e = normalizeEmployee(input, actor);
   assert.equal(e.employeeId, '1511255');
-  assert.deepEqual(e.allowedTabs, ['Executive Dashboard', 'Report Center']);
+  assert.deepEqual(e.allowedTabs, ['tab.executive', 'tab.reports']);
   assert.throws(() => normalizeEmployee({ ...input, area: '' }, actor), /Anchor Zone requires an Area/);
 });
 
@@ -50,7 +50,7 @@ test('ordinary Admin cannot demote an existing Admin account', async () => {
 
 test('rejects invalid dates and empty tabs', () => {
   assert.throws(() => normalizeEmployee({ ...input, effective_from: '2026-12-01', effective_to: '2026-11-01' }, actor), /Effective To/);
-  assert.throws(() => normalizeEmployee({ ...input, allowed_tabs: [] }, actor), /At least one allowed tab/);
+  assert.throws(() => normalizeEmployee({ ...input, allowed_tabs: [] }, actor), /At least one allowed dashboard resource/);
 });
 
 test('inactive employee session revocation is included in transaction', async () => {
