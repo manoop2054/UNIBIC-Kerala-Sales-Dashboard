@@ -99,6 +99,50 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
     }
   });
 
+  app.post('/api/access-control/authorize-action', requireSession, async (req, res) => {
+    const action = String(req.body?.action || '').trim().toLowerCase();
+    const resourceInput = String(req.body?.resourceKey || '').trim();
+    if (!['export', 'print'].includes(action)) return res.status(400).json({ error: 'Action must be export or print.' });
+    let resourceKey;
+    try {
+      resourceKey = require('./resource-catalog').normalizeResourceKey(resourceInput);
+    } catch (_) {
+      return res.status(400).json({ error: 'Unknown dashboard resource.' });
+    }
+    const { employeeId, role } = req.accessUser;
+    if (String(role).toUpperCase() === 'SUPER_ADMIN' && String(employeeId).toUpperCase() === SUPER_ADMIN_ID) {
+      return res.json({ allowed: true, resourceKey, action });
+    }
+    const pool = await ensureReady(res);
+    if (!pool) return;
+    try {
+      const column = action === 'export' ? 'can_export' : 'can_print';
+      const permission = await pool.query(
+        `SELECT can_view, ${column} AS action_allowed
+         FROM employee_permissions
+         WHERE employee_id = $1 AND resource_key = $2`,
+        [employeeId, resourceKey]
+      );
+      if (!permission.rows.length || permission.rows[0].can_view !== true || permission.rows[0].action_allowed !== true) {
+        return res.status(403).json({ allowed: false, error: action === 'export' ? 'Export is not permitted for this resource.' : 'Print is not permitted for this resource.' });
+      }
+      if (resourceKey.startsWith('report.')) {
+        const parent = await pool.query(
+          `SELECT can_view, ${column} AS action_allowed
+           FROM employee_permissions
+           WHERE employee_id = $1 AND resource_key = 'tab.reports'`,
+          [employeeId]
+        );
+        if (!parent.rows.length || parent.rows[0].can_view !== true || parent.rows[0].action_allowed !== true) {
+          return res.status(403).json({ allowed: false, error: 'Report Center action is not permitted.' });
+        }
+      }
+      return res.json({ allowed: true, resourceKey, action });
+    } catch (_) {
+      return res.status(503).json({ error: 'Unable to verify action permission.' });
+    }
+  });
+
   app.get('/api/access-control/me', requireSession, async (req, res) => {
     const { employeeId, employeeName, designation, role } = req.accessUser;
     const pool = await ensureReady(res);
