@@ -43,8 +43,9 @@ function normalizeEmployee(input, actor) {
   }
 
   const region = clean(input.region, 'Region', 120);
-  const area = clean(input.area, 'Area', 120);
-  const anchorZone = clean(input.anchor_zone, 'Anchor Zone', 120);
+  const area = clean(input.area || '', null, 120);
+  const anchorZone = clean(input.anchor_zone || '', null, 120);
+  if (anchorZone && !area) throw new Error('Anchor Zone requires an Area');
   const allowedTabs = Array.isArray(input.allowed_tabs)
     ? [...new Set(input.allowed_tabs.map(v => clean(v, 'Allowed tab', 120)))]
     : [];
