@@ -60,7 +60,7 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
   });
 
   app.post('/api/access-control/login', async (req, res) => {
-    const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim().slice(0, 100);
+    const ip = String(req.ip || req.socket.remoteAddress || 'unknown').slice(0, 100);
     const now = Date.now();
     let entry = loginAttempts.get(ip);
     if (!entry || now - entry.start >= 10 * 60 * 1000) {
