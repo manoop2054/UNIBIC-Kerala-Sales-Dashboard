@@ -72,10 +72,15 @@ test('rejects incomplete blank rows and invalid status values', () => {
   assert.equal(result.errors.length, 2);
 });
 
-test('rejects All Access labels because they are not explicit resource permissions', () => {
+test('expands All Access to standard dashboard/report resources but excludes Admin Center', () => {
   const result = validateEmployeeMaster(headers, [row({ Allowed_Tabs: 'All Access' })]);
-  assert.equal(result.ok, false);
-  assert.match(result.errors[0].message, /display label, not a permission grant/);
+  assert.equal(result.ok, true);
+  const resources = result.rows[0].allowedTabs.split(';');
+  assert.ok(resources.includes('tab.executive'));
+  assert.ok(resources.includes('tab.reports'));
+  assert.ok(resources.includes('report.gsv'));
+  assert.ok(!resources.includes('tab.admincenter'));
+  assert.equal(result.rows[0].role, 'EMPLOYEE');
 });
 
 test('rejects an end date before the effective start date', () => {
