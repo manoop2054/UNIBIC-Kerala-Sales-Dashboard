@@ -23,6 +23,7 @@ test('mounts login, session, employee, password, permission and import APIs with
     'POST /api/access-control/login',
     'POST /api/access-control/logout',
     'GET /api/access-control/me',
+    'POST /api/access-control/authorize-action',
     'GET /api/access-control/employees',
     'GET /api/access-control/audit-log',
     'POST /api/access-control/employees',
@@ -150,4 +151,51 @@ test('does not skip geographic filtering merely because upstream marks data as n
   }, [{ region: 'North', area: '', anchorZone: '' }]);
   assert.equal(result.data.rows.length, 1);
   assert.equal(result.data.rows[0][1], 1);
+});
+
+
+test('server-side action authorization denies export when the permission flag is false', async () => {
+  const routes = [];
+  const app = {
+    get: (path, ...handlers) => routes.push({ method: 'GET', path, handlers }),
+    post: (path, ...handlers) => routes.push({ method: 'POST', path, handlers }),
+    put: (path, ...handlers) => routes.push({ method: 'PUT', path, handlers })
+  };
+  const pool = { query: async () => ({ rows: [{ can_view: true, action_allowed: false }] }) };
+  mountAccessControlRoutes(app, {
+    getPool: () => pool,
+    initializeDatabase: async () => ({ configured: true, ready: true }),
+    getDatabaseStatus: () => ({ configured: true, ready: true })
+  });
+  const route = routes.find(item => item.method === 'POST' && item.path === '/api/access-control/authorize-action');
+  const handler = route.handlers[route.handlers.length - 1];
+  const res = { statusCode: 200, body: null, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+  await handler({ body: { action: 'export', resourceKey: 'report.gsv' }, accessUser: { employeeId: 'EMPLOYEE1', role: 'EMPLOYEE' } }, res);
+  assert.equal(res.statusCode, 403);
+  assert.equal(res.body.allowed, false);
+});
+
+test('server-side action authorization denies print when Report Center parent permission is missing', async () => {
+  const routes = [];
+  const app = {
+    get: (path, ...handlers) => routes.push({ method: 'GET', path, handlers }),
+    post: (path, ...handlers) => routes.push({ method: 'POST', path, handlers }),
+    put: (path, ...handlers) => routes.push({ method: 'PUT', path, handlers })
+  };
+  let queryCount = 0;
+  const pool = { query: async () => {
+    queryCount++;
+    return queryCount === 1 ? { rows: [{ can_view: true, action_allowed: true }] } : { rows: [] };
+  } };
+  mountAccessControlRoutes(app, {
+    getPool: () => pool,
+    initializeDatabase: async () => ({ configured: true, ready: true }),
+    getDatabaseStatus: () => ({ configured: true, ready: true })
+  });
+  const route = routes.find(item => item.method === 'POST' && item.path === '/api/access-control/authorize-action');
+  const handler = route.handlers[route.handlers.length - 1];
+  const res = { statusCode: 200, body: null, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+  await handler({ body: { action: 'print', resourceKey: 'report.gsv' }, accessUser: { employeeId: 'EMPLOYEE1', role: 'EMPLOYEE' } }, res);
+  assert.equal(res.statusCode, 403);
+  assert.equal(res.body.allowed, false);
 });
