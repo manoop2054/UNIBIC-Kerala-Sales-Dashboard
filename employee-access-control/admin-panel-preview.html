@@ -44,4 +44,294 @@ document.getElementById('zoneSelect').onchange=e=>{document.getElementById('deta
 document.getElementById('save').onclick=()=>toast('Preview only: not saved to backend or live dashboard.');
 document.getElementById('reset').onclick=()=>{if(confirm('Reset preview permission switches?')){tabs.forEach((x,i)=>state['tab'+i]=x[2]);reports.forEach((x,i)=>state['rep'+i]=x.slice(2).map(Boolean));renderTabs();renderReports();toast('Preview switches reset.')}};renderTabs();renderReports();
 </script>
+
+<style>
+body.eac-locked .shell,body.eac-locked .footer{visibility:hidden}
+#eacLoginGate{position:fixed;inset:0;z-index:10000;display:none;place-items:center;padding:20px;background:linear-gradient(135deg,#0e2949f2,#173e68f2)}
+body.eac-locked #eacLoginGate{display:grid}
+.eac-login-card{width:min(420px,100%);background:#fff;border-radius:14px;box-shadow:0 25px 80px #061b3866;padding:26px;color:#112d52}
+.eac-login-card h2{margin:0 0 6px;font-size:22px}.eac-login-card p{margin:0 0 18px;color:#637b9b;line-height:1.5}
+.eac-login-card label{display:block;font-weight:700;margin:12px 0 6px}.eac-login-card input{width:100%;height:42px;border:1px solid #c7dbf3;border-radius:6px;padding:0 10px;font-size:14px}
+.eac-login-card button{width:100%;height:42px;margin-top:16px;background:#1765d4;border:0;border-radius:6px;color:#fff;font-weight:700;cursor:pointer}
+#eacLoginMessage{color:#c52639;min-height:18px;margin-top:10px;font-size:12px}
+#eacConnectionStatus{margin-top:8px;font-size:10px;color:#087c45}
+.eac-check{width:16px;height:16px;accent-color:#1765d4;cursor:pointer}
+.eac-save-note{font-size:10px;color:#8a5a12;background:#fff7e7;border:1px solid #f4d69c;border-radius:5px;padding:7px 9px;margin-top:7px}
+</style>
+<div id="eacLoginGate" role="dialog" aria-modal="true" aria-labelledby="eacLoginTitle">
+  <form id="eacLoginForm" class="eac-login-card">
+    <div class="logo" style="display:inline-block;margin-bottom:16px">UNIBIC</div>
+    <h2 id="eacLoginTitle">Employee Access Control</h2>
+    <p>Sign in with your authorized employee account to manage employee access.</p>
+    <label for="eacLoginId">Employee ID</label><input id="eacLoginId" autocomplete="username" required maxlength="64">
+    <label for="eacLoginPassword">Password</label><input id="eacLoginPassword" type="password" autocomplete="current-password" required maxlength="1024">
+    <button type="submit" id="eacLoginButton">Secure Sign In</button>
+    <div id="eacLoginMessage" role="alert"></div>
+    <div id="eacConnectionStatus">PostgreSQL-backed access control · HTTPS session cookie</div>
+  </form>
+</div>
+<script>
+(function(){
+  'use strict';
+  document.body.classList.add('eac-locked');
+  const gate=document.getElementById('eacLoginGate');
+  const form=document.getElementById('eacLoginForm');
+  const message=document.getElementById('eacLoginMessage');
+  const loginButton=document.getElementById('eacLoginButton');
+  const topResources=[
+    ['tab.executive','Executive Dashboard','📈'],['tab.target','Target vs Achievement','◎'],
+    ['tab.sales','Sales Analysis','▤'],['tab.item','Item Intelligence','▣'],
+    ['tab.dbr','DCR From Leap','♟'],['tab.invoice','Invoice / Customer','▧'],
+    ['tab.soh','LIVE SOH','⬡'],['tab.alerts','Alerts','♧'],
+    ['tab.reports','Report Center','▤'],['tab.admincenter','Admin Center','⬟'],
+    ['tab.upload','Monthly Upload','▰'],['tab.targetworking','Target Management','◎']
+  ];
+  const reportResources=[
+    ['report.gsv','GSV Report','📄'],['report.target-achievement','Target vs Achievement Report','◎'],
+    ['report.dbr-wise','DBR-wise Report','♧'],['report.area-wise','Area-wise Report','♦'],
+    ['report.zone-wise','Zone-wise Report','▣'],['report.anchor-zone-wise','Anchor Zone-wise Report','⬟'],
+    ['report.customer-wise','Customer-wise Report','♜'],['report.live-soh-cfa-wise','Live SOH – CFA Wise','♧'],
+    ['report.discount-returns','Discount & Returns','▣'],['report.stock','Stock Report','▰'],
+    ['report.export-all','Excel Export (All Reports)','▤']
+  ];
+  let currentUser=null, employees=[], selected=null, permissions={}, scopeValues={region:'',area:'',anchorZone:''};
+  const $=id=>document.getElementById(id);
+  const esc=value=>String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  async function api(url,options){
+    const opts=Object.assign({credentials:'same-origin'},options||{});
+    const response=await fetch(url,opts);
+    const data=await response.json().catch(()=>({error:'Unexpected server response.'}));
+    if(!response.ok)throw new Error(data.error||('Request failed ('+response.status+')'));
+    return data;
+  }
+  function showGate(text){
+    document.body.classList.add('eac-locked');
+    message.textContent=text||'';
+    gate.style.display='grid';
+  }
+  function hideGate(){
+    document.body.classList.remove('eac-locked');
+    gate.style.display='none';
+  }
+  function toastSafe(text){
+    const el=$('toast');if(!el)return;
+    el.textContent=text;el.style.display='block';
+    window.setTimeout(()=>{el.style.display='none';},3000);
+  }
+  function roleLabel(role){
+    return ({SUPER_ADMIN:'Super Admin',ADMIN:'Administrator',REGIONAL_MANAGER:'Regional Manager',AREA_MANAGER:'Area Manager',ANCHOR_ZONE_MANAGER:'Anchor Zone Manager',EMPLOYEE:'Employee'})[role]||role;
+  }
+  async function login(event){
+    event.preventDefault();message.textContent='';loginButton.disabled=true;loginButton.textContent='Signing in…';
+    try{
+      const data=await api('/api/access-control/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({employee_id:$('eacLoginId').value.trim(),password:$('eacLoginPassword').value})});
+      currentUser=data.user;
+      if(!['ADMIN','SUPER_ADMIN'].includes(String(currentUser.role).toUpperCase())){
+        await api('/api/access-control/logout',{method:'POST'});
+        currentUser=null;throw new Error('This account does not have Admin Center access.');
+      }
+      $('eacLoginPassword').value='';
+      hideGate();
+      await loadEmployees();
+      installControls();
+      toastSafe('Signed in securely as '+currentUser.employeeName+'.');
+    }catch(error){message.textContent=error.message||'Sign in failed.';}
+    finally{loginButton.disabled=false;loginButton.textContent='Secure Sign In';}
+  }
+  function optionsFor(select,values,selectedValue,placeholder){
+    select.innerHTML='';
+    if(placeholder!==null){const opt=document.createElement('option');opt.value='';opt.textContent=placeholder||'Select';select.appendChild(opt);}
+    values.forEach(value=>{const opt=document.createElement('option');opt.value=value;opt.textContent=value;select.appendChild(opt);});
+    if(selectedValue!==undefined&&[...select.options].some(o=>o.value===selectedValue))select.value=selectedValue;
+  }
+  function allScopes(){
+    const found=[];
+    employees.forEach(employee=>(employee.scopes||[]).forEach(scope=>{
+      if(scope.region&& !found.some(item=>item.region===scope.region&&item.area===(scope.area||'')&&item.anchorZone===(scope.anchorZone||'')))found.push({region:scope.region,area:scope.area||'',anchorZone:scope.anchorZone||''});
+    }));
+    return found;
+  }
+  function refreshScopeLists(){
+    const scopes=allScopes();
+    const regions=[...new Set(scopes.map(s=>s.region))].sort();
+    optionsFor($('regionSelect'),regions,scopeValues.region,'Select Region');
+    const region=$('regionSelect').value;
+    const areas=[...new Set(scopes.filter(s=>s.region===region&&s.area).map(s=>s.area))].sort();
+    optionsFor($('areaSelect'),areas,scopeValues.area,'All Areas in Region');
+    const area=$('areaSelect').value;
+    const zones=[...new Set(scopes.filter(s=>s.region===region&&s.area===area&&s.anchorZone).map(s=>s.anchorZone))].sort();
+    optionsFor($('zoneSelect'),zones,scopeValues.anchorZone,'All Anchor Zones in Area');
+    scopeValues={region:$('regionSelect').value,area:$('areaSelect').value,anchorZone:$('zoneSelect').value};
+    $('detailRegion').textContent=scopeValues.region||'Not selected';
+    $('detailArea').textContent=scopeValues.area||'All Areas';
+    $('detailZone').textContent=scopeValues.anchorZone||'All Anchor Zones';
+    $('areaRestriction').textContent=scopeValues.area||'All Areas in Region';
+    $('zoneRestriction').textContent=scopeValues.anchorZone||'All Anchor Zones in Area';
+  }
+  function permissionFor(key){
+    if(!permissions[key])permissions[key]={resourceKey:key,canView:false,canFilter:false,canExport:false,canPrint:false};
+    return permissions[key];
+  }
+  function renderConnectedTabs(){
+    $('tabRows').innerHTML=topResources.map(item=>{
+      const p=permissionFor(item[0]);
+      return '<div class="tabrow"><span class="tabico">'+item[2]+'</span><span class="tabname">'+item[1]+'</span><span>'+switchHTMLConnected(item[0],p.canView,'tab')+'</span><a class="detail" href="#reportRows">View Details</a><span class="chev">›</span></div>';
+    }).join('');
+    document.querySelectorAll('[data-eac-tab]').forEach(el=>el.addEventListener('change',()=>{
+      const p=permissionFor(el.dataset.eacTab);p.canView=el.checked;
+      if(!p.canView){p.canFilter=false;p.canExport=false;p.canPrint=false;}
+      if(el.dataset.eacTab==='tab.reports'&&!p.canView)reportResources.forEach(item=>{const rp=permissionFor(item[0]);rp.canView=false;rp.canFilter=false;rp.canExport=false;rp.canPrint=false;});
+      renderConnectedTabs();renderConnectedReports();
+    }));
+  }
+  function switchHTMLConnected(key,checked,kind,action){
+    return '<label class="switch"><input class="eac-check" type="checkbox" data-eac-'+kind+'="'+esc(key)+'"'+(action?' data-eac-action="'+action+'"':'')+(checked?' checked':'')+'><span class="slider"></span></label>';
+  }
+  function renderConnectedReports(){
+    const q=$('reportSearch').value.toLowerCase();
+    $('reportRows').innerHTML=reportResources.filter(item=>item[1].toLowerCase().includes(q)).map(item=>{
+      const p=permissionFor(item[0]);const allow=p.canView;
+      return '<tr><td><div class="rname"><span class="ricon">'+item[2]+'</span>'+item[1]+'</div></td>'+
+        ['canView','canFilter','canExport','canPrint'].map((action,index)=>'<td>'+switchHTMLConnected(item[0],p[action],'report',action)+'</td>').join('')+
+        '<td><span class="state '+(allow?'allowed':'restricted')+'">'+(allow?'ALLOWED':'RESTRICTED')+'</span></td></tr>';
+    }).join('');
+    document.querySelectorAll('[data-eac-report]').forEach(el=>el.addEventListener('change',()=>{
+      const p=permissionFor(el.dataset.eacReport),action=el.dataset.eacAction;p[action]=el.checked;
+      if(action==='canView'&&!p.canView){p.canFilter=false;p.canExport=false;p.canPrint=false;}
+      if(action!=='canView'&&p[action]&&!p.canView){p.canView=true;}
+      renderConnectedTabs();renderConnectedReports();
+    }));
+  }
+  async function loadEmployees(){
+    const data=await api('/api/access-control/employees');
+    employees=data.employees||[];
+    const existing=$('empid').value.trim().toUpperCase();
+    if(employees.some(e=>e.employee_id===existing))await loadEmployee(existing);
+    else if(employees.length)await loadEmployee(employees[0].employee_id);
+    else await loadEmployee('');
+    refreshScopeLists();
+  }
+  async function loadEmployee(id){
+    const normalized=String(id||'').trim().toUpperCase();
+    selected=employees.find(e=>e.employee_id===normalized)||null;
+    permissions={};
+    if(selected){
+      (selected.permissions||[]).forEach(p=>{if(p.resourceKey)permissions[p.resourceKey]={resourceKey:p.resourceKey,canView:!!p.canView,canFilter:!!p.canFilter,canExport:!!p.canExport,canPrint:!!p.canPrint};});
+      const first=(selected.scopes||[]).find(s=>s.region);
+      scopeValues={region:first?.region||'',area:first?.area||'',anchorZone:first?.anchorZone||''};
+      $('empid').value=selected.employee_id;$('empname').value=selected.employee_name||'';
+      $('role').value=selected.role;
+      $('status').value=selected.status;
+    }else{
+      scopeValues={region:$('regionSelect').value||'',area:'',anchorZone:''};
+      $('empid').value=normalized;$('empname').value='';$('role').value='EMPLOYEE';$('status').value='ACTIVE';
+    }
+    $('empname').readOnly=false;
+    const protectedAccount=normalized==='P2PUF7638';
+    const ordinaryAdmin=String(currentUser?.role).toUpperCase()!=='SUPER_ADMIN';
+    $('role').disabled=protectedAccount;
+    $('status').disabled=protectedAccount;
+    $('save').disabled=protectedAccount||(ordinaryAdmin&&selected&&['ADMIN','SUPER_ADMIN'].includes(selected.role));
+    $('save').title=protectedAccount?'Protected Super Admin account cannot be edited':(ordinaryAdmin&&selected&&selected.role==='ADMIN'?'Only Super Admin can manage Admin accounts':'');
+    if(protectedAccount)toastSafe('Protected Super Admin account: editing is disabled.');
+    refreshScopeLists();renderConnectedTabs();renderConnectedReports();
+  }
+  async function saveEmployee(){
+    const id=$('empid').value.trim().toUpperCase();
+    if(!id){toastSafe('Enter an Employee ID.');return;}
+    if(id==='P2PUF7638'){toastSafe('The protected Super Admin account cannot be edited.');return;}
+    const region=$('regionSelect').value,area=$('areaSelect').value,anchorZone=$('zoneSelect').value;
+    if(!region){toastSafe('Select a valid Region from configured employee scopes.');return;}
+    if(anchorZone&&!area){toastSafe('Select an Area before choosing an Anchor Zone.');return;}
+    const allowedTabs=topResources.filter(item=>permissionFor(item[0]).canView).map(item=>item[0]);
+    if(!allowedTabs.length){toastSafe('Select at least one main dashboard tab.');return;}
+    const payload={employee_id:id,employee_name:$('empname').value.trim(),designation:roleLabel($('role').value),role:$('role').value,status:$('status').value,region,area,anchor_zone:anchorZone,allowed_tabs:allowedTabs};
+    const saveButton=$('save');saveButton.disabled=true;
+    try{
+      const result=await api('/api/access-control/employees',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const allPermissions=[];
+      topResources.forEach(item=>{
+        const p=permissionFor(item[0]);
+        allPermissions.push({resourceKey:item[0],region,area,anchorZone,canView:p.canView,canFilter:p.canView,canExport:false,canPrint:false});
+      });
+      reportResources.forEach(item=>{
+        const p=permissionFor(item[0]);const parent=permissionFor('tab.reports').canView;
+        allPermissions.push({resourceKey:item[0],region,area,anchorZone,canView:parent&&p.canView,canFilter:parent&&p.canView&&p.canFilter,canExport:parent&&p.canView&&p.canExport,canPrint:parent&&p.canView&&p.canPrint});
+      });
+      await api('/api/access-control/employees/'+encodeURIComponent(id)+'/permissions',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({permissions:allPermissions})});
+      await loadEmployees();await loadEmployee(id);
+      toastSafe((result.employee.created?'Employee created':'Employee updated')+' and access rules saved.');
+      if(result.employee.created){
+        const password=window.prompt('Set an initial password for '+id+' (minimum 12 characters). Leave blank to set it later.');
+        if(password){
+          await api('/api/access-control/employees/'+encodeURIComponent(id)+'/password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});
+          toastSafe('Initial password set. Share it securely with the employee.');
+        }
+      }
+    }catch(error){toastSafe(error.message||'Save failed.');}
+    finally{saveButton.disabled=false;}
+  }
+  async function setPassword(){
+    if(!selected){toastSafe('Load an existing employee first.');return;}
+    const password=window.prompt('Enter a new temporary password (minimum 12 characters).');
+    if(password===null)return;
+    try{
+      await api('/api/access-control/employees/'+encodeURIComponent(selected.employee_id)+'/password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});
+      toastSafe('Password updated and existing sessions revoked.');
+    }catch(error){toastSafe(error.message||'Password update failed.');}
+  }
+  async function importMaster(file){
+    if(!file)return;
+    if(String(currentUser?.role).toUpperCase()!=='SUPER_ADMIN'){toastSafe('Only Super Admin can import the Employee Master.');return;}
+    if(file.size>5*1024*1024){toastSafe('File is larger than 5 MB.');return;}
+    try{
+      const result=await api('/api/access-control/employees/import-file',{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream'},body:file});
+      await loadEmployees();toastSafe('Imported '+result.imported+' employee rows.');
+      if(result.warnings?.length)window.alert(result.warnings.map(w=>'Row '+w.row+': '+w.message).join('\n'));
+    }catch(error){toastSafe(error.message||'Import failed.');}
+  }
+  function installControls(){
+    const role=$('role');role.innerHTML='';
+    const roles=[['EMPLOYEE','Employee'],['REGIONAL_MANAGER','Regional Manager'],['AREA_MANAGER','Area Manager'],['ANCHOR_ZONE_MANAGER','Anchor Zone Manager']];
+    if(String(currentUser.role).toUpperCase()==='SUPER_ADMIN')roles.push(['ADMIN','Administrator']);
+    roles.forEach(item=>{const option=document.createElement('option');option.value=item[0];option.textContent=item[1];role.appendChild(option);});
+    $('status').outerHTML='<select id="status" aria-label="Employee status"><option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option></select>';
+    $('empname').readOnly=false;
+    const topRight=document.querySelector('.topright');
+    if(topRight&&!$('eacLogout')){
+      const logout=document.createElement('button');logout.id='eacLogout';logout.className='btn';logout.textContent='Sign out';logout.onclick=async()=>{try{await api('/api/access-control/logout',{method:'POST'});}catch(_){}currentUser=null;showGate('Signed out.');};
+      topRight.appendChild(logout);
+      const upload=document.createElement('button');upload.id='eacUpload';upload.className='btn';upload.textContent='Upload Employee Master';
+      upload.style.display=String(currentUser.role).toUpperCase()==='SUPER_ADMIN'?'inline-block':'none';
+      const input=document.createElement('input');input.type='file';input.accept='.xlsx,.xls,.csv';input.hidden=true;input.id='eacUploadFile';
+      upload.onclick=()=>input.click();input.onchange=()=>{const file=input.files&&input.files[0];importMaster(file);input.value='';};
+      topRight.appendChild(upload);topRight.appendChild(input);
+    }
+    $('load').onclick=()=>loadEmployee($('empid').value).catch(error=>toastSafe(error.message));
+    $('save').onclick=()=>saveEmployee();
+    $('reset').onclick=()=>loadEmployee($('empid').value).catch(error=>toastSafe(error.message));
+    $('reportSearch').oninput=renderConnectedReports;
+    $('regionSelect').onchange=()=>{scopeValues={region:$('regionSelect').value,area:'',anchorZone:''};refreshScopeLists();};
+    $('areaSelect').onchange=()=>{scopeValues={region:$('regionSelect').value,area:$('areaSelect').value,anchorZone:''};refreshScopeLists();};
+    $('zoneSelect').onchange=()=>{scopeValues={region:$('regionSelect').value,area:$('areaSelect').value,anchorZone:$('zoneSelect').value};refreshScopeLists();};
+    const buttons=document.querySelector('.rightbuttons');
+    if(buttons&&!$('eacSetPassword')){
+      const passwordButton=document.createElement('button');passwordButton.id='eacSetPassword';passwordButton.className='btn';passwordButton.textContent='Set Password';passwordButton.onclick=()=>setPassword();buttons.insertBefore(passwordButton,buttons.firstChild);
+    }
+    const note=document.querySelector('.pagehead .info');
+    if(note)note.textContent='Connected to Employee Access Control APIs. Production activation remains blocked until all dashboard data APIs enforce server-side permissions and geography.';
+  }
+  form.addEventListener('submit',login);
+  async function start(){
+    try{
+      const data=await api('/api/access-control/me');
+      currentUser=data.user;
+      if(!['ADMIN','SUPER_ADMIN'].includes(String(currentUser.role).toUpperCase()))throw new Error('This account does not have Admin Center access.');
+      hideGate();await loadEmployees();installControls();toastSafe('Access control connected.');
+    }catch(error){showGate(error.message==='This account does not have Admin Center access.'?error.message:'Sign in with an authorized employee account.');}
+  }
+  start();
+})();
+</script>
+
 </body></html>
