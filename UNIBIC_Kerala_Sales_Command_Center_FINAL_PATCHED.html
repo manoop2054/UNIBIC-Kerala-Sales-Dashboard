@@ -2530,7 +2530,7 @@ async function sharedGetDataset(dataset){
   const key=dataset==='target'?'tab.target':'tab.dbr';
   const permission=(auth.permissions||[]).find(item=>item.resourceKey===key);
   if(!(role==='SUPER_ADMIN'&&String(auth.user.employeeId||'').toUpperCase()==='P2PUF7638')&&!(permission&&permission.canView))throw new Error('Your account does not have permission to view this shared dataset.');
-  const response = await fetch(SHARED_UPLOAD_API + '/api/shared-upload/' + dataset, {cache:'no-store'});
+  const response = await fetch('/api/shared-upload/' + dataset, {cache:'no-store', credentials:'same-origin'});
   let result;
   try { result = await response.json(); }
   catch(e) { throw new Error('Shared API returned an unreadable response (HTTP '+response.status+').'); }
@@ -8717,11 +8717,11 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     return head+say('Customers billed: ','Bill cheytha customers: ','ബിൽ ചെയ്ത ഉപഭോക്താക്കൾ: ')+names.length+'\n'+say('Invoice rows: ','Invoice rows: ','ഇൻവോയ്സ് വരികൾ: ')+matching.length+'\n'+say('Distinct invoices: ','Different invoices: ','വ്യത്യസ്ത ഇൻവോയ്സുകൾ: ')+uniqueInvoices.size+'\n'+say('GSV: ','GSV: ','GSV: ')+money(totalGsv)+'\n\n'+names.slice(0,60).map((x,i)=>(i+1)+'. '+x).join('\n')+(names.length>60?'\n… '+(names.length-60)+say(' more.',' per koodi.',' പേർ കൂടി.'):'');
   }
   async function loadChatSharedDatasets(){
-    const base='https://unibic-shared-api.manumulanthuruthy.workers.dev/api/shared-upload/';
+    const base='/api/shared-upload/';
     const tasks=[['target','chatTargetRows'],['claims','chatClaimsRows']];
     await Promise.all(tasks.map(async ([dataset,key])=>{
       try{
-        const response=await fetch(base+dataset,{cache:'no-store'});
+        const response=await fetch(base+dataset,{cache:'no-store',credentials:'same-origin'});
         if(!response.ok)return;
         const result=await response.json();
         if(result&&result.ok===true&&result.uploaded&&result.data&&Array.isArray(result.data.rows)){
