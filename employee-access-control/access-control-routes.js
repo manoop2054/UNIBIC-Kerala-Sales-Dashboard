@@ -4,6 +4,8 @@ const { authenticateCredentials, resolveSession, revokeSession, extractSessionTo
   sessionCookie, clearSessionCookie, hashPassword } = require('./session-auth');
 const { saveEmployee, normalizeEmployee, SUPER_ADMIN_ID } = require('./employee-admin-service');
 const { validateEmployeeMaster } = require('./employee-master-import-validation');
+const express = require('express');
+const XLSX = require('xlsx');
 
 function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabaseStatus }) {
   const loginAttempts = new Map();
@@ -293,7 +295,7 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
     }
   });
 
-  app.post('/api/access-control/employees/import', requireSession, requireAdmin, async (req, res) => {
+  const employeeImportHandler = async (req, res) => {
     if (String(req.accessUser.role).toUpperCase() !== 'SUPER_ADMIN') {
       return res.status(403).json({ error: 'Only the protected Super Admin can import the Employee Master.' });
     }
@@ -372,7 +374,32 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
     } finally {
       client.release();
     }
-  });
+  };
+
+  app.post('/api/access-control/employees/import', requireSession, requireAdmin, employeeImportHandler);
+
+  app.post('/api/access-control/employees/import-file', requireSession, requireAdmin,
+    express.raw({ type: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'text/csv', 'application/octet-stream'], limit: '5mb' }),
+    async (req, res) => {
+      if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'Upload a non-empty XLSX or CSV Employee Master file (maximum 5 MB).' });
+      try {
+        const workbook = XLSX.read(req.body, { type: 'buffer', cellDates: false });
+        const sheetName = workbook.SheetNames[0];
+        if (!sheetName) return res.status(400).json({ error: 'The uploaded workbook has no worksheet.' });
+        const grid = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: '', raw: false });
+        if (grid.length < 2) return res.status(400).json({ error: 'The uploaded workbook must include a header row and at least one employee row.' });
+        const headers = grid[0].map(value => String(value == null ? '' : value).trim());
+        const rows = grid.slice(1).filter(row => row.some(value => String(value == null ? '' : value).trim() !== '')).map(row => {
+          const item = {};
+          headers.forEach((header, index) => { if (header) item[header] = row[index] == null ? '' : row[index]; });
+          return item;
+        });
+        req.body = { headers, rows };
+        return employeeImportHandler(req, res);
+      } catch (_) {
+        return res.status(400).json({ error: 'Unable to read the uploaded workbook. Use a valid XLSX or CSV file.' });
+      }
+    });
 }
 
 module.exports = { mountAccessControlRoutes };
