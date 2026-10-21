@@ -111,3 +111,33 @@ test('shared dataset filtering fails closed when geography is missing or respons
   assert.equal(unsupported.ok, false);
   assert.match(unsupported.error, /access denied/i);
 });
+
+
+test('shared upload proxy rejects non-Super-Admin even when its handler is called directly', async () => {
+  const routes = [];
+  const app = {
+    get: (path, ...handlers) => routes.push({ method: 'GET', path, handlers }),
+    post: (path, ...handlers) => routes.push({ method: 'POST', path, handlers }),
+    put: (path, ...handlers) => routes.push({ method: 'PUT', path, handlers })
+  };
+  mountAccessControlRoutes(app, {
+    getPool: () => null,
+    initializeDatabase: async () => ({ configured: false, ready: false }),
+    getDatabaseStatus: () => ({ configured: false, ready: false })
+  });
+  const route = routes.find(item => item.method === 'POST' && item.path === '/api/shared-upload/:dataset');
+  assert.ok(route, 'shared upload proxy route must be mounted');
+  const handler = route.handlers[route.handlers.length - 1];
+  const res = {
+    statusCode: 200, body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; return this; }
+  };
+  await handler({
+    params: { dataset: 'target' },
+    accessUser: { employeeId: 'EMPLOYEE1', role: 'EMPLOYEE' },
+    body: Buffer.from(JSON.stringify({ filename: 'target.xlsx', headers: ['Region'], rows: [], pin: 'not-used' }))
+  }, res);
+  assert.equal(res.statusCode, 403);
+  assert.match(res.body.error, /only the protected Super Admin/i);
+});
