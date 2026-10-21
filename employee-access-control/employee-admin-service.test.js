@@ -27,6 +27,27 @@ test('protected Super Admin cannot be deactivated or managed by another admin', 
   assert.throws(() => normalizeEmployee({ ...input, employee_id: 'P2PUF7638' }, { employeeId: 'ADMIN1', role: 'ADMIN' }), /Only Super Admin/);
 });
 
+test('ordinary Admin cannot demote an existing Admin account', async () => {
+  const calls = [];
+  const client = {
+    query: async (sql, params) => {
+      calls.push({ sql, params });
+      if (sql.includes('SELECT employee_id, role, status FROM employees')) {
+        return { rows: [{ employee_id: 'ADMIN002', role: 'ADMIN', status: 'ACTIVE' }] };
+      }
+      return { rows: [] };
+    },
+    release: () => calls.push({ sql: 'RELEASE' })
+  };
+  const pool = { connect: async () => client };
+  await assert.rejects(
+    () => saveEmployee(pool, { ...input, employee_id: 'ADMIN002', role: 'EMPLOYEE' }, { employeeId: 'ADMIN001', role: 'ADMIN' }),
+    /Only Super Admin may manage an existing Admin account/
+  );
+  assert.ok(calls.some(call => call.sql === 'ROLLBACK'));
+  assert.ok(!calls.some(call => call.sql.includes('INSERT INTO employees')));
+});
+
 test('rejects invalid dates and empty tabs', () => {
   assert.throws(() => normalizeEmployee({ ...input, effective_from: '2026-12-01', effective_to: '2026-11-01' }, actor), /Effective To/);
   assert.throws(() => normalizeEmployee({ ...input, allowed_tabs: [] }, actor), /At least one allowed tab/);
