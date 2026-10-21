@@ -79,3 +79,9 @@ test('accepts every role in the Employee Master template', () => {
     assert.equal(result.role, role);
   }
 });
+
+test('rejects wildcard geographic scopes for ordinary employees', () => {
+  assert.throws(() => normalizeEmployee({ ...input, region: '*' }, actor), /Wildcard geographic scopes/);
+  assert.throws(() => normalizeEmployee({ ...input, area: '*' }, actor), /Wildcard geographic scopes/);
+  assert.throws(() => normalizeEmployee({ ...input, anchor_zone: '*' }, actor), /Wildcard geographic scopes/);
+});
