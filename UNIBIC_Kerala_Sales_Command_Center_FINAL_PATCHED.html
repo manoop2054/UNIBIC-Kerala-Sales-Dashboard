@@ -2518,6 +2518,14 @@ async function sharedSaveDataset(dataset, filename, rows, headers){
   return result;
 }
 async function sharedGetDataset(dataset){
+  const authResponse=await fetch('/api/access-control/me',{cache:'no-store',credentials:'same-origin'});
+  if(!authResponse.ok)throw new Error('Sign in before accessing shared business datasets.');
+  const auth=await authResponse.json();
+  if(!auth.success||!auth.user)throw new Error('Sign in before accessing shared business datasets.');
+  const role=String(auth.user.role||'').toUpperCase();
+  const key=dataset==='target'?'tab.target':'tab.dbr';
+  const permission=(auth.permissions||[]).find(item=>item.resourceKey===key);
+  if(!(role==='SUPER_ADMIN'&&String(auth.user.employeeId||'').toUpperCase()==='P2PUF7638')&&!(permission&&permission.canView))throw new Error('Your account does not have permission to view this shared dataset.');
   const response = await fetch(SHARED_UPLOAD_API + '/api/shared-upload/' + dataset, {cache:'no-store'});
   let result;
   try { result = await response.json(); }
