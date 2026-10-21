@@ -16,6 +16,11 @@ test('maps employee-facing tab labels to canonical dashboard resource IDs', () =
   assert.equal(normalizeResourceKey('Admin Center'), 'tab.admincenter');
   assert.equal(normalizeResourceKey('Monthly Upload'), 'tab.upload');
   assert.equal(normalizeResourceKey('Target Management'), 'tab.targetworking');
+  assert.equal(normalizeResourceKey('GSV Report'), 'report.gsv');
+  assert.equal(normalizeResourceKey('DBR-wise Report'), 'report.dbr-wise');
+  assert.equal(normalizeResourceKey('Live SOH – CFA Wise'), 'report.live-soh-cfa-wise');
+  assert.equal(normalizeResourceKey('Discount & Returns'), 'report.discount-returns');
+  assert.equal(normalizeResourceKey('Excel Export (All Reports)'), 'report.export-all');
 });
 
 test('deduplicates aliases and rejects labels that could accidentally grant all access', () => {
