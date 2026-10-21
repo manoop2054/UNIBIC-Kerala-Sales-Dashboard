@@ -139,6 +139,13 @@ body.eac-locked #eacLoginGate{display:grid}
     finally{loginButton.disabled=false;loginButton.textContent='Secure Sign In';}
   }
   function optionsFor(select,values,selectedValue,placeholder){
+    if(select.tagName==='INPUT'){
+      const list=$(select.getAttribute('list'));
+      if(list)list.innerHTML=values.map(value=>'<option value="'+esc(value)+'"></option>').join('');
+      if(selectedValue!==undefined)select.value=selectedValue||'';
+      select.placeholder=placeholder||'Type or choose a configured value';
+      return;
+    }
     select.innerHTML='';
     if(placeholder!==null){const opt=document.createElement('option');opt.value='';opt.textContent=placeholder||'Select';select.appendChild(opt);}
     values.forEach(value=>{const opt=document.createElement('option');opt.value=value;opt.textContent=value;select.appendChild(opt);});
@@ -301,6 +308,12 @@ body.eac-locked #eacLoginGate{display:grid}
     roles.forEach(item=>{const option=document.createElement('option');option.value=item[0];option.textContent=item[1];if(item[0]==='SUPER_ADMIN')option.disabled=true;role.appendChild(option);});
     $('status').outerHTML='<select id="status" aria-label="Employee status"><option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option></select>';
     $('empname').readOnly=false;
+    [['regionSelect','regionOptions'],['areaSelect','areaOptions'],['zoneSelect','zoneOptions']].forEach(pair=>{
+      const oldField=$(pair[0]);
+      if(oldField&&oldField.tagName!=='INPUT'){
+        oldField.outerHTML='<input id="'+pair[0]+'" list="'+pair[1]+'" autocomplete="off" placeholder="Type or choose a configured value"><datalist id="'+pair[1]+'"></datalist>';
+      }
+    });
     const topRight=document.querySelector('.topright');
     if(topRight&&!$('eacLogout')){
       const logout=document.createElement('button');logout.id='eacLogout';logout.className='btn';logout.textContent='Sign out';logout.onclick=async()=>{try{await api('/api/access-control/logout',{method:'POST'});}catch(_){}currentUser=null;showGate('Signed out.');};
@@ -325,7 +338,7 @@ body.eac-locked #eacLoginGate{display:grid}
     }
     const note=document.querySelector('.pagehead .info');
     if(note)note.textContent='Connected to Employee Access Control APIs. Main dashboard data endpoints and geographic row filtering are not yet protected; production activation is blocked until verified.';
-    document.querySelectorAll('.demo-note').forEach((el,index)=>{el.textContent=index===0?'Connected: permissions are saved to PostgreSQL. Dashboard enforcement is still pending.':'Scope choices are loaded from configured Employee Master scopes, not yet from a verified master geography catalogue.';});
+    document.querySelectorAll('.demo-note').forEach((el,index)=>{el.textContent=index===0?'Connected: permissions are saved to PostgreSQL. Dashboard enforcement is still pending.':'Scope suggestions come from configured Employee Master records; manual entry is allowed for new Region, Area or Anchor Zone values.';});
     document.querySelectorAll('.applied').forEach(el=>{el.textContent='CONFIGURED';});
     const warningTitles=document.querySelectorAll('.warningtile b');
     if(warningTitles.length)warningTitles.forEach(el=>{el.textContent=el.textContent.replace('Tab Not Visible','Planned: Tab Visibility').replace('Report Not Accessible','Planned: Report Restriction').replace('API Blocked','Pending: API Enforcement').replace('Chatbot Restricted','Pending: Chatbot Restriction').replace('Export Blocked','Pending: Export Restriction');});
