@@ -118,6 +118,24 @@ body.eac-locked #eacLoginGate{display:grid}
     el.textContent=text;el.style.display='block';
     window.setTimeout(()=>{el.style.display='none';},3000);
   }
+  async function showAuditLog(){
+    try{
+      const result=await api('/api/access-control/audit-log?limit=100');
+      let modal=$('eacAuditModal');
+      if(!modal){
+        modal=document.createElement('div');modal.id='eacAuditModal';
+        modal.style.cssText='position:fixed;inset:0;z-index:11000;background:#071d36bb;display:grid;place-items:center;padding:18px;';
+        document.body.appendChild(modal);
+      }
+      const entries=result.entries||[];
+      modal.innerHTML='<div style="background:#fff;border-radius:10px;width:min(1100px,100%);max-height:88vh;overflow:auto;padding:18px;color:#112d52;box-shadow:0 20px 70px #001a3544">'+
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px"><h2 style="margin:0;font-size:18px">Access Audit Log</h2><span style="color:#637b9b;font-size:11px">'+entries.length+' recent events</span><button id="eacAuditClose" class="btn" style="margin-left:auto">Close</button></div>'+
+        '<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="background:#edf5ff"><th style="text-align:left;padding:9px">Time</th><th style="text-align:left;padding:9px">Actor</th><th style="text-align:left;padding:9px">Action</th><th style="text-align:left;padding:9px">Target</th><th style="text-align:left;padding:9px">Details</th></tr></thead><tbody>'+
+        (entries.length?entries.map(entry=>'<tr style="border-bottom:1px solid #e5effa"><td style="padding:8px">'+esc(entry.created_at||'')+'</td><td style="padding:8px">'+esc((entry.actor_name||'')+' ('+(entry.actor_employee_id||'system')+')')+'</td><td style="padding:8px">'+esc(entry.action||'')+'</td><td style="padding:8px">'+esc((entry.target_name||'')+' ('+(entry.target_employee_id||'')+')')+'</td><td style="padding:8px;max-width:300px;overflow-wrap:anywhere">'+esc(JSON.stringify(entry.details_json||{}))+'</td></tr>').join(''):'<tr><td colspan="5" style="padding:18px;text-align:center;color:#637b9b">No audit events found.</td></tr>')+
+        '</tbody></table></div>';
+      $('eacAuditClose').onclick=()=>modal.remove();
+    }catch(error){toastSafe(error.message||'Unable to load audit log.');}
+  }
   function roleLabel(role){
     return ({SUPER_ADMIN:'Super Admin',ADMIN:'Administrator',REGIONAL_MANAGER:'Regional Manager',AREA_MANAGER:'Area Manager',ANCHOR_ZONE_MANAGER:'Anchor Zone Manager',EMPLOYEE:'Employee'})[role]||role;
   }
@@ -325,6 +343,13 @@ body.eac-locked #eacLoginGate{display:grid}
       topRight.appendChild(upload);topRight.appendChild(input);
     }
     if($('eacUpload'))$('eacUpload').style.display=String(currentUser.role).toUpperCase()==='SUPER_ADMIN'?'inline-block':'none';
+    document.querySelectorAll('.navitem.sub').forEach(item=>{
+      if(item.dataset.eacWired==='1')return;
+      item.dataset.eacWired='1';
+      if(item.textContent.includes('Access Logs'))item.addEventListener('click',showAuditLog);
+      if(item.textContent.includes('Upload Employee Master'))item.addEventListener('click',()=>{if($('eacUpload')&&$('eacUpload').style.display!=='none')$('eacUpload').click();else toastSafe('Only Super Admin can import the Employee Master.');});
+      if(item.textContent.includes('Settings'))item.addEventListener('click',()=>toastSafe('Security settings are managed in the hosting/database configuration; no public setting changes are exposed here.'));
+    });
     $('load').onclick=()=>loadEmployee($('empid').value).catch(error=>toastSafe(error.message));
     $('save').onclick=()=>saveEmployee();
     $('reset').onclick=()=>loadEmployee($('empid').value).catch(error=>toastSafe(error.message));
