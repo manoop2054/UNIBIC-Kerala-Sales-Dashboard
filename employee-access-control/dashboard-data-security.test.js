@@ -25,3 +25,13 @@ test('Super Admin wildcard scope can read rows regardless of geography columns',
 test('geography field lookup is case and separator insensitive', () => {
   assert.equal(firstValue({ 'ANCHOR ZONENAME': 'Zone A' }, ['AnchorZoneName']), 'Zone A');
 });
+
+test('intersects geography scopes across resources so one permission cannot widen another', () => {
+  const resourceScopes = [
+    [{ region: 'North', area: '', anchorZone: '' }],
+    [{ region: 'North', area: 'Kozhikode', anchorZone: '' }]
+  ];
+  assert.equal(rowMatchesScopes({ Region: 'North', Area: 'Kozhikode' }, resourceScopes), true);
+  assert.equal(rowMatchesScopes({ Region: 'North', Area: 'Kannur' }, resourceScopes), false);
+  assert.equal(rowMatchesScopes({ Region: 'South', Area: 'Kollam' }, resourceScopes), false);
+});
