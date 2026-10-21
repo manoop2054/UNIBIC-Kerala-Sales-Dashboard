@@ -6,6 +6,7 @@ const { saveEmployee, normalizeEmployee, SUPER_ADMIN_ID } = require('./employee-
 const { validateEmployeeMaster } = require('./employee-master-import-validation');
 const express = require('express');
 const XLSX = require('xlsx');
+const { rowMatchesScopes } = require('./dashboard-data-security');
 
 function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabaseStatus }) {
   const loginAttempts = new Map();
@@ -487,8 +488,8 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
         return res.status(400).json({ error: 'Unable to read the uploaded workbook. Use a valid XLSX or CSV file.' });
       }
     });
-  // Authenticated proxy for shared Target/Claims reads. The Cloudflare Worker
-  // must require SHARED_API_READ_SECRET for GET requests; never expose this secret to browsers.
+  // Authenticated proxy for shared Target/Claims reads. Geographic scopes are
+  // enforced here on the server; hiding tabs in the browser is not authorization.
   app.get('/api/shared-upload/:dataset', requireSession, async (req, res) => {
     const dataset = String(req.params.dataset || '').toLowerCase();
     if (!['target', 'claims'].includes(dataset)) return res.status(404).json({ ok: false, error: 'Unknown dataset.' });
@@ -496,17 +497,23 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
       String(req.accessUser.employeeId || '').toUpperCase() === SUPER_ADMIN_ID &&
       String(req.accessUser.role || '').toUpperCase() === 'SUPER_ADMIN';
     const resourceKey = dataset === 'target' ? 'tab.target' : 'tab.dbr';
+    let scopes = [];
     if (!isProtectedSuperAdmin) {
       const pool = await ensureReady(res);
       if (!pool) return;
       try {
         const permission = await pool.query(
-          'SELECT can_view FROM employee_permissions WHERE employee_id = $1 AND resource_key = $2 LIMIT 1',
+          `SELECT p.can_view, s.region, s.area, s.anchor_zone
+           FROM employee_permissions p
+           LEFT JOIN employee_resource_scopes s
+             ON s.employee_id = p.employee_id AND s.resource_key = p.resource_key
+           WHERE p.employee_id = $1 AND p.resource_key = $2 AND p.can_view = TRUE`,
           [req.accessUser.employeeId, resourceKey]
         );
-        if (!permission.rows[0] || permission.rows[0].can_view !== true) {
-          return res.status(403).json({ ok: false, error: 'Your account does not have permission to view this dataset.' });
+        if (!permission.rows.length || permission.rows.some(row => !row.region)) {
+          return res.status(403).json({ ok: false, error: 'A valid view permission and geographic scope are required for this dataset.' });
         }
+        scopes = permission.rows.map(row => ({ region: row.region, area: row.area, anchorZone: row.anchor_zone }));
       } catch (_) {
         return res.status(503).json({ ok: false, error: 'Unable to verify dataset permission.' });
       }
@@ -521,12 +528,38 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
         cache: 'no-store'
       });
       const body = await upstream.text();
-      res.status(upstream.status).type('application/json').send(body);
+      if (!upstream.ok) return res.status(upstream.status).type('application/json').send(body);
+      let payload;
+      try { payload = JSON.parse(body); }
+      catch (_) { return res.status(502).json({ ok: false, error: 'Shared data service returned invalid JSON.' }); }
+      if (!isProtectedSuperAdmin) payload = filterSharedDatasetPayload(payload, scopes);
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(upstream.status).json(payload);
     } catch (_) {
-      res.status(502).json({ ok: false, error: 'Shared data service is unavailable.' });
+      return res.status(502).json({ ok: false, error: 'Shared data service is unavailable.' });
     }
   });
 
+// Filter shared Target/Claims rows on the server. Missing/unrecognized geography
+// fails closed for ordinary employees; only the protected Super Admin bypasses it.
+function filterSharedDatasetPayload(payload, scopes) {
+  if (!payload || typeof payload !== 'object' || !payload.data || !Array.isArray(payload.data.rows)) {
+    return payload;
+  }
+  const headers = Array.isArray(payload.data.headers) ? payload.data.headers : [];
+  const rows = payload.data.rows.filter(row => {
+    let record = row;
+    if (Array.isArray(row)) {
+      if (!headers.length) return false;
+      record = {};
+      headers.forEach((header, index) => { record[String(header || '')] = row[index]; });
+    }
+    return record && typeof record === 'object' && rowMatchesScopes(record, scopes);
+  });
+  return { ...payload, data: { ...payload.data, rows, rowCount: rows.length, accessLimited: true } };
 }
 
-module.exports = { mountAccessControlRoutes };
+
+}
+
+module.exports = { mountAccessControlRoutes, filterSharedDatasetPayload };
