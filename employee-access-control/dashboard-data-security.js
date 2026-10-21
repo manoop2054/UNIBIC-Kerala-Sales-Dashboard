@@ -20,7 +20,10 @@ function firstValue(row, names) {
 }
 
 function rowMatchesScopes(row, scopes) {
-  if ((scopes || []).some(scope => normalize(scope.region) === '*' && normalize(scope.area) === '*' && normalize(scope.anchorZone) === '*')) return true;
+  if ((scopes || []).some(scope => !Array.isArray(scope) && normalize(scope.region) === '*' && normalize(scope.area) === '*' && normalize(scope.anchorZone) === '*')) return true;
+  if (Array.isArray(scopes) && scopes.length && Array.isArray(scopes[0])) {
+    return scopes.every(group => group.length > 0 && rowMatchesScopes(row, group));
+  }
   const region = firstValue(row, ['REGION', 'Region', 'region', 'Region Name']);
   const area = firstValue(row, ['Area', 'Area Name', 'AreaCode', 'Area Code']);
   const zone = firstValue(row, ['AnchorZoneName', 'Anchor Zone Name', 'ANCHOR ZONENAME', 'Anchor Zone', 'AnchorZone']);
@@ -34,7 +37,7 @@ function rowMatchesScopes(row, scopes) {
   });
 }
 
-function createDashboardSessionGuard({ getPool, initializeDatabase, getDatabaseStatus }) {
+function createDashboardSessionGuard({ getPool, initializeDatabase, getDatabaseStatus, dataKind = 'gsv' }) {
   return async function dashboardSessionGuard(req, res, next) {
     try {
       await initializeDatabase();
@@ -50,17 +53,31 @@ function createDashboardSessionGuard({ getPool, initializeDatabase, getDatabaseS
         req.isProtectedSuperAdmin = true;
         return next();
       }
+      const resourceSets = {
+        gsv: ['tab.executive','tab.sales','tab.item','tab.dbr','tab.invoice','tab.alerts','tab.reports','report.gsv','report.dbr-wise','report.area-wise','report.zone-wise','report.anchor-zone-wise','report.customer-wise','report.discount-returns','report.export-all'],
+        soh: ['tab.soh','tab.reports','report.live-soh-cfa-wise','report.stock'],
+        chat: ['tab.executive','tab.target','tab.sales','tab.item','tab.dbr','tab.invoice','tab.soh','tab.alerts','tab.reports','tab.targetworking','report.gsv','report.target-achievement','report.dbr-wise','report.area-wise','report.zone-wise','report.anchor-zone-wise','report.customer-wise','report.live-soh-cfa-wise','report.discount-returns','report.stock','report.export-all']
+      };
+      const allowedResources = resourceSets[dataKind] || resourceSets.chat;
       const result = await pool.query(
-        `SELECT DISTINCT s.region, s.area, s.anchor_zone
+        `SELECT p.resource_key, s.region, s.area, s.anchor_zone
          FROM employee_permissions p
-         JOIN employee_resource_scopes s
+         LEFT JOIN employee_resource_scopes s
            ON s.employee_id = p.employee_id AND s.resource_key = p.resource_key
-         WHERE p.employee_id = $1 AND p.can_view = TRUE`,
-        [user.employeeId]
+         WHERE p.employee_id = $1 AND p.can_view = TRUE AND p.resource_key = ANY($2::text[])
+         ORDER BY p.resource_key`,
+        [user.employeeId, allowedResources]
       );
-      const scopes = result.rows.map(row => ({ region: row.region, area: row.area, anchorZone: row.anchor_zone }));
-      if (!scopes.length) return res.status(403).json({ error: 'No active data-view permission or geographic scope is assigned.' });
-      req.dataScopes = scopes;
+      const grouped = new Map();
+      for (const row of result.rows) {
+        if (!grouped.has(row.resource_key)) grouped.set(row.resource_key, []);
+        if (row.region != null) grouped.get(row.resource_key).push({ region: row.region, area: row.area, anchorZone: row.anchor_zone });
+      }
+      const scopeGroups = [...grouped.values()];
+      if (!scopeGroups.length || scopeGroups.some(group => !group.length)) {
+        return res.status(403).json({ error: 'No active data-view permission with a valid geographic scope is assigned for this dataset.' });
+      }
+      req.dataScopes = scopeGroups;
       req.isProtectedSuperAdmin = false;
       return next();
     } catch (_) {
