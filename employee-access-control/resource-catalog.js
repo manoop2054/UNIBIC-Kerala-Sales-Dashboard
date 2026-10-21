@@ -22,6 +22,7 @@ const RESOURCES = Object.freeze({
   'report.zone-wise': ['zone-wise report', 'zone wise report'],
   'report.anchor-zone-wise': ['anchor zone-wise report', 'anchor zone wise report'],
   'report.customer-wise': ['customer-wise report', 'customer wise report'],
+  'report.item-wise': ['item-wise report', 'item wise report'],
   'report.live-soh-cfa-wise': ['live soh cfa wise', 'live soh – cfa wise', 'live soh cfa-wise'],
   'report.discount-returns': ['discount & returns', 'discount and returns'],
   'report.stock': ['stock report'],
