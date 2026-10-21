@@ -1,7 +1,7 @@
 'use strict';
 
 const { authenticateCredentials, resolveSession, revokeSession, extractSessionToken,
-  sessionCookie, clearSessionCookie, bootstrapProtectedSuperAdmin } = require('./session-auth');
+  sessionCookie, clearSessionCookie } = require('./session-auth');
 const { saveEmployee, normalizeEmployee, SUPER_ADMIN_ID } = require('./employee-admin-service');
 const { validateEmployeeMaster } = require('./employee-master-import-validation');
 
@@ -57,23 +57,6 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
   app.get('/api/access-control/status', (_req, res) => {
     const status = getDatabaseStatus();
     res.json({ configured: Boolean(status.configured), ready: Boolean(status.ready) });
-  });
-
-  // One-time initial account creation. It requires a long random Render env token
-  // and permanently closes after the protected employee record has been inserted.
-  app.post('/api/access-control/bootstrap', async (req, res) => {
-    const pool = await ensureReady(res);
-    if (!pool) return;
-    try {
-      const result = await bootstrapProtectedSuperAdmin(pool, req.body || {}, req.headers['x-access-control-bootstrap-token']);
-      res.status(201).json({ success: true, employee: result, message: 'Initial Super Admin created. Remove ACCESS_CONTROL_BOOTSTRAP_TOKEN from the service environment now.' });
-    } catch (error) {
-      const message = error.message || '';
-      const status = /Bootstrap authorization failed/.test(message) ? 403 :
-        /already exists/.test(message) ? 409 :
-        /Password must/.test(message) ? 400 : 400;
-      res.status(status).json({ error: message || 'Bootstrap failed.' });
-    }
   });
 
   app.post('/api/access-control/login', async (req, res) => {
