@@ -336,65 +336,123 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
       return res.status(400).json({ error: 'Do not import the protected Super Admin row; manage employee access without changing that account.' });
     }
 
+    // Normalize everything before opening a transaction. Bulk SQL below avoids
+    // thousands of serial database round-trips for larger Employee Master files.
+    let employees;
+    try {
+      employees = validation.rows.map(row => normalizeEmployee({
+        employee_id: row.employeeId,
+        employee_name: row.employeeName,
+        designation: row.designation,
+        role: row.role,
+        status: row.status,
+        region: row.region,
+        area: row.area,
+        anchor_zone: row.anchorZone || '',
+        dbr_id: row.dbrId,
+        dbr_name: row.dbrName,
+        allowed_tabs: row.allowedTabs.split(';').map(value => value.trim()).filter(Boolean),
+        effective_from: row.effectiveFrom,
+        effective_to: row.effectiveTo,
+        remarks: row.remarks
+      }, auditActor(req)));
+    } catch (error) {
+      return res.status(400).json({ error: error.message || 'Employee Master validation failed.' });
+    }
+
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      const imported = [];
-      for (const row of validation.rows) {
-        const employeeInput = {
-          employee_id: row.employeeId,
-          employee_name: row.employeeName,
-          designation: row.designation,
-          role: row.role,
-          status: row.status,
-          region: row.region,
-          area: row.area,
-          anchor_zone: row.anchorZone || '',
-          dbr_id: row.dbrId,
-          dbr_name: row.dbrName,
-          allowed_tabs: row.allowedTabs.split(';').map(value => value.trim()).filter(Boolean),
-          effective_from: row.effectiveFrom,
-          effective_to: row.effectiveTo,
-          remarks: row.remarks
-        };
-        const employee = normalizeEmployee(employeeInput, auditActor(req));
-        const existing = await client.query('SELECT employee_id FROM employees WHERE employee_id = $1 FOR UPDATE', [employee.employeeId]);
-        await client.query(
-          `INSERT INTO employees (employee_id, employee_name, designation, role, status, updated_at)
-           VALUES ($1,$2,$3,$4,$5,NOW())
-           ON CONFLICT (employee_id) DO UPDATE SET employee_name=EXCLUDED.employee_name,
-             designation=EXCLUDED.designation, role=EXCLUDED.role, status=EXCLUDED.status, updated_at=NOW()`,
-          [employee.employeeId, employee.employeeName, employee.designation, employee.role, employee.status]
-        );
-        await client.query('DELETE FROM employee_permissions WHERE employee_id = $1', [employee.employeeId]);
+      const employeeIds = employees.map(employee => employee.employeeId);
+      const existingResult = employeeIds.length
+        ? await client.query('SELECT employee_id FROM employees WHERE employee_id = ANY($1::text[])', [employeeIds])
+        : { rows: [] };
+      const existingIds = new Set(existingResult.rows.map(row => String(row.employee_id).toUpperCase()));
+
+      await client.query(
+        `INSERT INTO employees (employee_id, employee_name, designation, role, status, updated_at)
+         SELECT x.employee_id, x.employee_name, x.designation, x.role, x.status, NOW()
+         FROM jsonb_to_recordset($1::jsonb) AS x(
+           employee_id text, employee_name text, designation text, role text, status text
+         )
+         ON CONFLICT (employee_id) DO UPDATE SET
+           employee_name=EXCLUDED.employee_name, designation=EXCLUDED.designation,
+           role=EXCLUDED.role, status=EXCLUDED.status, updated_at=NOW()`,
+        [JSON.stringify(employees.map(employee => ({
+          employee_id: employee.employeeId, employee_name: employee.employeeName,
+          designation: employee.designation, role: employee.role, status: employee.status
+        })))]
+      );
+
+      if (employeeIds.length) {
+        await client.query('DELETE FROM employee_permissions WHERE employee_id = ANY($1::text[])', [employeeIds]);
+      }
+
+      const permissionRows = [];
+      for (const employee of employees) {
         for (const resourceKey of employee.allowedTabs) {
-          await client.query(
-            `INSERT INTO employee_permissions (employee_id, resource_key, can_view, can_filter, can_export, can_print)
-             VALUES ($1,$2,TRUE,TRUE,FALSE,FALSE)`,
-            [employee.employeeId, resourceKey]
-          );
-          await client.query(
-            `INSERT INTO employee_resource_scopes (employee_id, resource_key, region, area, anchor_zone)
-             VALUES ($1,$2,$3,$4,$5)`,
-            [employee.employeeId, resourceKey, employee.region, employee.area, employee.anchorZone]
-          );
+          permissionRows.push({
+            employee_id: employee.employeeId, resource_key: resourceKey,
+            region: employee.region, area: employee.area, anchor_zone: employee.anchorZone
+          });
         }
-        if (employee.status === 'INACTIVE') {
-          await client.query('UPDATE employee_sessions SET revoked_at = NOW() WHERE employee_id = $1 AND revoked_at IS NULL', [employee.employeeId]);
-        }
+      }
+      if (permissionRows.length) {
+        const payload = JSON.stringify(permissionRows);
+        await client.query(
+          `INSERT INTO employee_permissions (employee_id, resource_key, can_view, can_filter, can_export, can_print)
+           SELECT x.employee_id, x.resource_key, TRUE, TRUE, FALSE, FALSE
+           FROM jsonb_to_recordset($1::jsonb) AS x(employee_id text, resource_key text)`,
+          [payload]
+        );
+        await client.query(
+          `INSERT INTO employee_resource_scopes (employee_id, resource_key, region, area, anchor_zone)
+           SELECT x.employee_id, x.resource_key, x.region, x.area, x.anchor_zone
+           FROM jsonb_to_recordset($1::jsonb) AS x(
+             employee_id text, resource_key text, region text, area text, anchor_zone text
+           )`,
+          [payload]
+        );
+      }
+
+      const inactiveIds = employees.filter(employee => employee.status === 'INACTIVE').map(employee => employee.employeeId);
+      if (inactiveIds.length) {
+        await client.query(
+          'UPDATE employee_sessions SET revoked_at = NOW() WHERE employee_id = ANY($1::text[]) AND revoked_at IS NULL',
+          [inactiveIds]
+        );
+      }
+
+      const auditRows = employees.map(employee => ({
+        actor_employee_id: req.accessUser.employeeId,
+        action: existingIds.has(employee.employeeId.toUpperCase()) ? 'EMPLOYEE_IMPORTED_UPDATED' : 'EMPLOYEE_IMPORTED_CREATED',
+        target_employee_id: employee.employeeId,
+        details_json: { role: employee.role, status: employee.status, allowedTabs: employee.allowedTabs }
+      }));
+      if (auditRows.length) {
         await client.query(
           `INSERT INTO access_audit_log (actor_employee_id, actor_is_admin, action, target_employee_id, details_json)
-           VALUES ($1, TRUE, $2, $3, $4::jsonb)`,
-          [req.accessUser.employeeId, existing.rows.length ? 'EMPLOYEE_IMPORTED_UPDATED' : 'EMPLOYEE_IMPORTED_CREATED',
-            employee.employeeId, JSON.stringify({ role: employee.role, status: employee.status, allowedTabs: employee.allowedTabs })]
+           SELECT x.actor_employee_id, TRUE, x.action, x.target_employee_id, x.details_json
+           FROM jsonb_to_recordset($1::jsonb) AS x(
+             actor_employee_id text, action text, target_employee_id text, details_json jsonb
+           )`,
+          [JSON.stringify(auditRows)]
         );
-        imported.push({ employeeId: employee.employeeId, status: employee.status, created: !existing.rows.length });
       }
+
       await client.query('COMMIT');
-      res.json({ success: true, imported: imported.length, employees: imported, warnings: validation.warnings });
+      return res.json({
+        success: true, imported: employees.length,
+        employees: employees.map(employee => ({
+          employeeId: employee.employeeId, status: employee.status,
+          created: !existingIds.has(employee.employeeId.toUpperCase())
+        })),
+        warnings: validation.warnings
+      });
     } catch (error) {
       try { await client.query('ROLLBACK'); } catch (_) {}
-      res.status(400).json({ error: 'Employee Master import was rolled back. ' + (error.message || 'Validation or database error.') });
+      console.error('Employee Master import failed:', error.message);
+      return res.status(400).json({ error: 'Employee Master import was rolled back. ' + (error.message || 'Validation or database error.') });
     } finally {
       client.release();
     }
