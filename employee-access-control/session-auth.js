@@ -57,13 +57,13 @@ function extractSessionToken(cookieHeader) {
   return '';
 }
 
-function sessionCookie(token, secure = process.env.NODE_ENV === 'production') {
+function sessionCookie(token, secure = !['development', 'test'].includes(process.env.NODE_ENV)) {
   return SESSION_COOKIE + '=' + token +
     '; Path=/; HttpOnly; SameSite=Strict; Max-Age=' + (SESSION_TTL_HOURS * 60 * 60) +
     (secure ? '; Secure' : '');
 }
 
-function clearSessionCookie(secure = process.env.NODE_ENV === 'production') {
+function clearSessionCookie(secure = !['development', 'test'].includes(process.env.NODE_ENV)) {
   return SESSION_COOKIE + '=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0' +
     (secure ? '; Secure' : '');
 }
