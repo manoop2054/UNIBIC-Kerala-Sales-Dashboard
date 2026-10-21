@@ -19,6 +19,7 @@ test('mounts login, session, employee, password, permission and import APIs with
   const keys = routes.map(route => route.method + ' ' + route.path);
   for (const expected of [
     'GET /api/access-control/status',
+    'POST /api/shared-upload/:dataset',
     'POST /api/access-control/login',
     'POST /api/access-control/logout',
     'GET /api/access-control/me',
