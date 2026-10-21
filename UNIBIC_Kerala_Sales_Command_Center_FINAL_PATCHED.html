@@ -9430,6 +9430,12 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       const key='tab.'+button.getAttribute('data-tab');
       button.hidden=!(permissionMap.get(key)||{}).canView;
     });
+    if(!(permissionMap.get('tab.target')||{}).canView){
+      try{if(typeof targets!=='undefined')targets=[];['UNIBIC_TARGET_ROWS','UNIBIC_TARGET_HEADERS','UNIBIC_TARGET_FILE','UNIBIC_TARGET_UPLOADED'].forEach(key=>localStorage.removeItem(key));}catch(_){}
+    }
+    if(!(permissionMap.get('tab.dbr')||{}).canView){
+      try{document.getElementById('ctClear')?.click();}catch(_){}
+    }
     installReportPermissionWrappers();
     installActionPermissionGuard();
     applyReportPermissions();
