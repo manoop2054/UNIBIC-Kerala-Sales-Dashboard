@@ -23,6 +23,7 @@ test('mounts login, session, employee, password, permission and import APIs with
     'POST /api/access-control/logout',
     'GET /api/access-control/me',
     'GET /api/access-control/employees',
+    'GET /api/access-control/audit-log',
     'POST /api/access-control/employees',
     'POST /api/access-control/employees/import',
     'POST /api/access-control/employees/import-file',
