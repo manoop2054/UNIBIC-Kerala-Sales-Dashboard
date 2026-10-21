@@ -106,3 +106,9 @@ test('reserves SUPER_ADMIN role exclusively for the protected employee ID', () =
   assert.equal(result.ok, false);
   assert.match(result.errors[0].message, /reserved exclusively/);
 });
+
+test('rejects wildcard geographic scope values in Employee Master import', () => {
+  const result = validateEmployeeMaster(headers, [row({ Region: '*' })]);
+  assert.equal(result.ok, false);
+  assert.match(result.errors[0].message, /Wildcard geographic scopes/);
+});
