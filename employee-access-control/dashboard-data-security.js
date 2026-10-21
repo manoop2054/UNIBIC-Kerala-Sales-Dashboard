@@ -20,6 +20,7 @@ function firstValue(row, names) {
 }
 
 function rowMatchesScopes(row, scopes) {
+  if ((scopes || []).some(scope => normalize(scope.region) === '*' && normalize(scope.area) === '*' && normalize(scope.anchorZone) === '*')) return true;
   const region = firstValue(row, ['REGION', 'Region', 'region', 'Region Name']);
   const area = firstValue(row, ['Area', 'Area Name', 'AreaCode', 'Area Code']);
   const zone = firstValue(row, ['AnchorZoneName', 'Anchor Zone Name', 'ANCHOR ZONENAME', 'Anchor Zone', 'AnchorZone']);
