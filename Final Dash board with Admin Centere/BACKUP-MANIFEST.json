@@ -93,5 +93,30 @@
     "Uploaded business Excel/XLSB/CSV files and any local bridge/server folder outside this repository",
     "package-lock.json was not present at repository root when checked"
   ],
-  "status": "Source snapshot and recovery guide. Full disaster recovery is not complete until database export and secure secrets/configuration backup are separately verified."
+  "status": "Source snapshot is in GitHub; Neon cloud snapshot exists; external database dump and secure secret/configuration copy still need to be created by the user and verified.",
+  "recovery_files": [
+    {
+      "path": "RENDER-RECOVERY-SETTINGS.md",
+      "git_blob_sha": "d3802b07912aac790fd164f2f4217d1cc24a32b0",
+      "bytes": 2034
+    },
+    {
+      "path": "backup-database.ps1",
+      "git_blob_sha": "6ea08bdc6ca39ca701c8d2c20fefca2e92965798",
+      "bytes": 2135
+    },
+    {
+      "path": "DATABASE-BACKUP-GUIDE.md",
+      "git_blob_sha": "fc971fb280ddb12cd8e3f4d6d36298f94c4e492c",
+      "bytes": 1874
+    }
+  ],
+  "neon_snapshot": {
+    "project_id": "spring-hall-67770831",
+    "branch_id": "br-noisy-grass-ar73yjr9",
+    "snapshot_id": "snap-lucky-darkness-aruk3eep",
+    "name": "UNIBIC full dashboard backup 2026-10-22",
+    "created_at": "2026-10-22T02:13:57Z",
+    "note": "Neon-managed cloud snapshot; not an external-disk dump."
+  }
 }
