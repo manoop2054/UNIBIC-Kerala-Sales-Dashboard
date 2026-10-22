@@ -9684,7 +9684,7 @@ async function exportFile(){
   pushRow(['Area Code','Customer Code','Customer Name','Customer group','Customer classification group','sales order no.','Invoice No','Invoice Date','Total'],'invoiceHeader');
   if(!match.rows.length)pushRow(blank());
   else match.rows.forEach(b=>pushRow([b.area,b.code,b.name,b.group,b.classification,b.order,b.invoice,dateText(b.date),b.hasOS?b.os:b.total]));
-  pushRow([match.matched?'Invoice matching status: exact GT O/S match':'Invoice matching status: no exact match; latest 5 invoices shown','','','','','','','',''],'status');
+  pushRow([match.matched?'Invoice total status: exact GT O/S match':'Invoice total status: accumulated until GT O/S is reached or exceeded','','','','','','','',''],'status');
   if(idx<sel.length-1)pushRow(blank());
  });
  const ws=XLSX.utils.aoa_to_sheet(aoa);
