@@ -1951,7 +1951,7 @@ setTimeout(()=>{
 
 <section id="clmanagement" class="section">
 <h2 class="sectiontitle">&#128176; CL Management</h2><p class="clm-intro">Customer-wise credit-limit working from loaded GSV invoice history and a separately uploaded GT Outstanding Excel file. Select up to 10 customers and export the summary and bill details.</p>
-<div class="card" style="padding:14px;margin-bottom:14px"><div class="clm-toolbar"><div class="field"><label for="clmOutstandingFile">Upload GT O/S Excel</label><input id="clmOutstandingFile" type="file" accept=".xlsx,.xls,.xlsm"></div><div class="clm-status" id="clmUploadStatus">GT O/S file not uploaded in this session.</div><button class="clm-btn" id="clmExport">Export CL Management Excel</button><button class="clm-btn secondary" id="clmClear">Clear selections</button></div><div class="clm-notice" id="clmDataNotice">GT O/S total comes from the separately uploaded Excel. GSV invoice totals are not confirmed unpaid balances unless an outstanding field is available in the source.</div><div class="clm-fields" id="clmSelectors"></div></div><div class="clm-customer-grid" id="clmCustomerCards"></div>
+<div class="card" style="padding:14px;margin-bottom:14px"><div class="clm-toolbar"><div class="field"><label for="clmOutstandingFile">Upload GT O/S Excel</label><input id="clmOutstandingFile" type="file" accept=".xlsx,.xls,.xlsm"></div><div class="clm-status" id="clmUploadStatus">GT O/S file not uploaded in this session.</div><div class="field"><label for="clmChequeFile">Upload Cheque Count Excel</label><input id="clmChequeFile" type="file" accept=".xlsx,.xls,.xlsm"></div><div class="clm-status" id="clmChequeUploadStatus">Cheque count Excel not uploaded in this session.</div><button class="clm-btn" id="clmExport">Export CL Management Excel</button><button class="clm-btn secondary" id="clmClear">Clear selections</button></div><div class="clm-notice" id="clmDataNotice">GT O/S total comes from the separately uploaded Excel. GSV invoice totals are not confirmed unpaid balances unless an outstanding field is available in the source.</div><div class="clm-fields" id="clmSelectors"></div></div><div class="clm-customer-grid" id="clmCustomerCards"></div>
 </section><section id="targetworking" class="section">
   <h2 class="sectiontitle">&#127919; Target Management</h2>
   <p class="subhead">Management view for Target / Achievement / Q2-Q3 planning / TBI & Customer performance.</p>
@@ -9480,7 +9480,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
 (function(){
 'use strict';
 const root=document.getElementById('clmanagement');if(!root)return;
-const state={selected:Array(10).fill(''),manual:{},outstanding:{},uploadedCustomers:[],uploadMessage:'GT O/S file not uploaded in this session.',hasInvoiceOutstanding:false};
+const state={selected:Array(10).fill(''),manual:{},outstanding:{},uploadedCustomers:[],uploadMessage:'GT O/S file not uploaded in this session.',chequeCounts:{},chequeUploadMessage:'Cheque count Excel not uploaded in this session.',hasInvoiceOutstanding:false};
 const aliases={code:['Customer_Code','Customer Code','CustomerCode','Customer_No','Customer No','Customer Number','Sell_to_Customer_No','Sell to Customer No','Ship_to_Code','Ship to Code','Billed_to_Code','DBR_Code','DBR Code','Customer_Account','Customer Account'],name:['Customer_Name','Customer Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name','DBR_Name'],os:['Outstanding_Amount','Outstanding Amount','Open_Amount','Open Amount','Remaining_Amount','Remaining Amount','Balance_Due','Balance Due','Amount_Remaining','Amount Remaining','GT O/S AMOUNT','GT O/S Amount','GT OS Amount','Current O/S Amount'],class:['Customer_Classification_Group','Customer Classification Group','Customer_Classification','Customer Classification','Classification Group'],group:['Customer_Posting_Group','Customer Posting Group','Customer_Group','Customer Group'],order:['Order_No','Order No','Order','Sales_Order_No','Sales Order No','Sales Order Number'],invoice:['Invoice_No','Invoice No','Invoice','Document_No','Document No'],date:['PostingDate','Posting Date','Date','Invoice Date','Document Date'],area:['AreaCode','Area Code','Area','REGION','Region']};
 const norm=v=>String(v==null?'':v).trim().toLowerCase().replace(/[^a-z0-9]/g,'');
 function first(r,ks){for(const k of ks)if(r&&r[k]!==undefined&&r[k]!==null&&String(r[k]).trim()!=='')return r[k];return ''}
@@ -9537,6 +9537,7 @@ function renderCards(){
   '</div></article>';
  }).join('');
  document.getElementById('clmUploadStatus').textContent=state.uploadMessage;
+ document.getElementById('clmChequeUploadStatus').textContent=state.chequeUploadMessage;
  document.getElementById('clmDataNotice').textContent=state.hasInvoiceOutstanding?'GSV source includes an invoice outstanding field. GT O/S total remains sourced from the separate Excel file.':'GT O/S total comes from the separate Excel upload. GSV invoice totals are billed values, not confirmed unpaid balances.';
 }
 function render(){renderSelectors();renderCards()}
@@ -9604,6 +9605,64 @@ async function upload(file){
   document.getElementById('clmUploadStatus').textContent=state.uploadMessage;
  }
 }
+async function uploadChequeCount(file){
+ if(!file)return;
+ try{
+  if(!window.XLSX)throw Error('Excel reader is not available.');
+  const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});
+  let found=null,chosenSheet='';
+  const codeHeaders=['customercode','customerno','customernumber','custaccount','customeraccount','selltocustomerno','shiptocode','billedtocode','dbrcode','code'];
+  const nameHeaders=['customername','custname','name'];
+  const countHeaders=['noofcheques','numberofcheques','chequecount','chequescount','noofcheque','numberofcheque','countofcheques'];
+  const chequeNoHeaders=['chequeno','chequenumber','chequeid','chequereference','chequereferenceno'];
+  for(const sn of wb.SheetNames){
+   const sh=wb.Sheets[sn];if(!sh)continue;
+   const grid=XLSX.utils.sheet_to_json(sh,{header:1,defval:'',raw:true});
+   for(let ri=0;ri<Math.min(grid.length,80);ri++){
+    const cells=(grid[ri]||[]).map(v=>norm(v));
+    const ci=cells.findIndex(v=>codeHeaders.includes(v)||v.includes('customercode'));
+    if(ci<0)continue;
+    const ni=cells.findIndex(v=>nameHeaders.includes(v));
+    const qi=cells.findIndex(v=>countHeaders.includes(v)||((v.includes('cheque')||v.includes('cheques'))&&(v.includes('count')||v.includes('number')||v.includes('noof'))));
+    const hi=cells.findIndex(v=>chequeNoHeaders.includes(v)||((v.includes('cheque')||v.includes('cheques'))&&(v.includes('no')||v.includes('number')||v.includes('reference'))));
+    found={grid,headerRow:ri,ci,ni,qi,hi};chosenSheet=sn;break;
+   }
+   if(found)break;
+  }
+  if(!found)throw Error('Could not detect a Customer Code column. Please include Customer Code and preferably No of Cheques or Cheque No.');
+  const counts={},names={};let rowsRead=0;
+  const clean=v=>String(v??'').trim().toUpperCase().replace(/\\s+/g,'');
+  for(let ri=found.headerRow+1;ri<found.grid.length;ri++){
+   const row=found.grid[ri]||[],c=clean(row[found.ci]);if(!c)continue;
+   if(found.qi>=0){
+    const raw=row[found.qi];if(raw===''||raw===null||raw===undefined)continue;
+    const n=num(raw);if(!Number.isFinite(n)||n<0)continue;
+    counts[c]=(counts[c]||0)+n;rowsRead++;
+   }else if(found.hi>=0){
+    const cheque=String(row[found.hi]??'').trim();if(!cheque)continue;
+    if(!counts[c])counts[c]=new Set();counts[c].add(cheque.toUpperCase());rowsRead++;
+   }else{
+    // When the workbook is a cheque-detail list with one row per cheque,
+    // count each customer row. Blank cheque details are not counted.
+    const hasCheque=row.some((v,j)=>j!==found.ci&&j!==found.ni&&String(v??'').trim()!=='');
+    if(!hasCheque)continue;
+    counts[c]=(counts[c]||0)+1;rowsRead++;
+   }
+   if(found.ni>=0&&row[found.ni]&&!names[c])names[c]=String(row[found.ni]).trim();
+  }
+  if(!rowsRead)throw Error('No cheque count or cheque-detail rows found below the detected header.');
+  Object.keys(counts).forEach(c=>{
+   if(counts[c] instanceof Set)counts[c]=counts[c].size;
+   manual(c).cheques=String(counts[c]);
+  });
+  state.chequeCounts=counts;
+  state.chequeUploadMessage='Cheque Excel uploaded successfully: '+file.name+' · sheet: '+chosenSheet+' · '+Object.keys(counts).length+' customers · '+rowsRead+' cheque/count rows processed.';
+  render();
+ }catch(e){
+  state.chequeUploadMessage='Cheque upload failed: '+(e.message||String(e));
+  document.getElementById('clmChequeUploadStatus').textContent=state.chequeUploadMessage;
+ }
+}
 async function exportFile(){
  if(!window.XLSX){alert('Excel library not loaded.');return}
  if(!window.__clmStyledXlsx){try{await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';s.onload=resolve;s.onerror=()=>reject(Error('Could not load Excel styling library.'));document.head.appendChild(s)});window.__clmStyledXlsx=true}catch(e){alert((e.message||'Excel styling library unavailable.')+' Please try export again.');return}}
@@ -9654,7 +9713,7 @@ async function exportFile(){
  XLSX.utils.book_append_sheet(wb,ws,'CL Management');
  XLSX.writeFile(wb,'UNIBIC_CL_Management_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
-root.addEventListener('change',e=>{const slot=e.target.closest('[data-clm-slot]');if(slot){const i=Number(slot.dataset.clmSlot),c=slot.value;if(c&&state.selected.some((v,j)=>j!==i&&v===c)){alert('This customer is already selected in another slot.');slot.value=state.selected[i]||'';return}state.selected[i]=c;render();return}if(e.target.id==='clmOutstandingFile'){upload(e.target.files&&e.target.files[0]);return}const f=e.target.closest('[data-cl-field]');if(f){manual(f.dataset.clCode)[f.dataset.clField]=f.value;const card=f.closest('.clm-customer-card');if(['marrie','inst'].includes(f.dataset.clField)){const k=card.querySelectorAll('.clm-kpi b')[3],x=metrics(f.dataset.clCode);if(k)k.textContent=x.currentOs===null?'—':money(x.currentOs)}}});
+root.addEventListener('change',e=>{const slot=e.target.closest('[data-clm-slot]');if(slot){const i=Number(slot.dataset.clmSlot),c=slot.value;if(c&&state.selected.some((v,j)=>j!==i&&v===c)){alert('This customer is already selected in another slot.');slot.value=state.selected[i]||'';return}state.selected[i]=c;render();return}if(e.target.id==='clmOutstandingFile'){upload(e.target.files&&e.target.files[0]);return}if(e.target.id==='clmChequeFile'){uploadChequeCount(e.target.files&&e.target.files[0]);return}const f=e.target.closest('[data-cl-field]');if(f){manual(f.dataset.clCode)[f.dataset.clField]=f.value;const card=f.closest('.clm-customer-card');if(['marrie','inst'].includes(f.dataset.clField)){const k=card.querySelectorAll('.clm-kpi b')[3],x=metrics(f.dataset.clCode);if(k)k.textContent=x.currentOs===null?'—':money(x.currentOs)}}});
 root.addEventListener('input',e=>{const f=e.target.closest('[data-cl-field]');if(f){manual(f.dataset.clCode)[f.dataset.clField]=f.value;if(['marrie','inst'].includes(f.dataset.clField)){const k=f.closest('.clm-customer-card').querySelectorAll('.clm-kpi b')[3],x=metrics(f.dataset.clCode);if(k)k.textContent=x.currentOs===null?'—':money(x.currentOs)}}});
 window.addEventListener('unibic:gsv-data-loaded',render);document.getElementById('clmExport').addEventListener('click',exportFile);document.getElementById('clmClear').addEventListener('click',()=>{state.selected=Array(10).fill('');state.manual={};render()});
 document.querySelectorAll('.nav button[data-tab="clmanagement"]').forEach(b=>b.addEventListener('click',render));render();
