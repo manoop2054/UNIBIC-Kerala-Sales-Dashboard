@@ -9504,6 +9504,7 @@ function metrics(c){
  const bills=[...im.values()].sort((a,b)=>(date(b.date)?.getTime()||0)-(date(a.date)?.getTime()||0));state.hasInvoiceOutstanding=state.hasInvoiceOutstanding||explicit;
  return {rs,current,avg,gt,manual:m,marrie,inst,currentOs:gt===null?null:gt+marrie+inst,bills,explicit};
 }
+function invoiceMatch(x){const bills=x.bills||[],target=Math.round(num(x.gt)*100);if(!(target>0)||!bills.length)return {rows:bills.slice(0,5),matched:false};const pool=bills.slice(0,60),amount=b=>Math.round(num(b.hasOS?b.os:b.total)*100),dp=new Map([[0,[]]]);for(let i=0;i<pool.length;i++){const v=amount(pool[i]);if(v<=0||v>target)continue;for(const [sum,ids] of [...dp.entries()]){const next=sum+v;if(next>target||dp.has(next))continue;dp.set(next,[...ids,i]);if(next===target)return {rows:dp.get(target).map(k=>pool[k]).sort((a,b)=>(date(a.date)?.getTime()||0)-(date(b.date)?.getTime()||0)),matched:true};if(dp.size>100000)break}if(dp.size>100000)break}return {rows:bills.slice(0,5),matched:false}}
 function renderSelectors(){const box=document.getElementById('clmSelectors');box.innerHTML=state.selected.map((c,i)=>'<div class="field"><label for="clmCustomer'+i+'">Customer '+(i+1)+' (optional)</label><select id="clmCustomer'+i+'" data-clm-slot="'+i+'"><option value="">— Select customer —</option>'+candidates().map(x=>'<option value="'+esc(x.code)+'" '+(x.code===c?'selected':'')+'>'+esc(x.code+' — '+x.name)+'</option>').join('')+'</select></div>').join('')}
 function kpi(label,value){return '<div class="clm-kpi"><small>'+esc(label)+'</small><b>'+esc(value)+'</b></div>'}
 function renderCards(){
@@ -9511,7 +9512,7 @@ function renderCards(){
  if(!sel.length){box.innerHTML='<div class="card" style="padding:18px;color:#64748b">Select a customer above to view GSV, GT O/S and invoice details.</div>';return}
  box.innerHTML=sel.map((c,i)=>{
   const x=metrics(c),m=x.manual,customer=candidates().find(z=>z.code===c)||{code:c,name:c};
-  const billRows=x.bills.map(b=>'<tr><td>'+esc(b.area)+'</td><td>'+esc(b.code)+'</td><td>'+esc(b.name)+'</td><td>'+esc(b.group)+'</td><td>'+esc(b.classification)+'</td><td>'+esc(b.order)+'</td><td>'+esc(b.invoice)+'</td><td>'+esc(dateText(b.date))+'</td><td style="text-align:right">'+esc(money(b.total))+'</td></tr>').join('');
+  const match=invoiceMatch(x),billRows=match.rows.map(b=>'<tr><td>'+esc(b.area)+'</td><td>'+esc(b.code)+'</td><td>'+esc(b.name)+'</td><td>'+esc(b.group)+'</td><td>'+esc(b.classification)+'</td><td>'+esc(b.order)+'</td><td>'+esc(b.invoice)+'</td><td>'+esc(dateText(b.date))+'</td><td style="text-align:right">'+esc(money(b.hasOS?b.os:b.total))+'</td></tr>').join('');
   const gt=x.gt===null?'—':money(x.gt);
   return '<article class="clm-customer-card"><div class="clm-card-head"><h3>Customer '+(i+1)+' · '+esc(customer.code)+' · '+esc(customer.name)+'</h3><span>CL Management</span></div><div class="clm-card-body">'+
   '<table class="clm-bill-table"><tbody>'+
@@ -9532,7 +9533,7 @@ function renderCards(){
   '</tbody></table></div>'+
   '<div class="clm-bill-wrap"><table class="clm-bill-table"><thead><tr><th>Area Code</th><th>Customer Code</th><th>Customer Name</th><th>Customer group</th><th>Customer classification group</th><th>sales order no.</th><th>Invoice No</th><th>Invoice Date</th><th>Total</th></tr></thead><tbody>'+
   (billRows||'<tr><td colspan="9">No invoice rows found for this customer.</td></tr>')+'</tbody></table></div>'+
-  '<p class="clm-status">'+(x.bills.length?'Invoice rows: '+x.bills.length+'. GSV invoice Total is billed value, not confirmed unpaid amount.':'No invoice rows found in loaded GSV data.')+'</p>'+
+  '<p class="clm-status">'+(match.matched?'Exact GT O/S match found: '+match.rows.length+' invoice(s).':'No exact GT O/S match; showing latest '+match.rows.length+' invoice(s).')+'</p>'+
   '</div></article>';
  }).join('');
  document.getElementById('clmUploadStatus').textContent=state.uploadMessage;
@@ -9608,15 +9609,16 @@ function exportFile(){
  const pushRow=(row)=>{aoa.push(row);return aoa.length;};
  const blank=()=>Array(9).fill('');
  sel.forEach((c,idx)=>{
-  const x=metrics(c),m=x.manual,cn=candidates().find(z=>z.code===c)||{name:c};
+  const x=metrics(c),m=x.manual,cn=candidates().find(z=>z.code===c)||{name:c},match=invoiceMatch(x);
   const sum1=pushRow(['3 MONTH AVERAGE GSV',x.avg,'','','','','','','']);
   const sum2=pushRow(['Total Billed value in this month',x.current,'','','','','','','']);
   const hdr=pushRow(['CODE','CUSTOMER NAME','NO OF CHEQUES','CURRENT O/S AMOUNT','','','REQUIRED CL AMOUNT','CHAIN CODE','CREDIT TERMS']);
   pushRow(['','','','GT O/S AMOUNT','MARRIE O/S AMOUNT','INST O/S AMOUNT','','','']);
   pushRow([c,cn.name,m.cheques,x.gt===null?'':x.gt,m.marrie,m.inst,m.required,m.chain,m.terms]);
   pushRow(['Area Code','Customer Code','Customer Name','Customer group','Customer classification group','sales order no.','Invoice No','Invoice Date','Total']);
-  if(!x.bills.length)pushRow(blank());
-  else x.bills.forEach(b=>pushRow([b.area,b.code,b.name,b.group,b.classification,b.order,b.invoice,dateText(b.date),b.total]));
+  if(!match.rows.length)pushRow(blank());
+  else match.rows.forEach(b=>pushRow([b.area,b.code,b.name,b.group,b.classification,b.order,b.invoice,dateText(b.date),b.hasOS?b.os:b.total]));
+  pushRow([match.matched?'Invoice matching status: exact GT O/S match':'Invoice matching status: no exact match; latest 5 invoices shown','','','','','','','','']);
   if(idx<sel.length-1)pushRow(blank());
  });
  const ws=XLSX.utils.aoa_to_sheet(aoa);
@@ -9625,7 +9627,7 @@ function exportFile(){
  let rowCursor=0;
  sel.forEach((c,idx)=>{
   merges.push({s:{r:rowCursor+2,c:3},e:{r:rowCursor+2,c:5}});
-  rowCursor+=6+metrics(c).bills.length;
+  rowCursor+=7+invoiceMatch(metrics(c)).rows.length;
   if(idx<sel.length-1)rowCursor+=1;
  });
  ws['!merges']=merges;
