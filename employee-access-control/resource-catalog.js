@@ -12,6 +12,7 @@ const RESOURCES = Object.freeze({
   'tab.soh': ['live soh', 'soh', 'live stock'],
   'tab.alerts': ['alerts', 'discount returns'],
   'tab.reports': ['report center', 'reports', 'report'],
+  'tab.clmanagement': ['cl management', 'customer cl management'],
   'tab.admincenter': ['admin center', 'admin panel'],
   'tab.upload': ['monthly upload', 'data management', 'upload'],
   'tab.targetworking': ['target management', 'target working'],
