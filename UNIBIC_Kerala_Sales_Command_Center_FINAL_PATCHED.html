@@ -9604,7 +9604,7 @@ function exportFile(){
  const ws=XLSX.utils.aoa_to_sheet(aoa);
  ws['!cols']=[{wch:24},{wch:28},{wch:16},{wch:20},{wch:24},{wch:20},{wch:24},{wch:16},{wch:16}];
  // Keep the template's visual grouping: current O/S heading sits over GT/MARRIE/INST.
- let rowCursor=1;
+ let rowCursor=0;
  sel.forEach((c,idx)=>{
   merges.push({s:{r:rowCursor+2,c:3},e:{r:rowCursor+2,c:5}});
   rowCursor+=6+metrics(c).bills.length;
