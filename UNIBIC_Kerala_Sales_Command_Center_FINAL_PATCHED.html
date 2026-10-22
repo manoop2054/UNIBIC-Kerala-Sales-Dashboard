@@ -1743,7 +1743,7 @@ setTimeout(()=>{
 <body><div class="app">
 <aside class="sidebar"><div class="brand"><div class="brandmark">U</div><div><b>UNIBIC</b><small>KERALA SALES COMMAND CENTER</small></div></div>
 <nav class="nav">
-<button class="active" data-tab="executive">&#127968; <span>Executive</span></button><button data-tab="target">&#127919; <span>Target vs Achievement</span></button><button data-tab="sales">&#128200; <span>Sales Analysis</span></button><button data-tab="item">&#128230; <span>Item Intelligence</span></button><button data-tab="dbr">&#128101; <span>DCR From Leap</span></button><button data-tab="invoice">&#129534; <span>Invoice / Customer</span></button><button data-tab="soh">&#128230; <span>LIVE SOH</span></button><button data-tab="alerts">&#128680; <span>Alerts</span></button><button data-tab="reports">&#128202; <span>Report Center</span></button><button data-tab="upload">&#128228; <span>Monthly Upload</span></button><button data-tab="targetworking">&#127919; <span>Target Management</span></button><div class="sidefoot" style="position:static;margin:8px 12px 0;padding-top:8px;border-top:1px solid rgba(255,255,255,.10)">Created by Manoop</div></nav></aside>
+<button class="active" data-tab="executive">&#127968; <span>Executive</span></button><button data-tab="target">&#127919; <span>Target vs Achievement</span></button><button data-tab="sales">&#128200; <span>Sales Analysis</span></button><button data-tab="item">&#128230; <span>Item Intelligence</span></button><button data-tab="dbr">&#128101; <span>DCR From Leap</span></button><button data-tab="invoice">&#129534; <span>Invoice / Customer</span></button><button data-tab="soh">&#128230; <span>LIVE SOH</span></button><button data-tab="alerts">&#128680; <span>Alerts</span></button><button data-tab="reports">&#128202; <span>Report Center</span></button><button data-tab="admincenter">&#128737; <span>Admin Center</span></button><button data-tab="upload">&#128228; <span>Monthly Upload</span></button><button data-tab="targetworking">&#127919; <span>Target Management</span></button><div class="sidefoot" style="position:static;margin:8px 12px 0;padding-top:8px;border-top:1px solid rgba(255,255,255,.10)">Created by Manoop</div></nav></aside>
 <main class="main">
 <div class="top"><div class="title"><h1>UNIBIC Kerala Sales Command Center</h1><p>GSV &#8226; Target &#8226; DBR &#8226; Item &#8226; Invoice &#8226; LIVE SOH &#8226; Reports</p></div><div class="actions"><div class="status"><i id="dot" class="dot"></i><span id="status">Connecting&#8230;</span></div><button class="btn" id="refresh">&#8635; Refresh</button><button class="btn primary" id="quickExport">&#8681; Export</button></div></div>
 
@@ -1998,7 +1998,8 @@ setTimeout(()=>{
       <div id="tmMonths"></div>
     </div>
   </div>
-</section><section id="upload" class="section"><h2 class="sectiontitle">&#128228; Monthly Upload / Data Management</h2><p class="subhead">Load Anchor-wise Target Excel only. Sales data remains connected to the active GSV source; no duplicate Primary Sales upload is required.</p><div class="uploadbox"><b>&#127919; Anchor-wise Target Excel</b><div class="muted" style="font-size:10px;margin-top:6px">Flexible fields supported: Month, Year, Anchor/AnchorName, Target GSV / Target / GSV.</div><input id="targetFile" type="file" accept=".xlsx,.xls,.csv"></div><div class="card" style="margin-top:14px"><div class="cardhead"><h3>Loaded Monthly Files</h3><button class="smallbtn" id="clearUploads">Clear uploaded target session data</button></div><div class="tablewrap"><table><thead><tr><th>Type</th><th>File</th><th>Rows</th><th>Status</th></tr></thead><tbody id="uploadTable"></tbody></table></div></div><div class="card" id="targetWorking" style="margin-top:14px">
+</section><section id="admincenter" class="section"><h2 class="sectiontitle">&#128737; Admin Center</h2><p class="subhead">Manage Employee Master, account status, passwords, tab/report permissions and Region/Area/Anchor Zone scope. Changes are saved through the authenticated backend.</p><div class="card" style="padding:0;overflow:hidden"><iframe title="Employee Access Management" src="/admin-center-preview" style="display:block;width:100%;height:1600px;border:0;background:#f3f7fc" loading="lazy"></iframe></div></section>
+<section id="upload" class="section"><h2 class="sectiontitle">&#128228; Monthly Upload / Data Management</h2><p class="subhead">Load Anchor-wise Target Excel only. Sales data remains connected to the active GSV source; no duplicate Primary Sales upload is required.</p><div class="uploadbox"><b>&#127919; Anchor-wise Target Excel</b><div class="muted" style="font-size:10px;margin-top:6px">Flexible fields supported: Month, Year, Anchor/AnchorName, Target GSV / Target / GSV.</div><input id="targetFile" type="file" accept=".xlsx,.xls,.csv"></div><div class="card" style="margin-top:14px"><div class="cardhead"><h3>Loaded Monthly Files</h3><button class="smallbtn" id="clearUploads">Clear uploaded target session data</button></div><div class="tablewrap"><table><thead><tr><th>Type</th><th>File</th><th>Rows</th><th>Status</th></tr></thead><tbody id="uploadTable"></tbody></table></div></div><div class="card" id="targetWorking" style="margin-top:14px">
   <div class="cardhead">
     <h3>&#127919; Target Working</h3>
     <span>Target Planning / Achievement / Drilldown</span>
@@ -2498,14 +2499,20 @@ async function loadLiveData(){
 var gsvRows=[],activeRows=[],primaryRows=[],targets=[],soh=[],filteredSOH=[],salesSource='ERP GSV';
 const charts={};
 /* ===== SHARED EXCEL UPLOAD API (Q3 TARGET + DCR CLAIMS) ===== */
-const SHARED_UPLOAD_API = 'https://unibic-shared-api.manumulanthuruthy.workers.dev';
 async function sharedSaveDataset(dataset, filename, rows, headers){
+  const authResponse=await fetch('/api/access-control/me',{cache:'no-store',credentials:'same-origin'});
+  if(!authResponse.ok)throw new Error('Sign in before uploading shared business datasets.');
+  const auth=await authResponse.json();
+  if(!auth.success||!auth.user||String(auth.user.employeeId||'').toUpperCase()!=='P2PUF7638'||String(auth.user.role||'').toUpperCase()!=='SUPER_ADMIN')throw new Error('Only the protected Super Admin can upload shared Target or Claims data.');
   const pin = window.prompt('Enter upload PIN to share this Excel file:');
   if(pin === null) return false;
-  const response = await fetch(SHARED_UPLOAD_API + '/api/shared-upload/' + dataset, {
+  // Upload through the authenticated dashboard server. The shared Worker URL and
+  // upload PIN are never sent directly from the browser to the third-party service.
+  const response = await fetch('/api/shared-upload/' + dataset, {
     method: 'POST',
-    headers: {'Content-Type':'application/json', 'X-Upload-Pin':String(pin)},
-    body: JSON.stringify({filename, rows, headers}),
+    credentials: 'same-origin',
+    headers: {'Content-Type':'application/octet-stream'},
+    body: JSON.stringify({filename, rows, headers, pin:String(pin)}),
     cache: 'no-store'
   });
   let result;
@@ -2517,7 +2524,15 @@ async function sharedSaveDataset(dataset, filename, rows, headers){
   return result;
 }
 async function sharedGetDataset(dataset){
-  const response = await fetch(SHARED_UPLOAD_API + '/api/shared-upload/' + dataset, {cache:'no-store'});
+  const authResponse=await fetch('/api/access-control/me',{cache:'no-store',credentials:'same-origin'});
+  if(!authResponse.ok)throw new Error('Sign in before accessing shared business datasets.');
+  const auth=await authResponse.json();
+  if(!auth.success||!auth.user)throw new Error('Sign in before accessing shared business datasets.');
+  const role=String(auth.user.role||'').toUpperCase();
+  const key=dataset==='target'?'tab.target':'tab.dbr';
+  const permission=(auth.permissions||[]).find(item=>item.resourceKey===key);
+  if(!(role==='SUPER_ADMIN'&&String(auth.user.employeeId||'').toUpperCase()==='P2PUF7638')&&!(permission&&permission.canView))throw new Error('Your account does not have permission to view this shared dataset.');
+  const response = await fetch('/api/shared-upload/' + dataset, {cache:'no-store', credentials:'same-origin'});
   let result;
   try { result = await response.json(); }
   catch(e) { throw new Error('Shared API returned an unreadable response (HTTP '+response.status+').'); }
@@ -8002,7 +8017,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
 </script>
-</body></html>
+
 
 
 
@@ -8704,11 +8719,11 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     return head+say('Customers billed: ','Bill cheytha customers: ','ബിൽ ചെയ്ത ഉപഭോക്താക്കൾ: ')+names.length+'\n'+say('Invoice rows: ','Invoice rows: ','ഇൻവോയ്സ് വരികൾ: ')+matching.length+'\n'+say('Distinct invoices: ','Different invoices: ','വ്യത്യസ്ത ഇൻവോയ്സുകൾ: ')+uniqueInvoices.size+'\n'+say('GSV: ','GSV: ','GSV: ')+money(totalGsv)+'\n\n'+names.slice(0,60).map((x,i)=>(i+1)+'. '+x).join('\n')+(names.length>60?'\n… '+(names.length-60)+say(' more.',' per koodi.',' പേർ കൂടി.'):'');
   }
   async function loadChatSharedDatasets(){
-    const base='https://unibic-shared-api.manumulanthuruthy.workers.dev/api/shared-upload/';
+    const base='/api/shared-upload/';
     const tasks=[['target','chatTargetRows'],['claims','chatClaimsRows']];
     await Promise.all(tasks.map(async ([dataset,key])=>{
       try{
-        const response=await fetch(base+dataset,{cache:'no-store'});
+        const response=await fetch(base+dataset,{cache:'no-store',credentials:'same-origin'});
         if(!response.ok)return;
         const result=await response.json();
         if(result&&result.ok===true&&result.uploaded&&result.data&&Array.isArray(result.data.rows)){
@@ -9287,3 +9302,191 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
 })();
 </script>
 
+<style id="eac-login-gate-style">
+#eacLoginGate{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,#061b35ee,#0d3760ee);backdrop-filter:blur(8px);font-family:Inter,Arial,sans-serif}
+#eacLoginGate[hidden]{display:none!important}
+#eacLoginGate .eac-card{width:min(420px,100%);background:#fff;border-radius:16px;padding:28px;box-shadow:0 24px 80px #0005;color:#173454}
+#eacLoginGate .eac-brand{font-size:11px;letter-spacing:2px;font-weight:800;color:#1873d1}
+#eacLoginGate h2{margin:9px 0 6px;font-size:24px}
+#eacLoginGate p{font-size:13px;line-height:1.55;color:#657b93;margin:0 0 18px}
+#eacLoginGate label{display:block;font-size:12px;font-weight:700;margin:12px 0 6px}
+#eacLoginGate input{box-sizing:border-box;width:100%;height:44px;border:1px solid #cbd9e9;border-radius:7px;padding:0 12px;font-size:14px}
+#eacLoginGate button{width:100%;height:44px;border:0;border-radius:7px;background:#1769e0;color:#fff;font-weight:800;margin-top:16px;cursor:pointer}
+#eacLoginGate button:disabled{opacity:.6;cursor:wait}
+#eacLoginError{display:none;color:#b42318;background:#fff1f0;border:1px solid #ffd0cc;border-radius:7px;padding:9px;font-size:12px;margin-top:12px}
+#eacLogoutButton{position:fixed;right:18px;bottom:18px;z-index:1000;border:1px solid #d6e2f0;border-radius:7px;background:#fff;color:#23415f;padding:8px 12px;display:none;cursor:pointer}
+</style>
+<div id="eacLoginGate" role="dialog" aria-modal="true" aria-labelledby="eacLoginTitle">
+  <form class="eac-card" id="eacLoginForm">
+    <div class="eac-brand">UNIBIC · KERALA SALES</div>
+    <h2 id="eacLoginTitle">Employee Login</h2>
+    <p>Sign in with your Employee ID and password to access the dashboard according to your assigned permissions.</p>
+    <label for="eacLoginEmployee">Employee ID</label>
+    <input id="eacLoginEmployee" name="employee_id" autocomplete="username" maxlength="64" required>
+    <label for="eacLoginPassword">Password</label>
+    <input id="eacLoginPassword" name="password" type="password" autocomplete="current-password" maxlength="1024" required>
+    <button id="eacLoginSubmit" type="submit">Secure Sign In</button>
+    <div id="eacLoginError" role="alert"></div>
+  </form>
+</div>
+<button id="eacLogoutButton" type="button">Sign out</button>
+<script id="eac-dashboard-login-gate">
+(function(){
+  const gate=document.getElementById('eacLoginGate');
+  const form=document.getElementById('eacLoginForm');
+  const error=document.getElementById('eacLoginError');
+  const submit=document.getElementById('eacLoginSubmit');
+  const logout=document.getElementById('eacLogoutButton');
+  const showError=message=>{error.textContent=message;error.style.display='block';};
+  let permissionMap=new Map();
+  const reportResource={
+    gsv2:'report.gsv',product:'report.customer-wise',item:'report.item-wise',
+    dbr:'report.dbr-wise',management:'report.gsv',alerts:'report.discount-returns'
+  };
+  function activeReportResource(){
+    const active=document.querySelector('#reportTabs [data-r].active');
+    return active?reportResource[active.getAttribute('data-r')]||'': '';
+  }
+  function applyReportPermissions(){
+    const tabs=document.querySelectorAll('#reportTabs [data-r]');
+    tabs.forEach(button=>{
+      const key=reportResource[button.getAttribute('data-r')];
+      const permission=permissionMap.get(key);
+      button.hidden=!(permission&&permission.canView);
+    });
+    const active=document.querySelector('#reportTabs [data-r].active');
+    if(active&&active.hidden){
+      const first=document.querySelector('#reportTabs [data-r]:not([hidden])');
+      if(first)first.click();
+    }
+    const key=activeReportResource();
+    const permission=permissionMap.get(key)||{};
+    const excel=document.getElementById('enhExcel');
+    if(excel)excel.hidden=!permission.canExport;
+    const print=document.getElementById('enhPDF');
+    if(print)print.hidden=!permission.canPrint;
+    const reportTab=permissionMap.get('tab.reports')||{};
+    document.querySelectorAll('#reportFilters input,#reportFilters select,#reportFilters button,#safeRCAdvancedFilters input,#safeRCAdvancedFilters select').forEach(control=>{
+      control.disabled=!(reportTab.canFilter&&permission.canFilter);
+    });
+  }
+  function installReportPermissionWrappers(){
+    if(window.__eacReportWrappersInstalled)return;
+    window.__eacReportWrappersInstalled=true;
+    if(typeof window.renderReportTabs==='function'){
+      const originalTabs=window.renderReportTabs;
+      window.renderReportTabs=function(){const result=originalTabs.apply(this,arguments);applyReportPermissions();return result;};
+    }
+    if(typeof window.renderReport==='function'){
+      const originalRender=window.renderReport;
+      window.renderReport=function(){const result=originalRender.apply(this,arguments);applyReportPermissions();return result;};
+    }
+  }
+  function installActionPermissionGuard(){
+    if(window.__eacActionGuardInstalled)return;
+    window.__eacActionGuardInstalled=true;
+    document.addEventListener('click',event=>{
+      const button=event.target.closest('button,a');
+      if(!button)return;
+      if(button.dataset.eacAuthorizedAction==='1'){
+        delete button.dataset.eacAuthorizedAction;
+        return;
+      }
+      if(button.hidden||button.disabled)return;
+      const label=((button.innerText||button.getAttribute('aria-label')||button.title||'')+' '+(button.id||'')).toLowerCase();
+      const isExport=/export|excel|download|csv|xlsx/.test(label);
+      const isPrint=/print|pdf/.test(label);
+      if(!isExport&&!isPrint)return;
+      const section=document.querySelector('.section.active');
+      const sectionId=section&&section.id||'executive';
+      let key='tab.'+sectionId;
+      if(sectionId==='reports')key=activeReportResource()||'tab.reports';
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const action=isExport?'export':'print';
+      fetch('/api/access-control/authorize-action',{
+        method:'POST',credentials:'same-origin',cache:'no-store',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action,resourceKey:key})
+      }).then(async response=>{
+        let result={};
+        try{result=await response.json();}catch(_){}
+        if(!response.ok||result.allowed!==true){
+          if(typeof window.toast==='function')window.toast(result.error||(isExport?'Export is not permitted for this resource.':'Print is not permitted for this resource.'));
+          return;
+        }
+        button.dataset.eacAuthorizedAction='1';
+        button.click();
+      }).catch(()=>{
+        if(typeof window.toast==='function')window.toast('Unable to verify permission. Action blocked.');
+      });
+    },true);
+  }
+  function applyPermissions(user){
+    const permissions=Array.isArray(user.permissions)?user.permissions:[];
+    permissionMap=new Map(permissions.map(item=>[String(item.resourceKey||''),item]));
+    window.__eacPermissions=permissionMap;
+    document.querySelectorAll('.nav button[data-tab]').forEach(button=>{
+      const key='tab.'+button.getAttribute('data-tab');
+      const permission=permissionMap.get(key);
+      const allowed=!!(permission&&permission.canView);
+      button.hidden=!allowed;
+      const section=document.getElementById(button.getAttribute('data-tab'));
+      if(section&&!allowed)section.style.display='none';
+    });
+    const adminButton=document.querySelector('.nav button[data-tab="admincenter"]');
+    const isAdmin=['ADMIN','SUPER_ADMIN'].includes(String(user.role||'').toUpperCase());
+    if(adminButton){
+      adminButton.hidden=!isAdmin||!(permissionMap.get('tab.admincenter')||{}).canView;
+      if(!adminButton.dataset.eacLinked){
+        adminButton.dataset.eacLinked='1';
+        adminButton.addEventListener('click',event=>{
+          event.preventDefault();
+          if(!adminButton.hidden){const section=document.getElementById('admincenter');if(section){document.querySelectorAll('.nav button[data-tab]').forEach(b=>b.classList.toggle('active',b===adminButton));document.querySelectorAll('.section').forEach(sec=>sec.classList.toggle('active',sec.id==='admincenter'));window.scrollTo({top:0,behavior:'smooth'});}}
+        });
+      }
+    }
+    document.querySelectorAll('.nav button[data-tab="upload"],.nav button[data-tab="targetworking"]').forEach(button=>{
+      const key='tab.'+button.getAttribute('data-tab');
+      button.hidden=!(permissionMap.get(key)||{}).canView;
+    });
+    if(!(permissionMap.get('tab.target')||{}).canView){
+      try{if(typeof targets!=='undefined')targets=[];['UNIBIC_TARGET_ROWS','UNIBIC_TARGET_HEADERS','UNIBIC_TARGET_FILE','UNIBIC_TARGET_UPLOADED'].forEach(key=>localStorage.removeItem(key));}catch(_){}
+    }
+    if(!(permissionMap.get('tab.dbr')||{}).canView){
+      try{document.getElementById('ctClear')?.click();}catch(_){}
+    }
+    installReportPermissionWrappers();
+    installActionPermissionGuard();
+    applyReportPermissions();
+  }
+  async function checkSession(){
+    try{
+      const response=await fetch('/api/access-control/me',{cache:'no-store',credentials:'same-origin'});
+      if(!response.ok){gate.hidden=false;logout.style.display='none';return;}
+      const payload=await response.json();
+      if(!payload.success||!payload.user){gate.hidden=false;return;}
+      gate.hidden=true;logout.style.display='block';
+      applyPermissions({...payload.user,permissions:payload.permissions||[]});
+    }catch(_){gate.hidden=false;showError('Unable to contact the login service. Please retry.');}
+  }
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();error.style.display='none';submit.disabled=true;submit.textContent='Signing in…';
+    try{
+      const response=await fetch('/api/access-control/login',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({employee_id:document.getElementById('eacLoginEmployee').value.trim(),password:document.getElementById('eacLoginPassword').value})});
+      const payload=await response.json().catch(()=>({}));
+      if(!response.ok||!payload.success)throw new Error(payload.error||'Sign in failed. Check your Employee ID and password.');
+      location.reload();
+    }catch(e){showError(e.message||'Sign in failed.');}
+    finally{submit.disabled=false;submit.textContent='Secure Sign In';}
+  });
+  logout.addEventListener('click',async()=>{
+    logout.disabled=true;
+    try{await fetch('/api/access-control/logout',{method:'POST',credentials:'same-origin'});}catch(_){}
+    location.reload();
+  });
+  checkSession();
+})();
+</script>
+
+</body></html>

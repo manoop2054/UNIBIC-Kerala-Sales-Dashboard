@@ -9,8 +9,13 @@ const { pipeline } = require('stream/promises');
 const { performance } = require('perf_hooks');
 const XLSX = require('xlsx');
 const ExcelJS = require('exceljs');
+const { getAccessControlPool, initializeAccessControlDatabase, getAccessControlDatabaseStatus } = require('./employee-access-control/postgres-db');
+const { mountAccessControlRoutes } = require('./employee-access-control/access-control-routes');
+const { createDashboardSessionGuard, sendScopedJsonCache } = require('./employee-access-control/dashboard-data-security');
 
 const app = express();
+// Render terminates HTTPS at its trusted proxy; use one proxy hop for req.ip rate limiting.
+app.set('trust proxy', 1);
 app.use(express.json({ limit: '24kb' }));
 const PORT = process.env.PORT || 10000;
 const DASHBOARD = path.join(__dirname, 'UNIBIC_Kerala_Sales_Command_Center_FINAL_PATCHED.html');
@@ -44,10 +49,19 @@ const GSV_FIELDS = new Set([
 const inFlight = new Map();
 const gsvStatus = { stage: 'idle', rows: 0, startedAt: null, updatedAt: null, error: null };
 app.get('/', (req, res) => res.sendFile(DASHBOARD));
+app.get('/admin-center-preview', (req, res) => res.sendFile(path.join(__dirname, 'employee-access-control', 'admin-panel-preview.html')));
 app.get('/health', (req, res) => res.json({ ok: true, service: 'UNIBIC Sales Dashboard API' }));
-app.get('/api/gsv/status', (req, res) => res.json({ ...gsvStatus, inProgress: inFlight.has('gsv-compact.json') }));
+const dashboardGuardOptions = {
+  getPool: getAccessControlPool,
+  initializeDatabase: initializeAccessControlDatabase,
+  getDatabaseStatus: getAccessControlDatabaseStatus
+};
+const requireDashboardSession = createDashboardSessionGuard({ ...dashboardGuardOptions, dataKind: 'gsv' });
+const requireSohSession = createDashboardSessionGuard({ ...dashboardGuardOptions, dataKind: 'soh' });
+const requireChatSession = createDashboardSessionGuard({ ...dashboardGuardOptions, dataKind: 'chat' });
+app.get('/api/gsv/status', requireDashboardSession, (req, res) => res.json({ ...gsvStatus, inProgress: inFlight.has('gsv-compact.json') }));
 
-app.get('/api/gsv/summary', async (req, res) => {
+app.get('/api/gsv/summary', requireDashboardSession, async (req, res) => {
   try {
     await getCache('gsv-compact.json', buildGsvCache);
     res.json({
@@ -304,19 +318,25 @@ async function sendJsonCache(req, res, file) {
   });
 }
 
-app.get(['/api/gsv', '/api/live-gsv'], async (req, res) => {
-  try { await sendJsonCache(req, res, await getCache('gsv-compact.json', buildGsvCache)); }
-  catch (error) {
+app.get(['/api/gsv', '/api/live-gsv'], requireDashboardSession, async (req, res) => {
+  try {
+    const file = await getCache('gsv-compact.json', buildGsvCache);
+    if (req.isProtectedSuperAdmin) await sendJsonCache(req, res, file);
+    else await sendScopedJsonCache(req, res, file);
+  } catch (error) {
     console.error('GSV load failed:', error.stack || error.message);
-    res.status(500).json({ error: 'GSV processing failed', detail: error.message });
+    if (!res.headersSent) res.status(500).json({ error: 'GSV processing failed', detail: error.message });
   }
 });
 
-app.get(['/api/soh', '/api/live-soh'], async (req, res) => {
-  try { await sendJsonCache(req, res, await getCache('soh.json', buildSohCache)); }
-  catch (error) {
+app.get(['/api/soh', '/api/live-soh'], requireSohSession, async (req, res) => {
+  try {
+    const file = await getCache('soh.json', buildSohCache);
+    if (req.isProtectedSuperAdmin) await sendJsonCache(req, res, file);
+    else await sendScopedJsonCache(req, res, file);
+  } catch (error) {
     console.error('SOH load failed:', error.stack || error.message);
-    res.status(500).json({ error: 'SOH processing failed', detail: error.message });
+    if (!res.headersSent) res.status(500).json({ error: 'SOH processing failed', detail: error.message });
   }
 });
 
@@ -429,7 +449,7 @@ async function callGeminiDashboardTool(prompt) {
   }
 }
 
-app.post('/api/chat/interpret', async (req, res) => {
+app.post('/api/chat/interpret', requireChatSession, async (req, res) => {
   if (!process.env.GEMINI_API_KEY) return res.status(503).json({ error: 'Gemini unavailable; local chatbot fallback remains available.' });
   const question = typeof req.body?.question === 'string' ? req.body.question.trim().slice(0, 2000) : '';
   if (!question) return res.status(400).json({ error: 'Question is required.' });
@@ -461,7 +481,7 @@ app.post('/api/chat/interpret', async (req, res) => {
 
 // This optional language layer may only rephrase the already-computed local answer.
 // All figures and filtering remain in the dashboard's local query engine.
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', requireChatSession, async (req, res) => {
   if (!process.env.GEMINI_API_KEY) return res.status(503).json({ error: 'Gemini unavailable; local chatbot fallback remains available.' });
   const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
   const now = Date.now(), entry = chatRate.get(ip);
@@ -480,8 +500,19 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+mountAccessControlRoutes(app, {
+  getPool: getAccessControlPool,
+  initializeDatabase: initializeAccessControlDatabase,
+  getDatabaseStatus: getAccessControlDatabaseStatus
+});
+
 app.listen(PORT, () => {
   console.log('Server running on', PORT);
+  // Initialize the isolated Employee Access Control database without blocking
+  // startup of the existing dashboard if PostgreSQL is unavailable.
+  initializeAccessControlDatabase()
+    .then(() => console.log('Employee Access Control database status:', JSON.stringify(getAccessControlDatabaseStatus())))
+    .catch(() => console.warn('Employee Access Control database is not ready; existing dashboard remains available.'));
   // Warm caches in the background after the HTTP listener is ready. Keep the large GSV
   // and LIVE SOH workbook processing sequential to reduce peak memory on small Render plans.
   setTimeout(() => {
