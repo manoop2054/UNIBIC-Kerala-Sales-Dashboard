@@ -9778,7 +9778,7 @@ async function exportFile(){
   const kind=rowKinds[r]||'detail';
   for(let c=range.s.c;c<=range.e.c;c++){
    const addr=XLSX.utils.encode_cell({r,c});let cell=ws[addr];if(!cell)cell=ws[addr]={t:'s',v:''};
-   if(typeof cell.v==='number')cell.z='#,##0.00';
+   if(typeof cell.v==='number')cell.z=(kind==='topSummaryData'&&c===0)?'0':'#,##0.00';
    if(styles[kind])cell.s=styles[kind];
    else cell.s={alignment:{vertical:'center'},border:{bottom:{style:'hair',color:{rgb:'D9E2F3'}},left:{style:'hair',color:{rgb:'D9E2F3'}},right:{style:'hair',color:{rgb:'D9E2F3'}}},...(r%2?{fill:{fgColor:{rgb:'F7FAFC'}}}:{})};
   }
