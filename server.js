@@ -43,7 +43,12 @@ const GSV_FIELDS = new Set([
   'Line_Discount_Percent','Line Discount Percent','LineDiscountPercent','Scheme_Discount',
   'Scheme Discount','Scheme_Discount_Percent','Scheme Discount Percent','Discount_Percent','Discount Percent',
   'AssesableValue','AssessableValue','Assesable Value','LocationCode','Location Code','Location_Code',
-  'AnchorZoneName','Anchor Zone Name','ANCHOR ZONENAME','Anchor Zone','AnchorZone'
+  'AnchorZoneName','Anchor Zone Name','ANCHOR ZONENAME','Anchor Zone','AnchorZone',
+  // CL Management: preserve customer classification and invoice outstanding fields when present in source.
+  'Customer_Code','Customer Code','CustomerCode','Customer_No','Customer No','Customer Number',
+  'Customer_Classification_Group','Customer Classification Group','Customer_Classification','Customer Classification','Classification Group',
+  'Outstanding_Amount','Outstanding Amount','Open_Amount','Open Amount','Remaining_Amount','Remaining Amount',
+  'Balance_Due','Balance Due','Amount_Remaining','Amount Remaining','GT O/S AMOUNT','GT O/S Amount','GT OS Amount','Current O/S Amount'
 ]);
 
 const inFlight = new Map();
