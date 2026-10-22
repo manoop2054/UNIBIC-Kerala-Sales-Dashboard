@@ -71,7 +71,7 @@ body.eac-locked #eacLoginGate{display:grid}
     ['tab.sales','Sales Analysis','▤'],['tab.item','Item Intelligence','▣'],
     ['tab.dbr','DCR From Leap','♟'],['tab.invoice','Invoice / Customer','▧'],
     ['tab.soh','LIVE SOH','⬡'],['tab.alerts','Alerts','♧'],
-    ['tab.reports','Report Center','▤'],['tab.admincenter','Admin Center','⬟'],
+    ['tab.reports','Report Center','▤'],['tab.clmanagement','CL Management','▤'],['tab.admincenter','Admin Center','⬟'],
     ['tab.upload','Monthly Upload','▰'],['tab.targetworking','Target Management','◎']
   ];
   const reportResources=[
@@ -250,7 +250,14 @@ body.eac-locked #eacLoginGate{display:grid}
   function renderConnectedTabs(){
     $('tabRows').innerHTML=topResources.map(item=>{
       const p=permissionFor(item[0]);
-      return '<div class="tabrow"><span class="tabico">'+item[2]+'</span><span class="tabname">'+item[1]+'</span><span>'+switchHTMLConnected(item[0],p.canView,'tab')+'</span><button type="button" class="detail" style="border:0;background:transparent;padding:0;cursor:pointer" data-eac-details="'+esc(item[0])+'">View Details</button><span class="chev">›</span></div>';
+      const clAdminOnly=item[0]==='tab.clmanagement';
+      const clRoleAllowed=!!(selected&&['ADMIN','SUPER_ADMIN'].includes(String(selected.role||'').toUpperCase()));
+      if(clAdminOnly){
+        // CL Management is role-restricted, not a grantable employee permission.
+        p.canView=clRoleAllowed;
+        p.canFilter=clRoleAllowed;p.canExport=clRoleAllowed;p.canPrint=clRoleAllowed;
+      }
+      return '<div class="tabrow"><span class="tabico">'+item[2]+'</span><span class="tabname">'+item[1]+(clAdminOnly?' <span style="color:#b45309;font-size:9px;font-weight:700">(Admin/Super Admin only)</span>':'')+'</span><span>'+switchHTMLConnected(item[0],p.canView,'tab',undefined,clAdminOnly)+'</span><button type="button" class="detail" style="border:0;background:transparent;padding:0;cursor:pointer" data-eac-details="'+esc(item[0])+'"'+(clAdminOnly?' disabled title="CL Management access is restricted by role"':'')+'>'+(clAdminOnly?'Role locked':'View Details')+'</button><span class="chev">›</span></div>';
     }).join('');
     document.querySelectorAll('[data-eac-details]').forEach(el=>el.addEventListener('click',()=>openTabDetails(el.dataset.eacDetails)));
     document.querySelectorAll('[data-eac-tab]').forEach(el=>el.addEventListener('change',()=>{
@@ -260,8 +267,8 @@ body.eac-locked #eacLoginGate{display:grid}
       renderConnectedTabs();renderConnectedReports();
     }));
   }
-  function switchHTMLConnected(key,checked,kind,action){
-    return '<label class="switch"><input class="eac-check" type="checkbox" data-eac-'+kind+'="'+esc(key)+'"'+(action?' data-eac-action="'+action+'"':'')+(checked?' checked':'')+'><span class="slider"></span></label>';
+  function switchHTMLConnected(key,checked,kind,action,disabled){
+    return '<label class="switch"><input class="eac-check" type="checkbox" data-eac-'+kind+'="'+esc(key)+'"'+(action?' data-eac-action="'+action+'"':'')+(checked?' checked':'')+(disabled?' disabled title="CL Management access is role-restricted"':'')+'><span class="slider"></span></label>';
   }
   function renderConnectedReports(){
     const q=$('reportSearch').value.toLowerCase();
