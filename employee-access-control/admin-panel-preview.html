@@ -283,7 +283,22 @@ body.eac-locked #eacLoginGate{display:grid}
     if(employees.some(e=>e.employee_id===existing))await loadEmployee(existing);
     else if(employees.length)await loadEmployee(employees[0].employee_id);
     else await loadEmployee('');
+    renderEmployeeDirectory();
     refreshScopeLists();
+  }
+  function renderEmployeeDirectory(){
+    const select=$('employeeSelect'), rows=$('employeeDirectoryRows');
+    if(!select||!rows)return;
+    const current=selected?.employee_id||$('empid').value.trim().toUpperCase();
+    select.innerHTML='<option value="">Select an employee…</option>'+employees.map(e=>'<option value="'+esc(e.employee_id)+'">'+esc(e.employee_id+' — '+(e.employee_name||'Name unavailable'))+'</option>').join('');
+    select.value=employees.some(e=>e.employee_id===current)?current:'';
+    if(!employees.length){rows.innerHTML='<tr><td colspan="5">No employee records returned by the database.</td></tr>';return;}
+    rows.innerHTML=employees.map(e=>{
+      const id=String(e.employee_id||''), count=(e.permissions||[]).filter(p=>p&&p.canView===true).length;
+      const status=String(e.status||'UNKNOWN').toUpperCase();
+      return '<tr data-employee-row="'+esc(id)+'" class="'+(id===current?'dir-selected':'')+'"><td>'+esc(id)+'</td><td>'+esc(e.employee_name||'')+'</td><td>'+esc(roleLabel(String(e.role||'')))+'</td><td><span class="dir-status '+(status==='ACTIVE'?'':'inactive')+'">'+esc(status)+'</span></td><td>'+count+'</td></tr>';
+    }).join('');
+    rows.querySelectorAll('[data-employee-row]').forEach(row=>row.addEventListener('click',()=>loadEmployee(row.dataset.employeeRow).catch(error=>toastSafe(error.message||'Unable to load employee.'))));
   }
   async function loadEmployee(id){
     const normalized=String(id||'').trim().toUpperCase();
@@ -298,6 +313,7 @@ body.eac-locked #eacLoginGate{display:grid}
       const first=(selected.scopes||[]).find(s=>s.region);
       scopeValues={region:first?.region||'',area:first?.area||'',anchorZone:first?.anchorZone||''};
       $('empid').value=selected.employee_id;$('empname').value=selected.employee_name||'';
+      if($('employeeSelect'))$('employeeSelect').value=selected.employee_id;
       $('role').value=selected.role;
       $('status').value=selected.status;
     }else{
@@ -312,7 +328,7 @@ body.eac-locked #eacLoginGate{display:grid}
     $('save').disabled=protectedAccount||(ordinaryAdmin&&selected&&['ADMIN','SUPER_ADMIN'].includes(selected.role));
     $('save').title=protectedAccount?'Protected Super Admin account cannot be edited':(ordinaryAdmin&&selected&&selected.role==='ADMIN'?'Only Super Admin can manage Admin accounts':'');
     if(protectedAccount)toastSafe('Protected Super Admin account: editing is disabled.');
-    refreshScopeLists();renderConnectedTabs();renderConnectedReports();
+    renderEmployeeDirectory();refreshScopeLists();renderConnectedTabs();renderConnectedReports();
   }
   async function saveEmployee(){
     const id=$('empid').value.trim().toUpperCase();
@@ -428,6 +444,8 @@ body.eac-locked #eacLoginGate{display:grid}
       if(item.textContent.includes('Settings'))item.addEventListener('click',()=>toastSafe('Security settings are managed in the hosting/database configuration; no public setting changes are exposed here.'));
     });
     $('load').onclick=()=>loadEmployee($('empid').value).catch(error=>toastSafe(error.message));
+    $('employeeSelect').onchange=()=>{if($('employeeSelect').value)loadEmployee($('employeeSelect').value).catch(error=>toastSafe(error.message));};
+    $('refreshEmployeeDirectory').onclick=()=>loadEmployees().then(()=>toastSafe('Employee list refreshed.')).catch(error=>toastSafe(error.message||'Unable to refresh employee list.'));
     $('save').onclick=()=>saveEmployee();
     $('reset').onclick=()=>loadEmployee($('empid').value).catch(error=>toastSafe(error.message));
     $('reportSearch').oninput=renderConnectedReports;
