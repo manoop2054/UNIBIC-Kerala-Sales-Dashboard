@@ -9736,6 +9736,22 @@ async function exportFile(){
  const merges=[];
  const pushRow=(row,kind='detail')=>{aoa.push(row);rowKinds.push(kind);return aoa.length;};
  const blank=()=>Array(9).fill('');
+ // Summary table appears first in the exported workbook, before all customer details.
+ pushRow(['CUSTOMER CL SUMMARY','','','','','','','',''],'topSummaryTitle');
+ pushRow(['Customer Code','Customer No','Cheque Count','CL Amount','','','','',''],'topSummaryHeader');
+ let totalCheques=0,totalCL=0;
+ sel.forEach(c=>{
+  const x=metrics(c),m=x.manual,cn=candidates().find(z=>z.code===c)||{code:c,name:c};
+  const sourceRow=(x.rs||[])[0]||{};
+  const customerNo=first(sourceRow,['Customer_No','Customer No','Customer_Number','Customer Number','Sell_to_Customer_No','Sell to Customer No','Ship_to_Code','Ship to Code','Billed_to_Code'])||c;
+  const chequeCount=num(m.cheques),clAmount=num(m.required);
+  totalCheques+=chequeCount;totalCL+=clAmount;
+  pushRow([c,customerNo,chequeCount,clAmount,'','','','',''],'topSummaryData');
+ });
+ pushRow(['TOTAL','','',totalCL,'','','','',''],'topSummaryTotal');
+ aoa[aoa.length-1][2]=totalCheques;
+ pushRow(blank());
+ merges.push({s:{r:0,c:0},e:{r:0,c:3}});
  sel.forEach((c,idx)=>{
   const x=metrics(c),m=x.manual,cn=candidates().find(z=>z.code===c)||{name:c},match=invoiceMatch(x);
   const sum1=pushRow(['3 MONTH AVERAGE GSV',x.avg,'','','','','','',''],'summary');
@@ -9752,7 +9768,7 @@ async function exportFile(){
  const ws=XLSX.utils.aoa_to_sheet(aoa);
  ws['!cols']=[{wch:24},{wch:28},{wch:16},{wch:20},{wch:24},{wch:20},{wch:24},{wch:16},{wch:16}];
  // Keep the template's visual grouping: current O/S heading sits over GT/MARRIE/INST.
- let rowCursor=0;
+ let rowCursor=sel.length+4;
  sel.forEach((c,idx)=>{
   merges.push({s:{r:rowCursor+2,c:3},e:{r:rowCursor+2,c:5}});
   rowCursor+=7+invoiceMatch(metrics(c)).rows.length;
@@ -9760,7 +9776,7 @@ async function exportFile(){
  });
  ws['!merges']=merges;
  const range=XLSX.utils.decode_range(ws['!ref']);
- const styles={summary:{fill:{fgColor:{rgb:'DDEBF7'}},font:{bold:true,color:{rgb:'17365D'}},alignment:{vertical:'center'},border:{bottom:{style:'thin',color:{rgb:'9EADBA'}}}},customerHeader:{fill:{fgColor:{rgb:'1F4E78'}},font:{bold:true,color:{rgb:'FFFFFF'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'17365D'}},bottom:{style:'medium',color:{rgb:'17365D'}},left:{style:'thin',color:{rgb:'D9EAF7'}},right:{style:'thin',color:{rgb:'D9EAF7'}}}},subHeader:{fill:{fgColor:{rgb:'D9EAD3'}},font:{bold:true,color:{rgb:'274E13'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{bottom:{style:'thin',color:{rgb:'93C47D'}}}},customerData:{fill:{fgColor:{rgb:'FFF2CC'}},font:{bold:true,color:{rgb:'7F6000'}},alignment:{vertical:'center'},border:{bottom:{style:'thin',color:{rgb:'D6B656'}}}},invoiceHeader:{fill:{fgColor:{rgb:'38761D'}},font:{bold:true,color:{rgb:'FFFFFF'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'274E13'}},bottom:{style:'medium',color:{rgb:'274E13'}},left:{style:'thin',color:{rgb:'D9EAD3'}},right:{style:'thin',color:{rgb:'D9EAD3'}}}},status:{fill:{fgColor:{rgb:'EADCF8'}},font:{italic:true,color:{rgb:'674EA7'}},alignment:{vertical:'center'}}};
+ const styles={topSummaryTitle:{fill:{fgColor:{rgb:'1F4E78'}},font:{bold:true,color:{rgb:'FFFFFF'},sz:14},alignment:{horizontal:'center',vertical:'center'},border:{top:{style:'medium',color:{rgb:'17365D'}},bottom:{style:'medium',color:{rgb:'17365D'}}}},topSummaryHeader:{fill:{fgColor:{rgb:'D9EAD3'}},font:{bold:true,color:{rgb:'274E13'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'93C47D'}},bottom:{style:'medium',color:{rgb:'38761D'}},left:{style:'thin',color:{rgb:'93C47D'}},right:{style:'thin',color:{rgb:'93C47D'}}}},topSummaryData:{fill:{fgColor:{rgb:'F7FBF5'}},alignment:{vertical:'center'},border:{bottom:{style:'thin',color:{rgb:'B7C9B1'}},left:{style:'thin',color:{rgb:'D9EAD3'}},right:{style:'thin',color:{rgb:'D9EAD3'}}}},topSummaryTotal:{fill:{fgColor:{rgb:'FFF2CC'}},font:{bold:true,color:{rgb:'7F6000'}},alignment:{vertical:'center'},border:{top:{style:'medium',color:{rgb:'D6B656'}},bottom:{style:'double',color:{rgb:'D6B656'}}}},summary:{fill:{fgColor:{rgb:'DDEBF7'}},font:{bold:true,color:{rgb:'17365D'}},alignment:{vertical:'center'},border:{bottom:{style:'thin',color:{rgb:'9EADBA'}}}},customerHeader:{fill:{fgColor:{rgb:'1F4E78'}},font:{bold:true,color:{rgb:'FFFFFF'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'17365D'}},bottom:{style:'medium',color:{rgb:'17365D'}},left:{style:'thin',color:{rgb:'D9EAF7'}},right:{style:'thin',color:{rgb:'D9EAF7'}}}},subHeader:{fill:{fgColor:{rgb:'D9EAD3'}},font:{bold:true,color:{rgb:'274E13'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{bottom:{style:'thin',color:{rgb:'93C47D'}}}},customerData:{fill:{fgColor:{rgb:'FFF2CC'}},font:{bold:true,color:{rgb:'7F6000'}},alignment:{vertical:'center'},border:{bottom:{style:'thin',color:{rgb:'D6B656'}}}},invoiceHeader:{fill:{fgColor:{rgb:'38761D'}},font:{bold:true,color:{rgb:'FFFFFF'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'274E13'}},bottom:{style:'medium',color:{rgb:'274E13'}},left:{style:'thin',color:{rgb:'D9EAD3'}},right:{style:'thin',color:{rgb:'D9EAD3'}}}},status:{fill:{fgColor:{rgb:'EADCF8'}},font:{italic:true,color:{rgb:'674EA7'}},alignment:{vertical:'center'}}};
  for(let r=range.s.r;r<=range.e.r;r++){
   const kind=rowKinds[r]||'detail';
   for(let c=range.s.c;c<=range.e.c;c++){
@@ -9770,7 +9786,7 @@ async function exportFile(){
    else cell.s={alignment:{vertical:'center'},border:{bottom:{style:'hair',color:{rgb:'D9E2F3'}},left:{style:'hair',color:{rgb:'D9E2F3'}},right:{style:'hair',color:{rgb:'D9E2F3'}}},...(r%2?{fill:{fgColor:{rgb:'F7FAFC'}}}:{})};
   }
  }
- ws['!rows']=rowKinds.map(k=>({hpt:['customerHeader','invoiceHeader'].includes(k)?30:['summary','customerData','subHeader'].includes(k)?23:20}));
+ ws['!rows']=rowKinds.map(k=>({hpt:k==='topSummaryTitle'?28:['customerHeader','invoiceHeader','topSummaryHeader'].includes(k)?30:['summary','customerData','subHeader','topSummaryData','topSummaryTotal'].includes(k)?23:20}));
  ws['!freeze']={xSplit:0,ySplit:0};
  const wb=XLSX.utils.book_new();
  XLSX.utils.book_append_sheet(wb,ws,'CL Management');
