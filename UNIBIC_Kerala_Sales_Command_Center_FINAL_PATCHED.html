@@ -9480,7 +9480,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
 (function(){
 'use strict';
 const root=document.getElementById('clmanagement');if(!root)return;
-const state={selected:Array(10).fill(''),manual:{},outstanding:{},uploadMessage:'GT O/S file not uploaded in this session.',hasInvoiceOutstanding:false};
+const state={selected:Array(10).fill(''),manual:{},outstanding:{},uploadedCustomers:[],uploadMessage:'GT O/S file not uploaded in this session.',hasInvoiceOutstanding:false};
 const aliases={code:['Customer_Code','Customer Code','CustomerCode','Customer_No','Customer No','Customer Number','Sell_to_Customer_No','Sell to Customer No','Ship_to_Code','Ship to Code','Billed_to_Code','DBR_Code','DBR Code','Customer_Account','Customer Account'],name:['Customer_Name','Customer Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name','DBR_Name'],os:['Outstanding_Amount','Outstanding Amount','Open_Amount','Open Amount','Remaining_Amount','Remaining Amount','Balance_Due','Balance Due','Amount_Remaining','Amount Remaining','GT O/S AMOUNT','GT O/S Amount','GT OS Amount','Current O/S Amount'],class:['Customer_Classification_Group','Customer Classification Group','Customer_Classification','Customer Classification','Classification Group'],group:['Customer_Posting_Group','Customer Posting Group','Customer_Group','Customer Group'],order:['Order_No','Order No','Order','Sales_Order_No','Sales Order No','Sales Order Number'],invoice:['Invoice_No','Invoice No','Invoice','Document_No','Document No'],date:['PostingDate','Posting Date','Date','Invoice Date','Document Date'],area:['AreaCode','Area Code','Area','REGION','Region']};
 const norm=v=>String(v==null?'':v).trim().toLowerCase().replace(/[^a-z0-9]/g,'');
 function first(r,ks){for(const k of ks)if(r&&r[k]!==undefined&&r[k]!==null&&String(r[k]).trim()!=='')return r[k];return ''}
@@ -9492,7 +9492,7 @@ function money(v){return '₹'+num(v).toLocaleString('en-IN',{minimumFractionDig
 function date(v){if(v instanceof Date&&!isNaN(v))return v;if(v==null||v==='')return null;const d=new Date(v);return isNaN(d)?null:d}
 function dateText(v){const d=date(v);return d?d.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'}):String(v||'')}
 function rows(){return typeof gsvRows!=='undefined'&&Array.isArray(gsvRows)?gsvRows:[]}
-function candidates(){const m=new Map();rows().forEach(r=>{const c=code(r);if(c&&!m.has(c))m.set(c,{code:c,name:name(r)||c})});return [...m.values()].sort((a,b)=>a.code.localeCompare(b.code))}
+function candidates(){const m=new Map();rows().forEach(r=>{const c=code(r);if(c&&!m.has(c.toUpperCase()))m.set(c.toUpperCase(),{code:c,name:name(r)||c})});(state.uploadedCustomers||[]).forEach(x=>{const k=String(x.code||'').toUpperCase();if(k){const old=m.get(k);m.set(k,{code:old?old.code:x.code,name:(old&&old.name&&old.name!==old.code)?old.name:(x.name||old?.name||x.code)})}});return [...m.values()].sort((a,b)=>a.code.localeCompare(b.code))}
 function manual(c){if(!state.manual[c])state.manual[c]={cheques:'',required:'',marrie:'0',inst:'0',chain:'GT',terms:'10-Days'};return state.manual[c]}
 function customerRows(c){return rows().filter(r=>code(r)===c)}
 function monthSum(rs,y,m){return rs.reduce((s,r)=>{const d=date(r.__date||first(r,aliases.date));return d&&d.getFullYear()===y&&d.getMonth()===m?s+num(r.__gsv??r.GSV??r.AmountToCustomer):s},0)}
@@ -9577,9 +9577,11 @@ async function upload(file){
   const map={}, nameMap={}; let rowsRead=0;
   const cleanCode=v=>String(v??'').trim().toUpperCase().replace(/\s+/g,'');
   const baseCode=v=>cleanCode(v).replace(/-\d+$/,'');
+  const customerDirectory=new Map();
   for(let ri=headerRow+1;ri<grid.length;ri++){
    const row=grid[ri]||[], rawCode=row[ci], customerName=String(row[ni]??'').trim();
    const c=cleanCode(rawCode); if(!c)continue;
+   if(!customerDirectory.has(c))customerDirectory.set(c,{code:c,name:customerName||c});
    const amountRaw=row[ai];
    if(amountRaw===''||amountRaw===null||amountRaw===undefined)continue;
    const amount=num(amountRaw);
@@ -9590,11 +9592,13 @@ async function upload(file){
    if(customerName){nameMap[norm(customerName)]=(nameMap[norm(customerName)]||0)+amount;}
    rowsRead++;
   }
-  if(!rowsRead)throw Error('The detected Balance as at column has no customer amounts below the header.');
+  if(!customerDirectory.size)throw Error('No customer codes found below the detected customer header.');
+  if(!rowsRead)throw Error('Customer codes were found, but the detected Balance as at column has no customer amounts below the header.');
+  state.uploadedCustomers=[...customerDirectory.values()];
   state.outstanding=map;
   state.outstandingByName=nameMap;
-  state.uploadMessage='Loaded GT O/S from '+file.name+' · sheet: '+chosenSheet+' · code: '+(grid[headerRow][ci]||'Cust Account')+' · Balance as at column '+(ai+1)+' · '+rowsRead+' rows summed.';
-  renderCards();
+  state.uploadMessage='Excel uploaded successfully: '+file.name+' · sheet: '+chosenSheet+' · '+state.uploadedCustomers.length+' customers loaded · '+rowsRead+' O/S rows summed.';
+  render();
  }catch(e){
   state.uploadMessage='Upload failed: '+(e.message||String(e));
   document.getElementById('clmUploadStatus').textContent=state.uploadMessage;
