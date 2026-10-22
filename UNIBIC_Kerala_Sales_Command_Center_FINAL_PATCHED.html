@@ -220,6 +220,8 @@ async function loadLiveData(){
     }
 
     setStatus('Connected',false);
+    // Notify modules that depend on GSV rows, including CL Management selectors.
+    window.dispatchEvent(new Event('unibic:gsv-data-loaded'));
 
     if($('last')){
       $('last').textContent='Last refresh: '+new Date().toLocaleString('en-IN');
@@ -9640,7 +9642,7 @@ function exportFile(){
 }
 root.addEventListener('change',e=>{const slot=e.target.closest('[data-clm-slot]');if(slot){const i=Number(slot.dataset.clmSlot),c=slot.value;if(c&&state.selected.some((v,j)=>j!==i&&v===c)){alert('This customer is already selected in another slot.');slot.value=state.selected[i]||'';return}state.selected[i]=c;render();return}if(e.target.id==='clmOutstandingFile'){upload(e.target.files&&e.target.files[0]);return}const f=e.target.closest('[data-cl-field]');if(f){manual(f.dataset.clCode)[f.dataset.clField]=f.value;const card=f.closest('.clm-customer-card');if(['marrie','inst'].includes(f.dataset.clField)){const k=card.querySelectorAll('.clm-kpi b')[3],x=metrics(f.dataset.clCode);if(k)k.textContent=x.currentOs===null?'—':money(x.currentOs)}}});
 root.addEventListener('input',e=>{const f=e.target.closest('[data-cl-field]');if(f){manual(f.dataset.clCode)[f.dataset.clField]=f.value;if(['marrie','inst'].includes(f.dataset.clField)){const k=f.closest('.clm-customer-card').querySelectorAll('.clm-kpi b')[3],x=metrics(f.dataset.clCode);if(k)k.textContent=x.currentOs===null?'—':money(x.currentOs)}}});
-document.getElementById('clmExport').addEventListener('click',exportFile);document.getElementById('clmClear').addEventListener('click',()=>{state.selected=Array(10).fill('');state.manual={};render()});
+window.addEventListener('unibic:gsv-data-loaded',render);document.getElementById('clmExport').addEventListener('click',exportFile);document.getElementById('clmClear').addEventListener('click',()=>{state.selected=Array(10).fill('');state.manual={};render()});
 document.querySelectorAll('.nav button[data-tab="clmanagement"]').forEach(b=>b.addEventListener('click',render));render();
 })();
 </script></body></html>
