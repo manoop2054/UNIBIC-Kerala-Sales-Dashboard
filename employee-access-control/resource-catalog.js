@@ -15,6 +15,7 @@ const RESOURCES = Object.freeze({
   'tab.admincenter': ['admin center', 'admin panel'],
   'tab.upload': ['monthly upload', 'data management', 'upload'],
   'tab.targetworking': ['target management', 'target working'],
+  'tab.clmanagement': ['cl management', 'credit limit management', 'cl management dashboard'],
   'report.gsv': ['gsv report', 'sales gsv report'],
   'report.target-achievement': ['target vs achievement report', 'target achievement report'],
   'report.dbr-wise': ['dbr-wise report', 'dbr wise report'],
