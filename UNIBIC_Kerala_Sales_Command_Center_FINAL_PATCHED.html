@@ -9437,7 +9437,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       const allowed=!!(permission&&permission.canView);
       button.hidden=!allowed;
       const section=document.getElementById(button.getAttribute('data-tab'));
-      if(section&&!allowed)section.style.display='none';
+      if(section&&!allowed&&button.getAttribute('data-tab')!=='clmanagement')section.style.display='none';
     });
     const adminButton=document.querySelector('.nav button[data-tab="admincenter"]');
     const isAdmin=['ADMIN','SUPER_ADMIN'].includes(String(user.role||'').toUpperCase());
