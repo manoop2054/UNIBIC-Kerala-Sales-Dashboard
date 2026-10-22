@@ -9507,18 +9507,34 @@ function kpi(label,value){return '<div class="clm-kpi"><small>'+esc(label)+'</sm
 function renderCards(){
  const box=document.getElementById('clmCustomerCards'),sel=state.selected.filter(Boolean);
  if(!sel.length){box.innerHTML='<div class="card" style="padding:18px;color:#64748b">Select a customer above to view GSV, GT O/S and invoice details.</div>';return}
- box.innerHTML=sel.map((c,i)=>{const x=metrics(c),m=x.manual,customer=candidates().find(z=>z.code===c)||{code:c,name:c},bs=x.bills.slice(0,15),billRows=bs.map(b=>'<tr><td>'+esc(b.area)+'</td><td>'+esc(b.code)+'</td><td>'+esc(b.name)+'</td><td>'+esc(b.group)+'</td><td>'+esc(b.classification)+'</td><td>'+esc(b.order)+'</td><td>'+esc(b.invoice)+'</td><td>'+esc(dateText(b.date))+'</td><td style="text-align:right">'+esc(money(b.hasOS?b.os:b.total))+'</td></tr>').join(''),billTitle=x.explicit?'Outstanding amount from GSV':'Invoice total from GSV (not verified O/S)';
- return '<article class="clm-customer-card"><div class="clm-card-head"><h3>'+esc(customer.code)+' · '+esc(customer.name)+'</h3><span>Customer '+(i+1)+'</span></div><div class="clm-card-body"><div class="clm-kpis">'+kpi('3 Month Average GSV',money(x.avg))+kpi('Total Billed Value This Month',money(x.current))+kpi('GT O/S Amount',x.gt===null?'Upload GT O/S Excel':money(x.gt))+kpi('Current O/S Amount',x.currentOs===null?'—':money(x.currentOs))+kpi('Invoice rows found',String(x.bills.length))+kpi('Customer Code',c)+'</div><div class="clm-fields">'+
- '<div class="field"><label>No. of Cheques</label><input type="number" min="0" step="1" data-cl-code="'+esc(c)+'" data-cl-field="cheques" value="'+esc(m.cheques)+'"></div>'+
- '<div class="field"><label>Required CL Amount (₹)</label><input type="number" min="0" step="0.01" data-cl-code="'+esc(c)+'" data-cl-field="required" value="'+esc(m.required)+'"></div>'+
- '<div class="field"><label>MARRIE O/S Amount (₹)</label><input type="number" min="0" step="0.01" data-cl-code="'+esc(c)+'" data-cl-field="marrie" value="'+esc(m.marrie)+'"></div>'+
- '<div class="field"><label>INST O/S Amount (₹)</label><input type="number" min="0" step="0.01" data-cl-code="'+esc(c)+'" data-cl-field="inst" value="'+esc(m.inst)+'"></div>'+
- '<div class="field"><label>Chain Code</label><input type="text" data-cl-code="'+esc(c)+'" data-cl-field="chain" value="'+esc(m.chain)+'"></div>'+
- '<div class="field"><label>Credit Terms</label><input type="text" data-cl-code="'+esc(c)+'" data-cl-field="terms" value="'+esc(m.terms)+'"></div></div>'+
- '<div class="clm-bill-wrap"><table class="clm-bill-table"><thead><tr><th>Area Code</th><th>Customer Code</th><th>Customer Name</th><th>Customer Group</th><th>Customer Classification Group</th><th>Sales Order No.</th><th>Invoice No.</th><th>Invoice Date</th><th>'+esc(billTitle)+'</th></tr></thead><tbody>'+billRows+'</tbody></table></div>'+
- (x.bills.length>15?'<p class="clm-status">Showing latest 15 of '+x.bills.length+' invoices on screen; export includes all rows.</p>':'')+'</div></article>'}).join('');
+ box.innerHTML=sel.map((c,i)=>{
+  const x=metrics(c),m=x.manual,customer=candidates().find(z=>z.code===c)||{code:c,name:c};
+  const billRows=x.bills.map(b=>'<tr><td>'+esc(b.area)+'</td><td>'+esc(b.code)+'</td><td>'+esc(b.name)+'</td><td>'+esc(b.group)+'</td><td>'+esc(b.classification)+'</td><td>'+esc(b.order)+'</td><td>'+esc(b.invoice)+'</td><td>'+esc(dateText(b.date))+'</td><td style="text-align:right">'+esc(money(b.total))+'</td></tr>').join('');
+  const gt=x.gt===null?'—':money(x.gt);
+  return '<article class="clm-customer-card"><div class="clm-card-head"><h3>Customer '+(i+1)+' · '+esc(customer.code)+' · '+esc(customer.name)+'</h3><span>CL Management</span></div><div class="clm-card-body">'+
+  '<table class="clm-bill-table"><tbody>'+
+  '<tr><th style="text-align:left">3 MONTH AVERAGE GSV</th><td>'+esc(money(x.avg))+'</td></tr>'+
+  '<tr><th style="text-align:left">Total Billed value in this month</th><td>'+esc(money(x.current))+'</td></tr>'+
+  '</tbody></table>'+
+  '<div class="clm-bill-wrap"><table class="clm-bill-table"><thead>'+
+  '<tr><th>CODE</th><th>CUSTOMER NAME</th><th>NO OF CHEQUES</th><th colspan="3">CURRENT O/S AMOUNT</th><th>REQUIRED CL AMOUNT</th><th>CHAIN CODE</th><th>CREDIT TERMS</th></tr>'+
+  '<tr><th></th><th></th><th></th><th>GT O/S AMOUNT</th><th>MARRIE O/S AMOUNT</th><th>INST O/S AMOUNT</th><th></th><th></th><th></th></tr></thead><tbody>'+
+  '<tr><td>'+esc(c)+'</td><td>'+esc(customer.name)+'</td>'+
+  '<td><input aria-label="No of cheques" type="number" min="0" step="1" data-cl-code="'+esc(c)+'" data-cl-field="cheques" value="'+esc(m.cheques)+'" style="width:90px"></td>'+
+  '<td>'+esc(gt)+'</td>'+
+  '<td><input aria-label="MARRIE O/S Amount" type="number" min="0" step="0.01" data-cl-code="'+esc(c)+'" data-cl-field="marrie" value="'+esc(m.marrie)+'" style="width:120px"></td>'+
+  '<td><input aria-label="INST O/S Amount" type="number" min="0" step="0.01" data-cl-code="'+esc(c)+'" data-cl-field="inst" value="'+esc(m.inst)+'" style="width:120px"></td>'+
+  '<td><input aria-label="Required CL Amount" type="number" min="0" step="0.01" data-cl-code="'+esc(c)+'" data-cl-field="required" value="'+esc(m.required)+'" style="width:130px"></td>'+
+  '<td><input aria-label="Chain Code" type="text" data-cl-code="'+esc(c)+'" data-cl-field="chain" value="'+esc(m.chain)+'" style="width:80px"></td>'+
+  '<td><input aria-label="Credit Terms" type="text" data-cl-code="'+esc(c)+'" data-cl-field="terms" value="'+esc(m.terms)+'" style="width:100px"></td></tr>'+
+  '</tbody></table></div>'+
+  '<div class="clm-bill-wrap"><table class="clm-bill-table"><thead><tr><th>Area Code</th><th>Customer Code</th><th>Customer Name</th><th>Customer group</th><th>Customer classification group</th><th>sales order no.</th><th>Invoice No</th><th>Invoice Date</th><th>Total</th></tr></thead><tbody>'+
+  (billRows||'<tr><td colspan="9">No invoice rows found for this customer.</td></tr>')+'</tbody></table></div>'+
+  '<p class="clm-status">'+(x.bills.length?'Invoice rows: '+x.bills.length+'. GSV invoice Total is billed value, not confirmed unpaid amount.':'No invoice rows found in loaded GSV data.')+'</p>'+
+  '</div></article>';
+ }).join('');
  document.getElementById('clmUploadStatus').textContent=state.uploadMessage;
- document.getElementById('clmDataNotice').textContent=state.hasInvoiceOutstanding?'GSV source includes an invoice outstanding field. Bill rows use it when present; GT O/S total is still sourced from the separate Excel file.':'GT O/S total comes from the separate Excel upload. GSV does not currently expose a confirmed unpaid balance per invoice; bill rows therefore show invoice totals, not verified outstanding balances.';
+ document.getElementById('clmDataNotice').textContent=state.hasInvoiceOutstanding?'GSV source includes an invoice outstanding field. GT O/S total remains sourced from the separate Excel file.':'GT O/S total comes from the separate Excel upload. GSV invoice totals are billed values, not confirmed unpaid balances.';
 }
 function render(){renderSelectors();renderCards()}
 function headerIndex(headers,kind){const ns=headers.map(norm);if(kind==='code')return ns.findIndex(x=>['customercode','customerno','customernumber','selltocustomerno','shiptocode','billedtocode','dbrcode','customeraccount','code'].includes(x)||x.includes('customercode'));return ns.findIndex(x=>(x.includes('gt')&&x.includes('os')&&(x.includes('amount')||x.includes('balance')||x.includes('outstanding')))||((x.includes('outstanding')||x.includes('remaining')||x.includes('balance'))&&x.includes('amount'))||x==='gtos')}
