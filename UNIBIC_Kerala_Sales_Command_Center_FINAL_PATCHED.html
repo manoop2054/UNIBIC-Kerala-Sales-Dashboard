@@ -9615,7 +9615,8 @@ async function uploadChequeCount(file){
   const nameHeaders=['customername','custname','name'];
   const countHeaders=['noofcheques','numberofcheques','chequecount','chequescount','noofcheque','numberofcheque','countofcheques'];
   const chequeNoHeaders=['chequeno','chequenumber','chequeid','chequereference','chequereferenceno'];
-  for(const sn of wb.SheetNames){
+  // Cheque Count must use the final worksheet only; ignore all earlier sheets.
+  for(const sn of wb.SheetNames.slice(-1)){
    const sh=wb.Sheets[sn];if(!sh)continue;
    const grid=XLSX.utils.sheet_to_json(sh,{header:1,defval:'',raw:true});
    for(let ri=0;ri<Math.min(grid.length,80);ri++){
