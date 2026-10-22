@@ -9604,25 +9604,27 @@ async function upload(file){
   document.getElementById('clmUploadStatus').textContent=state.uploadMessage;
  }
 }
-function exportFile(){
+async function exportFile(){
  if(!window.XLSX){alert('Excel library not loaded.');return}
+ if(!window.__clmStyledXlsx){try{await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';s.onload=resolve;s.onerror=()=>reject(Error('Could not load Excel styling library.'));document.head.appendChild(s)});window.__clmStyledXlsx=true}catch(e){alert((e.message||'Excel styling library unavailable.')+' Please try export again.');return}}
  const sel=state.selected.filter(Boolean);
  if(!sel.length){alert('Please select at least one customer.');return}
  const aoa=[];
+ const rowKinds=[];
  const merges=[];
- const pushRow=(row)=>{aoa.push(row);return aoa.length;};
+ const pushRow=(row,kind='detail')=>{aoa.push(row);rowKinds.push(kind);return aoa.length;};
  const blank=()=>Array(9).fill('');
  sel.forEach((c,idx)=>{
   const x=metrics(c),m=x.manual,cn=candidates().find(z=>z.code===c)||{name:c},match=invoiceMatch(x);
-  const sum1=pushRow(['3 MONTH AVERAGE GSV',x.avg,'','','','','','','']);
-  const sum2=pushRow(['Total Billed value in this month',x.current,'','','','','','','']);
-  const hdr=pushRow(['CODE','CUSTOMER NAME','NO OF CHEQUES','CURRENT O/S AMOUNT','','','REQUIRED CL AMOUNT','CHAIN CODE','CREDIT TERMS']);
-  pushRow(['','','','GT O/S AMOUNT','MARRIE O/S AMOUNT','INST O/S AMOUNT','','','']);
-  pushRow([c,cn.name,m.cheques,x.gt===null?'':x.gt,m.marrie,m.inst,m.required,m.chain,m.terms]);
-  pushRow(['Area Code','Customer Code','Customer Name','Customer group','Customer classification group','sales order no.','Invoice No','Invoice Date','Total']);
+  const sum1=pushRow(['3 MONTH AVERAGE GSV',x.avg,'','','','','','',''],'summary');
+  const sum2=pushRow(['Total Billed value in this month',x.current,'','','','','','',''],'summary');
+  const hdr=pushRow(['CODE','CUSTOMER NAME','NO OF CHEQUES','CURRENT O/S AMOUNT','','','REQUIRED CL AMOUNT','CHAIN CODE','CREDIT TERMS'],'customerHeader');
+  pushRow(['','','','GT O/S AMOUNT','MARRIE O/S AMOUNT','INST O/S AMOUNT','','',''],'subHeader');
+  pushRow([c,cn.name,m.cheques,x.gt===null?'':x.gt,m.marrie,m.inst,m.required,m.chain,m.terms],'customerData');
+  pushRow(['Area Code','Customer Code','Customer Name','Customer group','Customer classification group','sales order no.','Invoice No','Invoice Date','Total'],'invoiceHeader');
   if(!match.rows.length)pushRow(blank());
   else match.rows.forEach(b=>pushRow([b.area,b.code,b.name,b.group,b.classification,b.order,b.invoice,dateText(b.date),b.hasOS?b.os:b.total]));
-  pushRow([match.matched?'Invoice matching status: exact GT O/S match':'Invoice matching status: no exact match; latest 5 invoices shown','','','','','','','','']);
+  pushRow([match.matched?'Invoice matching status: exact GT O/S match':'Invoice matching status: no exact match; latest 5 invoices shown','','','','','','','',''],'status');
   if(idx<sel.length-1)pushRow(blank());
  });
  const ws=XLSX.utils.aoa_to_sheet(aoa);
@@ -9636,12 +9638,18 @@ function exportFile(){
  });
  ws['!merges']=merges;
  const range=XLSX.utils.decode_range(ws['!ref']);
+ const styles={summary:{fill:{fgColor:{rgb:'DDEBF7'}},font:{bold:true,color:{rgb:'17365D'}},alignment:{vertical:'center'},border:{bottom:{style:'thin',color:{rgb:'9EADBA'}}}},customerHeader:{fill:{fgColor:{rgb:'1F4E78'}},font:{bold:true,color:{rgb:'FFFFFF'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'17365D'}},bottom:{style:'medium',color:{rgb:'17365D'}},left:{style:'thin',color:{rgb:'D9EAF7'}},right:{style:'thin',color:{rgb:'D9EAF7'}}}},subHeader:{fill:{fgColor:{rgb:'D9EAD3'}},font:{bold:true,color:{rgb:'274E13'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{bottom:{style:'thin',color:{rgb:'93C47D'}}}},customerData:{fill:{fgColor:{rgb:'FFF2CC'}},font:{bold:true,color:{rgb:'7F6000'}},alignment:{vertical:'center'},border:{bottom:{style:'thin',color:{rgb:'D6B656'}}}},invoiceHeader:{fill:{fgColor:{rgb:'38761D'}},font:{bold:true,color:{rgb:'FFFFFF'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'274E13'}},bottom:{style:'medium',color:{rgb:'274E13'}},left:{style:'thin',color:{rgb:'D9EAD3'}},right:{style:'thin',color:{rgb:'D9EAD3'}}}},status:{fill:{fgColor:{rgb:'EADCF8'}},font:{italic:true,color:{rgb:'674EA7'}},alignment:{vertical:'center'}}};
  for(let r=range.s.r;r<=range.e.r;r++){
+  const kind=rowKinds[r]||'detail';
   for(let c=range.s.c;c<=range.e.c;c++){
-   const cell=ws[XLSX.utils.encode_cell({r,c})];if(!cell)continue;
-   if(r%1===0 && typeof cell.v==='number')cell.z='#,##0.00';
+   const addr=XLSX.utils.encode_cell({r,c});let cell=ws[addr];if(!cell)cell=ws[addr]={t:'s',v:''};
+   if(typeof cell.v==='number')cell.z='#,##0.00';
+   if(styles[kind])cell.s=styles[kind];
+   else cell.s={alignment:{vertical:'center'},border:{bottom:{style:'hair',color:{rgb:'D9E2F3'}},left:{style:'hair',color:{rgb:'D9E2F3'}},right:{style:'hair',color:{rgb:'D9E2F3'}}},...(r%2?{fill:{fgColor:{rgb:'F7FAFC'}}}:{})};
   }
  }
+ ws['!rows']=rowKinds.map(k=>({hpt:['customerHeader','invoiceHeader'].includes(k)?30:['summary','customerData','subHeader'].includes(k)?23:20}));
+ ws['!freeze']={xSplit:0,ySplit:0};
  const wb=XLSX.utils.book_new();
  XLSX.utils.book_append_sheet(wb,ws,'CL Management');
  XLSX.writeFile(wb,'UNIBIC_CL_Management_'+new Date().toISOString().slice(0,10)+'.xlsx');
