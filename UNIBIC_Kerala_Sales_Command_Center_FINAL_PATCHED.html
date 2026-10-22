@@ -9522,8 +9522,106 @@ function renderCards(){
 }
 function render(){renderSelectors();renderCards()}
 function headerIndex(headers,kind){const ns=headers.map(norm);if(kind==='code')return ns.findIndex(x=>['customercode','customerno','customernumber','selltocustomerno','shiptocode','billedtocode','dbrcode','customeraccount','code'].includes(x)||x.includes('customercode'));return ns.findIndex(x=>(x.includes('gt')&&x.includes('os')&&(x.includes('amount')||x.includes('balance')||x.includes('outstanding')))||((x.includes('outstanding')||x.includes('remaining')||x.includes('balance'))&&x.includes('amount'))||x==='gtos')}
-async function upload(file){if(!file)return;try{if(!window.XLSX)throw Error('Excel reader is not available.');const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true}),sh=wb.Sheets[wb.SheetNames[0]];if(!sh)throw Error('No worksheet found.');const rs=XLSX.utils.sheet_to_json(sh,{defval:'',raw:true});if(!rs.length)throw Error('First worksheet has no data rows.');const hs=Object.keys(rs[0]),ci=headerIndex(hs,'code'),ai=headerIndex(hs,'amount');if(ci<0||ai<0)throw Error('Could not identify Customer Code and GT O/S Amount columns in the first worksheet.');const map={};rs.forEach(r=>{const c=String(r[hs[ci]]??'').trim();if(c)map[c]=num(r[hs[ai]])});if(!Object.keys(map).length)throw Error('No customer codes found.');state.outstanding=map;state.uploadMessage='Loaded '+Object.keys(map).length+' customer GT O/S values from '+file.name+' (columns: '+hs[ci]+' / '+hs[ai]+').';renderCards()}catch(e){state.uploadMessage='Upload failed: '+(e.message||String(e));document.getElementById('clmUploadStatus').textContent=state.uploadMessage}}
-function exportFile(){if(!window.XLSX){alert('Excel library not loaded.');return}const sel=state.selected.filter(Boolean);if(!sel.length){alert('Please select at least one customer.');return}const head=['3 MONTH AVERAGE GSV','TOTAL BILLED VALUE IN THIS MONTH','CUSTOMER CODE','CUSTOMER NAME','NO OF CHEQUES','CURRENT O/S AMOUNT','GT O/S AMOUNT','MARRIE O/S AMOUNT','INST O/S AMOUNT','REQUIRED CL AMOUNT','CHAIN CODE','CREDIT TERMS','AREA CODE','BILL CUSTOMER CODE','BILL CUSTOMER NAME','CUSTOMER GROUP','CUSTOMER CLASSIFICATION GROUP','SALES ORDER NO','INVOICE NO','INVOICE DATE','TOTAL'],aoa=[head];sel.forEach(c=>{const x=metrics(c),m=x.manual,cn=candidates().find(z=>z.code===c)||{name:c},base=[x.avg,x.current,c,cn.name,m.cheques,x.currentOs===null?'':x.currentOs,x.gt===null?'':x.gt,x.marrie,x.inst,m.required,m.chain,m.terms];if(!x.bills.length)aoa.push([...base,'','','','','','','','','']);else x.bills.forEach((b,i)=>aoa.push([...(i===0?base:Array(12).fill('')),b.area,b.code,b.name,b.group,b.classification,b.order,b.invoice,dateText(b.date),b.hasOS?b.os:b.total]))});const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[18,22,16,28,14,18,18,18,18,18,14,14,18,18,28,20,28,20,24,16,18].map(w=>({wch:w}));const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'CL Management');XLSX.writeFile(wb,'UNIBIC_CL_Management_'+new Date().toISOString().slice(0,10)+'.xlsx')}
+async function upload(file){
+ if(!file)return;
+ try{
+  if(!window.XLSX)throw Error('Excel reader is not available.');
+  const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});
+  let found=null, chosenSheet='';
+  for(const sn of wb.SheetNames){
+   const sh=wb.Sheets[sn]; if(!sh)continue;
+   const grid=XLSX.utils.sheet_to_json(sh,{header:1,defval:'',raw:true});
+   let headerRow=-1,ci=-1,ni=-1,ai=-1;
+   const normCell=v=>norm(v).replace(/\d{1,2}[a-z]{3}\d{2,4}/g,'');
+   for(let ri=0;ri<Math.min(grid.length,80);ri++){
+    const cells=(grid[ri]||[]).map(v=>norm(v));
+    const cidx=cells.findIndex(v=>v==='custaccount'||v==='customeraccount'||v==='customercode'||v==='customerno');
+    const nidx=cells.findIndex(v=>v==='customername');
+    if(cidx>=0&&nidx>=0){headerRow=ri;ci=cidx;ni=nidx;break;}
+   }
+   if(headerRow<0)continue;
+   // In this ageing template, "Balance as at" is a parent heading and the
+   // date (e.g. 22-10-2026) is on the detail header row in the same column.
+   for(let ri=0;ri<=headerRow;ri++){
+    const row=grid[ri]||[];
+    row.forEach((v,j)=>{if(norm(v)==='balanceasat')ai=j});
+   }
+   if(ai<0){
+    const row=grid[headerRow]||[];
+    ai=row.findIndex(v=>{const n=norm(v);return /^\d{1,2}[a-z]{3}\d{2,4}$/.test(n)||/^\d{1,2}\d{1,2}\d{4}$/.test(n)});
+   }
+   if(ai<0)continue;
+   found={grid,headerRow,ci,ni,ai};chosenSheet=sn;break;
+  }
+  if(!found)throw Error('Could not find a row containing Cust Account + Customer Name and the Balance as at column. Please check the Customer ageing worksheet.');
+  const {grid,headerRow,ci,ni,ai}=found;
+  const map={}, nameMap={}; let rowsRead=0;
+  const cleanCode=v=>String(v??'').trim().toUpperCase().replace(/\s+/g,'');
+  const baseCode=v=>cleanCode(v).replace(/-\d+$/,'');
+  for(let ri=headerRow+1;ri<grid.length;ri++){
+   const row=grid[ri]||[], rawCode=row[ci], customerName=String(row[ni]??'').trim();
+   const c=cleanCode(rawCode); if(!c)continue;
+   const amountRaw=row[ai];
+   if(amountRaw===''||amountRaw===null||amountRaw===undefined)continue;
+   const amount=num(amountRaw);
+   // Ageing is invoice/transaction-level: sum each row once to make the
+   // customer-level balance. Never overwrite duplicate invoice rows.
+   map[c]=(map[c]||0)+amount;
+   const base=baseCode(c); if(base!==c)map[base]=(map[base]||0)+amount;
+   if(customerName){nameMap[norm(customerName)]=(nameMap[norm(customerName)]||0)+amount;}
+   rowsRead++;
+  }
+  if(!rowsRead)throw Error('The detected Balance as at column has no customer amounts below the header.');
+  state.outstanding=map;
+  state.outstandingByName=nameMap;
+  state.uploadMessage='Loaded GT O/S from '+file.name+' · sheet: '+chosenSheet+' · code: '+(grid[headerRow][ci]||'Cust Account')+' · Balance as at column '+(ai+1)+' · '+rowsRead+' rows summed.';
+  renderCards();
+ }catch(e){
+  state.uploadMessage='Upload failed: '+(e.message||String(e));
+  document.getElementById('clmUploadStatus').textContent=state.uploadMessage;
+ }
+}
+function exportFile(){
+ if(!window.XLSX){alert('Excel library not loaded.');return}
+ const sel=state.selected.filter(Boolean);
+ if(!sel.length){alert('Please select at least one customer.');return}
+ const aoa=[];
+ const merges=[];
+ const pushRow=(row)=>{aoa.push(row);return aoa.length;};
+ const blank=()=>Array(9).fill('');
+ sel.forEach((c,idx)=>{
+  const x=metrics(c),m=x.manual,cn=candidates().find(z=>z.code===c)||{name:c};
+  const sum1=pushRow(['3 MONTH AVERAGE GSV',x.avg,'','','','','','','']);
+  const sum2=pushRow(['Total Billed value in this month',x.current,'','','','','','','']);
+  const hdr=pushRow(['CODE','CUSTOMER NAME','NO OF CHEQUES','CURRENT O/S AMOUNT','','','REQUIRED CL AMOUNT','CHAIN CODE','CREDIT TERMS']);
+  pushRow(['','','','GT O/S AMOUNT','MARRIE O/S AMOUNT','INST O/S AMOUNT','','','']);
+  pushRow([c,cn.name,m.cheques,x.gt===null?'':x.gt,m.marrie,m.inst,m.required,m.chain,m.terms]);
+  pushRow(['Area Code','Customer Code','Customer Name','Customer group','Customer classification group','sales order no.','Invoice No','Invoice Date','Total']);
+  if(!x.bills.length)pushRow(blank());
+  else x.bills.forEach(b=>pushRow([b.area,b.code,b.name,b.group,b.classification,b.order,b.invoice,dateText(b.date),b.total]));
+  if(idx<sel.length-1)pushRow(blank());
+ });
+ const ws=XLSX.utils.aoa_to_sheet(aoa);
+ ws['!cols']=[{wch:24},{wch:28},{wch:16},{wch:20},{wch:24},{wch:20},{wch:24},{wch:16},{wch:16}];
+ // Keep the template's visual grouping: current O/S heading sits over GT/MARRIE/INST.
+ let rowCursor=1;
+ sel.forEach((c,idx)=>{
+  merges.push({s:{r:rowCursor+2,c:3},e:{r:rowCursor+2,c:5}});
+  rowCursor+=6+metrics(c).bills.length;
+  if(idx<sel.length-1)rowCursor+=1;
+ });
+ ws['!merges']=merges;
+ const range=XLSX.utils.decode_range(ws['!ref']);
+ for(let r=range.s.r;r<=range.e.r;r++){
+  for(let c=range.s.c;c<=range.e.c;c++){
+   const cell=ws[XLSX.utils.encode_cell({r,c})];if(!cell)continue;
+   if(r%1===0 && typeof cell.v==='number')cell.z='#,##0.00';
+  }
+ }
+ const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,ws,'CL Management');
+ XLSX.writeFile(wb,'UNIBIC_CL_Management_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
 root.addEventListener('change',e=>{const slot=e.target.closest('[data-clm-slot]');if(slot){const i=Number(slot.dataset.clmSlot),c=slot.value;if(c&&state.selected.some((v,j)=>j!==i&&v===c)){alert('This customer is already selected in another slot.');slot.value=state.selected[i]||'';return}state.selected[i]=c;render();return}if(e.target.id==='clmOutstandingFile'){upload(e.target.files&&e.target.files[0]);return}const f=e.target.closest('[data-cl-field]');if(f){manual(f.dataset.clCode)[f.dataset.clField]=f.value;const card=f.closest('.clm-customer-card');if(['marrie','inst'].includes(f.dataset.clField)){const k=card.querySelectorAll('.clm-kpi b')[3],x=metrics(f.dataset.clCode);if(k)k.textContent=x.currentOs===null?'—':money(x.currentOs)}}});
 root.addEventListener('input',e=>{const f=e.target.closest('[data-cl-field]');if(f){manual(f.dataset.clCode)[f.dataset.clField]=f.value;if(['marrie','inst'].includes(f.dataset.clField)){const k=f.closest('.clm-customer-card').querySelectorAll('.clm-kpi b')[3],x=metrics(f.dataset.clCode);if(k)k.textContent=x.currentOs===null?'—':money(x.currentOs)}}});
 document.getElementById('clmExport').addEventListener('click',exportFile);document.getElementById('clmClear').addEventListener('click',()=>{state.selected=Array(10).fill('');state.manual={};render()});
