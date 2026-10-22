@@ -9738,20 +9738,17 @@ async function exportFile(){
  const blank=()=>Array(9).fill('');
  // Summary table appears first in the exported workbook, before all customer details.
  pushRow(['CUSTOMER CL SUMMARY','','','','','','','',''],'topSummaryTitle');
- pushRow(['Customer Code','Customer No','Cheque Count','CL Amount','','','','',''],'topSummaryHeader');
+ pushRow(['SL No','Customer Code','Customer Name','Cheque Count','CL Amount','','','',''],'topSummaryHeader');
  let totalCheques=0,totalCL=0;
  sel.forEach(c=>{
   const x=metrics(c),m=x.manual,cn=candidates().find(z=>z.code===c)||{code:c,name:c};
-  const sourceRow=(x.rs||[])[0]||{};
-  const customerNo=first(sourceRow,['Customer_No','Customer No','Customer_Number','Customer Number','Sell_to_Customer_No','Sell to Customer No','Ship_to_Code','Ship to Code','Billed_to_Code'])||c;
   const chequeCount=num(m.cheques),clAmount=num(m.required);
   totalCheques+=chequeCount;totalCL+=clAmount;
-  pushRow([c,customerNo,chequeCount,clAmount,'','','','',''],'topSummaryData');
+  pushRow([idx+1,c,cn.name,chequeCount,clAmount,'','','',''],'topSummaryData');
  });
- pushRow(['TOTAL','','',totalCL,'','','','',''],'topSummaryTotal');
- aoa[aoa.length-1][2]=totalCheques;
+ pushRow(['TOTAL','','',totalCheques,totalCL,'','','',''],'topSummaryTotal');
  pushRow(blank());
- merges.push({s:{r:0,c:0},e:{r:0,c:3}});
+ merges.push({s:{r:0,c:0},e:{r:0,c:4}});
  sel.forEach((c,idx)=>{
   const x=metrics(c),m=x.manual,cn=candidates().find(z=>z.code===c)||{name:c},match=invoiceMatch(x);
   const sum1=pushRow(['3 MONTH AVERAGE GSV',x.avg,'','','','','','',''],'summary');
