@@ -9481,6 +9481,64 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
 'use strict';
 const root=document.getElementById('clmanagement');if(!root)return;
 const state={selected:Array(10).fill(''),manual:{},outstanding:{},uploadedCustomers:[],uploadMessage:'GT O/S file not uploaded in this session.',chequeCounts:{},chequeUploadMessage:'Cheque count Excel not uploaded in this session.',hasInvoiceOutstanding:false};
+let clmCanUpload=false;
+function clmSetDeniedStatus(){
+ const msg='Access Denied — only Administrator / Super Admin can upload CL Management Excel.';
+ const a=document.getElementById('clmUploadStatus'),b=document.getElementById('clmChequeUploadStatus');
+ if(a&&state.uploadMessage==='GT O/S file not uploaded in this session.')a.textContent=msg;
+ if(b&&state.chequeUploadMessage==='Cheque count Excel not uploaded in this session.')b.textContent=msg;
+}
+async function clmCheckRole(){
+ try{
+  const r=await fetch('/api/access-control/me',{cache:'no-store',credentials:'same-origin'});
+  const j=await r.json();
+  const role=String(j&&j.user&&j.user.role||'').toUpperCase();
+  clmCanUpload=!!(r.ok&&j.success&&j.user&&['ADMIN','SUPER_ADMIN'].includes(role));
+ }catch(_){clmCanUpload=false}
+ if(!clmCanUpload)clmSetDeniedStatus();
+}
+async function clmSaveShared(dataset,filename,payload){
+ if(!clmCanUpload)throw Error('Access Denied — only Administrator / Super Admin can upload.');
+ const pin=window.prompt('Enter upload PIN to share this Excel file:');
+ if(pin===null)return false;
+ if(pin!=='0000')throw Error('Incorrect upload PIN.');
+ const response=await fetch('/api/access-control/cl-management/'+dataset,{
+  method:'POST',credentials:'same-origin',cache:'no-store',
+  headers:{'Content-Type':'text/plain','X-Upload-Pin':pin},
+  body:JSON.stringify({filename,payload})
+ });
+ let result;try{result=await response.json()}catch(_){throw Error('Shared storage returned an unreadable response (HTTP '+response.status+').')}
+ if(!response.ok||!result||result.ok!==true)throw Error(result&&result.error?result.error:'Unable to save shared Excel data (HTTP '+response.status+').');
+ return true;
+}
+async function clmLoadShared(){
+ try{
+  const results=await Promise.all([
+   fetch('/api/access-control/cl-management/gt-os',{cache:'no-store',credentials:'same-origin'}),
+   fetch('/api/access-control/cl-management/cheque-count',{cache:'no-store',credentials:'same-origin'})
+  ]);
+  const data=await Promise.all(results.map(async r=>{let j;try{j=await r.json()}catch(_){j={}}if(!r.ok||j.ok!==true)throw Error(j.error||'Unable to load shared CL Management data.');return j;}));
+  const gt=data[0],ch=data[1];
+  if(gt.exists&&gt.payload){
+   state.outstanding=gt.payload.outstanding||{};
+   state.uploadedCustomers=Array.isArray(gt.payload.uploadedCustomers)?gt.payload.uploadedCustomers:[];
+   state.outstandingByName=gt.payload.outstandingByName||{};
+   state.uploadMessage='Shared GT O/S loaded: '+gt.filename+' · '+state.uploadedCustomers.length+' customers.';
+  }else state.uploadMessage='No shared GT O/S Excel uploaded yet.';
+  if(ch.exists&&ch.payload){
+   state.chequeCounts=ch.payload.chequeCounts||{};
+   Object.keys(state.chequeCounts).forEach(k=>{
+    const match=candidates().find(x=>String(x.code).toUpperCase()===String(k).toUpperCase());
+    manual(match?match.code:k).cheques=String(state.chequeCounts[k]);
+   });
+   state.chequeUploadMessage='Shared Cheque Count loaded: '+ch.filename+' · '+Object.keys(state.chequeCounts).length+' customers.';
+  }else state.chequeUploadMessage='No shared Cheque Count Excel uploaded yet.';
+  render();
+ }catch(e){
+  const msg='Shared CL Management data could not be loaded: '+(e.message||String(e));
+  state.uploadMessage=msg;state.chequeUploadMessage=msg;render();
+ }
+}
 const aliases={code:['Customer_Code','Customer Code','CustomerCode','Customer_No','Customer No','Customer Number','Sell_to_Customer_No','Sell to Customer No','Ship_to_Code','Ship to Code','Billed_to_Code','DBR_Code','DBR Code','Customer_Account','Customer Account'],name:['Customer_Name','Customer Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name','DBR_Name'],os:['Outstanding_Amount','Outstanding Amount','Open_Amount','Open Amount','Remaining_Amount','Remaining Amount','Balance_Due','Balance Due','Amount_Remaining','Amount Remaining','GT O/S AMOUNT','GT O/S Amount','GT OS Amount','Current O/S Amount'],class:['Customer_Classification_Group','Customer Classification Group','Customer_Classification','Customer Classification','Classification Group'],group:['Customer_Posting_Group','Customer Posting Group','Customer_Group','Customer Group'],order:['Order_No','Order No','Order','Sales_Order_No','Sales Order No','Sales Order Number'],invoice:['Invoice_No','Invoice No','Invoice','Document_No','Document No'],date:['PostingDate','Posting Date','Date','Invoice Date','Document Date'],area:['AreaCode','Area Code','Area','REGION','Region']};
 const norm=v=>String(v==null?'':v).trim().toLowerCase().replace(/[^a-z0-9]/g,'');
 function first(r,ks){for(const k of ks)if(r&&r[k]!==undefined&&r[k]!==null&&String(r[k]).trim()!=='')return r[k];return ''}
@@ -9509,7 +9567,7 @@ function renderSelectors(){const box=document.getElementById('clmSelectors');box
 function kpi(label,value){return '<div class="clm-kpi"><small>'+esc(label)+'</small><b>'+esc(value)+'</b></div>'}
 function renderCards(){
  const box=document.getElementById('clmCustomerCards'),sel=state.selected.filter(Boolean);
- if(!sel.length){box.innerHTML='<div class="card" style="padding:18px;color:#64748b">Select a customer above to view GSV, GT O/S and invoice details.</div>';return}
+ if(!sel.length){box.innerHTML='<div class="card" style="padding:18px;color:#64748b">Select a customer above to view GSV, GT O/S and invoice details.</div>';document.getElementById('clmUploadStatus').textContent=state.uploadMessage;document.getElementById('clmChequeUploadStatus').textContent=state.chequeUploadMessage;return}
  box.innerHTML=sel.map((c,i)=>{
   const x=metrics(c),m=x.manual,customer=candidates().find(z=>z.code===c)||{code:c,name:c};
   const match=invoiceMatch(x),billRows=match.rows.map(b=>'<tr><td>'+esc(b.area)+'</td><td>'+esc(b.code)+'</td><td>'+esc(b.name)+'</td><td>'+esc(b.group)+'</td><td>'+esc(b.classification)+'</td><td>'+esc(b.order)+'</td><td>'+esc(b.invoice)+'</td><td>'+esc(dateText(b.date))+'</td><td style="text-align:right">'+esc(money(b.hasOS?b.os:b.total))+'</td></tr>').join('');
@@ -9595,10 +9653,12 @@ async function upload(file){
   }
   if(!customerDirectory.size)throw Error('No customer codes found below the detected customer header.');
   if(!rowsRead)throw Error('Customer codes were found, but the detected Balance as at column has no customer amounts below the header.');
-  state.uploadedCustomers=[...customerDirectory.values()];
+  const uploadedCustomers=[...customerDirectory.values()];
+  if(!await clmSaveShared('gt-os',file.name,{outstanding:map,uploadedCustomers,outstandingByName:nameMap}))throw Error('Upload cancelled; shared data was not changed.');
+  state.uploadedCustomers=uploadedCustomers;
   state.outstanding=map;
   state.outstandingByName=nameMap;
-  state.uploadMessage='Excel uploaded successfully: '+file.name+' · sheet: '+chosenSheet+' · '+state.uploadedCustomers.length+' customers loaded · '+rowsRead+' O/S rows summed.';
+  state.uploadMessage='Excel uploaded and shared successfully: '+file.name+' · sheet: '+chosenSheet+' · '+state.uploadedCustomers.length+' customers loaded · '+rowsRead+' O/S rows summed.';
   render();
  }catch(e){
   state.uploadMessage='Upload failed: '+(e.message||String(e));
@@ -9652,12 +9712,14 @@ async function uploadChequeCount(file){
    if(found.ni>=0&&row[found.ni]&&!names[c])names[c]=String(row[found.ni]).trim();
   }
   if(!rowsRead)throw Error('No cheque count or cheque-detail rows found below the detected header.');
+  Object.keys(counts).forEach(c=>{if(counts[c] instanceof Set)counts[c]=counts[c].size;});
+  if(!await clmSaveShared('cheque-count',file.name,{chequeCounts:counts}))throw Error('Upload cancelled; shared data was not changed.');
   Object.keys(counts).forEach(c=>{
-   if(counts[c] instanceof Set)counts[c]=counts[c].size;
-   manual(c).cheques=String(counts[c]);
+   const match=candidates().find(x=>String(x.code).toUpperCase()===String(c).toUpperCase());
+   manual(match?match.code:c).cheques=String(counts[c]);
   });
   state.chequeCounts=counts;
-  state.chequeUploadMessage='Cheque Excel uploaded successfully: '+file.name+' · sheet: '+chosenSheet+' · '+Object.keys(counts).length+' customers · '+rowsRead+' cheque/count rows processed.';
+  state.chequeUploadMessage='Cheque Excel uploaded and shared successfully: '+file.name+' · sheet: '+chosenSheet+' · '+Object.keys(counts).length+' customers · '+rowsRead+' cheque/count rows processed.';
   render();
  }catch(e){
   state.chequeUploadMessage='Cheque upload failed: '+(e.message||String(e));
@@ -9714,9 +9776,10 @@ async function exportFile(){
  XLSX.utils.book_append_sheet(wb,ws,'CL Management');
  XLSX.writeFile(wb,'UNIBIC_CL_Management_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
-root.addEventListener('change',e=>{const slot=e.target.closest('[data-clm-slot]');if(slot){const i=Number(slot.dataset.clmSlot),c=slot.value;if(c&&state.selected.some((v,j)=>j!==i&&v===c)){alert('This customer is already selected in another slot.');slot.value=state.selected[i]||'';return}state.selected[i]=c;render();return}if(e.target.id==='clmOutstandingFile'){upload(e.target.files&&e.target.files[0]);return}if(e.target.id==='clmChequeFile'){uploadChequeCount(e.target.files&&e.target.files[0]);return}const f=e.target.closest('[data-cl-field]');if(f){manual(f.dataset.clCode)[f.dataset.clField]=f.value;const card=f.closest('.clm-customer-card');if(['marrie','inst'].includes(f.dataset.clField)){const k=card.querySelectorAll('.clm-kpi b')[3],x=metrics(f.dataset.clCode);if(k)k.textContent=x.currentOs===null?'—':money(x.currentOs)}}});
+root.addEventListener('click',e=>{const id=e.target&&e.target.id;if((id==='clmOutstandingFile'||id==='clmChequeFile')&&!clmCanUpload){e.preventDefault();e.stopPropagation();const el=document.getElementById(id==='clmOutstandingFile'?'clmUploadStatus':'clmChequeUploadStatus');if(el)el.textContent='Access Denied — only Administrator / Super Admin can upload CL Management Excel.';}});
+root.addEventListener('change',e=>{const slot=e.target.closest('[data-clm-slot]');if(slot){const i=Number(slot.dataset.clmSlot),c=slot.value;if(c&&state.selected.some((v,j)=>j!==i&&v===c)){alert('This customer is already selected in another slot.');slot.value=state.selected[i]||'';return}state.selected[i]=c;render();return}if(e.target.id==='clmOutstandingFile'){if(!clmCanUpload){e.target.value='';clmSetDeniedStatus();return}upload(e.target.files&&e.target.files[0]);return}if(e.target.id==='clmChequeFile'){if(!clmCanUpload){e.target.value='';clmSetDeniedStatus();return}uploadChequeCount(e.target.files&&e.target.files[0]);return}const f=e.target.closest('[data-cl-field]');if(f){manual(f.dataset.clCode)[f.dataset.clField]=f.value;const card=f.closest('.clm-customer-card');if(['marrie','inst'].includes(f.dataset.clField)){const k=card.querySelectorAll('.clm-kpi b')[3],x=metrics(f.dataset.clCode);if(k)k.textContent=x.currentOs===null?'—':money(x.currentOs)}}});
 root.addEventListener('input',e=>{const f=e.target.closest('[data-cl-field]');if(f){manual(f.dataset.clCode)[f.dataset.clField]=f.value;if(['marrie','inst'].includes(f.dataset.clField)){const k=f.closest('.clm-customer-card').querySelectorAll('.clm-kpi b')[3],x=metrics(f.dataset.clCode);if(k)k.textContent=x.currentOs===null?'—':money(x.currentOs)}}});
 window.addEventListener('unibic:gsv-data-loaded',render);document.getElementById('clmExport').addEventListener('click',exportFile);document.getElementById('clmClear').addEventListener('click',()=>{state.selected=Array(10).fill('');state.manual={};render()});
-document.querySelectorAll('.nav button[data-tab="clmanagement"]').forEach(b=>b.addEventListener('click',render));render();
+document.querySelectorAll('.nav button[data-tab="clmanagement"]').forEach(b=>b.addEventListener('click',render));render();clmCheckRole();clmLoadShared();
 })();
 </script></body></html>
