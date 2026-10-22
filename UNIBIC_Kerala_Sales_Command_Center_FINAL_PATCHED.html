@@ -9740,7 +9740,7 @@ async function exportFile(){
  pushRow(['CUSTOMER CL SUMMARY','','','','','','','',''],'topSummaryTitle');
  pushRow(['SL No','Customer Code','Customer Name','Cheque Count','CL Amount','','','',''],'topSummaryHeader');
  let totalCheques=0,totalCL=0;
- sel.forEach(c=>{
+ sel.forEach((c,idx)=>{
   const x=metrics(c),m=x.manual,cn=candidates().find(z=>z.code===c)||{code:c,name:c};
   const chequeCount=num(m.cheques),clAmount=num(m.required);
   totalCheques+=chequeCount;totalCL+=clAmount;
