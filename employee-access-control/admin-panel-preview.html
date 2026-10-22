@@ -127,7 +127,7 @@ body.eac-locked #eacLoginGate{display:grid}
     if(window.__eacToastTimer)window.clearTimeout(window.__eacToastTimer);
     window.__eacToastTimer=window.setTimeout(()=>{el.style.display='none';},10000);
   }
-  function uploadMessage(text){
+  function uploadMessage(text,autoHideMs=0){
     const el=$('toast');
     if(!el){window.alert(String(text||''));return;}
     if(window.__eacToastTimer)window.clearTimeout(window.__eacToastTimer);
@@ -136,6 +136,7 @@ body.eac-locked #eacLoginGate{display:grid}
     el.style.display='block';
     el.setAttribute('role','status');
     el.setAttribute('aria-live','assertive');
+    if(autoHideMs>0)window.__eacToastTimer=window.setTimeout(()=>{el.style.display='none';window.__eacToastTimer=null;},autoHideMs);
   }
   async function showAuditLog(){
     try{
@@ -402,13 +403,13 @@ body.eac-locked #eacLoginGate{display:grid}
       const result=await api('/api/access-control/employees/import-file',{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream'},body:file});
       try{
         await loadEmployees();
-        uploadMessage('MASTER DATA UPLOADED SUCCESSFULLY: '+Number(result.imported||0)+' employee rows saved. Employee list refreshed.');
+        uploadMessage('MASTER DATA UPLOADED SUCCESSFULLY: '+Number(result.imported||0)+' employee rows saved. Employee list refreshed.',5000);
       }catch(refreshError){
-        uploadMessage('MASTER DATA UPLOADED SUCCESSFULLY: '+Number(result.imported||0)+' employee rows saved, but the employee list could not refresh: '+(refreshError.message||'Unknown refresh error')+'. Do not re-upload; refresh the page and check the list.');
+        uploadMessage('MASTER DATA UPLOADED SUCCESSFULLY: '+Number(result.imported||0)+' employee rows saved, but the employee list could not refresh: '+(refreshError.message||'Unknown refresh error')+'. Do not re-upload; refresh the page and check the list.',7000);
       }
       if(result.warnings?.length)window.alert(result.warnings.map(w=>'Row '+w.row+': '+w.message).join('\\n'));
     }catch(error){
-      uploadMessage('UPLOAD FAILED: '+(error.message||'Import failed. No success was confirmed.'));
+      uploadMessage('UPLOAD FAILED: '+(error.message||'Import failed. No success was confirmed.'),8000);
     }finally{
       if(uploadButton){uploadButton.disabled=false;uploadButton.textContent='Upload Employee Master';}
     }
