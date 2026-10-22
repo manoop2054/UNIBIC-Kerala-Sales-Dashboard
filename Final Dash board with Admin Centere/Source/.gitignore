@@ -1,0 +1,6 @@
+node_modules/
+.env
+*.xlsx
+*.xlsb
+*.csv
+*.jsonl

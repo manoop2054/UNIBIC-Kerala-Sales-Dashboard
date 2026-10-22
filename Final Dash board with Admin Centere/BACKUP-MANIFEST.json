@@ -1,0 +1,97 @@
+{
+  "backup_name": "Final Dash board with Admin Centere",
+  "created_date": "2026-10-22",
+  "source_repository": "https://github.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard",
+  "source_branch": "main",
+  "source_commit": "22dbb3464faa1c170dee25e3e333e381a4d0754a",
+  "production_url": "https://unibic-kerala-sales-dashboard.onrender.com",
+  "production_deploy_id": "dep-dbcmuj8u01pc73bguppg",
+  "production_deploy_status": "live when checked on 2026-10-22",
+  "snapshot_files": [
+    {
+      "path": "Source/server.js",
+      "source_path": "server.js",
+      "git_blob_sha": "283f19750ff328e17ed63b2cdbb27f8155d24ac3",
+      "bytes": 29382
+    },
+    {
+      "path": "Source/package.json",
+      "source_path": "package.json",
+      "git_blob_sha": "46306519e5955a073f25de86286d48e29edcb8b8",
+      "bytes": 602
+    },
+    {
+      "path": "Source/.gitignore",
+      "source_path": ".gitignore",
+      "git_blob_sha": "e9c238b85b60ad9d764cd13267d9ca49df86fa4f",
+      "bytes": 47
+    },
+    {
+      "path": "Source/UNIBIC_Kerala_Sales_Command_Center_FINAL_PATCHED.html",
+      "source_path": "UNIBIC_Kerala_Sales_Command_Center_FINAL_PATCHED.html",
+      "git_blob_sha": "8ca4716e531eb0415c230e3b71f7d8d3df9f56d0",
+      "bytes": 469780
+    },
+    {
+      "path": "Source/employee-access-control/admin-panel-preview.html",
+      "source_path": "employee-access-control/admin-panel-preview.html",
+      "git_blob_sha": "30afc51830aedd467e66861992fb3e0430eaabb1",
+      "bytes": 51823
+    },
+    {
+      "path": "Source/employee-access-control/access-control-routes.js",
+      "source_path": "employee-access-control/access-control-routes.js",
+      "git_blob_sha": "153df2a66268fed62d42505678ee80ed52a850cc",
+      "bytes": 33875
+    },
+    {
+      "path": "Source/employee-access-control/dashboard-data-security.js",
+      "source_path": "employee-access-control/dashboard-data-security.js",
+      "git_blob_sha": "8750095e0281669b5f2ed7226df354cd35a7fc3a",
+      "bytes": 8118
+    },
+    {
+      "path": "Source/employee-access-control/session-auth.js",
+      "source_path": "employee-access-control/session-auth.js",
+      "git_blob_sha": "4dabc192a2b5aa79502df01872241cfadf126551",
+      "bytes": 7162
+    },
+    {
+      "path": "Source/employee-access-control/postgres-db.js",
+      "source_path": "employee-access-control/postgres-db.js",
+      "git_blob_sha": "c4324b50ecef17a813cda532ee6e232af052b0b9",
+      "bytes": 2088
+    },
+    {
+      "path": "Source/employee-access-control/employee-admin-service.js",
+      "source_path": "employee-access-control/employee-admin-service.js",
+      "git_blob_sha": "f9263ec6adae973fafa705fd218272ad8a571216",
+      "bytes": 6733
+    },
+    {
+      "path": "Source/employee-access-control/employee-master-import-validation.js",
+      "source_path": "employee-access-control/employee-master-import-validation.js",
+      "git_blob_sha": "84d6826102a6ac78e38f8712fc204bea0a7dc889",
+      "bytes": 7510
+    },
+    {
+      "path": "Source/employee-access-control/resource-catalog.js",
+      "source_path": "employee-access-control/resource-catalog.js",
+      "git_blob_sha": "cbb2a6a92b25fb762a46922f2cc01a3eb99bdd75",
+      "bytes": 2804
+    },
+    {
+      "path": "Source/employee-access-control/schema.sql",
+      "source_path": "employee-access-control/schema.sql",
+      "git_blob_sha": "4e2c624b05180ee78973ad71129445c677f1e7c6",
+      "bytes": 2928
+    }
+  ],
+  "not_included": [
+    "Live Neon/PostgreSQL database dump (employee rows, permissions, geographic scopes, audit history)",
+    "Render environment variable values and secrets (DATABASE_URL, passwords, API keys, tokens)",
+    "Uploaded business Excel/XLSB/CSV files and any local bridge/server folder outside this repository",
+    "package-lock.json was not present at repository root when checked"
+  ],
+  "status": "Source snapshot and recovery guide. Full disaster recovery is not complete until database export and secure secrets/configuration backup are separately verified."
+}
