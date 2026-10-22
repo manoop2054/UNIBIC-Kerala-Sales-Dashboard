@@ -225,7 +225,7 @@ body.eac-locked #eacLoginGate{display:grid}
     modal.innerHTML='<section class="eac-detail-card" role="dialog" aria-modal="true" aria-labelledby="eacTabDetailsTitle">'+
       '<div style="display:flex;align-items:center;gap:10px"><span style="font-size:25px">'+esc(item[2])+'</span><div><h2 id="eacTabDetailsTitle">'+esc(item[1])+' Access Details</h2><p style="margin:4px 0 0">Choose the actions this employee may use for this main-navigation tab.</p></div></div>'+
       '<div class="eac-detail-options">'+
-      [['canView','View tab'],['canFilter','Filter / Search'],['canExport','Download / Export'],['canPrint','Print']].map(([action,label])=>'<label class="eac-detail-option">'+esc(label)+'<span>'+switchHTMLConnected(key,!!p[action],'detail',action)+'</span></label>').join('')+
+      [['canView','View tab'],['canFilter','Filter / Search'],['canExport','Download / Export'],['canPrint','Print']].map(([action,label])=>'<div class="eac-detail-option"><span>'+esc(label)+'</span><span>'+switchHTMLConnected(key,!!p[action],'detail',action)+'</span></div>').join('')+
       '</div><p id="eacTabDetailsHint">These changes are pending until you press <b>Save Changes</b> on the Employee Access Management page.</p>'+
       '<div class="eac-detail-actions"><button type="button" class="btn" id="eacTabDetailsCancel">Cancel</button><button type="button" class="btn primary" id="eacTabDetailsApply">Apply Changes</button></div></section>';
     document.body.appendChild(modal);
