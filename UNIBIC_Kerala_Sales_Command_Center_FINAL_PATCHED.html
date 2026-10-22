@@ -1739,11 +1739,13 @@ setTimeout(()=>{
 #dbr #ctSummaryTable tbody tr.ct-grand td{font-weight:800;background:#eef4fb}
 #dbr .ct-summaryhint{font-size:11px;color:#64748b;padding:8px 12px;border-top:1px solid #e2e8f0}
 </style>
-</head>
+<style id="cl-management-styles">
+#clmanagement .clm-intro{color:#64748b;margin:0 0 14px}#clmanagement .clm-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px}#clmanagement .clm-toolbar .field{min-width:260px;flex:1}#clmanagement .clm-customer-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}#clmanagement .clm-customer-card{border:1px solid #dbe5f0;border-radius:12px;background:#fff;overflow:hidden;min-width:0}#clmanagement .clm-card-head{padding:12px 14px;background:#eef5fc;border-bottom:1px solid #dbe5f0;display:flex;gap:10px;align-items:center;justify-content:space-between}#clmanagement .clm-card-head h3{margin:0;font-size:15px;color:#17365d}#clmanagement .clm-card-body{padding:14px}#clmanagement .clm-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}#clmanagement .clm-fields .field{min-width:0}#clmanagement .clm-fields input,#clmanagement .clm-fields select{width:100%;box-sizing:border-box}#clmanagement .clm-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}#clmanagement .clm-kpi{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:9px}#clmanagement .clm-kpi small{display:block;color:#64748b;font-size:10px;text-transform:uppercase}#clmanagement .clm-kpi b{display:block;margin-top:4px;overflow-wrap:anywhere}#clmanagement .clm-bill-wrap{overflow:auto;margin-top:10px}#clmanagement .clm-bill-table{border-collapse:collapse;width:100%;font-size:11px;white-space:nowrap}#clmanagement .clm-bill-table th,#clmanagement .clm-bill-table td{border:1px solid #dbe5f0;padding:6px 7px;text-align:left}#clmanagement .clm-bill-table th{background:#f1f5f9;color:#334155}#clmanagement .clm-notice{padding:10px 12px;border:1px solid #f3d7a4;background:#fff9e9;color:#7c4a03;border-radius:8px;margin:10px 0;font-size:12px}#clmanagement .clm-status{font-size:12px;color:#475569}#clmanagement .clm-btn{border:0;border-radius:7px;padding:9px 12px;background:#1769e0;color:white;cursor:pointer;font-weight:600}#clmanagement .clm-btn.secondary{background:#e2e8f0;color:#1e293b}@media(max-width:850px){#clmanagement .clm-customer-grid{grid-template-columns:1fr}}@media(max-width:520px){#clmanagement .clm-fields{grid-template-columns:1fr}#clmanagement .clm-kpis{grid-template-columns:1fr}}
+</style></head>
 <body><div class="app">
 <aside class="sidebar"><div class="brand"><div class="brandmark">U</div><div><b>UNIBIC</b><small>KERALA SALES COMMAND CENTER</small></div></div>
 <nav class="nav">
-<button class="active" data-tab="executive">&#127968; <span>Executive</span></button><button data-tab="target">&#127919; <span>Target vs Achievement</span></button><button data-tab="sales">&#128200; <span>Sales Analysis</span></button><button data-tab="item">&#128230; <span>Item Intelligence</span></button><button data-tab="dbr">&#128101; <span>DCR From Leap</span></button><button data-tab="invoice">&#129534; <span>Invoice / Customer</span></button><button data-tab="soh">&#128230; <span>LIVE SOH</span></button><button data-tab="alerts">&#128680; <span>Alerts</span></button><button data-tab="reports">&#128202; <span>Report Center</span></button><button data-tab="admincenter">&#128737; <span>Admin Center</span></button><button data-tab="upload">&#128228; <span>Monthly Upload</span></button><button data-tab="targetworking">&#127919; <span>Target Management</span></button><div class="sidefoot" style="position:static;margin:8px 12px 0;padding-top:8px;border-top:1px solid rgba(255,255,255,.10)">Created by Manoop</div></nav></aside>
+<button class="active" data-tab="executive">&#127968; <span>Executive</span></button><button data-tab="target">&#127919; <span>Target vs Achievement</span></button><button data-tab="sales">&#128200; <span>Sales Analysis</span></button><button data-tab="item">&#128230; <span>Item Intelligence</span></button><button data-tab="dbr">&#128101; <span>DCR From Leap</span></button><button data-tab="invoice">&#129534; <span>Invoice / Customer</span></button><button data-tab="soh">&#128230; <span>LIVE SOH</span></button><button data-tab="alerts">&#128680; <span>Alerts</span></button><button data-tab="reports">&#128202; <span>Report Center</span></button><button data-tab="admincenter">&#128737; <span>Admin Center</span></button><button data-tab="upload">&#128228; <span>Monthly Upload</span></button><button data-tab="targetworking">&#127919; <span>Target Management</span></button><button data-tab="clmanagement">&#128176; <span>CL Management</span></button><div class="sidefoot" style="position:static;margin:8px 12px 0;padding-top:8px;border-top:1px solid rgba(255,255,255,.10)">Created by Manoop</div></nav></aside>
 <main class="main">
 <div class="top"><div class="title"><h1>UNIBIC Kerala Sales Command Center</h1><p>GSV &#8226; Target &#8226; DBR &#8226; Item &#8226; Invoice &#8226; LIVE SOH &#8226; Reports</p></div><div class="actions"><div class="status"><i id="dot" class="dot"></i><span id="status">Connecting&#8230;</span></div><button class="btn" id="refresh">&#8635; Refresh</button><button class="btn primary" id="quickExport">&#8681; Export</button></div></div>
 
@@ -1945,7 +1947,10 @@ setTimeout(()=>{
 
 <section id="reports" class="section"><h2 class="sectiontitle">&#128202; Report Center</h2><p class="subhead">One common multi-select filter controls every report below.</p><div id="reportFilters" class="card" style="margin-bottom:14px"><div class="cardhead"><h3>&#127899;&#65039; Common Multi-Select Filters</h3><span>Ctrl / Command + click for multiple values</span></div><div class="filters"><div class="field"><label>&#128467;&#65039; Year</label><select id="rfYear" multiple size="4"></select></div><div class="field"><label>&#128467;&#65039; Month</label><select id="rfMonth" multiple size="4"></select></div><div class="field"><label>&#128198; Day</label><select id="rfDay" multiple size="4"></select></div><div class="field"><label for="rfCustomer">&#128101; Customer Search</label><input id="rfCustomer" type="search" placeholder="Search customer / DBR name..." autocomplete="off"></div><div class="field"><label for="rfInvoice">&#129534; Invoice Search</label><input id="rfInvoice" type="search" placeholder="Search invoice number..." autocomplete="off"></div><div class="field"><label for="rfItem">&#128230; Item Search</label><input id="rfItem" type="search" placeholder="Search item code / description..." autocomplete="off"></div><div class="field"><label>MRP</label><select id="rfMrp" multiple size="4"></select></div><div class="field"><label>&#127970; DBR</label><select id="rfDbr" multiple size="4"></select></div><div class="field"><label>Area</label><select id="rfArea" multiple size="4"></select></div><div class="field"><label>Anchor Zone</label><select id="rfAnchorZone" multiple size="4"></select></div><div class="field"><label>ABM</label><select id="rfAbm" multiple size="4"></select></div></div><button class="smallbtn" id="enhSelectAll">Select All</button> <button class="smallbtn" id="enhClearAll">Clear All</button> <button class="smallbtn" id="enhPDF">PDF / Print</button></div><div id="reportTabs" class="reportTabs"></div><div id="enhReportBody"></div></section>
 
-<section id="targetworking" class="section">
+<section id="clmanagement" class="section">
+<h2 class="sectiontitle">&#128176; CL Management</h2><p class="clm-intro">Customer-wise credit-limit working from loaded GSV invoice history and a separately uploaded GT Outstanding Excel file. Select up to 10 customers and export the summary and bill details.</p>
+<div class="card" style="padding:14px;margin-bottom:14px"><div class="clm-toolbar"><div class="field"><label for="clmOutstandingFile">Upload GT O/S Excel</label><input id="clmOutstandingFile" type="file" accept=".xlsx,.xls,.xlsm"></div><div class="clm-status" id="clmUploadStatus">GT O/S file not uploaded in this session.</div><div class="field"><label for="clmChequeFile">Upload Cheque Count Excel</label><input id="clmChequeFile" type="file" accept=".xlsx,.xls,.xlsm"></div><div class="clm-status" id="clmChequeUploadStatus">Cheque count Excel not uploaded in this session.</div><button class="clm-btn" id="clmExport">Export CL Management Excel</button><button class="clm-btn secondary" id="clmClear">Clear selections</button></div><div class="clm-notice" id="clmDataNotice">GT O/S total comes from the separately uploaded Excel. GSV invoice totals are not confirmed unpaid balances unless an outstanding field is available in the source.</div><div class="clm-fields" id="clmSelectors"></div></div><div class="clm-customer-grid" id="clmCustomerCards"></div>
+</section><section id="targetworking" class="section">
   <h2 class="sectiontitle">&#127919; Target Management</h2>
   <p class="subhead">Management view for Target / Achievement / Q2-Q3 planning / TBI & Customer performance.</p>
 
@@ -9489,4 +9494,324 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
 })();
 </script>
 
+<script id="cl-management-script">
+(function(){
+'use strict';
+const root=document.getElementById('clmanagement');if(!root)return;
+const state={selected:Array(10).fill(''),manual:{},outstanding:{},uploadedCustomers:[],uploadMessage:'GT O/S file not uploaded in this session.',chequeCounts:{},chequeUploadMessage:'Cheque count Excel not uploaded in this session.',hasInvoiceOutstanding:false};
+let clmCanUpload=false;const clmTab=document.querySelector('.nav button[data-tab="clmanagement"]');root.hidden=true;if(clmTab)clmTab.hidden=true;
+function clmSetDeniedStatus(){
+ const msg='Access Denied — only Administrator / Super Admin can upload CL Management Excel.';
+ const a=document.getElementById('clmUploadStatus'),b=document.getElementById('clmChequeUploadStatus');
+ if(a&&state.uploadMessage==='GT O/S file not uploaded in this session.')a.textContent=msg;
+ if(b&&state.chequeUploadMessage==='Cheque count Excel not uploaded in this session.')b.textContent=msg;
+}
+async function clmCheckRole(){
+ try{
+  const r=await fetch('/api/access-control/me',{cache:'no-store',credentials:'same-origin'});
+  const j=await r.json();
+  const role=String(j&&j.user&&j.user.role||'').toUpperCase();
+  clmCanUpload=!!(r.ok&&j.success&&j.user&&['ADMIN','SUPER_ADMIN'].includes(role));if(clmCanUpload){root.hidden=false;if(clmTab)clmTab.hidden=false;}
+ }catch(_){clmCanUpload=false}
+ if(!clmCanUpload)clmSetDeniedStatus();
+}
+async function clmSaveShared(dataset,filename,payload){
+ if(!clmCanUpload)throw Error('Access Denied — only Administrator / Super Admin can upload.');
+ const pin=window.prompt('Enter upload PIN to share this Excel file:');
+ if(pin===null)return false;
+ if(pin!=='0000')throw Error('Incorrect upload PIN.');
+ const response=await fetch('/api/access-control/cl-management/'+dataset,{
+  method:'POST',credentials:'same-origin',cache:'no-store',
+  headers:{'Content-Type':'text/plain','X-Upload-Pin':pin},
+  body:JSON.stringify({filename,payload})
+ });
+ let result;try{result=await response.json()}catch(_){throw Error('Shared storage returned an unreadable response (HTTP '+response.status+').')}
+ if(!response.ok||!result||result.ok!==true)throw Error(result&&result.error?result.error:'Unable to save shared Excel data (HTTP '+response.status+').');
+ return true;
+}
+async function clmLoadShared(){
+ try{
+  const results=await Promise.all([
+   fetch('/api/access-control/cl-management/gt-os',{cache:'no-store',credentials:'same-origin'}),
+   fetch('/api/access-control/cl-management/cheque-count',{cache:'no-store',credentials:'same-origin'})
+  ]);
+  const data=await Promise.all(results.map(async r=>{let j;try{j=await r.json()}catch(_){j={}}if(!r.ok||j.ok!==true)throw Error(j.error||'Unable to load shared CL Management data.');return j;}));
+  const gt=data[0],ch=data[1];
+  if(gt.exists&&gt.payload){
+   state.outstanding=gt.payload.outstanding||{};
+   state.uploadedCustomers=Array.isArray(gt.payload.uploadedCustomers)?gt.payload.uploadedCustomers:[];
+   state.outstandingByName=gt.payload.outstandingByName||{};
+   state.uploadMessage='Shared GT O/S loaded: '+gt.filename+' · '+state.uploadedCustomers.length+' customers.';
+  }else state.uploadMessage='No shared GT O/S Excel uploaded yet.';
+  if(ch.exists&&ch.payload){
+   state.chequeCounts=ch.payload.chequeCounts||{};
+   Object.keys(state.chequeCounts).forEach(k=>{
+    const match=candidates().find(x=>String(x.code).toUpperCase()===String(k).toUpperCase());
+    manual(match?match.code:k).cheques=String(state.chequeCounts[k]);
+   });
+   state.chequeUploadMessage='Shared Cheque Count loaded: '+ch.filename+' · '+Object.keys(state.chequeCounts).length+' customers.';
+  }else state.chequeUploadMessage='No shared Cheque Count Excel uploaded yet.';
+  render();
+ }catch(e){
+  const msg='Shared CL Management data could not be loaded: '+(e.message||String(e));
+  state.uploadMessage=msg;state.chequeUploadMessage=msg;render();
+ }
+}
+const aliases={code:['Customer_Code','Customer Code','CustomerCode','Customer_No','Customer No','Customer Number','Sell_to_Customer_No','Sell to Customer No','Ship_to_Code','Ship to Code','Billed_to_Code','DBR_Code','DBR Code','Customer_Account','Customer Account'],name:['Customer_Name','Customer Name','Customer','Billed_to_Name','Ship_to_Name','Sell_to_Customer_Name','DBR_Name'],os:['Outstanding_Amount','Outstanding Amount','Open_Amount','Open Amount','Remaining_Amount','Remaining Amount','Balance_Due','Balance Due','Amount_Remaining','Amount Remaining','GT O/S AMOUNT','GT O/S Amount','GT OS Amount','Current O/S Amount'],class:['Customer_Classification_Group','Customer Classification Group','Customer_Classification','Customer Classification','Classification Group'],group:['Customer_Posting_Group','Customer Posting Group','Customer_Group','Customer Group'],order:['Order_No','Order No','Order','Sales_Order_No','Sales Order No','Sales Order Number'],invoice:['Invoice_No','Invoice No','Invoice','Document_No','Document No'],date:['PostingDate','Posting Date','Date','Invoice Date','Document Date'],area:['AreaCode','Area Code','Area','REGION','Region']};
+const norm=v=>String(v==null?'':v).trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+function first(r,ks){for(const k of ks)if(r&&r[k]!==undefined&&r[k]!==null&&String(r[k]).trim()!=='')return r[k];return ''}
+function code(r){return String(r.__customerCode||first(r,aliases.code)||r.__dbrCode||r.__shipCode||'').trim()}
+function name(r){return String(r.__customer||first(r,aliases.name)||r.__dbrName||'').trim()}
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function num(v){if(typeof window.num==='function')return window.num(v);const n=Number(String(v??'').replace(/[₹,\s]/g,''));return Number.isFinite(n)?n:0}
+function money(v){return '₹'+num(v).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function date(v){if(v instanceof Date&&!isNaN(v))return v;if(v==null||v==='')return null;const d=new Date(v);return isNaN(d)?null:d}
+function dateText(v){const d=date(v);return d?d.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'}):String(v||'')}
+function rows(){return typeof gsvRows!=='undefined'&&Array.isArray(gsvRows)?gsvRows:[]}
+function candidates(){const m=new Map();rows().forEach(r=>{const c=code(r);if(c&&!m.has(c.toUpperCase()))m.set(c.toUpperCase(),{code:c,name:name(r)||c})});(state.uploadedCustomers||[]).forEach(x=>{const k=String(x.code||'').toUpperCase();if(k){const old=m.get(k);m.set(k,{code:old?old.code:x.code,name:(old&&old.name&&old.name!==old.code)?old.name:(x.name||old?.name||x.code)})}});return [...m.values()].sort((a,b)=>a.code.localeCompare(b.code))}
+function manual(c){if(!state.manual[c])state.manual[c]={cheques:'',required:'',marrie:'0',inst:'0',chain:'GT',terms:'10-Days'};return state.manual[c]}
+function customerRows(c){return rows().filter(r=>code(r)===c)}
+function monthSum(rs,y,m){return rs.reduce((s,r)=>{const d=date(r.__date||first(r,aliases.date));return d&&d.getFullYear()===y&&d.getMonth()===m?s+num(r.__gsv??r.GSV??r.AmountToCustomer):s},0)}
+function metrics(c){
+ const rs=customerRows(c),now=new Date(),current=monthSum(rs,now.getFullYear(),now.getMonth()),prev=[];
+ for(let i=1;i<=3;i++){const d=new Date(now.getFullYear(),now.getMonth()-i,1);prev.push(monthSum(rs,d.getFullYear(),d.getMonth()))}
+ const avg=prev.reduce((a,b)=>a+b,0)/3,gt=state.outstanding[c]===undefined?null:num(state.outstanding[c]),m=manual(c),marrie=num(m.marrie),inst=num(m.inst),im=new Map();let explicit=false;
+ rs.forEach(r=>{const invoice=String(r.__invoice||first(r,aliases.invoice)||'').trim();if(!invoice)return;const d=date(r.__date||first(r,aliases.date)),order=String(r.__order||first(r,aliases.order)||'').trim(),key=[invoice,order,d?d.toISOString().slice(0,10):''].join('|'),raw=first(r,aliases.os);if(raw!==''&&raw!==null)explicit=true;const z=im.get(key)||{area:String(r.__area||first(r,aliases.area)||''),code:c,name:name(r),group:String(first(r,aliases.group)||''),classification:String(first(r,aliases.class)||''),order,invoice,date:d,total:0,os:0,hasOS:false};z.total+=num(r.__gsv??r.GSV??r.AmountToCustomer??r.Amount);if(raw!==''&&raw!==null){z.os+=num(raw);z.hasOS=true}im.set(key,z)});
+ const bills=[...im.values()].sort((a,b)=>(date(b.date)?.getTime()||0)-(date(a.date)?.getTime()||0));state.hasInvoiceOutstanding=state.hasInvoiceOutstanding||explicit;
+ return {rs,current,avg,gt,manual:m,marrie,inst,currentOs:gt===null?null:gt+marrie+inst,bills,explicit};
+}
+function invoiceMatch(x){const bills=x.bills||[],target=Math.round(num(x.gt)*100),eligible=bills.filter(b=>Math.round(num(b.hasOS?b.os:b.total)*100)>=50000);if(!eligible.length)return {rows:[],matched:false,total:0,target:Math.max(0,target)};if(!(target>0)){const b=eligible[0];return {rows:[b],matched:false,total:Math.round(num(b.hasOS?b.os:b.total)*100),target:Math.max(0,target)};}const rows=[];let total=0;for(const b of eligible){const v=Math.round(num(b.hasOS?b.os:b.total)*100);rows.push(b);total+=v;if(total>=target)break;}return {rows,totalRows:rows.length,matched:total===target,total,target};}
+function renderSelectors(){const box=document.getElementById('clmSelectors');const all=candidates();box.innerHTML=state.selected.map((c,i)=>{const listId='clmCustomerList'+i;const selected=all.find(x=>x.code===c);const shown=all.filter(x=>!state.selected.some((v,j)=>j!==i&&v&&v===x.code));if(selected&&!shown.some(x=>x.code===selected.code))shown.push(selected);return '<div class="field"><label for="clmCustomer'+i+'">Customer '+(i+1)+' (optional)</label><input id="clmCustomer'+i+'" data-clm-slot="'+i+'" list="'+listId+'" placeholder="Search code or customer name..." autocomplete="off" value="'+esc(selected?selected.code+' — '+selected.name:'')+'"><datalist id="'+listId+'">'+shown.map(x=>'<option value="'+esc(x.code+' — '+x.name)+'"></option><option value="'+esc(x.name+' — '+x.code)+'"></option>').join('')+'</datalist></div>'}).join('')}
+function kpi(label,value){return '<div class="clm-kpi"><small>'+esc(label)+'</small><b>'+esc(value)+'</b></div>'}
+function renderCards(){
+ const box=document.getElementById('clmCustomerCards'),sel=state.selected.filter(Boolean);
+ if(!sel.length){box.innerHTML='<div class="card" style="padding:18px;color:#64748b">Select a customer above to view GSV, GT O/S and invoice details.</div>';document.getElementById('clmUploadStatus').textContent=state.uploadMessage;document.getElementById('clmChequeUploadStatus').textContent=state.chequeUploadMessage;return}
+ box.innerHTML=sel.map((c,i)=>{
+  const x=metrics(c),m=x.manual,customer=candidates().find(z=>z.code===c)||{code:c,name:c};
+  const match=invoiceMatch(x),billRows=match.rows.map(b=>'<tr><td>'+esc(b.area)+'</td><td>'+esc(b.code)+'</td><td>'+esc(b.name)+'</td><td>'+esc(b.group)+'</td><td>'+esc(b.classification)+'</td><td>'+esc(b.order)+'</td><td>'+esc(b.invoice)+'</td><td>'+esc(dateText(b.date))+'</td><td style="text-align:right">'+esc(money(b.hasOS?b.os:b.total))+'</td></tr>').join('');
+  const gt=x.gt===null?'—':money(x.gt);
+  return '<article class="clm-customer-card"><div class="clm-card-head"><h3>Customer '+(i+1)+' · '+esc(customer.code)+' · '+esc(customer.name)+'</h3><span>CL Management</span></div><div class="clm-card-body">'+
+  '<table class="clm-bill-table"><tbody>'+
+  '<tr><th style="text-align:left">3 MONTH AVERAGE GSV</th><td>'+esc(money(x.avg))+'</td></tr>'+
+  '<tr><th style="text-align:left">Total Billed value in this month</th><td>'+esc(money(x.current))+'</td></tr>'+
+  '</tbody></table>'+
+  '<div class="clm-bill-wrap"><table class="clm-bill-table"><thead>'+
+  '<tr><th>CODE</th><th>CUSTOMER NAME</th><th>NO OF CHEQUES</th><th colspan="3">CURRENT O/S AMOUNT</th><th>REQUIRED CL AMOUNT</th><th>CHAIN CODE</th><th>CREDIT TERMS</th></tr>'+
+  '<tr><th></th><th></th><th></th><th>GT O/S AMOUNT</th><th>MARRIE O/S AMOUNT</th><th>INST O/S AMOUNT</th><th></th><th></th><th></th></tr></thead><tbody>'+
+  '<tr><td>'+esc(c)+'</td><td>'+esc(customer.name)+'</td>'+
+  '<td><input aria-label="No of cheques" type="number" min="0" step="1" data-cl-code="'+esc(c)+'" data-cl-field="cheques" value="'+esc(m.cheques)+'" style="width:90px"></td>'+
+  '<td>'+esc(gt)+'</td>'+
+  '<td><input aria-label="MARRIE O/S Amount" type="number" min="0" step="0.01" data-cl-code="'+esc(c)+'" data-cl-field="marrie" value="'+esc(m.marrie)+'" style="width:120px"></td>'+
+  '<td><input aria-label="INST O/S Amount" type="number" min="0" step="0.01" data-cl-code="'+esc(c)+'" data-cl-field="inst" value="'+esc(m.inst)+'" style="width:120px"></td>'+
+  '<td><input aria-label="Required CL Amount" type="number" min="0" step="0.01" data-cl-code="'+esc(c)+'" data-cl-field="required" value="'+esc(m.required)+'" style="width:130px"></td>'+
+  '<td><input aria-label="Chain Code" type="text" data-cl-code="'+esc(c)+'" data-cl-field="chain" value="'+esc(m.chain)+'" style="width:80px"></td>'+
+  '<td><input aria-label="Credit Terms" type="text" data-cl-code="'+esc(c)+'" data-cl-field="terms" value="'+esc(m.terms)+'" style="width:100px"></td></tr>'+
+  '</tbody></table></div>'+
+  '<div class="clm-bill-wrap"><table class="clm-bill-table"><thead><tr><th>Area Code</th><th>Customer Code</th><th>Customer Name</th><th>Customer group</th><th>Customer classification group</th><th>sales order no.</th><th>Invoice No</th><th>Invoice Date</th><th>Total</th></tr></thead><tbody>'+
+  (billRows||'<tr><td colspan="9">No invoice rows found for this customer.</td></tr>')+'</tbody></table></div>'+
+  '<p class="clm-status">'+(match.matched?'Exact GT O/S match found: '+match.rows.length+' invoice(s).':'No exact GT O/S match; showing latest '+match.rows.length+' invoice(s).')+'</p>'+
+  '</div></article>';
+ }).join('');
+ document.getElementById('clmUploadStatus').textContent=state.uploadMessage;
+ document.getElementById('clmChequeUploadStatus').textContent=state.chequeUploadMessage;
+ document.getElementById('clmDataNotice').textContent=state.hasInvoiceOutstanding?'GSV source includes an invoice outstanding field. GT O/S total remains sourced from the separate Excel file.':'GT O/S total comes from the separate Excel upload. GSV invoice totals are billed values, not confirmed unpaid balances.';
+}
+function render(){renderSelectors();renderCards()}
+function headerIndex(headers,kind){const ns=headers.map(norm);if(kind==='code')return ns.findIndex(x=>['customercode','customerno','customernumber','selltocustomerno','shiptocode','billedtocode','dbrcode','customeraccount','code'].includes(x)||x.includes('customercode'));return ns.findIndex(x=>(x.includes('gt')&&x.includes('os')&&(x.includes('amount')||x.includes('balance')||x.includes('outstanding')))||((x.includes('outstanding')||x.includes('remaining')||x.includes('balance'))&&x.includes('amount'))||x==='gtos')}
+async function upload(file){
+ if(!file)return;
+ try{
+  if(!window.XLSX)throw Error('Excel reader is not available.');
+  const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});
+  let found=null, chosenSheet='';
+  for(const sn of wb.SheetNames){
+   const sh=wb.Sheets[sn]; if(!sh)continue;
+   const grid=XLSX.utils.sheet_to_json(sh,{header:1,defval:'',raw:true});
+   let headerRow=-1,ci=-1,ni=-1,ai=-1;
+   const normCell=v=>norm(v).replace(/\d{1,2}[a-z]{3}\d{2,4}/g,'');
+   for(let ri=0;ri<Math.min(grid.length,80);ri++){
+    const cells=(grid[ri]||[]).map(v=>norm(v));
+    const cidx=cells.findIndex(v=>v==='custaccount'||v==='customeraccount'||v==='customercode'||v==='customerno');
+    const nidx=cells.findIndex(v=>v==='customername');
+    if(cidx>=0&&nidx>=0){headerRow=ri;ci=cidx;ni=nidx;break;}
+   }
+   if(headerRow<0)continue;
+   // In this ageing template, "Balance as at" is a parent heading and the
+   // date (e.g. 22-10-2026) is on the detail header row in the same column.
+   for(let ri=0;ri<=headerRow;ri++){
+    const row=grid[ri]||[];
+    row.forEach((v,j)=>{if(norm(v)==='balanceasat')ai=j});
+   }
+   if(ai<0){
+    const row=grid[headerRow]||[];
+    ai=row.findIndex(v=>{const n=norm(v);return /^\d{1,2}[a-z]{3}\d{2,4}$/.test(n)||/^\d{1,2}\d{1,2}\d{4}$/.test(n)});
+   }
+   if(ai<0)continue;
+   found={grid,headerRow,ci,ni,ai};chosenSheet=sn;break;
+  }
+  if(!found)throw Error('Could not find a row containing Cust Account + Customer Name and the Balance as at column. Please check the Customer ageing worksheet.');
+  const {grid,headerRow,ci,ni,ai}=found;
+  const map={}, nameMap={}; let rowsRead=0;
+  const cleanCode=v=>String(v??'').trim().toUpperCase().replace(/\s+/g,'');
+  const baseCode=v=>cleanCode(v).replace(/-\d+$/,'');
+  const customerDirectory=new Map();
+  for(let ri=headerRow+1;ri<grid.length;ri++){
+   const row=grid[ri]||[], rawCode=row[ci], customerName=String(row[ni]??'').trim();
+   const c=cleanCode(rawCode); if(!c)continue;
+   if(!customerDirectory.has(c))customerDirectory.set(c,{code:c,name:customerName||c});
+   const amountRaw=row[ai];
+   if(amountRaw===''||amountRaw===null||amountRaw===undefined)continue;
+   const amount=num(amountRaw);
+   // Ageing is invoice/transaction-level: sum each row once to make the
+   // customer-level balance. Never overwrite duplicate invoice rows.
+   map[c]=(map[c]||0)+amount;
+   const base=baseCode(c); if(base!==c)map[base]=(map[base]||0)+amount;
+   if(customerName){nameMap[norm(customerName)]=(nameMap[norm(customerName)]||0)+amount;}
+   rowsRead++;
+  }
+  if(!customerDirectory.size)throw Error('No customer codes found below the detected customer header.');
+  if(!rowsRead)throw Error('Customer codes were found, but the detected Balance as at column has no customer amounts below the header.');
+  const uploadedCustomers=[...customerDirectory.values()];
+  if(!await clmSaveShared('gt-os',file.name,{outstanding:map,uploadedCustomers,outstandingByName:nameMap}))throw Error('Upload cancelled; shared data was not changed.');
+  state.uploadedCustomers=uploadedCustomers;
+  state.outstanding=map;
+  state.outstandingByName=nameMap;
+  state.uploadMessage='Excel uploaded and shared successfully: '+file.name+' · sheet: '+chosenSheet+' · '+state.uploadedCustomers.length+' customers loaded · '+rowsRead+' O/S rows summed.';
+  render();
+ }catch(e){
+  state.uploadMessage='Upload failed: '+(e.message||String(e));
+  document.getElementById('clmUploadStatus').textContent=state.uploadMessage;
+ }
+}
+async function uploadChequeCount(file){
+ if(!file)return;
+ try{
+  if(!window.XLSX)throw Error('Excel reader is not available.');
+  const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});
+  let found=null,chosenSheet='';
+  const codeHeaders=['customercode','customerno','customernumber','custaccount','customeraccount','selltocustomerno','shiptocode','billedtocode','dbrcode','code'];
+  const nameHeaders=['customername','custname','name'];
+  const countHeaders=['noofcheques','numberofcheques','chequecount','chequescount','noofcheque','numberofcheque','countofcheques'];
+  const chequeNoHeaders=['chequeno','chequenumber','chequeid','chequereference','chequereferenceno'];
+  // Cheque Count must use the final worksheet only; ignore all earlier sheets.
+  for(const sn of wb.SheetNames.slice(-1)){
+   const sh=wb.Sheets[sn];if(!sh)continue;
+   const grid=XLSX.utils.sheet_to_json(sh,{header:1,defval:'',raw:true});
+   for(let ri=0;ri<Math.min(grid.length,80);ri++){
+    const cells=(grid[ri]||[]).map(v=>norm(v));
+    const ci=cells.findIndex(v=>codeHeaders.includes(v)||v.includes('customercode'));
+    if(ci<0)continue;
+    const ni=cells.findIndex(v=>nameHeaders.includes(v));
+    const qi=cells.findIndex(v=>countHeaders.includes(v)||((v.includes('cheque')||v.includes('cheques'))&&(v.includes('count')||v.includes('number')||v.includes('noof'))));
+    const hi=cells.findIndex(v=>chequeNoHeaders.includes(v)||((v.includes('cheque')||v.includes('cheques'))&&(v.includes('no')||v.includes('number')||v.includes('reference'))));
+    found={grid,headerRow:ri,ci,ni,qi,hi};chosenSheet=sn;break;
+   }
+   if(found)break;
+  }
+  if(!found)throw Error('Could not detect a Customer Code column. Please include Customer Code and preferably No of Cheques or Cheque No.');
+  const counts={},names={};let rowsRead=0;
+  const clean=v=>String(v??'').trim().toUpperCase().replace(/\\s+/g,'');
+  for(let ri=found.headerRow+1;ri<found.grid.length;ri++){
+   const row=found.grid[ri]||[],c=clean(row[found.ci]);if(!c)continue;
+   if(found.qi>=0){
+    const raw=row[found.qi];if(raw===''||raw===null||raw===undefined)continue;
+    const n=num(raw);if(!Number.isFinite(n)||n<0)continue;
+    counts[c]=(counts[c]||0)+n;rowsRead++;
+   }else if(found.hi>=0){
+    const cheque=String(row[found.hi]??'').trim();if(!cheque)continue;
+    if(!counts[c])counts[c]=new Set();counts[c].add(cheque.toUpperCase());rowsRead++;
+   }else{
+    // When the workbook is a cheque-detail list with one row per cheque,
+    // count each customer row. Blank cheque details are not counted.
+    const hasCheque=row.some((v,j)=>j!==found.ci&&j!==found.ni&&String(v??'').trim()!=='');
+    if(!hasCheque)continue;
+    counts[c]=(counts[c]||0)+1;rowsRead++;
+   }
+   if(found.ni>=0&&row[found.ni]&&!names[c])names[c]=String(row[found.ni]).trim();
+  }
+  if(!rowsRead)throw Error('No cheque count or cheque-detail rows found below the detected header.');
+  Object.keys(counts).forEach(c=>{if(counts[c] instanceof Set)counts[c]=counts[c].size;});
+  if(!await clmSaveShared('cheque-count',file.name,{chequeCounts:counts}))throw Error('Upload cancelled; shared data was not changed.');
+  Object.keys(counts).forEach(c=>{
+   const match=candidates().find(x=>String(x.code).toUpperCase()===String(c).toUpperCase());
+   manual(match?match.code:c).cheques=String(counts[c]);
+  });
+  state.chequeCounts=counts;
+  state.chequeUploadMessage='Cheque Excel uploaded and shared successfully: '+file.name+' · sheet: '+chosenSheet+' · '+Object.keys(counts).length+' customers · '+rowsRead+' cheque/count rows processed.';
+  render();
+ }catch(e){
+  state.chequeUploadMessage='Cheque upload failed: '+(e.message||String(e));
+  document.getElementById('clmChequeUploadStatus').textContent=state.chequeUploadMessage;
+ }
+}
+async function exportFile(){
+ if(!window.XLSX){alert('Excel library not loaded.');return}
+ if(!window.__clmStyledXlsx){try{await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';s.onload=resolve;s.onerror=()=>reject(Error('Could not load Excel styling library.'));document.head.appendChild(s)});window.__clmStyledXlsx=true}catch(e){alert((e.message||'Excel styling library unavailable.')+' Please try export again.');return}}
+ const sel=state.selected.filter(Boolean);
+ if(!sel.length){alert('Please select at least one customer.');return}
+ const aoa=[];
+ const rowKinds=[];
+ const merges=[];
+ const pushRow=(row,kind='detail')=>{aoa.push(row);rowKinds.push(kind);return aoa.length;};
+ const blank=()=>Array(9).fill('');
+ // Summary table appears first in the exported workbook, before all customer details.
+ pushRow(['CUSTOMER CL SUMMARY','','','','','','','',''],'topSummaryTitle');
+ pushRow(['SL No','Customer Code','Customer Name','Cheque Count','CL Amount','','','',''],'topSummaryHeader');
+ let totalCheques=0,totalCL=0;
+ sel.forEach((c,idx)=>{
+  const x=metrics(c),m=x.manual,cn=candidates().find(z=>z.code===c)||{code:c,name:c};
+  const chequeCount=num(m.cheques),clAmount=num(m.required);
+  totalCheques+=chequeCount;totalCL+=clAmount;
+  pushRow([idx+1,c,cn.name,chequeCount,clAmount,'','','',''],'topSummaryData');
+ });
+ pushRow(['TOTAL','','',totalCheques,totalCL,'','','',''],'topSummaryTotal');
+ pushRow(blank());
+ merges.push({s:{r:0,c:0},e:{r:0,c:4}});
+ sel.forEach((c,idx)=>{
+  const x=metrics(c),m=x.manual,cn=candidates().find(z=>z.code===c)||{name:c},match=invoiceMatch(x);
+  const sum1=pushRow(['3 MONTH AVERAGE GSV',x.avg,'','','','','','',''],'summary');
+  const sum2=pushRow(['Total Billed value in this month',x.current,'','','','','','',''],'summary');
+  const hdr=pushRow(['CODE','CUSTOMER NAME','NO OF CHEQUES','CURRENT O/S AMOUNT','','','REQUIRED CL AMOUNT','CHAIN CODE','CREDIT TERMS'],'customerHeader');
+  pushRow(['','','','GT O/S AMOUNT','MARRIE O/S AMOUNT','INST O/S AMOUNT','','',''],'subHeader');
+  pushRow([c,cn.name,m.cheques,x.gt===null?'':x.gt,m.marrie,m.inst,m.required,m.chain,m.terms],'customerData');
+  pushRow(['Area Code','Customer Code','Customer Name','Customer group','Customer classification group','sales order no.','Invoice No','Invoice Date','Total'],'invoiceHeader');
+  if(!match.rows.length)pushRow(blank());
+  else match.rows.forEach(b=>pushRow([b.area,b.code,b.name,b.group,b.classification,b.order,b.invoice,dateText(b.date),b.hasOS?b.os:b.total]));
+  pushRow([match.matched?'Invoice total status: exact GT O/S match':'Invoice total status: accumulated to meet or exceed GT O/S (invoices under ₹500 excluded)','','','','','','','',''],'status');
+  if(idx<sel.length-1)pushRow(blank());
+ });
+ const ws=XLSX.utils.aoa_to_sheet(aoa);
+ ws['!cols']=[{wch:24},{wch:28},{wch:16},{wch:20},{wch:24},{wch:20},{wch:24},{wch:16},{wch:16}];
+ // Keep the template's visual grouping: current O/S heading sits over GT/MARRIE/INST.
+ let rowCursor=sel.length+4;
+ sel.forEach((c,idx)=>{
+  merges.push({s:{r:rowCursor+2,c:3},e:{r:rowCursor+2,c:5}});
+  rowCursor+=7+invoiceMatch(metrics(c)).rows.length;
+  if(idx<sel.length-1)rowCursor+=1;
+ });
+ ws['!merges']=merges;
+ const range=XLSX.utils.decode_range(ws['!ref']);
+ const styles={topSummaryTitle:{fill:{fgColor:{rgb:'1F4E78'}},font:{bold:true,color:{rgb:'FFFFFF'},sz:14},alignment:{horizontal:'center',vertical:'center'},border:{top:{style:'medium',color:{rgb:'17365D'}},bottom:{style:'medium',color:{rgb:'17365D'}}}},topSummaryHeader:{fill:{fgColor:{rgb:'D9EAD3'}},font:{bold:true,color:{rgb:'274E13'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'93C47D'}},bottom:{style:'medium',color:{rgb:'38761D'}},left:{style:'thin',color:{rgb:'93C47D'}},right:{style:'thin',color:{rgb:'93C47D'}}}},topSummaryData:{fill:{fgColor:{rgb:'F7FBF5'}},alignment:{vertical:'center'},border:{bottom:{style:'thin',color:{rgb:'B7C9B1'}},left:{style:'thin',color:{rgb:'D9EAD3'}},right:{style:'thin',color:{rgb:'D9EAD3'}}}},topSummaryTotal:{fill:{fgColor:{rgb:'FFF2CC'}},font:{bold:true,color:{rgb:'7F6000'}},alignment:{vertical:'center'},border:{top:{style:'medium',color:{rgb:'D6B656'}},bottom:{style:'double',color:{rgb:'D6B656'}}}},summary:{fill:{fgColor:{rgb:'DDEBF7'}},font:{bold:true,color:{rgb:'17365D'}},alignment:{vertical:'center'},border:{bottom:{style:'thin',color:{rgb:'9EADBA'}}}},customerHeader:{fill:{fgColor:{rgb:'1F4E78'}},font:{bold:true,color:{rgb:'FFFFFF'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'17365D'}},bottom:{style:'medium',color:{rgb:'17365D'}},left:{style:'thin',color:{rgb:'D9EAF7'}},right:{style:'thin',color:{rgb:'D9EAF7'}}}},subHeader:{fill:{fgColor:{rgb:'D9EAD3'}},font:{bold:true,color:{rgb:'274E13'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{bottom:{style:'thin',color:{rgb:'93C47D'}}}},customerData:{fill:{fgColor:{rgb:'FFF2CC'}},font:{bold:true,color:{rgb:'7F6000'}},alignment:{vertical:'center'},border:{bottom:{style:'thin',color:{rgb:'D6B656'}}}},invoiceHeader:{fill:{fgColor:{rgb:'38761D'}},font:{bold:true,color:{rgb:'FFFFFF'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'274E13'}},bottom:{style:'medium',color:{rgb:'274E13'}},left:{style:'thin',color:{rgb:'D9EAD3'}},right:{style:'thin',color:{rgb:'D9EAD3'}}}},status:{fill:{fgColor:{rgb:'EADCF8'}},font:{italic:true,color:{rgb:'674EA7'}},alignment:{vertical:'center'}}};
+ for(let r=range.s.r;r<=range.e.r;r++){
+  const kind=rowKinds[r]||'detail';
+  for(let c=range.s.c;c<=range.e.c;c++){
+   const addr=XLSX.utils.encode_cell({r,c});let cell=ws[addr];if(!cell)cell=ws[addr]={t:'s',v:''};
+   if(typeof cell.v==='number')cell.z=(kind==='topSummaryData'&&c===0)?'0':'#,##0.00';
+   if(styles[kind])cell.s=styles[kind];
+   else cell.s={alignment:{vertical:'center'},border:{bottom:{style:'hair',color:{rgb:'D9E2F3'}},left:{style:'hair',color:{rgb:'D9E2F3'}},right:{style:'hair',color:{rgb:'D9E2F3'}}},...(r%2?{fill:{fgColor:{rgb:'F7FAFC'}}}:{})};
+  }
+ }
+ ws['!rows']=rowKinds.map(k=>({hpt:k==='topSummaryTitle'?28:['customerHeader','invoiceHeader','topSummaryHeader'].includes(k)?30:['summary','customerData','subHeader','topSummaryData','topSummaryTotal'].includes(k)?23:20}));
+ ws['!freeze']={xSplit:0,ySplit:0};
+ const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,ws,'CL Management');
+ XLSX.writeFile(wb,'UNIBIC_CL_Management_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+root.addEventListener('click',e=>{const id=e.target&&e.target.id;if((id==='clmOutstandingFile'||id==='clmChequeFile')&&!clmCanUpload){e.preventDefault();e.stopPropagation();const el=document.getElementById(id==='clmOutstandingFile'?'clmUploadStatus':'clmChequeUploadStatus');if(el)el.textContent='Access Denied — only Administrator / Super Admin can upload CL Management Excel.';}});
+root.addEventListener('change',e=>{const slot=e.target.closest('[data-clm-slot]');if(slot){const i=Number(slot.dataset.clmSlot),raw=String(slot.value||'').trim(),all=candidates();const match=all.find(x=>raw===x.code+' — '+x.name||raw===x.name+' — '+x.code||raw.toLocaleLowerCase()===String(x.code||'').toLocaleLowerCase()||raw.toLocaleLowerCase()===String(x.name||'').toLocaleLowerCase());const c=match?match.code:'';if(raw&&!match){slot.value=state.selected[i]?(all.find(x=>x.code===state.selected[i])||{}).code+' — '+((all.find(x=>x.code===state.selected[i])||{}).name||''):'';return}if(c&&state.selected.some((v,j)=>j!==i&&v===c)){alert('This customer is already selected in another slot.');const prev=all.find(x=>x.code===state.selected[i]);slot.value=prev?prev.code+' — '+prev.name:'';return}state.selected[i]=c;render();return}if(e.target.id==='clmOutstandingFile'){if(!clmCanUpload){e.target.value='';clmSetDeniedStatus();return}upload(e.target.files&&e.target.files[0]);return}if(e.target.id==='clmChequeFile'){if(!clmCanUpload){e.target.value='';clmSetDeniedStatus();return}uploadChequeCount(e.target.files&&e.target.files[0]);return}const f=e.target.closest('[data-cl-field]');if(f){manual(f.dataset.clCode)[f.dataset.clField]=f.value;const card=f.closest('.clm-customer-card');if(['marrie','inst'].includes(f.dataset.clField)){const k=card.querySelectorAll('.clm-kpi b')[3],x=metrics(f.dataset.clCode);if(k)k.textContent=x.currentOs===null?'—':money(x.currentOs)}}});
+root.addEventListener('input',e=>{const f=e.target.closest('[data-cl-field]');if(f){manual(f.dataset.clCode)[f.dataset.clField]=f.value;if(['marrie','inst'].includes(f.dataset.clField)){const k=f.closest('.clm-customer-card').querySelectorAll('.clm-kpi b')[3],x=metrics(f.dataset.clCode);if(k)k.textContent=x.currentOs===null?'—':money(x.currentOs)}}});
+window.addEventListener('unibic:gsv-data-loaded',render);document.getElementById('clmExport').addEventListener('click',exportFile);document.getElementById('clmClear').addEventListener('click',()=>{state.selected=Array(10).fill('');state.manual={};render()});
+document.querySelectorAll('.nav button[data-tab="clmanagement"]').forEach(b=>b.addEventListener('click',render));render();clmCheckRole().then(()=>{if(clmCanUpload)clmLoadShared();});
+})();
+</script>
 </body></html>

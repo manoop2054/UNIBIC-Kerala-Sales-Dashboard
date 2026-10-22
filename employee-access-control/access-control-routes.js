@@ -571,6 +571,79 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
 
   // Authenticated proxy for shared Target/Claims reads. Geographic scopes are
   // enforced here on the server; hiding tabs in the browser is not authorization.
+  // Shared CL Management uploads are stored in PostgreSQL so they survive refreshes
+  // and are visible to every authenticated dashboard user. Only ADMIN/SUPER_ADMIN can write.
+  async function ensureCLManagementTable(pool) {
+    await pool.query(`CREATE TABLE IF NOT EXISTS cl_management_shared_uploads (
+      dataset TEXT PRIMARY KEY CHECK (dataset IN ('gt-os', 'cheque-count')),
+      filename TEXT NOT NULL,
+      payload JSONB NOT NULL,
+      updated_by TEXT NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`);
+  }
+
+  app.get('/api/access-control/cl-management/:dataset', requireSession, requireAdmin, async (req, res) => {
+    const dataset = String(req.params.dataset || '').toLowerCase();
+    if (!['gt-os', 'cheque-count'].includes(dataset)) {
+      return res.status(404).json({ ok: false, error: 'Unknown CL Management dataset.' });
+    }
+    const pool = await ensureReady(res);
+    if (!pool) return;
+    try {
+      await ensureCLManagementTable(pool);
+      const result = await pool.query(
+        'SELECT dataset, filename, payload, updated_by, updated_at FROM cl_management_shared_uploads WHERE dataset = $1 LIMIT 1',
+        [dataset]
+      );
+      if (!result.rows.length) return res.json({ ok: true, exists: false, dataset });
+      const row = result.rows[0];
+      return res.json({
+        ok: true, exists: true, dataset: row.dataset, filename: row.filename,
+        payload: row.payload, updatedBy: row.updated_by, updatedAt: row.updated_at
+      });
+    } catch (_) {
+      return res.status(503).json({ ok: false, error: 'Unable to load shared CL Management data.' });
+    }
+  });
+
+  app.post('/api/access-control/cl-management/:dataset', requireSession, requireAdmin,
+    express.text({ type: 'text/plain', limit: '4mb' }), async (req, res) => {
+      const dataset = String(req.params.dataset || '').toLowerCase();
+      if (!['gt-os', 'cheque-count'].includes(dataset)) {
+        return res.status(404).json({ ok: false, error: 'Unknown CL Management dataset.' });
+      }
+      if (String(req.get('X-Upload-Pin') || '') !== '0000') {
+        return res.status(403).json({ ok: false, error: 'Incorrect upload PIN.' });
+      }
+      let body;
+      try { body = JSON.parse(typeof req.body === 'string' ? req.body : ''); }
+      catch (_) { return res.status(400).json({ ok: false, error: 'Invalid upload payload.' }); }
+      if (!body || typeof body.filename !== 'string' || !body.filename.trim() ||
+          !body.payload || typeof body.payload !== 'object' || Array.isArray(body.payload)) {
+        return res.status(400).json({ ok: false, error: 'A filename and valid dataset payload are required.' });
+      }
+      const pool = await ensureReady(res);
+      if (!pool) return;
+      try {
+        await ensureCLManagementTable(pool);
+        const result = await pool.query(
+          `INSERT INTO cl_management_shared_uploads (dataset, filename, payload, updated_by, updated_at)
+           VALUES ($1, $2, $3::jsonb, $4, NOW())
+           ON CONFLICT (dataset) DO UPDATE SET
+             filename = EXCLUDED.filename, payload = EXCLUDED.payload,
+             updated_by = EXCLUDED.updated_by, updated_at = NOW()
+           RETURNING dataset, filename, updated_by, updated_at`,
+          [dataset, body.filename.trim().slice(0, 250), JSON.stringify(body.payload), req.accessUser.employeeId]
+        );
+        const row = result.rows[0];
+        return res.json({ ok: true, dataset: row.dataset, filename: row.filename,
+          updatedBy: row.updated_by, updatedAt: row.updated_at });
+      } catch (_) {
+        return res.status(503).json({ ok: false, error: 'Unable to save shared CL Management data.' });
+      }
+    });
+
   app.get('/api/shared-upload/:dataset', requireSession, async (req, res) => {
     const dataset = String(req.params.dataset || '').toLowerCase();
     if (!['target', 'claims'].includes(dataset)) return res.status(404).json({ ok: false, error: 'Unknown dataset.' });
