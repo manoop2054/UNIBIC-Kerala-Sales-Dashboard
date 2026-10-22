@@ -9504,7 +9504,7 @@ function metrics(c){
  const bills=[...im.values()].sort((a,b)=>(date(b.date)?.getTime()||0)-(date(a.date)?.getTime()||0));state.hasInvoiceOutstanding=state.hasInvoiceOutstanding||explicit;
  return {rs,current,avg,gt,manual:m,marrie,inst,currentOs:gt===null?null:gt+marrie+inst,bills,explicit};
 }
-function invoiceMatch(x){const bills=x.bills||[],target=Math.round(num(x.gt)*100);if(!bills.length)return {rows:[],matched:false,total:0,target:Math.max(0,target)};if(!(target>0))return {rows:bills.slice(0,1),matched:false,total:Math.round(num(bills[0].hasOS?bills[0].os:bills[0].total)*100),target:Math.max(0,target)};const rows=[];let total=0;for(const b of bills){const v=Math.round(num(b.hasOS?b.os:b.total)*100);if(v<=0)continue;const previous=total;rows.push(b);total+=v;if(total>=target){if(rows.length>1&&Math.abs(target-previous)<Math.abs(total-target)){rows.pop();total=previous;}break;}}return {rows:rows.length?rows:bills.slice(0,1),matched:total===target,total,target};}
+function invoiceMatch(x){const bills=x.bills||[],target=Math.round(num(x.gt)*100),eligible=bills.filter(b=>Math.round(num(b.hasOS?b.os:b.total)*100)>=500);if(!eligible.length)return {rows:[],matched:false,total:0,target:Math.max(0,target)};if(!(target>0)){const b=eligible[0];return {rows:[b],matched:false,total:Math.round(num(b.hasOS?b.os:b.total)*100),target:Math.max(0,target)};}const rows=[];let total=0;for(const b of eligible){const v=Math.round(num(b.hasOS?b.os:b.total)*100);rows.push(b);total+=v;if(total>=target)break;}return {rows,totalRows:rows.length,matched:total===target,total,target};}
 function renderSelectors(){const box=document.getElementById('clmSelectors');box.innerHTML=state.selected.map((c,i)=>'<div class="field"><label for="clmCustomer'+i+'">Customer '+(i+1)+' (optional)</label><select id="clmCustomer'+i+'" data-clm-slot="'+i+'"><option value="">— Select customer —</option>'+candidates().map(x=>'<option value="'+esc(x.code)+'" '+(x.code===c?'selected':'')+'>'+esc(x.code+' — '+x.name)+'</option>').join('')+'</select></div>').join('')}
 function kpi(label,value){return '<div class="clm-kpi"><small>'+esc(label)+'</small><b>'+esc(value)+'</b></div>'}
 function renderCards(){
@@ -9684,7 +9684,7 @@ async function exportFile(){
   pushRow(['Area Code','Customer Code','Customer Name','Customer group','Customer classification group','sales order no.','Invoice No','Invoice Date','Total'],'invoiceHeader');
   if(!match.rows.length)pushRow(blank());
   else match.rows.forEach(b=>pushRow([b.area,b.code,b.name,b.group,b.classification,b.order,b.invoice,dateText(b.date),b.hasOS?b.os:b.total]));
-  pushRow([match.matched?'Invoice total status: exact GT O/S match':'Invoice total status: closest cumulative total to GT O/S','','','','','','','',''],'status');
+  pushRow([match.matched?'Invoice total status: exact GT O/S match':'Invoice total status: accumulated to meet or exceed GT O/S (invoices under ₹500 excluded)','','','','','','','',''],'status');
   if(idx<sel.length-1)pushRow(blank());
  });
  const ws=XLSX.utils.aoa_to_sheet(aoa);
