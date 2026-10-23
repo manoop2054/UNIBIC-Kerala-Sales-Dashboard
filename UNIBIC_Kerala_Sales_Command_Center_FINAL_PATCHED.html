@@ -9395,6 +9395,12 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
 #eacLoginGate button:disabled{opacity:.6;cursor:wait}
 #eacLoginError{display:none;color:#b42318;background:#fff1f0;border:1px solid #ffd0cc;border-radius:7px;padding:9px;font-size:12px;margin-top:12px}
 #eacLogoutButton{position:fixed;right:18px;bottom:18px;z-index:1000;border:1px solid #d6e2f0;border-radius:7px;background:#fff;color:#23415f;padding:8px 12px;display:none;cursor:pointer}
+#eacLoggedInIdentity{position:fixed;top:12px;right:18px;z-index:1000;display:none;align-items:center;gap:9px;max-width:min(320px,calc(100vw - 24px));padding:9px 12px;border:1px solid #cfe4d8;border-radius:10px;background:#f5fff8;color:#173454;box-shadow:0 4px 16px #17345418;font-family:Inter,Arial,sans-serif}
+#eacLoggedInIdentity .eac-identity-status{width:9px;height:9px;flex:0 0 9px;border-radius:50%;background:#16a34a;box-shadow:0 0 0 3px #16a34a20}
+#eacLoggedInIdentity .eac-identity-details{display:flex;flex-direction:column;gap:2px;min-width:0}
+#eacLoggedInIdentity strong{font-size:12px;line-height:1.3;overflow-wrap:anywhere}
+#eacLoggedInIdentity small{font-size:11px;color:#52677c}
+@media(max-width:600px){#eacLoggedInIdentity{top:8px;right:8px;max-width:calc(100vw - 16px);padding:7px 9px}#eacLoggedInIdentity strong{font-size:11px}#eacLoggedInIdentity small{font-size:10px}}
 </style>
 <div id="eacLoginGate" role="dialog" aria-modal="true" aria-labelledby="eacLoginTitle">
   <form class="eac-card" id="eacLoginForm">
@@ -9409,6 +9415,10 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     <div id="eacLoginError" role="alert"></div>
   </form>
 </div>
+<div id="eacLoggedInIdentity" aria-live="polite" style="display:none">
+  <span class="eac-identity-status" aria-hidden="true"></span>
+  <span class="eac-identity-details"><strong id="eacIdentityName"></strong><small id="eacIdentityEmployeeId"></small></span>
+</div>
 <button id="eacLogoutButton" type="button">Sign out</button>
 <script id="eac-dashboard-login-gate">
 (function(){
@@ -9417,7 +9427,21 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   const error=document.getElementById('eacLoginError');
   const submit=document.getElementById('eacLoginSubmit');
   const logout=document.getElementById('eacLogoutButton');
+  const identity=document.getElementById('eacLoggedInIdentity');
+  const identityName=document.getElementById('eacIdentityName');
+  const identityEmployeeId=document.getElementById('eacIdentityEmployeeId');
   const showError=message=>{error.textContent=message;error.style.display='block';};
+  function maskEmployeeId(value){
+    const id=String(value||'').trim();
+    if(!id)return '';
+    if(id.length<=4)return '*'.repeat(id.length);
+    return id.slice(0,2)+'*'.repeat(Math.min(6,id.length-4))+id.slice(-2);
+  }
+  function showIdentity(user){
+    identityName.textContent=String(user.employeeName||'Employee').trim()||'Employee';
+    identityEmployeeId.textContent='Employee ID: '+maskEmployeeId(user.employeeId);
+    identity.style.display='flex';
+  }
   let permissionMap=new Map();
   const reportResource={
     gsv2:'report.gsv',product:'report.customer-wise',item:'report.item-wise',
@@ -9549,6 +9573,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       const payload=await response.json();
       if(!payload.success||!payload.user){gate.hidden=false;return;}
       gate.hidden=true;logout.style.display='block';
+      showIdentity(payload.user);
       applyPermissions({...payload.user,permissions:payload.permissions||[]});
     }catch(_){gate.hidden=false;showError('Unable to contact the login service. Please retry.');}
   }
