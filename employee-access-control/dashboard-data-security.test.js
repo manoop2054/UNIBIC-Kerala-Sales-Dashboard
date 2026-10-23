@@ -26,6 +26,13 @@ test('geography field lookup is case and separator insensitive', () => {
   assert.equal(firstValue({ 'ANCHOR ZONENAME': 'Zone A' }, ['AnchorZoneName']), 'Zone A');
 });
 
+test('matches South KL employee scope to South Kerala GSV region label', () => {
+  const row = { REGION: 'SOUTH KERALA', Area: 'CENTRAL KERALA', AnchorZoneName: 'ERNAKULAM' };
+  const scopes = [{ region: 'SOUTH KL', area: 'CENTRAL KERALA', anchorZone: 'ERNAKULAM' }];
+  assert.equal(rowMatchesScopes(row, scopes), true);
+  assert.equal(rowMatchesScopes({ ...row, REGION: 'NORTH KERALA' }, scopes), false);
+});
+
 test('matches the exact GSV workbook headers Region_Name, AreaCode and AnchorZoneName', () => {
   const row = { Region_Name: 'Central Kerala', AreaCode: 'Ernakulam', AnchorZoneName: 'Zone 7' };
   const scopes = [{ region: 'Central Kerala', area: 'Ernakulam', anchorZone: 'Zone 7' }];
