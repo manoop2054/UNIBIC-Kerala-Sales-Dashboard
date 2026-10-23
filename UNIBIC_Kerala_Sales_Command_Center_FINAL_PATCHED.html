@@ -9663,6 +9663,7 @@ function name(r){return String(r.__customer||first(r,aliases.name)||r.__dbrName|
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function num(v){if(typeof window.num==='function')return window.num(v);const n=Number(String(v??'').replace(/[₹,\s]/g,''));return Number.isFinite(n)?n:0}
 function money(v){return '₹'+num(v).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function moneyWithTax(v){return money(num(v)*1.05)}
 function date(v){if(v instanceof Date&&!isNaN(v))return v;if(v==null||v==='')return null;const d=new Date(v);return isNaN(d)?null:d}
 function dateText(v){const d=date(v);return d?d.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'}):String(v||'')}
 function rows(){return typeof gsvRows!=='undefined'&&Array.isArray(gsvRows)?gsvRows:[]}
@@ -9686,12 +9687,12 @@ function renderCards(){
  if(!sel.length){box.innerHTML='<div class="card" style="padding:18px;color:#64748b">Select a customer above to view GSV, GT O/S and invoice details.</div>';document.getElementById('clmUploadStatus').textContent=state.uploadMessage;document.getElementById('clmChequeUploadStatus').textContent=state.chequeUploadMessage;return}
  box.innerHTML=sel.map((c,i)=>{
   const x=metrics(c),m=x.manual,customer=candidates().find(z=>z.code===c)||{code:c,name:c};
-  const match=invoiceMatch(x),billRows=match.rows.map(b=>'<tr><td>'+esc(b.area)+'</td><td>'+esc(b.code)+'</td><td>'+esc(b.name)+'</td><td>'+esc(b.group)+'</td><td>'+esc(b.classification)+'</td><td>'+esc(b.order)+'</td><td>'+esc(b.invoice)+'</td><td>'+esc(dateText(b.date))+'</td><td style="text-align:right">'+esc(money(b.hasOS?b.os:b.total))+'</td></tr>').join('');
+  const match=invoiceMatch(x),billRows=match.rows.map(b=>'<tr><td>'+esc(b.area)+'</td><td>'+esc(b.code)+'</td><td>'+esc(b.name)+'</td><td>'+esc(b.group)+'</td><td>'+esc(b.classification)+'</td><td>'+esc(b.order)+'</td><td>'+esc(b.invoice)+'</td><td>'+esc(dateText(b.date))+'</td><td style="text-align:right">'+esc(moneyWithTax(b.hasOS?b.os:b.total))+'</td></tr>').join('');
   const gt=x.gt===null?'—':money(x.gt);
   return '<article class="clm-customer-card"><div class="clm-card-head"><h3>Customer '+(i+1)+' · '+esc(customer.code)+' · '+esc(customer.name)+'</h3><span>CL Management</span></div><div class="clm-card-body">'+
   '<table class="clm-bill-table"><tbody>'+
-  '<tr><th style="text-align:left">3 MONTH AVERAGE GSV</th><td>'+esc(money(x.avg))+'</td></tr>'+
-  '<tr><th style="text-align:left">Total Billed value in this month</th><td>'+esc(money(x.current))+'</td></tr>'+
+  '<tr><th style="text-align:left">3 MONTH AVERAGE GSV</th><td>'+esc(moneyWithTax(x.avg))+'</td></tr>'+
+  '<tr><th style="text-align:left">Total Billed value in this month</th><td>'+esc(moneyWithTax(x.current))+'</td></tr>'+
   '</tbody></table>'+
   '<div class="clm-bill-wrap"><table class="clm-bill-table"><thead>'+
   '<tr><th>CODE</th><th>CUSTOMER NAME</th><th>NO OF CHEQUES</th><th colspan="3">CURRENT O/S AMOUNT</th><th>REQUIRED CL AMOUNT</th><th>CHAIN CODE</th><th>CREDIT TERMS</th></tr>'+
@@ -9858,7 +9859,7 @@ async function exportFile(){
  let totalCheques=0,totalCL=0;
  sel.forEach((c,idx)=>{
   const x=metrics(c),m=x.manual,cn=candidates().find(z=>z.code===c)||{code:c,name:c};
-  const chequeCount=num(m.cheques),clAmount=num(m.required);
+  const chequeCount=num(m.cheques),clAmount=num(m.required)*1.05;
   totalCheques+=chequeCount;totalCL+=clAmount;
   pushRow([idx+1,c,cn.name,chequeCount,clAmount,'','','',''],'topSummaryData');
  });
@@ -9867,14 +9868,14 @@ async function exportFile(){
  merges.push({s:{r:0,c:0},e:{r:0,c:4}});
  sel.forEach((c,idx)=>{
   const x=metrics(c),m=x.manual,cn=candidates().find(z=>z.code===c)||{name:c},match=invoiceMatch(x);
-  const sum1=pushRow(['3 MONTH AVERAGE GSV',x.avg,'','','','','','',''],'summary');
-  const sum2=pushRow(['Total Billed value in this month',x.current,'','','','','','',''],'summary');
+  const sum1=pushRow(['3 MONTH AVERAGE GSV',num(x.avg)*1.05,'','','','','','',''],'summary');
+  const sum2=pushRow(['Total Billed value in this month',num(x.current)*1.05,'','','','','','',''],'summary');
   const hdr=pushRow(['CODE','CUSTOMER NAME','NO OF CHEQUES','CURRENT O/S AMOUNT','','','REQUIRED CL AMOUNT','CHAIN CODE','CREDIT TERMS'],'customerHeader');
   pushRow(['','','','GT O/S AMOUNT','MARRIE O/S AMOUNT','INST O/S AMOUNT','','',''],'subHeader');
-  pushRow([c,cn.name,m.cheques,x.gt===null?'':x.gt,m.marrie,m.inst,m.required,m.chain,m.terms],'customerData');
+  pushRow([c,cn.name,m.cheques,x.gt===null?'':num(x.gt),num(m.marrie)*1.05,num(m.inst)*1.05,num(m.required)*1.05,m.chain,m.terms],'customerData');
   pushRow(['Area Code','Customer Code','Customer Name','Customer group','Customer classification group','sales order no.','Invoice No','Invoice Date','Total'],'invoiceHeader');
   if(!match.rows.length)pushRow(blank());
-  else match.rows.forEach(b=>pushRow([b.area,b.code,b.name,b.group,b.classification,b.order,b.invoice,dateText(b.date),b.hasOS?b.os:b.total]));
+  else match.rows.forEach(b=>pushRow([b.area,b.code,b.name,b.group,b.classification,b.order,b.invoice,dateText(b.date),num(b.hasOS?b.os:b.total)*1.05]));
   pushRow([match.matched?'Invoice total status: exact GT O/S match':'Invoice total status: accumulated to meet or exceed GT O/S (invoices under ₹500 excluded)','','','','','','','',''],'status');
   if(idx<sel.length-1)pushRow(blank());
  });
