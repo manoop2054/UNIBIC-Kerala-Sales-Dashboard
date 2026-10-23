@@ -209,9 +209,19 @@ async function sendScopedJsonCache(req, res, file) {
     } else {
       res.end(']}');
     }
-  } catch (_) {
+  } catch (error) {
+    // Keep the exact server-side failure visible in Render logs. Once streaming
+    // has started, a JSON 500 cannot safely replace the partial response.
+    console.error('Scoped dashboard cache filtering failed:', JSON.stringify({
+      employeeId: req.accessUser && req.accessUser.employeeId,
+      isSohPermissionOnly: Boolean(req.isSohPermissionOnly),
+      totalRows,
+      emittedRows: emitted,
+      headersSent: res.headersSent,
+      error: error && (error.stack || error.message) || String(error)
+    }));
     if (!res.headersSent) return res.status(500).json({ error: 'Unable to filter cached dashboard data.' });
-    res.destroy();
+    res.destroy(error instanceof Error ? error : undefined);
   }
 }
 
