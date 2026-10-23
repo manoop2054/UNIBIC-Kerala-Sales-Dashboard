@@ -23,6 +23,9 @@ function normalizeScopePart(value, kind) {
   const normalized = normalize(value);
   if (normalized === '*' || normalized === 'all' || normalized === 'all ' + kind) return '*';
   if (kind === 'region' && ['all region', 'all regions', 'all kerala', 'kerala all'].includes(normalized)) return '*';
+  // The employee master uses "SOUTH KL" while GSV workbooks may label the
+  // same region "SOUTH KERALA". Canonicalize both sides without widening scope.
+  if (kind === 'region' && ['south kl', 'south kerala'].includes(normalized)) return 'south kerala';
   if (kind === 'anchor zone' && ['all anchor zone', 'all anchor zones', 'all zone', 'all zones'].includes(normalized)) return '*';
   if (kind === 'area' && ['all areas', 'all area'].includes(normalized)) return '*';
   return normalized;
@@ -53,9 +56,10 @@ function rowMatchesScopes(row, scopes) {
   return scopes.some(scope => {
     if (!scope || typeof scope !== 'object') return false;
     const scopeRegion = normalizeScopePart(scope.region, 'region');
+    const rowRegion = normalizeScopePart(region, 'region');
     const scopeArea = normalizeScopePart(scope.area, 'area');
     const scopeZone = normalizeScopePart(scope.anchorZone, 'anchor zone');
-    if (scopeRegion && scopeRegion !== '*' && scopeRegion !== normalize(region)) return false;
+    if (scopeRegion && scopeRegion !== '*' && scopeRegion !== rowRegion) return false;
     if (scopeArea && scopeArea !== '*' && scopeArea !== normalize(area)) return false;
     if (scopeZone && scopeZone !== '*' && scopeZone !== normalize(zone)) return false;
     return true;
