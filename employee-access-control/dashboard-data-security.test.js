@@ -59,13 +59,41 @@ test('dashboard API guard rejects requests without an authenticated employee ses
   assert.equal(res.statusCode, 401);
 });
 
-test('non-Super-Admin SOH access fails closed until trusted CFA/Warehouse geography mapping exists', async () => {
+test('non-Super-Admin LIVE SOH access follows explicit CFA-wise view permission without geographic scopes', async () => {
   const pool = {
     query: async sql => {
       if (sql.includes('FROM employee_sessions')) {
-        return { rows: [{ session_id_hash: 'hash', employee_id: 'EMP001', employee_name: 'Test Employee', designation: 'Executive', role: 'EMPLOYEE' }] };
+        return { rows: [{ session_id_hash: 'hash', employee_id: 'EMP001', employee_name: 'Test Employee', designation: 'Executive', role: 'ADMIN' }] };
       }
-      throw new Error('SOH scope query must not run without trusted mapping');
+      if (sql.includes('FROM employee_permissions') && sql.includes('LIMIT 1')) {
+        return { rows: [{ resource_key: 'tab.soh' }] };
+      }
+      throw new Error('Unexpected SQL in SOH permission test');
+    }
+  };
+  const guard = createDashboardSessionGuard({
+    getPool: () => pool,
+    initializeDatabase: async () => {},
+    getDatabaseStatus: () => ({ ready: true }),
+    dataKind: 'soh'
+  });
+  const req = { headers: { cookie: 'eac_session=' + 'D'.repeat(43) } };
+  const res = responseRecorder();
+  let continued = false;
+  await guard(req, res, () => { continued = true; });
+  assert.equal(continued, true);
+  assert.equal(req.isSohPermissionOnly, true);
+  assert.deepEqual(req.dataScopes, []);
+});
+
+test('LIVE SOH remains denied when the CFA-wise view permission is off', async () => {
+  const pool = {
+    query: async sql => {
+      if (sql.includes('FROM employee_sessions')) {
+        return { rows: [{ session_id_hash: 'hash', employee_id: 'EMP001', employee_name: 'Test Employee', designation: 'Executive', role: 'ADMIN' }] };
+      }
+      if (sql.includes('FROM employee_permissions') && sql.includes('LIMIT 1')) return { rows: [] };
+      throw new Error('Unexpected SQL in SOH denial test');
     }
   };
   const guard = createDashboardSessionGuard({
@@ -76,8 +104,8 @@ test('non-Super-Admin SOH access fails closed until trusted CFA/Warehouse geogra
   });
   const res = responseRecorder();
   await guard({ headers: { cookie: 'eac_session=' + 'D'.repeat(43) } }, res, () => { throw new Error('next must not run'); });
-  assert.equal(res.statusCode, 503);
-  assert.match(res.body.error, /SOH geographic access mapping is not configured/);
+  assert.equal(res.statusCode, 403);
+  assert.match(res.body.error, /LIVE SOH view permission has not been assigned/);
 });
 
 test('dashboard API guard builds per-resource scope groups for authenticated employees', async () => {
