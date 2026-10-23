@@ -19,20 +19,37 @@ function firstValue(row, names) {
   return '';
 }
 
+function normalizeScopePart(value, kind) {
+  const normalized = normalize(value);
+  if (normalized === '*' || normalized === 'all' || normalized === 'all ' + kind) return '*';
+  if (kind === 'region' && ['all region', 'all regions', 'all kerala', 'kerala all'].includes(normalized)) return '*';
+  if (kind === 'anchor zone' && ['all anchor zone', 'all anchor zones', 'all zone', 'all zones'].includes(normalized)) return '*';
+  if (kind === 'area' && ['all areas', 'all area'].includes(normalized)) return '*';
+  return normalized;
+}
+
 function rowMatchesScopes(row, scopes) {
-  if ((scopes || []).some(scope => !Array.isArray(scope) && normalize(scope.region) === '*' && normalize(scope.area) === '*' && normalize(scope.anchorZone) === '*')) return true;
-  if (Array.isArray(scopes) && scopes.length && Array.isArray(scopes[0])) {
-    return scopes.every(group => group.length > 0 && rowMatchesScopes(row, group));
+  if (!Array.isArray(scopes) || scopes.length === 0) return false;
+
+  // This endpoint returns a shared dataset for multiple dashboard resources.
+  // Keep the intersection of their assigned scopes so a broader permission on
+  // one resource cannot expose rows outside another resource's assigned scope.
+  if (Array.isArray(scopes[0])) {
+    return scopes.every(group => Array.isArray(group) && group.length > 0 && rowMatchesScopes(row, group));
   }
+
   const region = firstValue(row, ['REGION', 'Region', 'region', 'Region Name']);
   const area = firstValue(row, ['Area', 'Area Name', 'AreaCode', 'Area Code']);
   const zone = firstValue(row, ['AnchorZoneName', 'Anchor Zone Name', 'ANCHOR ZONENAME', 'Anchor Zone', 'AnchorZone']);
   if (!region) return false;
-  return (scopes || []).some(scope => {
-    if (normalize(scope.region) === '*' && normalize(scope.area) === '*' && normalize(scope.anchorZone) === '*') return true;
-    if (!scope.region || normalize(scope.region) !== normalize(region)) return false;
-    if (scope.area && normalize(scope.area) !== normalize(area)) return false;
-    if (scope.anchorZone && normalize(scope.anchorZone) !== normalize(zone)) return false;
+  return scopes.some(scope => {
+    if (!scope || typeof scope !== 'object') return false;
+    const scopeRegion = normalizeScopePart(scope.region, 'region');
+    const scopeArea = normalizeScopePart(scope.area, 'area');
+    const scopeZone = normalizeScopePart(scope.anchorZone, 'anchor zone');
+    if (scopeRegion && scopeRegion !== '*' && scopeRegion !== normalize(region)) return false;
+    if (scopeArea && scopeArea !== '*' && scopeArea !== normalize(area)) return false;
+    if (scopeZone && scopeZone !== '*' && scopeZone !== normalize(zone)) return false;
     return true;
   });
 }
@@ -54,11 +71,25 @@ function createDashboardSessionGuard({ getPool, initializeDatabase, getDatabaseS
         return next();
       }
 
-      // SOH source rows currently have CFA/Warehouse identifiers but no verified
-      // Region/Area/Anchor Zone mapping. Fail closed for non-Super-Admin users
-      // until a trusted server-side mapping is supplied and integration-tested.
+      // LIVE SOH is a CFA/Warehouse-wise stock report, not a Region/Area/Anchor Zone
+      // dataset. Honor the explicit LIVE SOH view permission and do not apply GSV
+      // geographic scopes to stock rows. The route marks authorized SOH sessions so
+      // the streaming cache can return the CFA-wise rows without geographic matching.
       if (dataKind === 'soh') {
-        return res.status(503).json({ error: 'SOH geographic access mapping is not configured; access is temporarily restricted.' });
+        const permission = await pool.query(
+          `SELECT resource_key FROM employee_permissions
+           WHERE employee_id = $1 AND can_view = TRUE
+             AND resource_key = ANY($2::text[])
+           LIMIT 1`,
+          [user.employeeId, ['tab.soh', 'report.live-soh-cfa-wise', 'report.stock']]
+        );
+        if (!permission.rows.length) {
+          return res.status(403).json({ error: 'LIVE SOH view permission has not been assigned.' });
+        }
+        req.dataScopes = [];
+        req.isSohPermissionOnly = true;
+        req.isProtectedSuperAdmin = false;
+        return next();
       }
       const resourceSets = {
         gsv: ['tab.executive','tab.sales','tab.item','tab.dbr','tab.invoice','tab.alerts','tab.reports','report.gsv','report.dbr-wise','report.area-wise','report.zone-wise','report.anchor-zone-wise','report.customer-wise','report.discount-returns','report.export-all'],
@@ -110,7 +141,7 @@ async function sendScopedJsonCache(req, res, file) {
   let objectBuffer = '';
   const emit = async row => {
     totalRows++;
-    if (!rowMatchesScopes(row, req.dataScopes)) return;
+    if (!req.isSohPermissionOnly && !rowMatchesScopes(row, req.dataScopes)) return;
     if (emitted++) res.write(',');
     if (!res.write(JSON.stringify(row))) await once(res, 'drain');
   };
