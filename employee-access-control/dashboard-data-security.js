@@ -31,11 +31,11 @@ function normalizeScopePart(value, kind) {
 function rowMatchesScopes(row, scopes) {
   if (!Array.isArray(scopes) || scopes.length === 0) return false;
 
-  // Each resource can have its own assigned geographic scope. The shared data
-  // endpoint must include rows allowed by at least one enabled resource; using
-  // AND here incorrectly reduced the result to the intersection of all scopes.
+  // This endpoint returns a shared dataset for multiple dashboard resources.
+  // Keep the intersection of their assigned scopes so a broader permission on
+  // one resource cannot expose rows outside another resource's assigned scope.
   if (Array.isArray(scopes[0])) {
-    return scopes.some(group => Array.isArray(group) && group.length > 0 && rowMatchesScopes(row, group));
+    return scopes.every(group => Array.isArray(group) && group.length > 0 && rowMatchesScopes(row, group));
   }
 
   const region = firstValue(row, ['REGION', 'Region', 'region', 'Region Name']);
