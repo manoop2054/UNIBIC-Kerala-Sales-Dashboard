@@ -1937,7 +1937,7 @@ setTimeout(()=>{
 </div>
 </section>
 
-<section id="soh" class="section"><h2 class="sectiontitle">&#128230; LIVE SOH Intelligence</h2><p class="subhead">Batch-free LIVE SOH view. CBB is shown by warehouse when a warehouse is selected.</p><div class="kpis"><div class="kpi" style="--accent:#1769e0"><div class="label">ROWS</div><div class="value" id="sohRows">0</div></div><div class="kpi" style="--accent:#159a6a"><div class="label">WAREHOUSES</div><div class="value" id="sohWhCount">0</div></div><div class="kpi" style="--accent:#00a7c7"><div class="label">FILTERED CBB</div><div class="value" id="sohFiltered">0</div></div><div class="kpi" style="--accent:#ef8b20"><div class="label">SELECTED WH CBB</div><div class="value" id="sohWhCbb">-</div></div></div><div class="filters"><div class="field"><label>Warehouse</label><select id="sohWh"><option value="">All</option></select></div><div class="field"><label>Item Code</label><input id="sohItemSearch" type="text" placeholder="Type Item Code..." autocomplete="off" style="width:100%;box-sizing:border-box;margin-bottom:5px"><select id="sohItem"><option value="">All</option></select></div><div class="field"><label>MRP</label><select id="sohMrp"><option value="">All MRP</option></select></div><div class="field"><label>Type</label><select id="sohType"><option value="">All Types</option></select></div><div class="field"><label>Description</label><input id="sohDescSearch" type="text" placeholder="Type Description..." autocomplete="off" style="width:100%;box-sizing:border-box;margin-bottom:5px"><select id="sohDesc"><option value="">All</option></select></div></div><div class="card"><div class="cardhead"><h3>LIVE SOH Detail</h3><button class="smallbtn" id="sohExport">Export Excel</button></div><div class="tablewrap"><table><thead><tr><th>ITEMID</th><th>DESCRIPTION</th><th>WAREHOUSE</th><th>MRP</th><th>MFG</th><th>EXPIRY_DATE</th><th>CBO</th><th>TOTAL_MAIN_QRT</th><th>SHELFLIFE</th><th>REMAININGSHELFLIFE</th><th>BRANDSHORTNAME</th><th>TYPE</th></tr></thead><tbody id="sohTable"></tbody></table></div></div></section>
+<section id="soh" class="section"><h2 class="sectiontitle">&#128230; LIVE SOH Intelligence</h2><p class="subhead">Batch-free LIVE SOH view. CBB is shown by warehouse when a warehouse is selected.</p><div class="kpis"><div class="kpi" style="--accent:#1769e0"><div class="label">ROWS</div><div class="value" id="sohRows">0</div></div><div class="kpi" style="--accent:#159a6a"><div class="label">WAREHOUSES</div><div class="value" id="sohWhCount">0</div></div><div class="kpi" style="--accent:#00a7c7"><div class="label">FILTERED CBB</div><div class="value" id="sohFiltered">0</div></div><div class="kpi" style="--accent:#ef8b20"><div class="label">SELECTED WH CBB</div><div class="value" id="sohWhCbb">-</div></div></div><div class="filters"><div class="field"><label>Warehouse</label><select id="sohWh"><option value="">All</option></select></div><div class="field"><label>Item Code</label><input id="sohItemSearch" type="text" placeholder="Type Item Code..." autocomplete="off" style="width:100%;box-sizing:border-box;margin-bottom:5px"><select id="sohItem"><option value="">All</option></select></div><div class="field"><label>MRP</label><select id="sohMrp"><option value="">All MRP</option></select></div><div class="field"><label>Type</label><select id="sohType"><option value="">All Types</option></select></div><div class="field"><label>Description</label><input id="sohDescSearch" type="text" placeholder="Type Description..." autocomplete="off" style="width:100%;box-sizing:border-box;margin-bottom:5px"><select id="sohDesc"><option value="">All</option></select></div><div class="field"><label>Shelf Life Filter</label><select id="sohShelfMode"><option value="">All Shelf Life</option><option value="above">Above or equal (≥)</option><option value="below">Below (&lt;)</option></select></div><div class="field"><label>Shelf Life %</label><select id="sohShelfPct"><option value="">Select %</option><option value="20">20%</option><option value="30">30%</option><option value="40">40%</option><option value="50">50%</option><option value="60">60%</option><option value="70">70%</option><option value="80">80%</option><option value="90">90%</option></select></div></div><div class="card"><div class="cardhead"><h3>LIVE SOH Detail</h3><button class="smallbtn" id="sohExport">Export Excel</button></div><div class="tablewrap"><table><thead><tr><th>ITEMID</th><th>DESCRIPTION</th><th>WAREHOUSE</th><th>MRP</th><th>MFG</th><th>EXPIRY_DATE</th><th>CBO</th><th>TOTAL_MAIN_QRT</th><th>SHELFLIFE</th><th>REMAININGSHELFLIFE</th><th>BRANDSHORTNAME</th><th>TYPE</th></tr></thead><tbody id="sohTable"></tbody></table></div></div></section>
 
 <section id="alerts" class="section">
 <h2 class="sectiontitle">&#128680; Alerts Intelligence</h2>
@@ -3099,13 +3099,19 @@ function renderSOH(){
   const mrpSelFilter=document.getElementById('sohMrp');
   const fmrp=mrpSelFilter?.value||'';
   const ftype=typeSel?.value||'';
+  const shelfMode=document.getElementById('sohShelfMode')?.value||'';
+  const shelfPct=document.getElementById('sohShelfPct')?.value||'';
 
   const filtered=rows.filter(x=>{
     const w=String(x.WAREHOUSE||x.CFA||x['CFA / WAREHOUSE']||'').trim();
     const i=String(x.ITEMID||x.ItemId||x['Item ID']||'').trim();
     const d=String(x.DESCRIPTION||x.Description||'').trim();
     const mrp=String(x.MRP??'').trim().toLowerCase();
-    return (!fw||w===fw)&&(!fi||i.toLowerCase().includes(fi))&&(!fd||d.toLowerCase().includes(fd))&&(!fis||i.toLowerCase().includes(fis))&&(!fds||d.toLowerCase().includes(fds))&&(!fmrp||Number(x.MRP)===Number(fmrp))&&(!ftype||String(x.TYPE||x.Type||'').trim()===ftype);
+    const remainingRaw=x.REMAININGSHELFLIFE??x['Remaining Shelf Life'];
+    const remainingText=String(remainingRaw??'').trim();
+    const remaining=Number(remainingText.replace(/[%,\\s]/g,''));
+    const shelfPass=!(shelfMode&&shelfPct)||(remainingText!==''&&Number.isFinite(remaining)&&(shelfMode==='above'?remaining>=Number(shelfPct):remaining<Number(shelfPct)));
+    return (!fw||w===fw)&&(!fi||i.toLowerCase().includes(fi))&&(!fd||d.toLowerCase().includes(fd))&&(!fis||i.toLowerCase().includes(fis))&&(!fds||d.toLowerCase().includes(fds))&&(!fmrp||Number(x.MRP)===Number(fmrp))&&(!ftype||String(x.TYPE||x.Type||'').trim()===ftype)&&shelfPass;
   });
 
   window.filteredSOHForExport=filtered;if(document.getElementById('sohRows')) document.getElementById('sohRows').textContent=filtered.length.toLocaleString('en-IN');
@@ -3139,7 +3145,7 @@ function renderSOH(){
   }
 
   if(!whSel.dataset.sohBound){
-    [whSel,itemSel,descSel].forEach(el=>el?.addEventListener('change',renderSOH));
+    [whSel,itemSel,descSel,document.getElementById('sohShelfMode'),document.getElementById('sohShelfPct')].forEach(el=>el?.addEventListener('change',renderSOH));
     typeSel?.addEventListener('change',renderSOH);
     document.getElementById('sohItemSearch')?.addEventListener('input',renderSOH);
     document.getElementById('sohDescSearch')?.addEventListener('input',renderSOH);
@@ -8349,7 +8355,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   // Delegation remains active even if other dashboard scripts attach their own listeners.
   document.addEventListener('change',function(event){
     const el=event.target;
-    if(el && el.closest && el.closest('#soh') && ['sohWh','sohItem','sohDesc','sohMrp','sohType'].includes(el.id)){
+    if(el && el.closest && el.closest('#soh') && ['sohWh','sohItem','sohDesc','sohMrp','sohType','sohShelfMode','sohShelfPct'].includes(el.id)){
       setTimeout(function(){ if(typeof window.renderSOH==='function') window.renderSOH(); },0);
     }
   },true);
