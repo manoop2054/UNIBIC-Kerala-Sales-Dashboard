@@ -257,7 +257,7 @@ body.eac-locked #eacLoginGate{display:grid}
         p.canView=clRoleAllowed;
         p.canFilter=clRoleAllowed;p.canExport=clRoleAllowed;p.canPrint=clRoleAllowed;
       }
-      return '<div class="tabrow"><span class="tabico">'+item[2]+'</span><span class="tabname">'+item[1]+(clAdminOnly?' <span style="color:#b45309;font-size:9px;font-weight:700">(Admin/Super Admin only)</span>':'')+'</span><span>'+switchHTMLConnected(item[0],p.canView,'tab',undefined,clAdminOnly)+'</span><button type="button" class="detail" style="border:0;background:transparent;padding:0;cursor:pointer" data-eac-details="'+esc(item[0])+'"'+(clAdminOnly?' disabled title="CL Management access is restricted by role"':'')+'>'+(clAdminOnly?'Role locked':'View Details')+'</button><span class="chev">›</span></div>';
+      return '<div class="tabrow"><span class="tabico">'+item[2]+'</span><span class="tabname">'+item[1]+'</span><span>'+switchHTMLConnected(item[0],p.canView,'tab',undefined,clAdminOnly)+'</span><button type="button" class="detail" style="border:0;background:transparent;padding:0;cursor:pointer" data-eac-details="'+esc(item[0])+'">View Details</button><span class="chev">›</span></div>';
     }).join('');
     document.querySelectorAll('[data-eac-details]').forEach(el=>el.addEventListener('click',()=>openTabDetails(el.dataset.eacDetails)));
     document.querySelectorAll('[data-eac-tab]').forEach(el=>el.addEventListener('change',()=>{
