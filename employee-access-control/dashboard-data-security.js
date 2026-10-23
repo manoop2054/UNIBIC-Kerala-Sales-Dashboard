@@ -48,17 +48,30 @@ function createDashboardSessionGuard({ getPool, initializeDatabase, getDatabaseS
       const user = await resolveSession(pool, token);
       if (!user) return res.status(401).json({ error: 'A valid employee login is required.' });
       req.accessUser = user;
+      req.dataKind = dataKind;
       if (user.employeeId.toUpperCase() === 'P2PUF7638' && user.role.toUpperCase() === 'SUPER_ADMIN') {
         req.dataScopes = [{ region: '*', area: '*', anchorZone: '*' }];
+        req.allWarehouses = true;
+        req.allowedWarehouses = [];
         req.isProtectedSuperAdmin = true;
         return next();
       }
 
-      // SOH source rows currently have CFA/Warehouse identifiers but no verified
-      // Region/Area/Anchor Zone mapping. Fail closed for non-Super-Admin users
-      // until a trusted server-side mapping is supplied and integration-tested.
+      // LIVE SOH is granted explicitly per employee and restricted by CFA/Warehouse.
       if (dataKind === 'soh') {
-        return res.status(503).json({ error: 'SOH geographic access mapping is not configured; access is temporarily restricted.' });
+        const access = await pool.query(
+          "SELECT a.enabled, a.all_warehouses, COALESCE(array_agg(w.warehouse) FILTER (WHERE w.warehouse IS NOT NULL), ARRAY[]::text[]) AS warehouses, COALESCE(p.can_view, FALSE) AS tab_allowed FROM employees e LEFT JOIN employee_soh_access a ON a.employee_id=e.employee_id LEFT JOIN employee_soh_warehouses w ON w.employee_id=a.employee_id LEFT JOIN employee_permissions p ON p.employee_id=e.employee_id AND p.resource_key='tab.soh' WHERE e.employee_id=$1 AND e.status='ACTIVE' GROUP BY a.enabled,a.all_warehouses,p.can_view",
+          [user.employeeId]
+        );
+        const row = access.rows[0];
+        if (!row || row.enabled !== true || row.tab_allowed !== true) return res.status(403).json({ error: 'LIVE SOH access has not been enabled for this employee by an Admin.' });
+        const warehouses = Array.isArray(row.warehouses) ? row.warehouses : [];
+        if (row.all_warehouses !== true && warehouses.length === 0) return res.status(403).json({ error: 'No CFA/Warehouse has been assigned for LIVE SOH access.' });
+        req.dataScopes = [];
+        req.allWarehouses = row.all_warehouses === true;
+        req.allowedWarehouses = warehouses.map(value => normalize(value));
+        req.isProtectedSuperAdmin = false;
+        return next();
       }
       const resourceSets = {
         gsv: ['tab.executive','tab.sales','tab.item','tab.dbr','tab.invoice','tab.alerts','tab.reports','report.gsv','report.dbr-wise','report.area-wise','report.zone-wise','report.anchor-zone-wise','report.customer-wise','report.discount-returns','report.export-all'],
@@ -110,7 +123,12 @@ async function sendScopedJsonCache(req, res, file) {
   let objectBuffer = '';
   const emit = async row => {
     totalRows++;
-    if (!rowMatchesScopes(row, req.dataScopes)) return;
+    if (req.dataKind === 'soh') {
+      if (!req.allWarehouses) {
+        const warehouse = normalize(firstValue(row, ['WAREHOUSE','Warehouse','CFA','CFA / WAREHOUSE','CFA/Warehouse','Location','Location Name']));
+        if (!warehouse || !(req.allowedWarehouses || []).includes(warehouse)) return;
+      }
+    } else if (!rowMatchesScopes(row, req.dataScopes)) return;
     if (emitted++) res.write(',');
     if (!res.write(JSON.stringify(row))) await once(res, 'drain');
   };
