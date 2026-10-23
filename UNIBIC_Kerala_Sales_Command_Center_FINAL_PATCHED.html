@@ -3955,41 +3955,88 @@ function refreshAllDataViews(){
 
 /* Final API loader */
 async function loadLiveData(){
-  setStatus('Loading GSV...',false);
+  setStatus('Loading dashboard data...',false);
 
-  try{
-    const r=await fetch('/api/gsv',{cache:'no-store'});
-    if(!r.ok) throw new Error('GSV HTTP '+r.status);
+  // GSV and LIVE SOH have independent permissions. A 403 for one dataset must
+  // not prevent another permitted dataset or other permitted tabs from loading.
+  let gsvLoaded=false;
+  let sohLoaded=false;
+  let deniedCount=0;
+  const failures=[];
 
-    const d=await r.json();
-    gsvRows=payloadRows(d).map(norm);
-    if(typeof window.enrichInvoiceRows==='function') window.enrichInvoiceRows(gsvRows);
-    activeRows=gsvRows;
-
-    console.log('GSV rows loaded:',gsvRows.length);
-
-    try{
-      const q=await fetch('/api/live-soh',{cache:'no-store'});
-      if(q.ok){
-        const x=await q.json();
-        soh=payloadRows(x);
-        filteredSOH=soh.slice();
-        console.log('SOH rows loaded:',soh.length);
-      }
-    }catch(e){
-      console.warn('SOH load failed:',e);
+  async function fetchPermittedRows(url,label){
+    const response=await fetch(url,{cache:'no-store'});
+    if(response.status===403){
+      deniedCount++;
+      console.info(label+' access is not assigned to this employee.');
+      return null;
     }
+    if(!response.ok) throw new Error(label+' HTTP '+response.status);
+    return payloadRows(await response.json());
+  }
 
+  const results=await Promise.allSettled([
+    fetchPermittedRows('/api/gsv','GSV'),
+    fetchPermittedRows('/api/live-soh','LIVE SOH')
+  ]);
+
+  if(results[0].status==='fulfilled'){
+    const rows=results[0].value;
+    if(rows!==null){
+      gsvRows=rows.map(norm);
+      if(typeof window.enrichInvoiceRows==='function') window.enrichInvoiceRows(gsvRows);
+      activeRows=gsvRows;
+      gsvLoaded=true;
+      console.log('GSV rows loaded:',gsvRows.length);
+    }else{
+      gsvRows=[];
+      activeRows=[];
+    }
+  }else{
+    gsvRows=[];
+    activeRows=[];
+    failures.push(results[0].reason);
+    console.warn('GSV load failed:',results[0].reason);
+  }
+
+  if(results[1].status==='fulfilled'){
+    const rows=results[1].value;
+    if(rows!==null){
+      soh=rows;
+      filteredSOH=soh.slice();
+      sohLoaded=true;
+      console.log('LIVE SOH rows loaded:',soh.length);
+    }else{
+      soh=[];
+      filteredSOH=[];
+    }
+  }else{
+    soh=[];
+    filteredSOH=[];
+    failures.push(results[1].reason);
+    console.warn('LIVE SOH load failed:',results[1].reason);
+  }
+
+  // Always refresh views: an employee may have Target, Claims, SOH or other
+  // allowed tabs even when GSV permission is intentionally off.
+  try{
     refreshAllDataViews();
+  }catch(error){
+    console.error('Dashboard rendering error:',error);
+    failures.push(error);
+  }
 
-    setStatus('Connected',false);
+  if(gsvLoaded || sohLoaded){
+    setStatus(failures.length ? 'Connected (partial data)' : (deniedCount ? 'Connected (limited access)' : 'Connected'),false);
+  }else if(deniedCount){
+    // Other separately-authorized tabs (e.g. Target/Claims) may still work.
+    setStatus('Connected (limited access)',false);
+  }else{
+    setStatus('Data loading issue',false);
+  }
 
-    if($('last'))
-      $('last').textContent='Last refresh: '+new Date().toLocaleString('en-IN');
-
-  }catch(e){
-    console.error('Dashboard API error:',e);
-    setStatus('Connection failed',false);
+  if($('last')){
+    $('last').textContent='Last refresh: '+new Date().toLocaleString('en-IN');
   }
 }
 
