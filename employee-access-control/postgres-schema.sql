@@ -125,4 +125,19 @@ CREATE TRIGGER trg_eac_protect_super_admin_permissions
 BEFORE INSERT OR UPDATE OR DELETE ON employee_permissions
 FOR EACH ROW EXECUTE FUNCTION eac_protect_super_admin_permissions();
 
+-- Per-employee LIVE SOH access settings.
+CREATE TABLE IF NOT EXISTS employee_soh_access (
+  employee_id TEXT PRIMARY KEY REFERENCES employees(employee_id) ON DELETE CASCADE,
+  enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  all_warehouses BOOLEAN NOT NULL DEFAULT FALSE,
+  updated_by TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS employee_soh_warehouses (
+  employee_id TEXT NOT NULL REFERENCES employee_soh_access(employee_id) ON DELETE CASCADE,
+  warehouse TEXT NOT NULL,
+  PRIMARY KEY (employee_id, warehouse)
+);
+
 COMMIT;

@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { rowMatchesScopes, firstValue } = require('./dashboard-data-security');
+const { rowMatchesScopes, firstValue, rowMatchesWarehouses } = require('./dashboard-data-security');
 
 test('filters rows to the assigned Region, Area and Anchor Zone', () => {
   const scopes = [{ region: 'North', area: 'Kozhikode', anchorZone: 'Zone A' }];
@@ -59,13 +59,16 @@ test('dashboard API guard rejects requests without an authenticated employee ses
   assert.equal(res.statusCode, 401);
 });
 
-test('non-Super-Admin SOH access fails closed until trusted CFA/Warehouse geography mapping exists', async () => {
+test('non-Super-Admin SOH access fails closed unless explicit employee access and tab permission are enabled', async () => {
   const pool = {
     query: async sql => {
       if (sql.includes('FROM employee_sessions')) {
         return { rows: [{ session_id_hash: 'hash', employee_id: 'EMP001', employee_name: 'Test Employee', designation: 'Executive', role: 'EMPLOYEE' }] };
       }
-      throw new Error('SOH scope query must not run without trusted mapping');
+      if (sql.includes('FROM employees e')) {
+        return { rows: [{ enabled: false, all_warehouses: false, warehouses: [], tab_allowed: false }] };
+      }
+      throw new Error('Unexpected query in SOH access test');
     }
   };
   const guard = createDashboardSessionGuard({
@@ -76,8 +79,8 @@ test('non-Super-Admin SOH access fails closed until trusted CFA/Warehouse geogra
   });
   const res = responseRecorder();
   await guard({ headers: { cookie: 'eac_session=' + 'D'.repeat(43) } }, res, () => { throw new Error('next must not run'); });
-  assert.equal(res.statusCode, 503);
-  assert.match(res.body.error, /SOH geographic access mapping is not configured/);
+  assert.equal(res.statusCode, 403);
+  assert.match(res.body.error, /LIVE SOH access has not been enabled/);
 });
 
 test('dashboard API guard builds per-resource scope groups for authenticated employees', async () => {
@@ -154,4 +157,17 @@ test('protected Super Admin session bypasses geographic filtering only after aut
   assert.equal(continued, true);
   assert.equal(req.isProtectedSuperAdmin, true);
   assert.equal(rowMatchesScopes({ ITEMID: 'A123' }, req.dataScopes), true);
+});
+
+test('LIVE SOH rows are limited to explicitly allowed CFA/Warehouse values', () => {
+  const allowed = ['CFA Trivandrum', 'CFA Kozhikode'];
+  assert.equal(rowMatchesWarehouses({ WAREHOUSE: 'CFA Trivandrum' }, allowed), true);
+  assert.equal(rowMatchesWarehouses({ CFA: 'cfa kozhikode' }, allowed), true);
+  assert.equal(rowMatchesWarehouses({ WAREHOUSE: 'CFA Kochi' }, allowed), false);
+  assert.equal(rowMatchesWarehouses({ ITEMID: '123' }, allowed), false);
+});
+
+test('LIVE SOH all-warehouse grant allows source rows, including alternate headers', () => {
+  assert.equal(rowMatchesWarehouses({ 'CFA / WAREHOUSE': 'CFA Kochi' }, [], true), true);
+  assert.equal(rowMatchesWarehouses({ WAREHOUSE: 'CFA Kochi' }, [], false), false);
 });

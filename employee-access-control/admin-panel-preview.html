@@ -23,6 +23,20 @@
 <div class="pagehead"><div><h1>Employee Access Management</h1><p>Manage employee roles, report permissions and geographic access scope</p></div><div class="info">Connected to Employee Access Control. Dashboard/API data enforcement is still pending verification; do not activate for production yet.</div></div>
 <section class="panel employee-panel"><div class="paneltitle"><span class="number">♙</span>1. Select Employee</div><div class="employee-fields"><div class="field"><label for="empid">Employee ID</label><div class="inlinefield"><input id="empid" value="" placeholder="Enter Employee ID" aria-label="Employee ID"><button class="btn primary" id="load">Load</button></div></div><div class="field"><label for="empname">Employee Name</label><input id="empname" value="" placeholder="Load an employee record" readonly></div><div class="field"><label for="role">Designation / Role</label><select id="role" aria-label="Designation / Role"><option value="">Load an employee record</option></select></div><div class="field"><label>Status</label><span class="activepill" id="status">—</span></div></div></section>
 <section class="panel employee-directory"><div class="paneltitle"><span class="number">↔</span>Employee Directory &amp; Assigned Resources</div><div class="employee-directory-controls"><div class="field"><label for="employeeSelect">Employee Dropdown (A–Z)</label><select id="employeeSelect" aria-label="Select employee"><option value="">Loading employees…</option></select></div><div class="field directory-search"><label for="employeeDirectorySearch">Search by Name or Employee ID</label><input id="employeeDirectorySearch" type="search" autocomplete="off" placeholder="Type employee name or ID…"></div><button class="btn" id="refreshEmployeeDirectory" type="button">Refresh Employee List</button></div><div class="directory-wrap"><table class="directory-table"><thead><tr><th>Employee ID</th><th>Name</th><th>Role</th><th>Status</th><th>Assigned resources</th></tr></thead><tbody id="employeeDirectoryRows"><tr><td colspan="5">Loading employee records…</td></tr></tbody></table></div></section>
+<section class="panel" id="sohAccessPanel" style="margin-bottom:11px">
+  <div class="paneltitle"><span class="number">4</span>LIVE SOH Access Management — CFA / Warehouse</div>
+  <div class="panelbody" style="padding:12px">
+    <p class="subtitle">Admin/Super Admin decides access per employee. Only the selected CFA/Warehouse rows will be returned by the backend and reflected in LIVE SOH filters, KPIs and exports. The employee must also have the LIVE SOH tab View permission enabled above.</p>
+    <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin:8px 0 12px">
+      <label style="display:flex;gap:8px;align-items:center;font-size:11px;font-weight:700"><input id="sohAccessEnabled" type="checkbox"> Enable LIVE SOH access</label>
+      <label style="display:flex;gap:8px;align-items:center;font-size:11px;font-weight:700"><input id="sohAllWarehouses" type="checkbox"> All CFA / Warehouses</label>
+      <button class="btn" id="refreshSohWarehouses" type="button">Refresh CFA List</button>
+      <button class="btn primary" id="saveSohAccess" type="button">Save LIVE SOH Access</button>
+    </div>
+    <div id="sohWarehouseOptions" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:7px;max-height:260px;overflow:auto;border:1px solid #d5e6f8;border-radius:6px;padding:10px;background:#f8fbff"><span class="subtitle">Loading CFA/Warehouse values from LIVE SOH source…</span></div>
+    <div id="sohAccessMessage" class="demo-note">Select an employee above, choose one or more CFA/Warehouses or All, then save. Access changes are audited.</div>
+  </div>
+</section>
 <div class="columns">
 <section class="panel tabpanel"><div class="paneltitle"><span class="number">2</span>Left Side Tabs Access (Main Navigation)</div><div class="panelbody"><p class="subtitle">Control which tabs are visible for this employee.</p><div id="tabRows"></div><div class="demo-note">Permissions are stored through the connected backend; enforcement across dashboard data endpoints is still pending verification.</div></div></section>
 <section class="panel reportpanel"><div class="paneltitle"><span class="number">3.</span>Report Center Access Control</div><div class="reporthead"><p class="subtitle">Select which reports/sections this employee can view and use.</p><input id="reportSearch" class="search" placeholder="⌕ Search reports..."></div><div class="tablewrap"><table class="reports"><thead><tr><th>Report / Section Name</th><th>View</th><th>Filter / Search</th><th>Download / Export</th><th>Print</th><th>Status</th></tr></thead><tbody id="reportRows"></tbody></table></div></section>
@@ -83,6 +97,7 @@ body.eac-locked #eacLoginGate{display:grid}
     ['report.export-all','Excel Export (All Reports)','▤']
   ];
   let currentUser=null, employees=[], selected=null, permissions={}, scopeValues={region:'',area:'',anchorZone:''};
+  let sohWarehouseOptions=[], sohAccessState={enabled:false,allWarehouses:false,warehouses:[]};
   const $=id=>document.getElementById(id);
   const esc=value=>String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   async function api(url,options){
@@ -285,6 +300,67 @@ body.eac-locked #eacLoginGate{display:grid}
       renderConnectedTabs();renderConnectedReports();
     }));
   }
+  function renderSohWarehouseOptions(){
+    const box=$('sohWarehouseOptions');
+    if(!box)return;
+    if(!sohWarehouseOptions.length){box.innerHTML='<span class="subtitle">No CFA/Warehouse values loaded. Click Refresh CFA List after the LIVE SOH cache is ready.</span>';return;}
+    const chosen=new Set((sohAccessState.warehouses||[]).map(value=>String(value).toLocaleLowerCase()));
+    box.innerHTML=sohWarehouseOptions.map(value=>'<label style="display:flex;gap:7px;align-items:flex-start;border:1px solid #e0edfb;border-radius:5px;padding:8px;background:#fff;font-size:10px;overflow-wrap:anywhere"><input type="checkbox" data-soh-warehouse="'+esc(value)+'" '+(chosen.has(String(value).toLocaleLowerCase())?'checked':'')+' '+(sohAccessState.allWarehouses?'disabled':'')+'><span>'+esc(value)+'</span></label>').join('');
+  }
+  async function loadSohWarehouses(){
+    try{
+      const data=await api('/api/access-control/soh-warehouses');
+      sohWarehouseOptions=Array.isArray(data.warehouses)?data.warehouses:[];
+      renderSohWarehouseOptions();
+      $('sohAccessMessage').textContent='Loaded '+sohWarehouseOptions.length+' CFA/Warehouse values from the LIVE SOH source.';
+    }catch(error){
+      $('sohWarehouseOptions').innerHTML='<span class="subtitle">'+esc(error.message||'CFA list is not ready yet.')+'</span>';
+      $('sohAccessMessage').textContent='Click Refresh CFA List after LIVE SOH cache warm-up.';
+    }
+  }
+  async function loadSohAccess(id){
+    const normalized=String(id||'').trim().toUpperCase();
+    const protectedAccount=normalized==='P2PUF7638';
+    if(protectedAccount){
+      sohAccessState={enabled:true,allWarehouses:true,warehouses:[]};
+    }else if(normalized && employees.some(e=>String(e.employee_id).toUpperCase()===normalized)){
+      try{
+        const data=await api('/api/access-control/employees/'+encodeURIComponent(normalized)+'/soh-access');
+        sohAccessState={enabled:!!data.enabled,allWarehouses:!!data.allWarehouses,warehouses:Array.isArray(data.warehouses)?data.warehouses:[]};
+      }catch(error){
+        sohAccessState={enabled:false,allWarehouses:false,warehouses:[]};
+        $('sohAccessMessage').textContent=error.message||'Unable to load LIVE SOH access.';
+      }
+    }else{
+      sohAccessState={enabled:false,allWarehouses:false,warehouses:[]};
+    }
+    $('sohAccessEnabled').checked=sohAccessState.enabled;
+    $('sohAllWarehouses').checked=sohAccessState.allWarehouses;
+    const locked=protectedAccount||(String(currentUser?.role).toUpperCase()!=='SUPER_ADMIN'&&selected&&['ADMIN','SUPER_ADMIN'].includes(String(selected.role).toUpperCase()));
+    $('sohAccessEnabled').disabled=!!locked;
+    $('sohAllWarehouses').disabled=!!locked;
+    $('saveSohAccess').disabled=!!locked;
+    $('refreshSohWarehouses').disabled=false;
+    $('sohAccessMessage').textContent=protectedAccount?'Protected Super Admin has intrinsic full LIVE SOH access; this setting cannot be changed.':(locked?'Only Super Admin may manage LIVE SOH access for an Admin.':'Access is employee-specific. Remember to enable LIVE SOH tab View permission above as well.');
+    renderSohWarehouseOptions();
+  }
+  async function saveSohAccess(){
+    if(!selected){toastSafe('Select an existing employee before saving LIVE SOH access.');return;}
+    const id=String(selected.employee_id||'').toUpperCase();
+    if(id==='P2PUF7638'){toastSafe('Protected Super Admin access cannot be changed.');return;}
+    const warehouses=[...document.querySelectorAll('[data-soh-warehouse]:checked')].map(input=>input.getAttribute('data-soh-warehouse'));
+    const enabled=$('sohAccessEnabled').checked, allWarehouses=$('sohAllWarehouses').checked;
+    if(enabled&&!allWarehouses&&!warehouses.length){toastSafe('Select at least one CFA/Warehouse or enable All CFA / Warehouses.');return;}
+    const button=$('saveSohAccess');button.disabled=true;
+    try{
+      const result=await api('/api/access-control/employees/'+encodeURIComponent(id)+'/soh-access',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled,allWarehouses,warehouses})});
+      sohAccessState={enabled:!!result.enabled,allWarehouses:!!result.allWarehouses,warehouses:Array.isArray(result.warehouses)?result.warehouses:[]};
+      renderSohWarehouseOptions();
+      $('sohAccessMessage').textContent='LIVE SOH access saved for '+id+'. Warehouse filtering is enforced by the API.';
+      toastSafe('LIVE SOH access saved for '+id+'.');
+    }catch(error){toastSafe(error.message||'LIVE SOH access could not be saved.');}
+    finally{button.disabled=false;}
+  }
   async function loadEmployees(){
     const data=await api('/api/access-control/employees');
     employees=data.employees||[];
@@ -343,6 +419,7 @@ body.eac-locked #eacLoginGate{display:grid}
     $('save').title=protectedAccount?'Protected Super Admin account cannot be edited':(ordinaryAdmin&&selected&&selected.role==='ADMIN'?'Only Super Admin can manage Admin accounts':'');
     if(protectedAccount)toastSafe('Protected Super Admin account: editing is disabled.');
     renderEmployeeDirectory();refreshScopeLists();renderConnectedTabs();renderConnectedReports();
+    await loadSohAccess(normalized);
   }
   async function saveEmployee(){
     const id=$('empid').value.trim().toUpperCase();
@@ -462,6 +539,11 @@ body.eac-locked #eacLoginGate{display:grid}
     $('employeeDirectorySearch').oninput=()=>renderEmployeeDirectory();
     $('refreshEmployeeDirectory').onclick=()=>loadEmployees().then(()=>toastSafe('Employee list refreshed.')).catch(error=>toastSafe(error.message||'Unable to refresh employee list.'));
     $('save').onclick=()=>saveEmployee();
+    $('refreshSohWarehouses').onclick=()=>loadSohWarehouses();
+    $('saveSohAccess').onclick=()=>saveSohAccess();
+    $('sohAccessEnabled').onchange=()=>{sohAccessState.enabled=$('sohAccessEnabled').checked;};
+    $('sohAllWarehouses').onchange=()=>{sohAccessState.allWarehouses=$('sohAllWarehouses').checked;renderSohWarehouseOptions();};
+    $('sohWarehouseOptions').onchange=(event)=>{const input=event.target;if(!input||!input.matches('[data-soh-warehouse]'))return;const value=input.getAttribute('data-soh-warehouse');const values=new Map((sohAccessState.warehouses||[]).map(item=>[String(item).toLocaleLowerCase(),item]));if(input.checked)values.set(String(value).toLocaleLowerCase(),value);else values.delete(String(value).toLocaleLowerCase());sohAccessState.warehouses=[...values.values()];};
     $('reset').onclick=()=>loadEmployee($('empid').value).catch(error=>toastSafe(error.message));
     $('reportSearch').oninput=renderConnectedReports;
     $('regionSelect').onchange=()=>{scopeValues={region:$('regionSelect').value,area:'',anchorZone:''};refreshScopeLists();};
@@ -474,6 +556,7 @@ body.eac-locked #eacLoginGate{display:grid}
     const note=document.querySelector('.pagehead .info');
     if(note)note.textContent='Connected to Employee Access Control APIs. Main dashboard data endpoints and geographic row filtering are not yet protected; production activation is blocked until verified.';
     document.querySelectorAll('.demo-note').forEach((el,index)=>{el.textContent=index===0?'Connected: permissions are saved to PostgreSQL. Dashboard enforcement is still pending.':'Scope suggestions come from configured Employee Master records; manual entry is allowed for new Region, Area or Anchor Zone values.';});
+    loadSohWarehouses();
     document.querySelectorAll('.applied').forEach(el=>{el.textContent='CONFIGURED';});
     const warningTitles=document.querySelectorAll('.warningtile b');
     if(warningTitles.length)warningTitles.forEach(el=>{el.textContent=el.textContent.replace('Tab Not Visible','Planned: Tab Visibility').replace('Report Not Accessible','Planned: Report Restriction').replace('API Blocked','Pending: API Enforcement').replace('Chatbot Restricted','Pending: Chatbot Restriction').replace('Export Blocked','Pending: Export Restriction');});
