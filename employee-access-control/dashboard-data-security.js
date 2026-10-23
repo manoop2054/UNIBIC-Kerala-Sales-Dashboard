@@ -23,9 +23,13 @@ function normalizeScopePart(value, kind) {
   const normalized = normalize(value);
   if (normalized === '*' || normalized === 'all' || normalized === 'all ' + kind) return '*';
   if (kind === 'region' && ['all region', 'all regions', 'all kerala', 'kerala all'].includes(normalized)) return '*';
-  // The employee master uses "SOUTH KL" while GSV workbooks may label the
-  // same region "SOUTH KERALA". Canonicalize both sides without widening scope.
-  if (kind === 'region' && ['south kl', 'south kerala'].includes(normalized)) return 'south kerala';
+  // The employee master and GSV workbook may represent the same region as
+  // "SOUTH KL", "SOUTH-KL", or "SOUTH KERALA". Ignore punctuation in this
+  // known region alias only; keep the assigned AreaCode scope exact.
+  if (kind === 'region') {
+    const compactRegion = normalized.replace(/[^a-z0-9]/g, '');
+    if (['southkl', 'southkerala'].includes(compactRegion)) return 'southkerala';
+  }
   if (kind === 'anchor zone' && ['all anchor zone', 'all anchor zones', 'all zone', 'all zones'].includes(normalized)) return '*';
   if (kind === 'area' && ['all areas', 'all area'].includes(normalized)) return '*';
   return normalized;
