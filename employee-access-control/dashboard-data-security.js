@@ -111,8 +111,12 @@ function createDashboardSessionGuard({ getPool, initializeDatabase, getDatabaseS
         if (!grouped.has(row.resource_key)) grouped.set(row.resource_key, []);
         if (row.region != null) grouped.get(row.resource_key).push({ region: row.region, area: row.area, anchorZone: row.anchor_zone });
       }
-      const scopeGroups = [...grouped.values()];
-      if (!scopeGroups.length || scopeGroups.some(group => !group.length)) {
+      // A legacy or partially configured permission may have no scope row.
+      // Do not let that one incomplete resource block every other valid tab.
+      // Resources without a valid geographic scope contribute no data access;
+      // the remaining scoped resources continue to be intersected fail-closed.
+      const scopeGroups = [...grouped.values()].filter(group => group.length > 0);
+      if (!scopeGroups.length) {
         return res.status(403).json({ error: 'No active data-view permission with a valid geographic scope is assigned for this dataset.' });
       }
       req.dataScopes = scopeGroups;
