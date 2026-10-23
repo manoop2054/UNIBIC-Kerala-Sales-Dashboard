@@ -37,6 +37,14 @@ function rowMatchesScopes(row, scopes) {
   });
 }
 
+function rowMatchesWarehouses(row, allowedWarehouses, allWarehouses = false) {
+  if (allWarehouses === true) return true;
+  const warehouse = normalize(firstValue(row, ['WAREHOUSE','Warehouse','CFA','CFA / WAREHOUSE','CFA/Warehouse','Location','Location Name']));
+  if (!warehouse) return false;
+  const allowed = new Set((allowedWarehouses || []).map(normalize));
+  return allowed.has(warehouse);
+}
+
 function createDashboardSessionGuard({ getPool, initializeDatabase, getDatabaseStatus, dataKind = 'gsv' }) {
   return async function dashboardSessionGuard(req, res, next) {
     try {
@@ -124,10 +132,7 @@ async function sendScopedJsonCache(req, res, file) {
   const emit = async row => {
     totalRows++;
     if (req.dataKind === 'soh') {
-      if (!req.allWarehouses) {
-        const warehouse = normalize(firstValue(row, ['WAREHOUSE','Warehouse','CFA','CFA / WAREHOUSE','CFA/Warehouse','Location','Location Name']));
-        if (!warehouse || !(req.allowedWarehouses || []).includes(warehouse)) return;
-      }
+      if (!rowMatchesWarehouses(row, req.allowedWarehouses, req.allWarehouses)) return;
     } else if (!rowMatchesScopes(row, req.dataScopes)) return;
     if (emitted++) res.write(',');
     if (!res.write(JSON.stringify(row))) await once(res, 'drain');
@@ -190,4 +195,4 @@ async function sendScopedJsonCache(req, res, file) {
   }
 }
 
-module.exports = { normalize, firstValue, rowMatchesScopes, createDashboardSessionGuard, sendScopedJsonCache };
+module.exports = { normalize, firstValue, rowMatchesScopes, rowMatchesWarehouses, createDashboardSessionGuard, sendScopedJsonCache };
