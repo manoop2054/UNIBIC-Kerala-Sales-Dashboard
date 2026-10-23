@@ -38,6 +38,14 @@ function rowMatchesScopes(row, scopes) {
     return scopes.every(group => Array.isArray(group) && group.length > 0 && rowMatchesScopes(row, group));
   }
 
+  // A full wildcard is reserved for the authenticated protected Super Admin.
+  // Evaluate it before requiring geography columns, because stock/other rows
+  // may legitimately have no Region field and Super Admin bypass is intentional.
+  if (scopes.some(scope => scope && typeof scope === 'object' &&
+      normalizeScopePart(scope.region, 'region') === '*' &&
+      normalizeScopePart(scope.area, 'area') === '*' &&
+      normalizeScopePart(scope.anchorZone, 'anchor zone') === '*')) return true;
+
   const region = firstValue(row, ['REGION', 'Region', 'region', 'Region Name']);
   const area = firstValue(row, ['Area', 'Area Name', 'AreaCode', 'Area Code']);
   const zone = firstValue(row, ['AnchorZoneName', 'Anchor Zone Name', 'ANCHOR ZONENAME', 'Anchor Zone', 'AnchorZone']);
