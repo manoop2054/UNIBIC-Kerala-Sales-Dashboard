@@ -25,6 +25,9 @@ test('mounts login, session, employee, password, permission and import APIs with
     'GET /api/access-control/me',
     'POST /api/access-control/authorize-action',
     'GET /api/access-control/employees',
+    'GET /api/access-control/soh-warehouses',
+    'GET /api/access-control/employees/:employeeId/soh-access',
+    'PUT /api/access-control/employees/:employeeId/soh-access',
     'GET /api/access-control/audit-log',
     'POST /api/access-control/employees',
     'POST /api/access-control/employees/import',
@@ -71,6 +74,9 @@ test('Employee Master and permission mutation routes require session and admin m
   });
   const protectedPaths = [
     'GET /api/access-control/employees',
+    'GET /api/access-control/soh-warehouses',
+    'GET /api/access-control/employees/:employeeId/soh-access',
+    'PUT /api/access-control/employees/:employeeId/soh-access',
     'POST /api/access-control/employees',
     'POST /api/access-control/employees/import',
     'POST /api/access-control/employees/:employeeId/password',
