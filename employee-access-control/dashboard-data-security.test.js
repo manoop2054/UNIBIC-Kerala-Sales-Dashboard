@@ -26,6 +26,13 @@ test('geography field lookup is case and separator insensitive', () => {
   assert.equal(firstValue({ 'ANCHOR ZONENAME': 'Zone A' }, ['AnchorZoneName']), 'Zone A');
 });
 
+test('matches the exact GSV workbook headers Region_Name, AreaCode and AnchorZoneName', () => {
+  const row = { Region_Name: 'Central Kerala', AreaCode: 'Ernakulam', AnchorZoneName: 'Zone 7' };
+  const scopes = [{ region: 'Central Kerala', area: 'Ernakulam', anchorZone: 'Zone 7' }];
+  assert.equal(rowMatchesScopes(row, scopes), true);
+  assert.equal(rowMatchesScopes(row, [{ region: 'Central Kerala', area: 'Kottayam', anchorZone: 'Zone 7' }]), false);
+});
+
 test('intersects geography scopes across resources so one permission cannot widen another', () => {
   const resourceScopes = [
     [{ region: 'North', area: '', anchorZone: '' }],
