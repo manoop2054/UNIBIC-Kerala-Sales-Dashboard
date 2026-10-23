@@ -35,7 +35,7 @@ const GSV_FIELDS = new Set([
   'Sell_to_Customer_Name','Customer_Name','Customer','Billed_to_Name','Ship_to_Name',
   'ItemId','Item ID','Item Code','ItemCode','Description','Item Description','Invoice_No',
   'Invoice No','Invoice','Order_No','Order No','Order','NKAM_ABM','ABM','ABM Name','NKAM / ABM',
-  'AnchorName','Anchor','Brand','BrandName','REGION','Region','region','AreaCode','Area Code','Area','Ship_to_Code',
+  'AnchorName','Anchor','Brand','BrandName','REGION','Region','region','Region Name','REGION NAME','Region_Name','REGION_NAME','AreaCode','Area Code','Area','Area Name','AREA NAME','Area_Name','AREA_NAME','Ship_to_Code',
   'Ship to Code','ShipCode','Customer_Posting_Group','Customer Posting Group','ExternalDocNo',
   'External Doc No','External Document No','MRP_Price','MRP Price','MRP','GST_Base_Amount',
   'GST Base Amount','GST_Base','DBR / Customer Code','Customer / DBR Name','Available Shelf Life %',
@@ -148,6 +148,8 @@ function normalizeRow(r) {
     Scheme_Discount: getVal(['Scheme_Discount','Scheme Discount']) || 0,
     Scheme_Discount_Percent: getVal(['Scheme_Discount_Percent','Scheme Discount Percent']) || 0,
     PostingDate: getVal(['PostingDate','Posting Date','Date','Invoice Date']),
+    REGION: getVal(['REGION','Region','region','Region Name','REGION NAME','Region_Name','REGION_NAME']),
+    Area: getVal(['Area','Area Name','AREA NAME','Area_Name','AREA_NAME']),
     AnchorZoneName: getVal(['AnchorZoneName','Anchor Zone Name','ANCHOR ZONENAME','Anchor Zone','AnchorZone'])
   };
 }
