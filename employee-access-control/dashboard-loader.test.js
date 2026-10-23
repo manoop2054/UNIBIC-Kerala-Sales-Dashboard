@@ -40,7 +40,7 @@ async function runLoader(responses) {
     soh: [],
     filteredSOH: [],
     lastElement: { textContent: '' },
-    $(id) { return id === 'last' ? this.lastElement : null; }
+    $: id => id === 'last' ? context.lastElement : null
   };
   await vm.runInNewContext(loaderSource + '\nloadLiveData();', context);
   return { context, statusUpdates, refreshCount };
