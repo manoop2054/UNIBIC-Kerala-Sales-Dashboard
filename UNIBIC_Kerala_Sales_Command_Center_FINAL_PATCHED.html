@@ -9688,7 +9688,7 @@ function renderCards(){
  box.innerHTML=sel.map((c,i)=>{
   const x=metrics(c),m=x.manual,customer=candidates().find(z=>z.code===c)||{code:c,name:c};
   const match=invoiceMatch(x),billRows=match.rows.map(b=>'<tr><td>'+esc(b.area)+'</td><td>'+esc(b.code)+'</td><td>'+esc(b.name)+'</td><td>'+esc(b.group)+'</td><td>'+esc(b.classification)+'</td><td>'+esc(b.order)+'</td><td>'+esc(b.invoice)+'</td><td>'+esc(dateText(b.date))+'</td><td style="text-align:right">'+esc(moneyWithTax(b.hasOS?b.os:b.total))+'</td></tr>').join('');
-  const gt=x.gt===null?'—':moneyWithTax(x.gt);
+  const gt=x.gt===null?'—':money(x.gt);
   return '<article class="clm-customer-card"><div class="clm-card-head"><h3>Customer '+(i+1)+' · '+esc(customer.code)+' · '+esc(customer.name)+'</h3><span>CL Management</span></div><div class="clm-card-body">'+
   '<table class="clm-bill-table"><tbody>'+
   '<tr><th style="text-align:left">3 MONTH AVERAGE GSV</th><td>'+esc(moneyWithTax(x.avg))+'</td></tr>'+
@@ -9872,7 +9872,7 @@ async function exportFile(){
   const sum2=pushRow(['Total Billed value in this month',num(x.current)*1.05,'','','','','','',''],'summary');
   const hdr=pushRow(['CODE','CUSTOMER NAME','NO OF CHEQUES','CURRENT O/S AMOUNT','','','REQUIRED CL AMOUNT','CHAIN CODE','CREDIT TERMS'],'customerHeader');
   pushRow(['','','','GT O/S AMOUNT','MARRIE O/S AMOUNT','INST O/S AMOUNT','','',''],'subHeader');
-  pushRow([c,cn.name,m.cheques,x.gt===null?'':num(x.gt)*1.05,num(m.marrie)*1.05,num(m.inst)*1.05,num(m.required)*1.05,m.chain,m.terms],'customerData');
+  pushRow([c,cn.name,m.cheques,x.gt===null?'':num(x.gt),num(m.marrie)*1.05,num(m.inst)*1.05,num(m.required)*1.05,m.chain,m.terms],'customerData');
   pushRow(['Area Code','Customer Code','Customer Name','Customer group','Customer classification group','sales order no.','Invoice No','Invoice Date','Total'],'invoiceHeader');
   if(!match.rows.length)pushRow(blank());
   else match.rows.forEach(b=>pushRow([b.area,b.code,b.name,b.group,b.classification,b.order,b.invoice,dateText(b.date),num(b.hasOS?b.os:b.total)*1.05]));
