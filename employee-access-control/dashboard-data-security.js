@@ -19,20 +19,37 @@ function firstValue(row, names) {
   return '';
 }
 
+function normalizeScopePart(value, kind) {
+  const normalized = normalize(value);
+  if (normalized === '*' || normalized === 'all' || normalized === 'all ' + kind) return '*';
+  if (kind === 'region' && ['all region', 'all regions', 'all kerala', 'kerala all'].includes(normalized)) return '*';
+  if (kind === 'anchor zone' && ['all anchor zone', 'all anchor zones', 'all zone', 'all zones'].includes(normalized)) return '*';
+  if (kind === 'area' && ['all areas', 'all area'].includes(normalized)) return '*';
+  return normalized;
+}
+
 function rowMatchesScopes(row, scopes) {
-  if ((scopes || []).some(scope => !Array.isArray(scope) && normalize(scope.region) === '*' && normalize(scope.area) === '*' && normalize(scope.anchorZone) === '*')) return true;
-  if (Array.isArray(scopes) && scopes.length && Array.isArray(scopes[0])) {
-    return scopes.every(group => group.length > 0 && rowMatchesScopes(row, group));
+  if (!Array.isArray(scopes) || scopes.length === 0) return false;
+
+  // Each resource can have its own assigned geographic scope. The shared data
+  // endpoint must include rows allowed by at least one enabled resource; using
+  // AND here incorrectly reduced the result to the intersection of all scopes.
+  if (Array.isArray(scopes[0])) {
+    return scopes.some(group => Array.isArray(group) && group.length > 0 && rowMatchesScopes(row, group));
   }
+
   const region = firstValue(row, ['REGION', 'Region', 'region', 'Region Name']);
   const area = firstValue(row, ['Area', 'Area Name', 'AreaCode', 'Area Code']);
   const zone = firstValue(row, ['AnchorZoneName', 'Anchor Zone Name', 'ANCHOR ZONENAME', 'Anchor Zone', 'AnchorZone']);
   if (!region) return false;
-  return (scopes || []).some(scope => {
-    if (normalize(scope.region) === '*' && normalize(scope.area) === '*' && normalize(scope.anchorZone) === '*') return true;
-    if (!scope.region || normalize(scope.region) !== normalize(region)) return false;
-    if (scope.area && normalize(scope.area) !== normalize(area)) return false;
-    if (scope.anchorZone && normalize(scope.anchorZone) !== normalize(zone)) return false;
+  return scopes.some(scope => {
+    if (!scope || typeof scope !== 'object') return false;
+    const scopeRegion = normalizeScopePart(scope.region, 'region');
+    const scopeArea = normalizeScopePart(scope.area, 'area');
+    const scopeZone = normalizeScopePart(scope.anchorZone, 'anchor zone');
+    if (scopeRegion && scopeRegion !== '*' && scopeRegion !== normalize(region)) return false;
+    if (scopeArea && scopeArea !== '*' && scopeArea !== normalize(area)) return false;
+    if (scopeZone && scopeZone !== '*' && scopeZone !== normalize(zone)) return false;
     return true;
   });
 }
