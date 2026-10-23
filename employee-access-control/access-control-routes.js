@@ -53,6 +53,82 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
     return next();
   }
 
+  // Admin-only CFA/Warehouse options sourced from the warmed LIVE SOH cache.
+  app.get('/api/access-control/soh-warehouses', requireSession, requireAdmin, async (_req, res) => {
+    try {
+      const fs = require('node:fs/promises');
+      const path = require('node:path');
+      const os = require('node:os');
+      const raw = await fs.readFile(path.join(os.tmpdir(), 'unibic-sales-cache', 'soh.json'), 'utf8');
+      const payload = JSON.parse(raw);
+      const rows = Array.isArray(payload.data) ? payload.data : [];
+      const values = new Set();
+      for (const row of rows) {
+        const value = String(row.WAREHOUSE ?? row.Warehouse ?? row.CFA ?? row['CFA / WAREHOUSE'] ?? row['CFA/Warehouse'] ?? row.Location ?? row['Location Name'] ?? '').trim();
+        if (value) values.add(value);
+      }
+      return res.json({ success: true, warehouses: [...values].sort((a,b)=>a.localeCompare(b, undefined, {sensitivity:'base', numeric:true})) });
+    } catch (_) {
+      return res.status(503).json({ error: 'LIVE SOH warehouse list is not ready yet. Refresh after the dashboard cache has loaded.' });
+    }
+  });
+
+  app.get('/api/access-control/employees/:employeeId/soh-access', requireSession, requireAdmin, async (req, res) => {
+    const targetId = String(req.params.employeeId || '').trim().toUpperCase();
+    if (!/^[A-Z0-9_-]{2,64}$/.test(targetId)) return res.status(400).json({ error: 'Invalid Employee ID.' });
+    const pool = await ensureReady(res);
+    if (!pool) return;
+    try {
+      const result = await pool.query(
+        "SELECT a.enabled, a.all_warehouses, COALESCE(array_agg(w.warehouse) FILTER (WHERE w.warehouse IS NOT NULL), ARRAY[]::text[]) AS warehouses FROM employees e LEFT JOIN employee_soh_access a ON a.employee_id=e.employee_id LEFT JOIN employee_soh_warehouses w ON w.employee_id=a.employee_id WHERE e.employee_id=$1 GROUP BY a.enabled,a.all_warehouses",
+        [targetId]
+      );
+      if (!result.rows.length) return res.status(404).json({ error: 'Employee not found.' });
+      const row = result.rows[0];
+      return res.json({ success: true, employeeId: targetId, enabled: row.enabled === true, allWarehouses: row.all_warehouses === true, warehouses: row.warehouses || [] });
+    } catch (_) {
+      return res.status(500).json({ error: 'Unable to load LIVE SOH access settings.' });
+    }
+  });
+
+  app.put('/api/access-control/employees/:employeeId/soh-access', requireSession, requireAdmin, async (req, res) => {
+    const targetId = String(req.params.employeeId || '').trim().toUpperCase();
+    const actorId = String(req.accessUser.employeeId || '').trim().toUpperCase();
+    if (!/^[A-Z0-9_-]{2,64}$/.test(targetId)) return res.status(400).json({ error: 'Invalid Employee ID.' });
+    if (targetId === SUPER_ADMIN_ID) return res.status(403).json({ error: 'Protected Super Admin LIVE SOH access cannot be changed.' });
+    const enabled = req.body && req.body.enabled;
+    const allWarehouses = req.body && req.body.allWarehouses;
+    const warehouses = req.body && req.body.warehouses;
+    if (typeof enabled !== 'boolean' || typeof allWarehouses !== 'boolean' || !Array.isArray(warehouses) || warehouses.length > 300) return res.status(400).json({ error: 'Provide enabled, allWarehouses and a list of warehouse names.' });
+    const normalizedWarehouses = [...new Set(warehouses.map(value => String(value || '').trim()).filter(Boolean))];
+    if (normalizedWarehouses.some(value => value.length > 180)) return res.status(400).json({ error: 'Warehouse names must be 180 characters or fewer.' });
+    if (enabled && !allWarehouses && normalizedWarehouses.length === 0) return res.status(400).json({ error: 'Select at least one CFA/Warehouse or enable All CFA/Warehouses.' });
+    const pool = await ensureReady(res);
+    if (!pool) return;
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const target = await client.query('SELECT employee_id, role FROM employees WHERE employee_id=$1 FOR UPDATE', [targetId]);
+      if (!target.rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Employee not found.' }); }
+      if (String(req.accessUser.role).toUpperCase() !== 'SUPER_ADMIN' && ['ADMIN','SUPER_ADMIN'].includes(String(target.rows[0].role).toUpperCase())) { await client.query('ROLLBACK'); return res.status(403).json({ error: 'Only Super Admin may manage LIVE SOH access for an Admin.' }); }
+      if (!allWarehouses && normalizedWarehouses.length) {
+        const fs = require('node:fs/promises'); const path = require('node:path'); const os = require('node:os');
+        const raw = await fs.readFile(path.join(os.tmpdir(), 'unibic-sales-cache', 'soh.json'), 'utf8');
+        const payload = JSON.parse(raw);
+        const valid = new Set((Array.isArray(payload.data) ? payload.data : []).map(row => String(row.WAREHOUSE ?? row.Warehouse ?? row.CFA ?? row['CFA / WAREHOUSE'] ?? row['CFA/Warehouse'] ?? row.Location ?? row['Location Name'] ?? '').trim().toLocaleLowerCase()).filter(Boolean));
+        if (normalizedWarehouses.some(value => !valid.has(value.toLocaleLowerCase()))) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'One or more selected CFA/Warehouse values are not present in LIVE SOH. Refresh the warehouse list.' }); }
+      }
+      await client.query("INSERT INTO employee_soh_access (employee_id, enabled, all_warehouses, updated_by, updated_at) VALUES ($1,$2,$3,$4,NOW()) ON CONFLICT (employee_id) DO UPDATE SET enabled=EXCLUDED.enabled, all_warehouses=EXCLUDED.all_warehouses, updated_by=EXCLUDED.updated_by, updated_at=NOW()", [targetId, enabled, allWarehouses, actorId]);
+      await client.query('DELETE FROM employee_soh_warehouses WHERE employee_id=$1', [targetId]);
+      if (!allWarehouses) for (const warehouse of normalizedWarehouses) await client.query('INSERT INTO employee_soh_warehouses (employee_id, warehouse) VALUES ($1,$2)', [targetId, warehouse]);
+      await client.query("INSERT INTO access_audit_log (actor_employee_id, actor_is_admin, action, target_employee_id, details_json) VALUES ($1, TRUE, 'EMPLOYEE_SOH_ACCESS_UPDATED', $2, $3::jsonb)", [actorId, targetId, JSON.stringify({ enabled, allWarehouses, warehouses: allWarehouses ? [] : normalizedWarehouses })]);
+      await client.query('COMMIT');
+      return res.json({ success: true, employeeId: targetId, enabled, allWarehouses, warehouses: allWarehouses ? [] : normalizedWarehouses });
+    } catch (_) {
+      try { await client.query('ROLLBACK'); } catch (_) {}
+      return res.status(500).json({ error: 'LIVE SOH access update failed; no changes were saved.' });
+    } finally { client.release(); }
+  });
   function auditActor(req) {
     return { employeeId: req.accessUser.employeeId, role: req.accessUser.role };
   }
