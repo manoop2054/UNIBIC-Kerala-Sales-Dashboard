@@ -149,7 +149,7 @@ function normalizeRow(r) {
     Scheme_Discount_Percent: getVal(['Scheme_Discount_Percent','Scheme Discount Percent']) || 0,
     PostingDate: getVal(['PostingDate','Posting Date','Date','Invoice Date']),
     REGION: getVal(['REGION','Region','region','Region Name','REGION NAME','Region_Name','REGION_NAME']),
-    Area: getVal(['Area','Area Name','AREA NAME','Area_Name','AREA_NAME']),
+    Area: getVal(['Area','Area Name','AREA NAME','Area_Name','AREA_NAME','AreaCode','Area Code']),
     AnchorZoneName: getVal(['AnchorZoneName','Anchor Zone Name','ANCHOR ZONENAME','Anchor Zone','AnchorZone'])
   };
 }
