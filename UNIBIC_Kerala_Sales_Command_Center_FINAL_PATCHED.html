@@ -9463,7 +9463,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       const key='tab.'+button.getAttribute('data-tab');
       const permission=permissionMap.get(key);
       const isClManagement=button.getAttribute('data-tab')==='clmanagement';
-      const isAdminRole=['ADMIN','SUPER_ADMIN'].includes(String(currentUser&&currentUser.role||'').toUpperCase());
+      const isAdminRole=['ADMIN','SUPER_ADMIN'].includes(String(user&&user.role||'').toUpperCase());
       const allowed=isClManagement?isAdminRole:!!(permission&&permission.canView);
       button.hidden=!allowed;
       const section=document.getElementById(button.getAttribute('data-tab'));
