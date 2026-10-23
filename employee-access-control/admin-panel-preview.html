@@ -359,7 +359,7 @@ body.eac-locked #eacLoginGate{display:grid}
       $('sohAccessMessage').textContent='LIVE SOH access saved for '+id+'. Warehouse filtering is enforced by the API.';
       toastSafe('LIVE SOH access saved for '+id+'.');
     }catch(error){toastSafe(error.message||'LIVE SOH access could not be saved.');}
-    finally{button.disabled=false;loadSohAccess(id).catch(()=>{});}
+    finally{button.disabled=false;}
   }
   async function loadEmployees(){
     const data=await api('/api/access-control/employees');
@@ -543,6 +543,7 @@ body.eac-locked #eacLoginGate{display:grid}
     $('saveSohAccess').onclick=()=>saveSohAccess();
     $('sohAccessEnabled').onchange=()=>{sohAccessState.enabled=$('sohAccessEnabled').checked;};
     $('sohAllWarehouses').onchange=()=>{sohAccessState.allWarehouses=$('sohAllWarehouses').checked;renderSohWarehouseOptions();};
+    $('sohWarehouseOptions').onchange=(event)=>{const input=event.target;if(!input||!input.matches('[data-soh-warehouse]'))return;const value=input.getAttribute('data-soh-warehouse');const values=new Map((sohAccessState.warehouses||[]).map(item=>[String(item).toLocaleLowerCase(),item]));if(input.checked)values.set(String(value).toLocaleLowerCase(),value);else values.delete(String(value).toLocaleLowerCase());sohAccessState.warehouses=[...values.values()];};
     $('reset').onclick=()=>loadEmployee($('empid').value).catch(error=>toastSafe(error.message));
     $('reportSearch').oninput=renderConnectedReports;
     $('regionSelect').onchange=()=>{scopeValues={region:$('regionSelect').value,area:'',anchorZone:''};refreshScopeLists();};
