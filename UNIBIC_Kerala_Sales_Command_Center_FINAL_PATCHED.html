@@ -948,14 +948,18 @@ function sohField(r,names){
 
 function shelfLifeValue(r){
   const keys=Object.keys(r||{});
-  const key=keys.find(k=>{
-    const x=String(k).toLowerCase().replace(/[\s_%\-]/g,'');
+  const normalize=k=>String(k).toLowerCase().replace(/[^a-z0-9]/g,'');
+  // Prefer the workbook's Remaining Shelf Life field for all SOH calculations.
+  const remainingKey=keys.find(k=>normalize(k).includes('remainingshelflife'));
+  if(remainingKey) return r[remainingKey];
+  // Alternate labels are considered only if Remaining Shelf Life is missing.
+  const fallbackKey=keys.find(k=>{
+    const x=normalize(k);
     return x.includes('availableshelflife') ||
-           x.includes('shelflife') ||
            x.includes('shelflifepercentage') ||
            x.includes('shelfpercent');
   });
-  return key ? r[key] : '';
+  return fallbackKey ? r[fallbackKey] : '';
 }
 
 /* Replace LIVE SOH report with a proper CFA-wise report */
@@ -3184,7 +3188,7 @@ function renderSOH(){
 function renderWarehouseMini(){
   const host=$('warehouseMini');
   if(!host)return;
-  const warehouseNames=['HYD PLANT','HYD PLANT1','ALU CFA','TVD CFA','PAY CFA','BLR1','BLR4'];
+  const warehouseNames=['HYD PLANT','HYD PLANT1','ALU CFA','TVD CFA','PAY CFA','BLR4'];
   const totals=new Map(warehouseNames.map(name=>[name,{total:0,normal:0,below60:0,below30:0,below10:0,expired:0,unclassified:0}]));
   const normWh=v=>String(v??'').toUpperCase().replace(/[^A-Z0-9]/g,'');
   const rows=Array.isArray(soh)?soh:[];
@@ -4100,14 +4104,18 @@ function sohField(r,names){
 
 function shelfLifeValue(r){
   const keys=Object.keys(r||{});
-  const key=keys.find(k=>{
-    const x=String(k).toLowerCase().replace(/[\s_%\-]/g,'');
+  const normalize=k=>String(k).toLowerCase().replace(/[^a-z0-9]/g,'');
+  // Prefer the workbook's Remaining Shelf Life field for all SOH calculations.
+  const remainingKey=keys.find(k=>normalize(k).includes('remainingshelflife'));
+  if(remainingKey) return r[remainingKey];
+  // Alternate labels are considered only if Remaining Shelf Life is missing.
+  const fallbackKey=keys.find(k=>{
+    const x=normalize(k);
     return x.includes('availableshelflife') ||
-           x.includes('shelflife') ||
            x.includes('shelflifepercentage') ||
            x.includes('shelfpercent');
   });
-  return key ? r[key] : '';
+  return fallbackKey ? r[fallbackKey] : '';
 }
 
 /* Replace LIVE SOH report with a proper CFA-wise report */
