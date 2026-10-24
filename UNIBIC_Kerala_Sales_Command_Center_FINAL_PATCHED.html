@@ -3184,7 +3184,7 @@ function renderSOH(){
 function renderWarehouseMini(){
   const host=$('warehouseMini');
   if(!host)return;
-  const warehouseNames=['HYD PLANT','HYD PLANT1','ALU CFA','TVD CFA','PAY CFA','BLR1','BLR4'];
+  const warehouseNames=['HYD PLANT','HYD PLANT1','ALU CFA','TVD CFA','PAY CFA','BLR4'];
   const totals=new Map(warehouseNames.map(name=>[name,{total:0,normal:0,below60:0,below30:0,below10:0,expired:0,unclassified:0}]));
   const normWh=v=>String(v??'').toUpperCase().replace(/[^A-Z0-9]/g,'');
   const rows=Array.isArray(soh)?soh:[];
