@@ -337,12 +337,14 @@ function sohField(r,names){
 
 function shelfLifeValue(r){
   const keys=Object.keys(r||{});
+  const normalize=k=>String(k).toLowerCase().replace(/[\\s_%\\-]/g,'');
+  // Prefer the LIVE SOH Remaining Shelf Life field used by the other reports.
+  const remainingKey=keys.find(k=>normalize(k).includes('remainingshelflife'));
+  if(remainingKey) return r[remainingKey];
+  // Compatibility fallback for feeds where the remaining-life field has a different label.
   const key=keys.find(k=>{
-    const x=String(k).toLowerCase().replace(/[\s_%\-]/g,'');
-    return x.includes('availableshelflife') ||
-           x.includes('shelflife') ||
-           x.includes('shelflifepercentage') ||
-           x.includes('shelfpercent');
+    const x=normalize(k);
+    return x.includes('availableshelflife') || x.includes('shelflifepercentage') || x.includes('shelfpercent');
   });
   return key ? r[key] : '';
 }
