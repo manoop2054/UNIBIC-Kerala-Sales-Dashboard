@@ -86,16 +86,17 @@ function mountAccessControlRoutes(app, { getPool, initializeDatabase, getDatabas
   });
 
   app.post('/api/access-control/logout', async (req, res) => {
+    // Always clear the browser cookie first, including when PostgreSQL is temporarily unavailable.
+    // Otherwise the next person using this browser can be signed straight back into the old account.
+    res.setHeader('Set-Cookie', clearSessionCookie());
+    const token = extractSessionToken(req.headers.cookie);
     const pool = await ensureReady(res);
     if (!pool) return;
-    const token = extractSessionToken(req.headers.cookie);
     try {
       await revokeSession(pool, token);
-      res.setHeader('Set-Cookie', clearSessionCookie());
       return res.json({ success: true });
     } catch (_) {
-      res.setHeader('Set-Cookie', clearSessionCookie());
-      return res.status(503).json({ error: 'Unable to revoke the session. Please retry.' });
+      return res.status(503).json({ error: 'Browser session cleared; server-side revocation could not be confirmed.' });
     }
   });
 
