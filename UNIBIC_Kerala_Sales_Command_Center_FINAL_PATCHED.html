@@ -9713,7 +9713,7 @@ async function clmLoadShared(){
   if(ch.exists&&ch.payload){
    state.chequeCounts=ch.payload.chequeCounts||{};
    Object.keys(state.chequeCounts).forEach(k=>{
-    const match=candidates().find(x=>String(x.code).toUpperCase()===String(k).toUpperCase());
+    const normChequeKey=v=>String(v??'').toUpperCase().replace(/\s+/g,''); const match=candidates().find(x=>normChequeKey(x.code)===normChequeKey(k));
     manual(match?match.code:k).cheques=String(state.chequeCounts[k]);
    });
    state.chequeUploadMessage='Shared Cheque Count loaded: '+ch.filename+' · '+Object.keys(state.chequeCounts).length+' customers.';
@@ -9743,7 +9743,7 @@ function monthSum(rs,y,m){return rs.reduce((s,r)=>{const d=date(r.__date||first(
 function metrics(c){
  const rs=customerRows(c),now=new Date(),current=monthSum(rs,now.getFullYear(),now.getMonth()),prev=[];
  for(let i=1;i<=3;i++){const d=new Date(now.getFullYear(),now.getMonth()-i,1);prev.push(monthSum(rs,d.getFullYear(),d.getMonth()))}
- const avg=prev.reduce((a,b)=>a+b,0)/3,gt=state.outstanding[c]===undefined?null:num(state.outstanding[c]),m=manual(c),marrie=num(m.marrie),inst=num(m.inst),im=new Map();let explicit=false;
+ const avg=prev.reduce((a,b)=>a+b,0)/3,gt=state.outstanding[c]===undefined?null:num(state.outstanding[c]),m=manual(c); const normChequeKey=v=>String(v??'').toUpperCase().replace(/\s+/g,''); const savedChequeKey=Object.keys(state.chequeCounts||{}).find(k=>normChequeKey(k)===normChequeKey(c)); if(savedChequeKey!==undefined)m.cheques=String(state.chequeCounts[savedChequeKey]); const marrie=num(m.marrie),inst=num(m.inst),im=new Map();let explicit=false;
  rs.forEach(r=>{const invoice=String(r.__invoice||first(r,aliases.invoice)||'').trim();if(!invoice)return;const d=date(r.__date||first(r,aliases.date)),order=String(r.__order||first(r,aliases.order)||'').trim(),key=[invoice,order,d?d.toISOString().slice(0,10):''].join('|'),raw=first(r,aliases.os);if(raw!==''&&raw!==null)explicit=true;const z=im.get(key)||{area:String(r.__area||first(r,aliases.area)||''),code:c,name:name(r),group:String(first(r,aliases.group)||''),classification:String(first(r,aliases.class)||''),order,invoice,date:d,total:0,os:0,hasOS:false};z.total+=num(r.__gsv??r.GSV??r.AmountToCustomer??r.Amount);if(raw!==''&&raw!==null){z.os+=num(raw);z.hasOS=true}im.set(key,z)});
  const bills=[...im.values()].sort((a,b)=>(date(b.date)?.getTime()||0)-(date(a.date)?.getTime()||0));state.hasInvoiceOutstanding=state.hasInvoiceOutstanding||explicit;
  return {rs,current,avg,gt,manual:m,marrie,inst,currentOs:gt===null?null:gt+marrie+inst,bills,explicit};
@@ -9901,7 +9901,7 @@ async function uploadChequeCount(file){
   Object.keys(counts).forEach(c=>{if(counts[c] instanceof Set)counts[c]=counts[c].size;});
   if(!await clmSaveShared('cheque-count',file.name,{chequeCounts:counts}))throw Error('Upload cancelled; shared data was not changed.');
   Object.keys(counts).forEach(c=>{
-   const match=candidates().find(x=>String(x.code).toUpperCase()===String(c).toUpperCase());
+   const normChequeKey=v=>String(v??'').toUpperCase().replace(/\s+/g,''); const match=candidates().find(x=>normChequeKey(x.code)===normChequeKey(c));
    manual(match?match.code:c).cheques=String(counts[c]);
   });
   state.chequeCounts=counts;
