@@ -9953,14 +9953,14 @@ async function exportFile(){
    merges.push({s:{r:hdr-1,c:col},e:{r:hdr,c:col}});
   });
   pushRow(isUdaan
-   ?[c,cn.name,m.cheques,x.gt===null?'':num(x.gt),num(m.marrie)*1.05,num(m.inst)*1.05,'',num(m.required)*1.05,m.chain,m.terms]
+   ?[c,cn.name,'UDAAN CUSTOMER',x.gt===null?'':num(x.gt),num(m.marrie)*1.05,num(m.inst)*1.05,'',num(m.required)*1.05,m.chain,m.terms]
    :[c,cn.name,m.cheques,x.gt===null?'':num(x.gt),num(m.marrie)*1.05,num(m.inst)*1.05,num(m.required)*1.05,m.chain,m.terms],isUdaan?'UdaanData':'GTData');
   pushRow(isUdaan
    ?['Area Code','Customer Code','Customer Name','Customer group','Customer classification group','sales order no.','Invoice No','Invoice Date','Total','remarks']
    :['Area Code','Customer Code','Customer Name','Customer group','Customer classification group','sales order no.','Invoice No','Invoice Date','Total'],isUdaan?'UdaanInvoiceHeader':'GTInvoiceHeader');
   if(!match.rows.length)pushRow(blank(),'blank');
   else match.rows.forEach(b=>pushRow(isUdaan
-   ?[b.area,b.code,b.name,b.group,b.classification,b.order,b.invoice,dateText(b.date),num(b.hasOS?b.os:b.total)*1.05,'']
+   ?[b.area,b.code,b.name,b.group,'UDAAN',b.order,b.invoice,dateText(b.date),num(b.hasOS?b.os:b.total)*1.05,'']
    :[b.area,b.code,b.name,b.group,b.classification,b.order,b.invoice,dateText(b.date),num(b.hasOS?b.os:b.total)*1.05],'InvoiceData'));
   pushRow([match.matched?'Invoice total status: exact GT O/S match':'Invoice total status: accumulated to meet or exceed GT O/S (invoices under ₹500 excluded)'],'status');
   if(idx<sel.length-1)pushRow(blank(),'blank');
