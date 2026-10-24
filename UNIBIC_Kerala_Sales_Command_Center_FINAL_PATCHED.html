@@ -9922,37 +9922,48 @@ async function exportFile(){
  const rowKinds=[];
  const merges=[];
  const pushRow=(row,kind='detail')=>{aoa.push(row);rowKinds.push(kind);return aoa.length;};
- const blank=()=>Array(9).fill('');
- // Summary table appears first in the exported workbook, before all customer details.
- pushRow(['CUSTOMER CL SUMMARY','','','','','','','',''],'topSummaryTitle');
- pushRow(['SL No','Customer Code','Customer Name','Cheque Count','CL Amount','','','',''],'topSummaryHeader');
+ const blank=()=>[];
+ // Keep the CL Summary, but style only its actual cells; blank cells remain unfilled.
+ pushRow(['CUSTOMER CL SUMMARY','','','',''],'topSummaryTitle');
+ pushRow(['SL No','Customer Code','Customer Name','Cheque Count','CL Amount'],'topSummaryHeader');
  let totalCheques=0,totalCL=0;
  sel.forEach((c,idx)=>{
   const x=metrics(c),m=x.manual,cn=candidates().find(z=>z.code===c)||{code:c,name:c};
   const chequeCount=num(m.cheques),clAmount=num(m.required)*1.05;
   totalCheques+=chequeCount;totalCL+=clAmount;
-  pushRow([idx+1,c,cn.name,chequeCount,clAmount,'','','',''],'topSummaryData');
+  pushRow([idx+1,c,cn.name,chequeCount,clAmount],'topSummaryData');
  });
- pushRow(['TOTAL','','',totalCheques,totalCL,'','','',''],'topSummaryTotal');
- pushRow(blank());
+ pushRow(['TOTAL','','',totalCheques,totalCL],'topSummaryTotal');
+ pushRow(blank(),'blank');
  merges.push({s:{r:0,c:0},e:{r:0,c:4}});
  sel.forEach((c,idx)=>{
   const x=metrics(c),m=x.manual,cn=candidates().find(z=>z.code===c)||{name:c},match=invoiceMatch(x);
   const format=udaanCodes.has(String(c).trim().toUpperCase())?'Udaan':'GT';
-  const sum1=pushRow(['3 MONTH AVERAGE GSV',num(x.avg)*1.05,'','','','','','',''],format+'Summary');
-  const sum2=pushRow(['Total Billed value in this month',num(x.current)*1.05,'','','','','','',''],format+'Summary');
-  const hdr=pushRow(['CODE','CUSTOMER NAME','NO OF CHEQUES','CURRENT O/S AMOUNT','','','REQUIRED CL AMOUNT','CHAIN CODE','CREDIT TERMS'],format+'Header');
-  pushRow(['','','','GT O/S AMOUNT','MARRIE O/S AMOUNT','INST O/S AMOUNT','','',''],format+'SubHeader');
-  pushRow([c,cn.name,m.cheques,x.gt===null?'':num(x.gt),num(m.marrie)*1.05,num(m.inst)*1.05,num(m.required)*1.05,m.chain,m.terms],format+'Data');
-  pushRow(['Area Code','Customer Code','Customer Name','Customer group','Customer classification group','sales order no.','Invoice No','Invoice Date','Total'],format+'InvoiceHeader');
-  if(!match.rows.length)pushRow(blank());
-  else match.rows.forEach(b=>pushRow([b.area,b.code,b.name,b.group,b.classification,b.order,b.invoice,dateText(b.date),num(b.hasOS?b.os:b.total)*1.05]));
-  pushRow([match.matched?'Invoice total status: exact GT O/S match':'Invoice total status: accumulated to meet or exceed GT O/S (invoices under ₹500 excluded)','','','','','','','',''],'status');
-  if(idx<sel.length-1)pushRow(blank());
+  const isUdaan=format==='Udaan';
+  pushRow(['3 MONTH AVERAGE GSV',num(x.avg)*1.05],'summaryLabel');
+  pushRow(['Total Billed value in this month',num(x.current)*1.05],'summaryLabel');
+  const hdr=isUdaan
+   ?pushRow(['CODE','CUSTOMER NAME','NO OF CHEQUES','CURRENT O/S AMOUNT','','','UDAAN AVAILABLE LIMIT','REQUIRED CL AMOUNT','CHAIN CODE','CREDIT TERMS'],'UdaanHeader')
+   :pushRow(['CODE','CUSTOMER NAME','NO OF CHEQUES','CURRENT O/S AMOUNT','','','REQUIRED CL AMOUNT','CHAIN CODE','CREDIT TERMS'],'GTHeader');
+  pushRow(isUdaan
+   ?['','','','GT O/S AMOUNT','MARRIE O/S AMOUNT','INST O/S AMOUNT','','','','']
+   :['','','','GT O/S AMOUNT','MARRIE O/S AMOUNT','INST O/S AMOUNT','','',''],'SubHeader');
+  pushRow(isUdaan
+   ?[c,cn.name,m.cheques,x.gt===null?'':num(x.gt),num(m.marrie)*1.05,num(m.inst)*1.05,'',num(m.required)*1.05,m.chain,m.terms]
+   :[c,cn.name,m.cheques,x.gt===null?'':num(x.gt),num(m.marrie)*1.05,num(m.inst)*1.05,num(m.required)*1.05,m.chain,m.terms],isUdaan?'UdaanData':'GTData');
+  pushRow(isUdaan
+   ?['Area Code','Customer Code','Customer Name','Customer group','Customer classification group','sales order no.','Invoice No','Invoice Date','Total','remarks']
+   :['Area Code','Customer Code','Customer Name','Customer group','Customer classification group','sales order no.','Invoice No','Invoice Date','Total'],isUdaan?'UdaanInvoiceHeader':'GTInvoiceHeader');
+  if(!match.rows.length)pushRow(blank(),'blank');
+  else match.rows.forEach(b=>pushRow(isUdaan
+   ?[b.area,b.code,b.name,b.group,b.classification,b.order,b.invoice,dateText(b.date),num(b.hasOS?b.os:b.total)*1.05,'']
+   :[b.area,b.code,b.name,b.group,b.classification,b.order,b.invoice,dateText(b.date),num(b.hasOS?b.os:b.total)*1.05],'InvoiceData'));
+  pushRow([match.matched?'Invoice total status: exact GT O/S match':'Invoice total status: accumulated to meet or exceed GT O/S (invoices under ₹500 excluded)'],'status');
+  if(idx<sel.length-1)pushRow(blank(),'blank');
  });
  const ws=XLSX.utils.aoa_to_sheet(aoa);
- ws['!cols']=[{wch:24},{wch:28},{wch:16},{wch:20},{wch:24},{wch:20},{wch:24},{wch:16},{wch:16}];
- // Keep the template's visual grouping: current O/S heading sits over GT/MARRIE/INST.
+ ws['!cols']=[{wch:38},{wch:33},{wch:21},{wch:18},{wch:28},{wch:19},{wch:25},{wch:18},{wch:16},{wch:17}];
+ // Merge the current O/S heading only across GT/MARRIE/INST columns.
  let rowCursor=sel.length+4;
  sel.forEach((c,idx)=>{
   merges.push({s:{r:rowCursor+2,c:3},e:{r:rowCursor+2,c:5}});
@@ -9961,17 +9972,63 @@ async function exportFile(){
  });
  ws['!merges']=merges;
  const range=XLSX.utils.decode_range(ws['!ref']);
- const styles={topSummaryTitle:{fill:{fgColor:{rgb:'70AD47'}},font:{bold:true,color:{rgb:'FFFFFF'},sz:14},alignment:{horizontal:'center',vertical:'center'},border:{top:{style:'medium',color:{rgb:'548235'}},bottom:{style:'medium',color:{rgb:'548235'}}}},topSummaryHeader:{fill:{fgColor:{rgb:'FFFF00'}},font:{bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'BF9000'}},bottom:{style:'medium',color:{rgb:'BF9000'}},left:{style:'thin',color:{rgb:'BF9000'}},right:{style:'thin',color:{rgb:'BF9000'}}}},topSummaryData:{fill:{fgColor:{rgb:'FFFFFF'}},alignment:{vertical:'center'},border:{bottom:{style:'thin',color:{rgb:'D9E2D0'}},left:{style:'thin',color:{rgb:'D9E2D0'}},right:{style:'thin',color:{rgb:'D9E2D0'}}}},topSummaryTotal:{fill:{fgColor:{rgb:'E2F0D9'}},font:{bold:true,color:{rgb:'375623'}},alignment:{vertical:'center'},border:{top:{style:'medium',color:{rgb:'70AD47'}},bottom:{style:'double',color:{rgb:'70AD47'}}}},UdaanSummary:{fill:{fgColor:{rgb:'70AD47'}},font:{bold:true,color:{rgb:'FFFFFF'}},alignment:{vertical:'center'},border:{bottom:{style:'thin',color:{rgb:'548235'}}}},GTSummary:{fill:{fgColor:{rgb:'70AD47'}},font:{bold:true,color:{rgb:'FFFFFF'}},alignment:{vertical:'center'},border:{bottom:{style:'thin',color:{rgb:'548235'}}}},UdaanHeader:{fill:{fgColor:{rgb:'FFFF00'}},font:{bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'BF9000'}},bottom:{style:'medium',color:{rgb:'BF9000'}},left:{style:'thin',color:{rgb:'BF9000'}},right:{style:'thin',color:{rgb:'BF9000'}}}},GTHeader:{fill:{fgColor:{rgb:'FFFF00'}},font:{bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'BF9000'}},bottom:{style:'medium',color:{rgb:'BF9000'}},left:{style:'thin',color:{rgb:'BF9000'}},right:{style:'thin',color:{rgb:'BF9000'}}}},UdaanSubHeader:{fill:{fgColor:{rgb:'FFFF00'}},font:{bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{bottom:{style:'thin',color:{rgb:'BF9000'}}}},GTSubHeader:{fill:{fgColor:{rgb:'FFFF00'}},font:{bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{bottom:{style:'thin',color:{rgb:'BF9000'}}}},UdaanData:{fill:{fgColor:{rgb:'FFFFFF'}},font:{color:{rgb:'000000'}},alignment:{vertical:'center'},border:{bottom:{style:'thin',color:{rgb:'D9E2D0'}}}},GTData:{fill:{fgColor:{rgb:'FFFFFF'}},font:{color:{rgb:'000000'}},alignment:{vertical:'center'},border:{bottom:{style:'thin',color:{rgb:'D9E2D0'}}}},UdaanInvoiceHeader:{fill:{fgColor:{rgb:'5B9BD5'}},font:{bold:true,color:{rgb:'FFFFFF'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'2F75B5'}},bottom:{style:'medium',color:{rgb:'2F75B5'}},left:{style:'thin',color:{rgb:'D9EAF7'}},right:{style:'thin',color:{rgb:'D9EAF7'}}}},GTInvoiceHeader:{fill:{fgColor:{rgb:'5B9BD5'}},font:{bold:true,color:{rgb:'FFFFFF'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'2F75B5'}},bottom:{style:'medium',color:{rgb:'2F75B5'}},left:{style:'thin',color:{rgb:'D9EAF7'}},right:{style:'thin',color:{rgb:'D9EAF7'}}}},status:{fill:{fgColor:{rgb:'EADCF8'}},font:{italic:true,color:{rgb:'674EA7'}},alignment:{vertical:'center'}}};
+ const fill=(rgb)=>({fgColor:{rgb}});
+ const borderThin={style:'thin',color:{rgb:'D9E2D0'}};
+ const styles={
+  topSummaryTitle:{fill:fill('70AD47'),font:{bold:true,color:{rgb:'000000'},sz:12},alignment:{vertical:'center'}},
+  topSummaryHeader:{fill:fill('FFFF00'),font:{bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'BF9000'}},bottom:{style:'medium',color:{rgb:'BF9000'}},left:{style:'thin',color:{rgb:'BF9000'}},right:{style:'thin',color:{rgb:'BF9000'}}}},
+  topSummaryData:{fill:fill('FFFFFF'),font:{color:{rgb:'000000'}},alignment:{vertical:'center'},border:{bottom:borderThin}},
+  topSummaryTotal:{fill:fill('E2F0D9'),font:{bold:true,color:{rgb:'375623'}},alignment:{vertical:'center'},border:{top:{style:'medium',color:{rgb:'70AD47'}},bottom:{style:'double',color:{rgb:'70AD47'}}}},
+  summaryLabel:{font:{color:{rgb:'000000'}},alignment:{vertical:'center'}},
+  summaryValue:{fill:fill('FFFFFF'),font:{color:{rgb:'000000'}},alignment:{horizontal:'center',vertical:'center'},numFmt:'#,##0.00'},
+  UdaanHeader:{fill:fill('FFFF00'),font:{bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'BF9000'}},bottom:{style:'medium',color:{rgb:'BF9000'}},left:{style:'thin',color:{rgb:'BF9000'}},right:{style:'thin',color:{rgb:'BF9000'}}}},
+  GTHeader:{fill:fill('FFFF00'),font:{bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'BF9000'}},bottom:{style:'medium',color:{rgb:'BF9000'}},left:{style:'thin',color:{rgb:'BF9000'}},right:{style:'thin',color:{rgb:'BF9000'}}}},
+  SubHeader:{fill:fill('FFFF00'),font:{color:{rgb:'000000'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{bottom:{style:'thin',color:{rgb:'BF9000'}}}},
+  UdaanData:{fill:fill('FFFFFF'),font:{color:{rgb:'000000'}},alignment:{vertical:'center'},border:{bottom:borderThin}},
+  GTData:{fill:fill('FFFFFF'),font:{color:{rgb:'000000'}},alignment:{vertical:'center'},border:{bottom:borderThin}},
+  UdaanInvoiceHeader:{fill:fill('5B9BD5'),font:{bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'2F75B5'}},bottom:{style:'medium',color:{rgb:'2F75B5'}},left:{style:'thin',color:{rgb:'D9EAF7'}},right:{style:'thin',color:{rgb:'D9EAF7'}}}},
+  GTInvoiceHeader:{fill:fill('5B9BD5'),font:{bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'2F75B5'}},bottom:{style:'medium',color:{rgb:'2F75B5'}},left:{style:'thin',color:{rgb:'D9EAF7'}},right:{style:'thin',color:{rgb:'D9EAF7'}}}},
+  InvoiceData:{fill:fill('FFFFFF'),font:{color:{rgb:'000000'}},alignment:{vertical:'center'},border:{bottom:borderThin}},
+  status:{font:{italic:true,color:{rgb:'674EA7'}},alignment:{vertical:'center',wrapText:true}}
+ };
  for(let r=range.s.r;r<=range.e.r;r++){
-  const kind=rowKinds[r]||'detail';
-  for(let c=range.s.c;c<=range.e.c;c++){
-   const addr=XLSX.utils.encode_cell({r,c});let cell=ws[addr];if(!cell)cell=ws[addr]={t:'s',v:''};
-   if(typeof cell.v==='number')cell.z=(kind==='topSummaryData'&&c===0)?'0':'#,##0.00';
-   if(styles[kind])cell.s=styles[kind];
-   else cell.s={alignment:{vertical:'center'},border:{bottom:{style:'hair',color:{rgb:'D9E2F3'}},left:{style:'hair',color:{rgb:'D9E2F3'}},right:{style:'hair',color:{rgb:'D9E2F3'}}},...(r%2?{fill:{fgColor:{rgb:'F7FAFC'}}}:{})};
+  const kind=rowKinds[r]||'blank';
+  const row=aoa[r]||[];
+  // Never style unused cells: this prevents colour blocks in blank space.
+  for(let c=0;c<row.length;c++){
+   const addr=XLSX.utils.encode_cell({r,c});
+   const value=row[c];
+   if(value===undefined||value===null||value==='')continue;
+   const cell=ws[addr];if(!cell)continue;
+   let style=styles[kind];
+   if(kind==='summaryLabel'&&c===0)style={...styles.summaryLabel,fill:fill('70AD47')};
+   if(kind==='summaryLabel'&&c===1)style=styles.summaryValue;
+   if(kind==='UdaanHeader'&&((c>=0&&c<=3)||(c>=6&&c<=9)))style=styles.UdaanHeader;
+   if(kind==='GTHeader')style=styles.GTHeader;
+   if(kind==='SubHeader'&&c>=3&&c<=5)style=styles.SubHeader;
+   if(kind==='SubHeader'&&row.length===9&&c>=6&&c<=8)style=styles.SubHeader;
+   if(kind==='UdaanInvoiceHeader'||kind==='GTInvoiceHeader')style=styles[kind];
+   if(kind==='status')style=styles.status;
+   if(style)cell.s=style;
+   if(typeof value==='number')cell.z=(kind==='topSummaryData'&&c===0)?'0':'#,##0.00';
+   if(kind==='InvoiceData'&&c===7)cell.z='dd/mm/yyyy';
   }
+  if(kind==='topSummaryTitle')for(let c=0;c<=4;c++){const cell=ws[XLSX.utils.encode_cell({r,c})];if(cell)cell.s=styles.topSummaryTitle;}
+  if(kind==='topSummaryHeader')for(let c=0;c<=4;c++){const cell=ws[XLSX.utils.encode_cell({r,c})];if(cell)cell.s=styles.topSummaryHeader;}
+  if(kind==='summaryLabel'){
+   const labelCell=ws[XLSX.utils.encode_cell({r,c:0})];if(labelCell)labelCell.s={...styles.summaryLabel,fill:fill('70AD47')};
+   const valueCell=ws[XLSX.utils.encode_cell({r,c:1})];if(valueCell)valueCell.s=styles.summaryValue;
+  }
+  if(kind==='GTHeader'){
+   // Match the GT template's yellow merged heading band without colouring unrelated blank cells.
+   for(let c=3;c<=5;c++){const cell=ws[XLSX.utils.encode_cell({r,c})];if(cell)cell.s=styles.GTHeader;}
+  }
+  if(kind==='SubHeader'){
+   for(let c=3;c<=5;c++){const cell=ws[XLSX.utils.encode_cell({r,c})];if(cell)cell.s=styles.SubHeader;}
+  }
+  if(kind==='status'&&row[0]){const cell=ws[XLSX.utils.encode_cell({r,c:0})];if(cell)cell.s=styles.status;}
  }
- ws['!rows']=rowKinds.map(k=>({hpt:k==='topSummaryTitle'?28:['customerHeader','invoiceHeader','topSummaryHeader','UdaanHeader','GTHeader','UdaanInvoiceHeader','GTInvoiceHeader'].includes(k)?30:['summary','customerData','subHeader','topSummaryData','topSummaryTotal','UdaanSummary','GTSummary','UdaanData','GTData','UdaanSubHeader','GTSubHeader'].includes(k)?23:20}));
+ ws['!rows']=rowKinds.map(k=>({hpt:k==='topSummaryTitle'?26:['topSummaryHeader','UdaanHeader','GTHeader','UdaanInvoiceHeader','GTInvoiceHeader'].includes(k)?34:['topSummaryData','topSummaryTotal','UdaanData','GTData','SubHeader','summaryLabel'].includes(k)?24:20}));
  ws['!freeze']={xSplit:0,ySplit:0};
  const wb=XLSX.utils.book_new();
  XLSX.utils.book_append_sheet(wb,ws,'CL Management');
