@@ -10002,7 +10002,7 @@ async function exportFile(){
    if(value===undefined||value===null||value==='')continue;
    const cell=ws[addr];if(!cell)continue;
    let style=styles[kind];
-   if(kind==='summaryLabel'&&c===0)style={...styles.summaryLabel,fill:fill('1F4E78'),font:{color:{rgb:'FFFFFF'},bold:true}};
+   if(kind==='summaryLabel'&&c===0)style={...styles.summaryLabel,fill:fill('70AD47')};
    if(kind==='summaryLabel'&&c===1)style=styles.summaryValue;
    if(kind==='UdaanHeader'&&((c>=0&&c<=3)||(c>=6&&c<=9)))style=styles.UdaanHeader;
    if(kind==='GTHeader')style=styles.GTHeader;
