@@ -9926,14 +9926,11 @@ async function exportFile(){
  // Keep the CL Summary, but style only its actual cells; blank cells remain unfilled.
  pushRow(['CUSTOMER CL SUMMARY','','','',''],'topSummaryTitle');
  pushRow(['SL No','Customer Code','Customer Name','Cheque Count','CL Amount'],'topSummaryHeader');
- let totalCheques=0,totalCL=0;
  sel.forEach((c,idx)=>{
   const x=metrics(c),m=x.manual,cn=candidates().find(z=>z.code===c)||{code:c,name:c};
   const chequeCount=num(m.cheques),clAmount=num(m.required)*1.05;
-  totalCheques+=chequeCount;totalCL+=clAmount;
   pushRow([idx+1,c,cn.name,chequeCount,clAmount],'topSummaryData');
  });
- pushRow(['TOTAL','','',totalCheques,totalCL],'topSummaryTotal');
  pushRow(blank(),'blank');
  merges.push({s:{r:0,c:0},e:{r:0,c:4}});
  sel.forEach((c,idx)=>{
@@ -9980,11 +9977,10 @@ async function exportFile(){
  const borderThin={style:'thin',color:{rgb:'7F7F7F'}};
  const gridBorder={top:{style:'thin',color:{rgb:'7F7F7F'}},bottom:{style:'thin',color:{rgb:'7F7F7F'}},left:{style:'thin',color:{rgb:'7F7F7F'}},right:{style:'thin',color:{rgb:'7F7F7F'}}};
  const styles={
-  topSummaryTitle:{fill:fill('70AD47'),font:{bold:true,color:{rgb:'000000'},sz:12},alignment:{vertical:'center'}},
-  topSummaryHeader:{fill:fill('FFFF00'),font:{bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'BF9000'}},bottom:{style:'medium',color:{rgb:'BF9000'}},left:{style:'thin',color:{rgb:'BF9000'}},right:{style:'thin',color:{rgb:'BF9000'}}}},
+  topSummaryTitle:{fill:fill('1F4E78'),font:{bold:true,color:{rgb:'FFFFFF'},sz:12},alignment:{vertical:'center'}},
+  topSummaryHeader:{fill:fill('D9EAF7'),font:{bold:true,color:{rgb:'1F1F1F'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'BF9000'}},bottom:{style:'medium',color:{rgb:'BF9000'}},left:{style:'thin',color:{rgb:'BF9000'}},right:{style:'thin',color:{rgb:'BF9000'}}}},
   topSummaryData:{fill:fill('FFFFFF'),font:{color:{rgb:'000000'}},alignment:{vertical:'center'},border:{bottom:borderThin}},
-  topSummaryTotal:{fill:fill('E2F0D9'),font:{bold:true,color:{rgb:'375623'}},alignment:{vertical:'center'},border:{top:{style:'medium',color:{rgb:'70AD47'}},bottom:{style:'double',color:{rgb:'70AD47'}}}},
-  summaryLabel:{font:{color:{rgb:'000000'}},alignment:{vertical:'center'}},
+    summaryLabel:{font:{color:{rgb:'000000'}},alignment:{vertical:'center'}},
   summaryValue:{fill:fill('FFFFFF'),font:{color:{rgb:'000000'}},alignment:{horizontal:'center',vertical:'center'},numFmt:'#,##0.00'},
   UdaanHeader:{fill:fill('FFFF00'),font:{bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'BF9000'}},bottom:{style:'medium',color:{rgb:'BF9000'}},left:{style:'thin',color:{rgb:'BF9000'}},right:{style:'thin',color:{rgb:'BF9000'}}}},
   GTHeader:{fill:fill('FFFF00'),font:{bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'BF9000'}},bottom:{style:'medium',color:{rgb:'BF9000'}},left:{style:'thin',color:{rgb:'BF9000'}},right:{style:'thin',color:{rgb:'BF9000'}}}},
@@ -10006,7 +10002,7 @@ async function exportFile(){
    if(value===undefined||value===null||value==='')continue;
    const cell=ws[addr];if(!cell)continue;
    let style=styles[kind];
-   if(kind==='summaryLabel'&&c===0)style={...styles.summaryLabel,fill:fill('70AD47')};
+   if(kind==='summaryLabel'&&c===0)style={...styles.summaryLabel,fill:fill('1F4E78'),font:{color:{rgb:'FFFFFF'},bold:true}};
    if(kind==='summaryLabel'&&c===1)style=styles.summaryValue;
    if(kind==='UdaanHeader'&&((c>=0&&c<=3)||(c>=6&&c<=9)))style=styles.UdaanHeader;
    if(kind==='GTHeader')style=styles.GTHeader;
