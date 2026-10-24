@@ -337,7 +337,7 @@ function sohField(r,names){
 
 function shelfLifeValue(r){
   const keys=Object.keys(r||{});
-  const normalize=k=>String(k).toLowerCase().replace(/[\\s_%\\-]/g,'');
+  const normalize=k=>String(k).toLowerCase().replace(/[\s_%\-]/g,'');
   // Prefer the LIVE SOH Remaining Shelf Life field used by the other reports.
   const remainingKey=keys.find(k=>normalize(k).includes('remainingshelflife'));
   if(remainingKey) return r[remainingKey];
@@ -3185,27 +3185,31 @@ function renderWarehouseMini(){
   const host=$('warehouseMini');
   if(!host)return;
   const warehouseNames=['HYD PLANT','HYD PLANT1','ALU CFA','TVD CFA','PAY CFA','BLR1','BLR4'];
-  const totals=new Map(warehouseNames.map(name=>[name,{total:0,normal:0,below60:0,below30:0,below10:0,expired:0}]));
-  const norm=v=>String(v??'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  const totals=new Map(warehouseNames.map(name=>[name,{total:0,normal:0,below60:0,below30:0,below10:0,expired:0,unclassified:0}]));
+  const normWh=v=>String(v??'').toUpperCase().replace(/[^A-Z0-9]/g,'');
   const rows=Array.isArray(soh)?soh:[];
   rows.forEach(r=>{
     const rawWh=sohField(r,['WAREHOUSE','Warehouse','CFA','CFA Name','CFA / WAREHOUSE']);
-    const whKey=norm(rawWh);
-    const wh=warehouseNames.find(name=>norm(name)===whKey);
+    const whKey=normWh(rawWh);
+    const wh=warehouseNames.find(name=>normWh(name)===whKey);
     if(!wh)return;
     const qty=num(sohField(r,['TOTAL_MAIN_QRT','CBB','CBO','QuantityinCBO','Quantity in CBO']));
+    const z=totals.get(wh);
+    z.total+=qty;
     const slRaw=shelfLifeValue(r);
-    if(slRaw==='' || slRaw===null || slRaw===undefined){
-      totals.get(wh).total+=qty;
+    if(slRaw==='' || slRaw===null || slRaw===undefined || String(slRaw).trim()===''){
+      z.unclassified+=qty;
       return;
     }
     let sl=Number(String(slRaw).replace(/[% ,]/g,''));
-    if(!Number.isFinite(sl))return;
+    if(!Number.isFinite(sl)){
+      z.unclassified+=qty;
+      return;
+    }
     if(sl>0 && sl<=1)sl*=100;
-    const z=totals.get(wh);
-    z.total+=qty;
+    // Bucket rules: >=60 normal; 30–<60; 11–<30; 0–<11; <=0 expired.
     if(sl<=0)z.expired+=qty;
-    else if(sl<=10)z.below10+=qty;
+    else if(sl<11)z.below10+=qty;
     else if(sl<30)z.below30+=qty;
     else if(sl<60)z.below60+=qty;
     else z.normal+=qty;
@@ -3215,8 +3219,11 @@ function renderWarehouseMini(){
     const z=totals.get(name);
     return '<tr><th>'+esc(name)+'</th><td>'+fmt(z.total)+'</td><td class="wh-normal">'+fmt(z.normal)+'</td><td class="wh-yellow">'+fmt(z.below60)+'</td><td class="wh-orange">'+fmt(z.below30)+'</td><td class="wh-red">'+fmt(z.below10)+'</td><td class="wh-expired">'+fmt(z.expired)+'</td></tr>';
   }).join('');
-  const total=warehouseNames.reduce((a,n)=>{const z=totals.get(n);Object.keys(a).forEach(k=>a[k]+=z[k]);return a;},{total:0,normal:0,below60:0,below30:0,below10:0,expired:0});
-  host.innerHTML='<style>#warehouseMini .wh-summary{width:100%;border-collapse:separate;border-spacing:0;font-size:11px}#warehouseMini .wh-summary th,#warehouseMini .wh-summary td{padding:8px 5px;border-bottom:1px solid #dce5ef;text-align:right;white-space:nowrap}#warehouseMini .wh-summary th:first-child{text-align:left}#warehouseMini .wh-summary thead th{background:#17365d;color:#fff;font-weight:700}#warehouseMini .wh-normal{background:#e0f5e9;color:#087443}#warehouseMini .wh-yellow{background:#fff4c9;color:#8a5a00}#warehouseMini .wh-orange{background:#ffe6d5;color:#a74308}#warehouseMini .wh-red{background:#ffe0e5;color:#b4233a}#warehouseMini .wh-expired{background:#edf0f5;color:#475569}#warehouseMini .wh-total th,#warehouseMini .wh-total td{font-weight:800;border-top:2px solid #9aacc4}</style><div style="overflow-x:auto"><table class="wh-summary"><thead><tr><th>Warehouse</th><th>Total CBB</th><th>Normal ≥60%</th><th>30–59%</th><th>11–29%</th><th>≤10%</th><th>Expired</th></tr></thead><tbody>'+rowsHtml+'<tr class="wh-total"><th>Total</th><td>'+fmt(total.total)+'</td><td class="wh-normal">'+fmt(total.normal)+'</td><td class="wh-yellow">'+fmt(total.below60)+'</td><td class="wh-orange">'+fmt(total.below30)+'</td><td class="wh-red">'+fmt(total.below10)+'</td><td class="wh-expired">'+fmt(total.expired)+'</td></tr></tbody></table></div>';
+  const total=warehouseNames.reduce((a,n)=>{const z=totals.get(n);Object.keys(a).forEach(k=>a[k]+=z[k]);return a;},{total:0,normal:0,below60:0,below30:0,below10:0,expired:0,unclassified:0});
+  const shelfLifeNote=total.unclassified>0
+    ? '<div class="sub" style="margin-top:8px;color:#b4233a;font-weight:700">Alert: '+fmt(total.unclassified)+' CBB has missing/invalid Remaining Shelf Life and is not included in the shelf-life categories. Check LIVE SOH data.</div>'
+    : '<div class="sub" style="margin-top:8px;color:#087443">Check: shelf-life categories reconcile with Total CBB.</div>';
+  host.innerHTML='<style>#warehouseMini .wh-summary{width:100%;border-collapse:separate;border-spacing:0;font-size:11px}#warehouseMini .wh-summary th,#warehouseMini .wh-summary td{padding:8px 5px;border-bottom:1px solid #dce5ef;text-align:right;white-space:nowrap}#warehouseMini .wh-summary th:first-child{text-align:left}#warehouseMini .wh-summary thead th{background:#17365d;color:#fff;font-weight:700}#warehouseMini .wh-normal{background:#e0f5e9;color:#087443}#warehouseMini .wh-yellow{background:#fff4c9;color:#8a5a00}#warehouseMini .wh-orange{background:#ffe6d5;color:#a74308}#warehouseMini .wh-red{background:#ffe0e5;color:#b4233a}#warehouseMini .wh-expired{background:#edf0f5;color:#475569}#warehouseMini .wh-total th,#warehouseMini .wh-total td{font-weight:800;border-top:2px solid #9aacc4}</style><div style="overflow-x:auto"><table class="wh-summary"><thead><tr><th>Warehouse</th><th>Total CBB</th><th>Normal ≥60%</th><th>30–59%</th><th>11–29%</th><th>≤10%</th><th>Expired</th></tr></thead><tbody>'+rowsHtml+'<tr class="wh-total"><th>Total</th><td>'+fmt(total.total)+'</td><td class="wh-normal">'+fmt(total.normal)+'</td><td class="wh-yellow">'+fmt(total.below60)+'</td><td class="wh-orange">'+fmt(total.below30)+'</td><td class="wh-red">'+fmt(total.below10)+'</td><td class="wh-expired">'+fmt(total.expired)+'</td></tr></tbody></table></div>'+shelfLifeNote;
 }
 function targetAnchorName(r){
   return String(r.__anchor ?? r.AnchorName ?? "Unspecified").replace(/\u00A0/g," ").replace(/\s+/g," ").trim() || "Unspecified";
