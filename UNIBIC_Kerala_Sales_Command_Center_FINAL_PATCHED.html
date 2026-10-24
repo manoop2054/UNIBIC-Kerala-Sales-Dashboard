@@ -9960,7 +9960,7 @@ async function exportFile(){
   if(!match.rows.length)pushRow(blank(),'blank');
   else match.rows.forEach(b=>pushRow(isUdaan
    ?[b.area,b.code,b.name,b.group,'UDAAN',b.order,b.invoice,dateText(b.date),num(b.hasOS?b.os:b.total)*1.05,'']
-   :[b.area,b.code,b.name,b.group,b.classification,b.order,b.invoice,dateText(b.date),num(b.hasOS?b.os:b.total)*1.05],'InvoiceData'));
+   :[b.area,b.code,b.name,b.group,'KL CHEQUE',b.order,b.invoice,dateText(b.date),num(b.hasOS?b.os:b.total)*1.05],'InvoiceData'));
   pushRow([match.matched?'Invoice total status: exact GT O/S match':'Invoice total status: accumulated to meet or exceed GT O/S (invoices under ₹500 excluded)'],'status');
   if(idx<sel.length-1)pushRow(blank(),'blank');
  });
