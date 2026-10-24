@@ -9948,6 +9948,10 @@ async function exportFile(){
   pushRow(isUdaan
    ?['','','','GT O/S AMOUNT','MARRIE O/S AMOUNT','INST O/S AMOUNT','','','','']
    :['','','','GT O/S AMOUNT','MARRIE O/S AMOUNT','INST O/S AMOUNT','','',''],'SubHeader');
+  // Merge labels vertically across the main header and subheader for a cleaner template.
+  [0,1,2,...(isUdaan?[6,7,8,9]:[6,7,8])].forEach(col=>{
+   merges.push({s:{r:hdr-1,c:col},e:{r:hdr,c:col}});
+  });
   pushRow(isUdaan
    ?[c,cn.name,m.cheques,x.gt===null?'':num(x.gt),num(m.marrie)*1.05,num(m.inst)*1.05,'',num(m.required)*1.05,m.chain,m.terms]
    :[c,cn.name,m.cheques,x.gt===null?'':num(x.gt),num(m.marrie)*1.05,num(m.inst)*1.05,num(m.required)*1.05,m.chain,m.terms],isUdaan?'UdaanData':'GTData');
@@ -9973,7 +9977,8 @@ async function exportFile(){
  ws['!merges']=merges;
  const range=XLSX.utils.decode_range(ws['!ref']);
  const fill=(rgb)=>({fgColor:{rgb}});
- const borderThin={style:'thin',color:{rgb:'D9E2D0'}};
+ const borderThin={style:'thin',color:{rgb:'7F7F7F'}};
+ const gridBorder={top:{style:'thin',color:{rgb:'7F7F7F'}},bottom:{style:'thin',color:{rgb:'7F7F7F'}},left:{style:'thin',color:{rgb:'7F7F7F'}},right:{style:'thin',color:{rgb:'7F7F7F'}}};
  const styles={
   topSummaryTitle:{fill:fill('70AD47'),font:{bold:true,color:{rgb:'000000'},sz:12},alignment:{vertical:'center'}},
   topSummaryHeader:{fill:fill('FFFF00'),font:{bold:true,color:{rgb:'000000'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'BF9000'}},bottom:{style:'medium',color:{rgb:'BF9000'}},left:{style:'thin',color:{rgb:'BF9000'}},right:{style:'thin',color:{rgb:'BF9000'}}}},
@@ -10009,22 +10014,37 @@ async function exportFile(){
    if(kind==='SubHeader'&&row.length===9&&c>=6&&c<=8)style=styles.SubHeader;
    if(kind==='UdaanInvoiceHeader'||kind==='GTInvoiceHeader')style=styles[kind];
    if(kind==='status')style=styles.status;
-   if(style)cell.s=style;
+   if(style)cell.s={...style,border:gridBorder};
    if(typeof value==='number')cell.z=(kind==='topSummaryData'&&c===0)?'0':'#,##0.00';
    if(kind==='InvoiceData'&&c===7)cell.z='dd/mm/yyyy';
   }
-  if(kind==='topSummaryTitle')for(let c=0;c<=4;c++){const cell=ws[XLSX.utils.encode_cell({r,c})];if(cell)cell.s=styles.topSummaryTitle;}
-  if(kind==='topSummaryHeader')for(let c=0;c<=4;c++){const cell=ws[XLSX.utils.encode_cell({r,c})];if(cell)cell.s=styles.topSummaryHeader;}
+  if(kind==='topSummaryTitle')for(let c=0;c<=4;c++){const cell=ws[XLSX.utils.encode_cell({r,c})]||(ws[XLSX.utils.encode_cell({r,c})]={t:'s',v:''});cell.s={...styles.topSummaryTitle,border:gridBorder};}
+  if(kind==='topSummaryHeader')for(let c=0;c<=4;c++){const cell=ws[XLSX.utils.encode_cell({r,c})]||(ws[XLSX.utils.encode_cell({r,c})]={t:'s',v:''});cell.s={...styles.topSummaryHeader,border:gridBorder};}
   if(kind==='summaryLabel'){
-   const labelCell=ws[XLSX.utils.encode_cell({r,c:0})];if(labelCell)labelCell.s={...styles.summaryLabel,fill:fill('70AD47')};
-   const valueCell=ws[XLSX.utils.encode_cell({r,c:1})];if(valueCell)valueCell.s=styles.summaryValue;
+   const labelCell=ws[XLSX.utils.encode_cell({r,c:0})]||(ws[XLSX.utils.encode_cell({r,c:0})]={t:'s',v:''});
+   labelCell.s={...styles.summaryLabel,fill:fill('70AD47'),alignment:{horizontal:'left',vertical:'center'},border:gridBorder};
+   const valueCell=ws[XLSX.utils.encode_cell({r,c:1})]||(ws[XLSX.utils.encode_cell({r,c:1})]={t:'s',v:''});
+   valueCell.s={...styles.summaryValue,border:gridBorder};
   }
   if(kind==='GTHeader'){
-   // Match the GT template's yellow merged heading band without colouring unrelated blank cells.
-   for(let c=3;c<=5;c++){const cell=ws[XLSX.utils.encode_cell({r,c})];if(cell)cell.s=styles.GTHeader;}
+   // Keep the merged CURRENT O/S heading yellow, while all blank areas remain unfilled.
+   for(let c=3;c<=5;c++){const cell=ws[XLSX.utils.encode_cell({r,c})]||(ws[XLSX.utils.encode_cell({r,c})]={t:'s',v:''});cell.s={...styles.GTHeader,border:gridBorder};}
+   for(let c=0;c<9;c++){const cell=ws[XLSX.utils.encode_cell({r,c})]||(ws[XLSX.utils.encode_cell({r,c})]={t:'s',v:''});cell.s={...(cell.s||{}),alignment:{horizontal:'center',vertical:'center',wrapText:true},border:gridBorder};}
+  }
+  if(kind==='UdaanHeader'){
+   for(let c=0;c<10;c++){const cell=ws[XLSX.utils.encode_cell({r,c})]||(ws[XLSX.utils.encode_cell({r,c})]={t:'s',v:''});cell.s={...(cell.s||{}),alignment:{horizontal:'center',vertical:'center',wrapText:true},border:gridBorder};}
   }
   if(kind==='SubHeader'){
-   for(let c=3;c<=5;c++){const cell=ws[XLSX.utils.encode_cell({r,c})];if(cell)cell.s=styles.SubHeader;}
+   const maxCol=row.length===10?9:8;
+   for(let c=0;c<=maxCol;c++){const cell=ws[XLSX.utils.encode_cell({r,c})]||(ws[XLSX.utils.encode_cell({r,c})]={t:'s',v:''});cell.s={...(cell.s||{}),alignment:{horizontal:'center',vertical:'center',wrapText:true},border:gridBorder};}
+  }
+  if(kind==='UdaanInvoiceHeader'||kind==='GTInvoiceHeader'){
+   const maxCol=kind==='UdaanInvoiceHeader'?9:8;
+   for(let c=0;c<=maxCol;c++){const cell=ws[XLSX.utils.encode_cell({r,c})]||(ws[XLSX.utils.encode_cell({r,c})]={t:'s',v:''});cell.s={...(cell.s||{}),alignment:{horizontal:'center',vertical:'center',wrapText:true},border:gridBorder};}
+  }
+  if(kind==='InvoiceData'){
+   const maxCol=row.length===10?9:8;
+   for(let c=0;c<=maxCol;c++){const cell=ws[XLSX.utils.encode_cell({r,c})]||(ws[XLSX.utils.encode_cell({r,c})]={t:'s',v:''});cell.s={...(cell.s||{}),alignment:{vertical:'center'},border:gridBorder};}
   }
   if(kind==='status'&&row[0]){const cell=ws[XLSX.utils.encode_cell({r,c:0})];if(cell)cell.s=styles.status;}
  }
