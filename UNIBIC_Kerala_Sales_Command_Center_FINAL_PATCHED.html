@@ -9965,7 +9965,7 @@ async function exportFile(){
  const ws=XLSX.utils.aoa_to_sheet(aoa);
  ws['!cols']=[{wch:38},{wch:33},{wch:21},{wch:18},{wch:28},{wch:19},{wch:25},{wch:18},{wch:16},{wch:17}];
  // Merge the current O/S heading only across GT/MARRIE/INST columns.
- let rowCursor=sel.length+4;
+ let rowCursor=sel.length+3;
  sel.forEach((c,idx)=>{
   merges.push({s:{r:rowCursor+2,c:3},e:{r:rowCursor+2,c:5}});
   rowCursor+=7+invoiceMatch(metrics(c)).rows.length;
