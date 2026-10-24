@@ -9474,7 +9474,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
   const form=document.getElementById('eacLoginForm');
   const error=document.getElementById('eacLoginError');
   const submit=document.getElementById('eacLoginSubmit');
-  const logout=document.getElementById('eacLogoutButton');
+  const logout=document.getElementById('quickExport');
   const identity=document.getElementById('eacLoggedInIdentity');
   const identityName=document.getElementById('eacIdentityName');
   const identityEmployeeId=document.getElementById('eacIdentityEmployeeId');
@@ -9635,26 +9635,20 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     }catch(e){showError(e.message||'Sign in failed.');}
     finally{submit.disabled=false;submit.textContent='Secure Sign In';}
   });
-  const quickLogout=document.getElementById('quickExport');
-  if(quickLogout){
-    quickLogout.innerHTML='↪ Logout';
-    quickLogout.setAttribute('aria-label','Logout from dashboard');
-    quickLogout.title='Log out current employee';
-    quickLogout.addEventListener('click',()=>logout.click());
-  }
+  if(logout){logout.innerHTML='↪ Logout';logout.setAttribute('aria-label','Logout from dashboard');logout.title='Log out current employee';}
   logout.addEventListener('click',async()=>{
     logout.disabled=true;
-    if(quickLogout){quickLogout.disabled=true;quickLogout.textContent='Logging out…';}
     logout.textContent='Logging out…';
+    identity.classList.add('logging-out');
     try{
       const response=await fetch('/api/access-control/logout',{method:'POST',credentials:'same-origin',cache:'no-store'});
-      // The server clears the HttpOnly session cookie even if database revocation is temporarily unavailable.
-      if(!response.ok)console.warn('Logout returned HTTP',response.status);
+      if(!response.ok)throw new Error('Logout returned HTTP '+response.status);
+      await new Promise(resolve=>setTimeout(resolve,3000));
       location.replace(location.pathname);
     }catch(e){
       logout.disabled=false;
-      logout.textContent='↪ Logout';
-      if(quickLogout){quickLogout.disabled=false;quickLogout.innerHTML='↪ Logout';}
+      logout.innerHTML='↪ Logout';
+      identity.classList.remove('logging-out');
       showError('Logout service could not be reached. Please retry before sharing this device.');
     }
   });
