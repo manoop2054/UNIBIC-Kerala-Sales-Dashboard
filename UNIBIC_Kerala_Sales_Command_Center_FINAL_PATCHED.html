@@ -9641,11 +9641,16 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     logout.textContent='Logging out…';
     identity.classList.add('logging-out');
     try{
-      const response=await fetch('/api/access-control/logout',{method:'POST',credentials:'same-origin',cache:'no-store'});
-      if(!response.ok)throw new Error('Logout returned HTTP '+response.status);
+      // The server clears the browser cookie before attempting database revocation.
+      // It may return HTTP 503 if the database is unavailable even though the cookie
+      // was cleared. Once an HTTP response arrives, always leave the dashboard after
+      // the requested three-second red identity cue.
+      await fetch('/api/access-control/logout',{method:'POST',credentials:'same-origin',cache:'no-store'});
       await new Promise(resolve=>setTimeout(resolve,3000));
       location.replace(location.pathname);
     }catch(e){
+      // A network failure means we cannot confirm that the logout request reached the
+      // server. Keep the user informed rather than falsely claiming logout succeeded.
       logout.disabled=false;
       logout.innerHTML='↪ Logout';
       identity.classList.remove('logging-out');
