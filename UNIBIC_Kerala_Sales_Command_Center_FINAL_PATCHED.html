@@ -1753,7 +1753,7 @@ setTimeout(()=>{
 <nav class="nav">
 <button class="active" data-tab="executive">&#127968; <span>Executive</span></button><button data-tab="target">&#127919; <span>Target vs Achievement</span></button><button data-tab="sales">&#128200; <span>Sales Analysis</span></button><button data-tab="item">&#128230; <span>Item Intelligence</span></button><button data-tab="dbr">&#128101; <span>DCR From Leap</span></button><button data-tab="invoice">&#129534; <span>Invoice / Customer</span></button><button data-tab="soh">&#128230; <span>LIVE SOH</span></button><button data-tab="alerts">&#128680; <span>Alerts</span></button><button data-tab="reports">&#128202; <span>Report Center</span></button><button data-tab="admincenter">&#128737; <span>Admin Center</span></button><button data-tab="upload">&#128228; <span>Monthly Upload</span></button><button data-tab="targetworking">&#127919; <span>Target Management</span></button><button data-tab="clmanagement">&#128176; <span>CL Management</span></button><div class="sidefoot" style="position:static;margin:8px 12px 0;padding-top:8px;border-top:1px solid rgba(255,255,255,.10)">Created by Manoop</div></nav></aside>
 <main class="main">
-<div class="top"><div class="title"><h1>UNIBIC Kerala Sales Command Center</h1><p>GSV &#8226; Target &#8226; DBR &#8226; Item &#8226; Invoice &#8226; LIVE SOH &#8226; Reports</p><div id="eacLoggedInIdentity" aria-live="polite" style="display:none"><span class="eac-identity-status" aria-hidden="true"></span><span class="eac-identity-details"><strong id="eacIdentityName"></strong><small id="eacIdentityEmployeeId"></small></span></div><button id="eacLogoutButton" type="button" aria-label="Logout from dashboard">↪ Logout</button></div><div class="actions"><div class="status"><i id="dot" class="dot"></i><span id="status">Connecting&#8230;</span></div><button class="btn" id="refresh">&#8635; Refresh</button><button class="btn primary" id="quickExport">&#8681; Export</button></div></div>
+<div class="top"><div class="title"><h1>UNIBIC Kerala Sales Command Center</h1><p>GSV &#8226; Target &#8226; DBR &#8226; Item &#8226; Invoice &#8226; LIVE SOH &#8226; Reports</p><div id="eacLoggedInIdentity" aria-live="polite" style="display:none"><span class="eac-identity-status" aria-hidden="true"></span><span class="eac-identity-details"><strong id="eacIdentityName"></strong><small id="eacIdentityEmployeeId"></small></span></div><button id="eacLogoutButton" type="button" aria-label="Logout from dashboard">↪ Logout</button></div><div class="actions"><div class="status"><i id="dot" class="dot"></i><span id="status">Connecting&#8230;</span></div><button class="btn" id="refresh">&#8635; Refresh</button><button class="btn primary" id="quickExport" aria-label="Logout from dashboard" title="Log out current employee">&#8618; Logout</button></div></div>
 
 <section id="executive" class="section active">
 <div class="filters"><div class="field"><label>Year</label><select id="year"><option value="">All</option></select></div><div class="field"><label>Month</label><select id="month"><option value="">All</option><option>Jan</option><option>Feb</option><option>Mar</option><option>Apr</option><option>May</option><option>Jun</option><option>Jul</option><option>Aug</option><option>Sep</option><option>Oct</option><option>Nov</option><option>Dec</option></select></div><div class="field"><label>From Date</label><input id="from" type="date"></div><div class="field"><label>To Date</label><input id="to" type="date"></div><div class="field"><label>ABM</label><select id="abm"><option value="">All</option></select></div><div class="field"><label>DBR / Customer</label><select id="dbr"><option value="">All</option></select></div><div class="field"><label>Anchor</label><select id="anchor"><option value="">All</option></select></div><div class="field"><label>AreaCode</label><select id="execArea"><option value="">All Areas</option></select></div><div class="field"><label>AnchorZoneName</label><select id="execAnchorZone"><option value="">All Anchor Zones</option></select></div><div class="field"><label>REGION</label><select id="execRegion"><option value="">All</option><option value="SOUTH TN">SOUTH TN</option><option value="SOUTH-KL">SOUTH-KL</option></select></div></div>
@@ -9636,8 +9636,16 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     }catch(e){showError(e.message||'Sign in failed.');}
     finally{submit.disabled=false;submit.textContent='Secure Sign In';}
   });
+  const quickLogout=document.getElementById('quickExport');
+  if(quickLogout){
+    quickLogout.innerHTML='↪ Logout';
+    quickLogout.setAttribute('aria-label','Logout from dashboard');
+    quickLogout.title='Log out current employee';
+    quickLogout.addEventListener('click',()=>logout.click());
+  }
   logout.addEventListener('click',async()=>{
     logout.disabled=true;
+    if(quickLogout){quickLogout.disabled=true;quickLogout.textContent='Logging out…';}
     logout.textContent='Logging out…';
     try{
       const response=await fetch('/api/access-control/logout',{method:'POST',credentials:'same-origin',cache:'no-store'});
@@ -9647,6 +9655,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     }catch(e){
       logout.disabled=false;
       logout.textContent='↪ Logout';
+      if(quickLogout){quickLogout.disabled=false;quickLogout.innerHTML='↪ Logout';}
       showError('Logout service could not be reached. Please retry before sharing this device.');
     }
   });
