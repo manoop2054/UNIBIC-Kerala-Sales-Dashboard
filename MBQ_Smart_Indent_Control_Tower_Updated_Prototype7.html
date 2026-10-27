@@ -412,7 +412,7 @@ async function loadLiveSoh(){
     renderStock();
   }
 }
-async function fetchGitHubAssortment(){try{const res=await fetch("https://raw.githubusercontent.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/feature/mbq-smart-indent-dashboard/KERALA%20ASSORTMENT%20FILE%20.csv");if(!res.ok)throw new Error("HTTP "+res.status);const text=await res.text();const parsed=parseCsv(text);if(parsed.length>1){const headers=parsed[0].map(h=>h.trim());const fgIdx=headers.findIndex(h=>h==="ItemId");const groupIdx=headers.findIndex(h=>h==="SKU_Group");const mrpIdx=headers.findIndex(h=>h==="MRP_Price");const descIdx=headers.findIndex(h=>h==="Description");sourceRows.length=0;rows.length=0;indentLines.length=0;const addedGroups=new Set();parsed.slice(1).forEach((r,i)=>{const fgCode=fgIdx>=0&&r[fgIdx]?r[fgIdx].trim():"";const skuGroup=groupIdx>=0&&r[groupIdx]?r[groupIdx].trim():"";const mrpVal=mrpIdx>=0&&!isNaN(parseFloat(r[mrpIdx]))?parseFloat(r[mrpIdx]):0;const desc=descIdx>=0&&r[descIdx]?r[descIdx].trim():"";if(skuGroup){if(!addedGroups.has(skuGroup)){addedGroups.add(skuGroup);sourceRows.push([skuGroup,0,0,0,"Normal","TVD"]);}rows.push({sku:skuGroup,indent:0,avg:0,suggest:0,risk:"Normal",cfa:"TVD",cover:0,open:0,stock:0,code:fgCode,shelfLife:100,mrp:mrpVal,salesDay:0,description:desc});indentLines.push({mode:"group",sku:skuGroup,code:fgCode,qty:0,note:desc,source:"GitHub Assortment"});}});const groupSelect=document.getElementById("entrySkuGroup");if(groupSelect){groupSelect.innerHTML="<option value=\"\">All (Ella SKU Groups-um)</option>"+Array.from(addedGroups).map(g=>`<option value="${g}">${g}</option>`).join("");}if(window.__mbqWorkbookLoaded)applyMbqWorkbookToExistingTabs();else{renderIndentWorkspace();renderIndent();renderWatch();renderSuggestions();renderStock();}showToast("Exact GitHub Kerala Assortment Master loaded successfully!");}}catch(e){console.warn("Assortment load failed:",e);showToast("GitHub Assortment load cheyyan kazhinjilla!");}}fetchGitHubAssortment();
+async function fetchGitHubAssortment(){try{const res=await fetch("https://raw.githubusercontent.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/feature/mbq-smart-indent-dashboard/KERALA%20ASSORTMENT%20FILE%20.csv");if(!res.ok)throw new Error("HTTP "+res.status);const text=await res.text();const parsed=parseCsv(text);if(parsed.length>1){const headers=parsed[0].map(h=>h.trim());const fgIdx=headers.findIndex(h=>h==="ItemId");const groupIdx=headers.findIndex(h=>h==="SKU_Group");const mrpIdx=headers.findIndex(h=>h==="MRP_Price");const descIdx=headers.findIndex(h=>h==="Description");sourceRows.length=0;rows.length=0;indentLines.length=0;const addedGroups=new Set();parsed.slice(1).forEach((r,i)=>{const fgCode=fgIdx>=0&&r[fgIdx]?r[fgIdx].trim():"";const skuGroup=groupIdx>=0&&r[groupIdx]?r[groupIdx].trim():"";const mrpVal=mrpIdx>=0&&!isNaN(parseFloat(r[mrpIdx]))?parseFloat(r[mrpIdx]):0;const desc=descIdx>=0&&r[descIdx]?r[descIdx].trim():"";if(skuGroup){if(!addedGroups.has(skuGroup)){addedGroups.add(skuGroup);sourceRows.push([skuGroup,0,0,0,"Normal","TVD"]);}rows.push({sku:skuGroup,indent:0,avg:0,suggest:0,risk:"Normal",cfa:"TVD",cover:0,open:0,stock:0,code:fgCode,shelfLife:100,mrp:mrpVal,salesDay:0,description:desc});indentLines.push({mode:"group",sku:skuGroup,code:fgCode,qty:0,note:desc,source:"GitHub Assortment"});}});const groupSelect=document.getElementById("entrySkuGroup");if(groupSelect){groupSelect.innerHTML="<option value=\"\">All (Ella SKU Groups-um)</option>"+Array.from(addedGroups).map(g=>`<option value="${g}">${g}</option>`).join("");}renderIndentWorkspace();renderIndent();renderWatch();renderSuggestions();renderStock();showToast("Exact GitHub Kerala Assortment Master loaded successfully!");}}catch(e){console.warn("Assortment load failed:",e);showToast("GitHub Assortment load cheyyan kazhinjilla!");}}fetchGitHubAssortment();
 /* MBQ Excel View: read only the official CFA sheets, retain the existing dashboard features. */
 let mbqExcelSheets = {};
 let mbqPoRecords = [];
@@ -455,7 +455,7 @@ async function loadMbqWorkbook(event){
     const bytes=await file.arrayBuffer();const wb=XLSX.read(bytes,{type:'array',cellDates:true});
     const next={};['DATA','ALU','PAY','TVD'].forEach(k=>{const d=mbqSheetData(wb,k);if(d)next[k]=d;});
     if(!next.DATA)throw new Error('Required DATA sheet (All CFA) was not found or has no SKU GROUP header.');
-    mbqExcelSheets=next;mbqWorkbookName=file.name;window.__mbqWorkbookLoaded=true;applyMbqWorkbookToExistingTabs();
+    mbqExcelSheets=next;mbqWorkbookName=file.name;
     await mbqCacheSet('mbqExcelCache',{sheets:next,name:file.name,loadedAt:new Date().toISOString()});
     renderMbqExcelView();
     status.classList.add('ready');status.innerHTML='<span class="dot"></span><span>Loaded '+mbqEscape(file.name)+' · '+Object.keys(next).join(', ')+' · saved in this browser</span>';
@@ -519,106 +519,8 @@ function renderMbqPoPreview(){
   host.innerHTML=filtered.length?'<div class="excel-status ready" style="margin:0 0 8px"><span class="dot"></span><span>Showing '+Math.min(filtered.length,250)+' of '+filtered.length+' lines · '+mbqEscape(mbqPoFileName)+'</span></div><div class="excel-table-wrap"><table class="excel-table"><thead><tr>'+headers.map(h=>'<th>'+mbqEscape(h)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div>':'<div class="excel-empty"><strong>No matching PO lines</strong>Try another CFA or search term.</div>';
 }
 async function restoreMbqLocalData(){
-  const book=await mbqCacheGet('mbqExcelCache');if(book&&book.sheets){mbqExcelSheets=book.sheets;mbqWorkbookName=book.name||'';window.__mbqWorkbookLoaded=true;applyMbqWorkbookToExistingTabs();const status=document.getElementById('mbqWorkbookStatus');status.classList.add('ready');status.innerHTML='<span class="dot"></span><span>Restored '+mbqEscape(mbqWorkbookName)+' from this browser</span>';renderMbqExcelView();}
+  const book=await mbqCacheGet('mbqExcelCache');if(book&&book.sheets){mbqExcelSheets=book.sheets;mbqWorkbookName=book.name||'';const status=document.getElementById('mbqWorkbookStatus');status.classList.add('ready');status.innerHTML='<span class="dot"></span><span>Restored '+mbqEscape(mbqWorkbookName)+' from this browser</span>';renderMbqExcelView();}
   const po=await mbqCacheGet('mbqPoCache');if(po&&po.rows){mbqPoRecords=po.rows;mbqPoHeaders=po.headers||[];mbqPoFileName=po.name||'';renderMbqPoPreview();}
-}
-
-
-/* Connect the official MBQ workbook values to existing planning tabs without removing them. */
-let mbqCfaRecords={};
-function mbqN(v){const n=Number(String(v??'').replace(/,/g,'').replace(/%/g,''));return Number.isFinite(n)?n:0}
-function mbqRecordFromRow(sheet,row){
- const v=(names)=>{for(const n of names){const idx=sheet.headers.findIndex(h=>String(h).trim().toUpperCase()===n.toUpperCase());if(idx>=0&&row[idx]!==''&&row[idx]!=null)return row[idx]}return ''};
- return {sku:String(v(['SKU GROUP'])||'').trim(),ctg:v(['CTG']),bg:v(['BG']),cat:v(['CAT']),rank:v(['RANK']),contri:v(['CONTRI%']),cumContri:v(['Cum CONTRI%']),indent:v(['IND']),clPo:v(['CL PO']),openPo:v(['OPEN PO']),sohLow:v(['SOH<60%']),sohHigh:v(['SOH>60%']),plantSoh:v(['PLANT SOH']),sales:v(['SALES']),prodFreq:v(['PROD FREQ']),mbqDaysFreq:v(['MBQ DAYS (BASED on PROD FREQ)']),transitDays:v(['TRANSIT DAYS']),mbqDays:v(['MBQ DAYS']),mbq:v(['MBQ']),next10:v(['NXT 10D']),fc:v(['FC%']),fr:v(['FR']),trend:v(['S. TREND','TREND']),shortExcess:v(['SHRT/EXC']),dos:v(['DOS']),avgSales:v(['L3M AVG SALES']),remarks:v(['Remarks','Req remarks','Req']),cfa:sheet.sheetName};
-}
-function applyMbqWorkbookToExistingTabs(){
- if(!mbqExcelSheets||!mbqExcelSheets.DATA)return;
- mbqCfaRecords={};
- ['ALU','PAY','TVD'].forEach(k=>{const sh=mbqExcelSheets[k];mbqCfaRecords[k]=sh?sh.rows.map(r=>mbqRecordFromRow(sh,r)).filter(r=>r.sku):[];});
- const dataSheet=mbqExcelSheets.DATA;
- const official=dataSheet.rows.map(r=>mbqRecordFromRow(dataSheet,r)).filter(r=>r.sku);
- const groupMap=new Map(official.map(r=>[r.sku.toLowerCase(),r]));
- const oldGroups=new Map(sourceRows.map(r=>[String(r[0]).toLowerCase(),r]));
- sourceRows.length=0;
- official.forEach(r=>{
-  const prior=oldGroups.get(r.sku.toLowerCase());
-  sourceRows.push([r.sku,mbqN(r.indent),mbqN(r.avgSales),mbqN(r.sales),mbqN(r.shortExcess)<0?'Review':'Normal','all']);
- });
- const existing=new Map(rows.map(r=>[String(r.sku).toLowerCase(),r]));
- official.forEach(r=>{
-  const prior=existing.get(r.sku.toLowerCase());
-  if(prior){prior.indent=mbqN(r.indent);prior.avg=mbqN(r.avgSales);prior.suggest=mbqN(r.mbq);prior.risk=mbqN(r.shortExcess)!==0?'Review':'Normal';prior.cfa='all';prior.mbqRecord=r;}
-  else rows.push({sku:r.sku,indent:mbqN(r.indent),avg:mbqN(r.avgSales),suggest:mbqN(r.mbq),risk:mbqN(r.shortExcess)!==0?'Review':'Normal',cfa:'all',cover:0,open:mbqN(r.openPo),stock:mbqN(r.sohHigh),code:r.sku,shelfLife:0,mrp:0,salesDay:0,description:'',mbqRecord:r});
- });
- rows.forEach(r=>{const officialRow=groupMap.get(String(r.sku).toLowerCase());if(officialRow){r.indent=mbqN(officialRow.indent);r.avg=mbqN(officialRow.avgSales);r.suggest=mbqN(officialRow.mbq);r.mbqRecord=officialRow;}});
- const groupSelect=document.getElementById('entrySkuGroup');
- if(groupSelect){const selected=groupSelect.value;groupSelect.innerHTML='<option value="">All (എല്ലാ SKU Groups-ഉം ഒരുമിച്ച് കാണിക്കുക)</option>'+official.map(r=>'<option value="'+mbqEscape(r.sku)+'">'+mbqEscape(r.sku)+'</option>').join('');if(official.some(r=>r.sku===selected))groupSelect.value=selected;}
- const cfaOptions=[['all','All CFAs'],['ALU','ALU CFA'],['PAY','PAY CFA'],['TVD','TVD CFA']];
- ['entryCfa','cfaFilter','allocCfaFilter','stockCfa'].forEach(id=>{const el=document.getElementById(id);if(!el)return;const val=el.value||'all';if(id==='entryCfa')el.innerHTML=cfaOptions.map(([v,t])=>'<option value="'+v+'">'+t+'</option>').join('');else if(id==='cfaFilter'||id==='allocCfaFilter')el.innerHTML=cfaOptions.map(([v,t])=>'<option value="'+v+'">'+t+'</option>').join('');if([...el.options].some(o=>o.value===val))el.value=val;});
- renderIndentWorkspace();renderIndent();renderWatch();renderSuggestions();renderStock();
- allocationData=[];buildAllocationData();runCfaAllocation();
- renderFlash();
- const status=document.getElementById('mbqWorkbookStatus');
- if(status){status.classList.add('ready');status.innerHTML='<span class="dot"></span><span>Loaded '+mbqEscape(mbqWorkbookName)+' · planning tabs connected</span>';}
-}
-function renderSuggestions(){
- const q=String(document.getElementById('suggestSearch')?.value||'').trim().toLowerCase();
- const rf=String(document.getElementById('riskFilter')?.value||'all').trim().toLowerCase();
- const cfRaw=String(document.getElementById('cfaFilter')?.value||'all').trim();
- const cf=cfRaw.toLowerCase()==='all'?'all':normalCfa(cfRaw);
- const hasWorkbook=!!(mbqCfaRecords&&Object.values(mbqCfaRecords).some(a=>a.length));
- let data;
- if(hasWorkbook){
-  data=(cf==='all'?['ALU','PAY','TVD'].flatMap(k=>mbqCfaRecords[k]||[]):(mbqCfaRecords[cf]||[])).map(r=>({...r,code:r.sku,avg:mbqN(r.sales),suggest:mbqN(r.mbq),risk:mbqN(r.shortExcess)!==0?'Review':'Normal'}));
- }else data=rows;
- if(q)data=data.filter(r=>String(r.sku||'').toLowerCase().includes(q));
- if(rf!=='all')data=data.filter(r=>String(r.risk||'').trim().toLowerCase()===rf);
- const body=document.getElementById('suggestRows');if(!body)return;
- body.innerHTML=data.map(r=>{
-  const soh=hasWorkbook?mbqN(r.sohHigh):mbqLiveStockForCode(r.code,cf==='all'?'all':cf);
-  const avg=mbqN(r.avg),daily=avg/30,cover=hasWorkbook?mbqN(r.dos):(daily>0?soh/daily:0);
-  const openQty=hasWorkbook?mbqN(r.openPo):openToQtyFor(cf==='all'?'ALU':cf,r.code);
-  const suggestion=hasWorkbook?mbqN(r.mbq):mbqN(r.suggest);
-  const coverLabel=hasWorkbook?(r.dos===''?'N/A':String(r.dos)+' days'):(daily>0?cover.toFixed(1)+' days':'N/A');
-  const risk=hasWorkbook?(mbqN(r.shortExcess)!==0?'Review':'Normal'):r.risk;
-  const why=hasWorkbook?'FC% '+(r.fc??'—')+' · FR '+(r.fr??'—')+' · S.Trend '+(r.trend??'—')+' · SHRT/EXC '+(r.shortExcess??'—'):(risk==='High'?'Check cover / open supply':risk==='Review'?'Compare against peak plan':'Monitor trend');
-  return '<tr><td class="sku">'+mbqEscape(r.sku)+'</td><td>'+mbqN(r.indent).toLocaleString('en-IN')+'</td><td>'+avg.toLocaleString('en-IN')+'</td><td>'+soh.toLocaleString('en-IN')+'</td><td>'+mbqEscape(coverLabel)+'</td><td>'+openQty.toLocaleString('en-IN')+'</td><td><b>'+suggestion.toLocaleString('en-IN')+'</b></td><td>'+riskPill(risk)+'</td><td>'+mbqEscape(why)+'</td></tr>';
- }).join('')||'<tr><td colspan="9" class="empty">No matching workbook rows. Upload the official MBQ workbook or adjust the filters.</td></tr>';
-}
-function buildAllocationData(){
- allocationData=[];
- if(mbqCfaRecords&&Object.values(mbqCfaRecords).some(a=>a.length)){
-  ['ALU','PAY','TVD'].forEach(k=>(mbqCfaRecords[k]||[]).forEach(r=>{
-   allocationData.push({cfa:k+' CFA',cfaKey:k,sku:r.sku,code:r.sku,last:'—',prev:'—',avg:mbqN(r.sales),soh:mbqN(r.sohHigh),incoming:mbqN(r.openPo),clPo:mbqN(r.clPo),mbq:mbqN(r.mbq),shortExcess:r.shortExcess,dos:r.dos,allocation:'—',net:mbqN(r.mbq),priority:mbqN(r.shortExcess)!==0?'Review':'Normal',fc:r.fc,fr:r.fr,trend:r.trend});
-  }));
-  return;
- }
-}
-function runCfaAllocation(){
- if(!allocationData.length)buildAllocationData();
- const net=allocationData.reduce((a,r)=>a+Math.max(0,Number(r.net)||0),0);
- document.getElementById('allocLineCount').textContent=allocationData.length.toLocaleString('en-IN');
- document.getElementById('allocNetTotal').textContent=net.toLocaleString('en-IN');
- document.getElementById('allocShortage').textContent='—';
- renderAlloc();
- if(mbqCfaRecords&&Object.values(mbqCfaRecords).some(a=>a.length))showToast('CFA allocation loaded from official MBQ workbook values.');
-}
-function renderAlloc(){
- if(!allocationData.length)buildAllocationData();
- const q=(document.getElementById('allocSearch')?.value||'').toLowerCase(),cf=document.getElementById('allocCfaFilter')?.value||'all',pr=document.getElementById('allocRiskFilter')?.value||'all';
- const data=allocationData.filter(r=>(r.sku+' '+r.code).toLowerCase().includes(q)&&(cf==='all'||r.cfaKey===cf)&&(pr==='all'||(pr==='Critical'?false:pr==='High'?r.priority==='Review':r.priority==='Normal'?r.priority==='Normal':true)));
- document.getElementById('allocRows').innerHTML=data.map(r=>'<tr><td>'+mbqEscape(r.cfa)+'</td><td class="sku">'+mbqEscape(r.sku)+'</td><td>'+mbqEscape(r.code)+'</td><td>'+mbqEscape(r.last)+'</td><td>'+mbqEscape(r.prev)+'</td><td><b>'+mbqN(r.avg).toLocaleString('en-IN')+'</b></td><td>'+mbqN(r.soh).toLocaleString('en-IN')+'</td><td>'+mbqN(r.incoming).toLocaleString('en-IN')+'</td><td><b>'+mbqN(r.net).toLocaleString('en-IN')+'</b></td><td>'+mbqEscape(r.allocation)+'</td><td>'+riskPill(r.priority==='Review'?'Review':'Normal')+'</td></tr>').join('')||'<tr><td colspan="11" class="empty">No matching CFA-item rows.</td></tr>';
-}
-function renderFlash(){
- const d=document.getElementById('flashDate')?.value||'Selected date',cRaw=document.getElementById('flashCfa')?.value||'All CFAs',c=normalCfa(cRaw);
- if(mbqCfaRecords&&Object.values(mbqCfaRecords).some(a=>a.length)){
-  const data=(c==='Unmapped'||String(cRaw).toLowerCase().includes('all')?['ALU','PAY','TVD'].flatMap(k=>mbqCfaRecords[k]||[]):(mbqCfaRecords[c]||[]));
-  const indent=data.reduce((n,r)=>n+mbqN(r.indent),0),sales=data.reduce((n,r)=>n+mbqN(r.sales),0),mbq=data.reduce((n,r)=>n+mbqN(r.mbq),0);
-  document.getElementById('flashText').innerHTML='<b>UNIBIC KERALA · DAILY INDENT FLASH</b><br>Date: '+mbqEscape(d)+' | CFA: '+mbqEscape(cRaw)+'<br>Total indent: '+indent.toLocaleString('en-IN')+' CBB<br>Sales CBB: '+sales.toLocaleString('en-IN')+'<br>MBQ requirement: '+mbq.toLocaleString('en-IN');
-  return;
- }
- const data=rows.slice(0,8),indent=data.reduce((sum,r)=>sum+mbqN(r.indent),0),sales=data.reduce((sum,r)=>sum+mbqN(r.avg),0);
- document.getElementById('flashText').innerHTML='<b>UNIBIC KERALA · DAILY INDENT FLASH</b><br>Date: '+mbqEscape(d)+' | CFA: '+mbqEscape(cRaw)+'<br>Total indent: '+indent.toLocaleString('en-IN')+' CBB<br>Sales CBB: '+sales.toLocaleString('en-IN')+' CBB';
 }
 
 loadLiveSoh();
