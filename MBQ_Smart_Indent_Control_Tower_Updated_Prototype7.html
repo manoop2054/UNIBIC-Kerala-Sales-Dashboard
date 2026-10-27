@@ -53,10 +53,15 @@
 <section class="section" id="page-excelview">
   <div class="page-head"><div><div class="eyebrow">Official workbook workspace</div><h1>MBQ Excel View</h1><p>നിങ്ങളുടെ official MBQ workbook format-ൽ CFA-wise data കാണുക. Existing dashboard tabs അതേപടി നിലനിർത്തിയിരിക്കുന്നു.</p></div><div class="actions"><button class="btn" onclick="exportMbqView()">⇩ Export visible data</button></div></div>
   <div class="excel-workspace">
-    <div class="excel-hero"><div><div class="eyebrow">KERALA · CFA REPLENISHMENT</div><h2>Official MBQ Workbook</h2><p>DATA / ALU / PAY / TVD sheets · Original column sequence · Workbook-calculated values · CFA-wise filtering</p><div class="excel-status" id="mbqWorkbookStatus" style="margin-top:13px;color:#d5e5f7"><span class="dot"></span><span>No workbook loaded in this browser yet</span></div></div><div class="excel-hero-icon">▤</div></div>
+    <div class="excel-hero"><div><div class="eyebrow">KERALA · CFA REPLENISHMENT</div><h2>Official MBQ Workbook</h2><p>DATA / ALU / PAY / TVD · Official MBQ headings · Source-backed values · CFA-wise filtering</p><div class="excel-status" id="mbqWorkbookStatus" style="margin-top:13px;color:#d5e5f7"><span class="dot"></span><span>Connecting to Assortment and LIVE SOH sources…</span></div></div><div class="excel-hero-icon">▤</div></div>
     <div class="card">
-      <div class="card-head"><div><h3>Load main MBQ workbook</h3><small>Upload FINAL MBQ FORMAT NEW KL FINAL.xlsb once in this browser; the parsed view is saved locally for next visits.</small></div><span class="excel-pill">XLSB · XLSX · XLS</span></div>
-      <div class="excel-upload"><div><strong>Choose official MBQ workbook</strong><p>Only DATA, ALU, PAY and TVD sheets are read for this tab.</p></div><input id="mbqWorkbookFile" type="file" accept=".xlsb,.xlsx,.xls" onchange="loadMbqWorkbook(event)"></div>
+      <div class="card-head"><div><h3>Live source connection</h3><small>Workbook upload is not required. Headings follow the official MBQ format; values load from the available source systems.</small></div><span class="excel-pill">LIVE SOURCES</span></div>
+      <div class="card-body" style="display:flex;gap:10px;flex-wrap:wrap;padding-top:4px">
+        <span class="excel-pill">SKU Group / Item · GitHub Assortment</span>
+        <span class="excel-pill">CFA SOH / Plant SOH · LIVE STOCK REPORT</span>
+        <span class="excel-pill">Sales / Billing · GSV source status pending</span>
+        <span class="excel-pill">CL PO / Open PO · Daily PO report if available</span>
+      </div>
     </div>
     <div class="card">
       <div class="excel-toolbar">
@@ -70,7 +75,7 @@
         <div class="excel-stat"><small>Visible columns</small><strong id="mbqStatCols">—</strong></div>
         <div class="excel-stat"><small>Source status</small><strong id="mbqStatSource" style="font-size:15px">Awaiting file</strong></div>
       </div>
-      <div id="mbqExcelTableHost" style="margin-top:15px"><div class="excel-empty"><strong>Upload your main MBQ Excel</strong>The workbook values will appear here in the original column order after the file is loaded.</div></div>
+      <div id="mbqExcelTableHost" style="margin-top:15px"><div class="excel-empty"><strong>Loading source data…</strong>Assortment and LIVE SOH are being connected.</div></div>
       <div class="notice" style="margin-top:12px">This view uses the workbook's saved calculated values. The Excel formulas themselves are not required to be retained. No sample/demo rows are added.</div>
     </div>
     <div class="card">
@@ -400,7 +405,7 @@ async function loadLiveSoh(){
       if(cfas.includes(previous))select.value=previous;
     }
     renderStock();
-    console.log('MBQ LIVE SOH API loaded:',liveSohRows.length,'rows; CFAs:',cfas.join(', '));
+    console.log('MBQ LIVE SOH API loaded:',liveSohRows.length,'rows; CFAs:',cfas.join(', '));renderMbqExcelView();
   }catch(error){
     liveSohRows=[];
     liveSohError=String(error&&error.message||error||'Unknown error');
@@ -459,27 +464,12 @@ async function loadMbqWorkbook(event){
     showToast('Official MBQ workbook loaded.');
   }catch(e){status.classList.remove('ready');status.innerHTML='<span class="dot"></span><span>Workbook load failed: '+mbqEscape(e.message||'Unable to read file')+'</span>';showToast('Workbook could not be loaded. Check the sheet names and format.');}
 }
-function renderMbqExcelView(){
-  const key=document.getElementById('mbqSheetSelect')?.value||'DATA';const d=mbqExcelSheets[key];
-  const host=document.getElementById('mbqExcelTableHost');if(!host)return;
-  const label=key==='DATA'?'All CFA':key+' CFA';document.getElementById('mbqStatCfa').textContent=label;
-  if(!d){document.getElementById('mbqStatRows').textContent='—';document.getElementById('mbqStatCols').textContent='—';document.getElementById('mbqStatSource').textContent='Awaiting file';host.innerHTML='<div class="excel-empty"><strong>Sheet not loaded</strong>Upload the official workbook with DATA, ALU, PAY and TVD sheets.</div>';return;}
-  const q=mbqText(document.getElementById('mbqViewSearch')?.value).toLowerCase();const pageSize=Number(document.getElementById('mbqViewPageSize')?.value)||250;
-  const filtered=d.rows.filter(r=>!q||r.some(v=>mbqText(v).toLowerCase().includes(q)));
-  const shown=filtered.slice(0,pageSize);
-  document.getElementById('mbqStatRows').textContent=filtered.length.toLocaleString('en-IN');
-  document.getElementById('mbqStatCols').textContent=d.headers.length;
-  document.getElementById('mbqStatSource').textContent='Loaded';
-  if(!shown.length){host.innerHTML='<div class="excel-empty"><strong>No matching rows</strong>Try a different search term.</div>';return;}
-  const head='<thead><tr>'+d.headers.map(h=>'<th>'+mbqEscape(h)+'</th>').join('')+'</tr></thead>';
-  const body='<tbody>'+shown.map(r=>'<tr>'+d.headers.map((_,i)=>'<td>'+mbqEscape(r[i])+'</td>').join('')+'</tr>').join('')+'</tbody>';
-  host.innerHTML='<div class="excel-status ready" style="margin:0 0 8px"><span class="dot"></span><span>Showing '+shown.length.toLocaleString('en-IN')+' of '+filtered.length.toLocaleString('en-IN')+' matching SKU groups · '+mbqEscape(d.sheetName)+'</span></div><div class="excel-table-wrap"><table class="excel-table">'+head+body+'</table></div>';
-}
-function exportMbqView(){
-  const key=document.getElementById('mbqSheetSelect')?.value||'DATA',d=mbqExcelSheets[key];if(!d){showToast('Load the official MBQ workbook first.');return;}
-  const q=mbqText(document.getElementById('mbqViewSearch')?.value).toLowerCase();const data=d.rows.filter(r=>!q||r.some(v=>mbqText(v).toLowerCase().includes(q)));
-  const ws=XLSX.utils.aoa_to_sheet([d.headers,...data]);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,key);XLSX.writeFile(wb,'MBQ_'+key+'_View.xlsx');showToast('Visible MBQ data exported.');
-}
+const MBQ_OFFICIAL_HEADERS=['SKU GROUP','CTG','GT','ECOM','MT','BG','CAT','RANK','CONTRI%','Cum CONTRI%','JUL','AUG','SEP','L3M AVG SALES','IND','G/DG','CL PO','OPEN PO','SOH<60%','SOH>60%','PLANT SOH','SALES','PROD FREQ','MBQ DAYS (BASED on PROD FREQ)','TRANSIT DAYS','MBQ DAYS','MBQ','NXT 10D','FC%','FR','S. TREND','SHRT/EXC','DOS'];
+function mbqExcelPlantSohForGroup(sku){const codes=[...new Set(rows.filter(r=>r.sku===sku&&r.code).map(r=>mbqCodeKey(r.code)))];if(!codes.length||!liveSohRows.length)return null;let total=0,found=false;liveSohRows.forEach(raw=>{const code=mbqCodeKey(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']));const wh=String(keyValue(raw,['WAREHOUSE','Warehouse','Location','Location Name'])||'').trim().toUpperCase();if(!codes.includes(code)||!wh.includes('HYD PLANT1'))return;const q=Number(String(keyValue(raw,['CBO','CBB','SOH','Stock CBO','Qty','Quantity'])||'').replace(/,/g,''));if(Number.isFinite(q)){total+=q;found=true;}});return found?total:null;}
+function mbqExcelGroupSoh(sku,cfa,under60){const codes=[...new Set(rows.filter(r=>r.sku===sku&&r.code).map(r=>mbqCodeKey(r.code)))];if(!codes.length||!liveSohRows.length)return null;let total=0,found=false;liveSohRows.forEach(raw=>{const code=mbqCodeKey(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']));const c=normalCfa(keyValue(raw,['WAREHOUSE','Warehouse','CFA','LocationCode','Location Code','Location Name','Location']));if(!codes.includes(code)||!['ALU','PAY','TVD'].includes(c)||(cfa!=='DATA'&&c!==cfa))return;const q=Number(String(keyValue(raw,['CBO','CBB','SOH','Stock CBO','Qty','Quantity'])||'').replace(/,/g,''));if(!Number.isFinite(q))return;const rawShelf=keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %']);const shelf=Number(String(rawShelf).replace('%','').replace(/,/g,''));if(rawShelf===''||!Number.isFinite(shelf))return;if((shelf<60)===under60){total+=q;found=true;}});return found?total:null;}
+function mbqExcelFmt(v){if(v===null||v===undefined||v==='')return 'No Data Available';if(typeof v==='number')return v.toLocaleString('en-IN',{maximumFractionDigits:2});return String(v);}
+function renderMbqExcelView(){const key=document.getElementById('mbqSheetSelect')?.value||'DATA',host=document.getElementById('mbqExcelTableHost');if(!host)return;const label=key==='DATA'?'All CFA':key+' CFA';document.getElementById('mbqStatCfa').textContent=label;const unique=[...new Set(rows.filter(r=>r&&r.sku).map(r=>r.sku))].sort((a,b)=>a.localeCompare(b));const q=mbqText(document.getElementById('mbqViewSearch')?.value).toLowerCase(),size=Number(document.getElementById('mbqViewPageSize')?.value)||250;const filtered=unique.filter(sku=>!q||sku.toLowerCase().includes(q)||rows.some(r=>r.sku===sku&&[r.code,r.description,r.mrp].some(v=>mbqText(v).toLowerCase().includes(q))));const shown=filtered.slice(0,size);document.getElementById('mbqStatRows').textContent=filtered.length.toLocaleString('en-IN');document.getElementById('mbqStatCols').textContent=MBQ_OFFICIAL_HEADERS.length;const hasAssortment=unique.length>0,hasSoh=liveSohRows.length>0;document.getElementById('mbqStatSource').textContent=hasAssortment&&hasSoh?'Assortment + LIVE SOH':hasAssortment?'Assortment only':'Source unavailable';const status=document.getElementById('mbqWorkbookStatus');if(status){status.classList.toggle('ready',hasAssortment&&hasSoh);status.innerHTML='<span class="dot"></span><span>'+mbqEscape((hasAssortment?'Assortment '+unique.length+' SKU groups':'Assortment unavailable')+' · '+(hasSoh?'LIVE SOH '+liveSohRows.length+' rows':'LIVE SOH unavailable')+' · Missing sources are not fabricated')+'</span>';}if(!hasAssortment){host.innerHTML='<div class="excel-empty"><strong>Assortment source unavailable</strong>SKU Group headings remain ready, but rows will appear when the GitHub Kerala Assortment source loads.</div>';return;}const body=shown.map(sku=>{const under=mbqExcelGroupSoh(sku,key,true),over=mbqExcelGroupSoh(sku,key,false),plant=mbqExcelPlantSohForGroup(sku);const vals={'SKU GROUP':sku,'SOH<60%':under,'SOH>60%':over,'PLANT SOH':plant};return '<tr>'+MBQ_OFFICIAL_HEADERS.map(h=>'<td>'+mbqEscape(mbqExcelFmt(Object.prototype.hasOwnProperty.call(vals,h)?vals[h]:''))+'</td>').join('')+'</tr>';}).join('');const head='<thead><tr>'+MBQ_OFFICIAL_HEADERS.map(h=>'<th>'+mbqEscape(h)+'</th>').join('')+'</tr></thead>';host.innerHTML='<div class="excel-status ready" style="margin:0 0 8px"><span class="dot"></span><span>Showing '+shown.length.toLocaleString('en-IN')+' of '+filtered.length.toLocaleString('en-IN')+' SKU groups · '+mbqEscape(label)+' · Unsupported fields marked No Data Available</span></div><div class="excel-table-wrap"><table class="excel-table">'+head+'<tbody>'+(body||'<tr><td colspan="'+MBQ_OFFICIAL_HEADERS.length+'" class="empty">No matching SKU groups.</td></tr>')+'</tbody></table></div>';}
+function exportMbqView(){const key=document.getElementById('mbqSheetSelect')?.value||'DATA';const table=document.querySelector('#mbqExcelTableHost table');if(!table){showToast('No source-backed rows available to export.');return;}const wb=XLSX.utils.book_new(),ws=XLSX.utils.table_to_sheet(table);XLSX.utils.book_append_sheet(wb,ws,key);XLSX.writeFile(wb,'MBQ_'+key+'_Source_View.xlsx');showToast('Source-backed MBQ view exported.');}
 function mbqFindPoTable(wb){
   for(const name of wb.SheetNames){const matrix=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:'',raw:false,blankrows:false});
     const idx=matrix.findIndex(r=>r.some(v=>mbqText(v).toUpperCase()==='PO_OPEN_CLOSE')&&r.some(v=>mbqText(v).toUpperCase()==='PO_QTY')&&r.some(v=>mbqText(v).toUpperCase()==='DIFF_QTY'));
