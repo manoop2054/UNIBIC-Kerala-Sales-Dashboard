@@ -238,7 +238,7 @@ function poFileSelected(input){
    const headerAliases={
     code:['itemnumber','itemno','itemcode','fgcode','material','materialcode','productcode','sku','item'],
     qty:['transferqtycbo','transferquantitycbo','transferqty','transferquantity','qtycbo','quantitycbo','transferqtycbb','cbb'],
-    cfa:['cfaname','cfa','warehouse','warehousename','location','shipfrom'],
+    cfa:['cfaname','cfa','warehouse','warehousename','location','shipfrom','issuingcfa','receivingcfa','cfa name'],
     product:['productname','description','materialdescription','itemdescription','product','itemname'],
     toNo:['tonumber','tono','transferordernumber','transferorderno','transferorder','transno','documentnumber']
    };
@@ -283,10 +283,14 @@ function poFileSelected(input){
   const promptNo=filenameMatch?filenameMatch[0].replace(/[ _]+/g,'-').toUpperCase():null;
   const previous=await loadToRecords(),imported=[];
   let fallbackTo=promptNo;
+  const hasCfaColumn=records.some(row=>Object.keys(row||{}).some(k=>headerMatches(k,aliases.cfa)));
+  let fallbackCfa='';
+  if(!hasCfaColumn)fallbackCfa=String(prompt('ഈ TO ഏത് CFA-യുടേതാണ്? (ഉദാ: TVD CFA / PAY CFA / ALU CFA)','')||'').trim();
+  if(!hasCfaColumn&&!fallbackCfa){if(status)status.textContent='CFA നൽകാത്തതിനാൽ import ചെയ്തിട്ടില്ല.';return}
   if(!fallbackTo&&!records.some(row=>String(val(row,'toNo')||'').trim()))fallbackTo=String(prompt('TO Number നൽകുക (ഉദാ: TRANSNO-000091085):','')||'').toUpperCase().trim();
   if(!fallbackTo&&!records.some(row=>String(val(row,'toNo')||'').trim())){if(status)status.textContent='TO number നൽകാത്തതിനാൽ import ചെയ്തിട്ടില്ല.';return}
   for(const row of records){
-   const code=String(val(row,'code')||'').trim(),qty=toNum(val(row,'qty')),cfa=String(val(row,'cfa')||'').trim();
+   const code=String(val(row,'code')||'').trim(),qty=toNum(val(row,'qty')),cfa=String(val(row,'cfa')||fallbackCfa||'').trim();
    if(!code||!cfa||!String(val(row,'qty')??'').trim()||qty<0)continue;
    const toNo=String(val(row,'toNo')||fallbackTo||'').trim().toUpperCase();
    if(!toNo)continue;
