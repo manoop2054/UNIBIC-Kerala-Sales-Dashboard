@@ -16,6 +16,15 @@
 #indentWorkspaceWrap.item-freeze.mrp-hidden th:nth-child(1),#indentWorkspaceWrap.item-freeze.mrp-hidden td:nth-child(1){position:sticky;left:0;min-width:200px;width:200px;max-width:200px;background:#fff;z-index:3}
 #indentWorkspaceWrap.item-freeze.mrp-hidden th:nth-child(2),#indentWorkspaceWrap.item-freeze.mrp-hidden td:nth-child(2){position:sticky;left:200px;min-width:110px;width:110px;max-width:110px;background:#fff;z-index:3}
 #indentWorkspaceWrap.item-freeze.mrp-hidden th:nth-child(3),#indentWorkspaceWrap.item-freeze.mrp-hidden td:nth-child(3){position:sticky;left:310px;min-width:100px;width:100px;max-width:100px;background:#fff;z-index:3;box-shadow:2px 0 0 #dce4ef}
+
+/* SKU Group-wise view: disable item-entry frozen columns so the complete group table and linked items remain visible */
+#indentWorkspaceWrap.group-mode{max-height:none;overflow-x:auto;overflow-y:visible}
+#indentWorkspaceWrap.group-mode table{min-width:0;width:100%;table-layout:auto}
+#indentWorkspaceWrap.group-mode th,#indentWorkspaceWrap.group-mode td{position:static!important;left:auto!important;width:auto!important;min-width:0!important;max-width:none!important;white-space:normal;z-index:auto!important;box-shadow:none!important}
+#indentWorkspaceWrap.group-mode thead th{position:static!important;background:#f8fafd;box-shadow:0 1px 0 var(--line)!important}
+#indentWorkspaceWrap.group-mode .group-indent-input{min-width:110px}
+#linkedItemsPanel{overflow-x:auto}
+#linkedItemsPanel table{min-width:650px}
 #indentWorkspaceWrap.item-freeze thead th:nth-child(-n+4){z-index:7;background:#f8fafd}
 #indentWorkspaceWrap.item-freeze.mrp-hidden thead th:nth-child(-n+3){z-index:7}
 #indentWorkspaceWrap.item-freeze tbody tr:hover td:nth-child(-n+4){background:#fafcff}
@@ -124,7 +133,7 @@ function renderStock(){
 function getIndentFilteredRows(){let cfa=document.getElementById('entryCfa')?.value||'all',sf=document.getElementById('shelfFilter')?.value||'all',group=document.getElementById('entrySkuGroup')?.value||'',mrp=document.getElementById('entryMrp')?.value||'all',q=(document.getElementById('itemIndentSearch')?.value||'').toLowerCase();const base=rows.filter(r=>(sf==='all'||(sf==='above60'?r.shelfLife>60:r.shelfLife<=60))&&(!group||r.sku===group)&&(mrp==='all'||String(r.mrp)===mrp)&&(r.sku.toLowerCase().includes(q)||r.code.toLowerCase().includes(q)));return base.flatMap(r=>(cfa==='all'?['ALU','PAY','TVD']:[cfa]).map(k=>({...r,cfa:k,cfaKey:k})))}
 function gapText(indent,avg){indent=Number(indent)||0;avg=Number(avg)||0;if(indent===0)return '—';const gap=((indent-avg)/indent)*100;return (gap>0?'+':'')+gap.toFixed(2)+'%'}
 function renderIndentWorkspace(){
- let mode=document.getElementById('indentMode')?.value||'group';const head=document.getElementById('indentWorkspaceHead'),body=document.getElementById('indentWorkspaceRows');
+ let mode=document.getElementById('indentMode')?.value||'group';const workspaceWrap=document.getElementById('indentWorkspaceWrap');if(workspaceWrap){workspaceWrap.classList.toggle('group-mode',mode==='group');workspaceWrap.classList.toggle('item-freeze',mode!=='group')}const head=document.getElementById('indentWorkspaceHead'),body=document.getElementById('indentWorkspaceRows');
  if(mode==='group'){
   const selectedGroup=document.getElementById('entrySkuGroup')?.value||'';
   const groupRows=sourceRows.map((r,i)=>({r,i,items:rows.filter(x=>x.sku===r[0])})).filter(x=>!selectedGroup||x.r[0]===selectedGroup);
