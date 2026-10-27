@@ -246,13 +246,20 @@ function poFileSelected(input){
    let headerIndex=-1,headers=[],dataMatrix=matrix;
    for(const sheetName of wb.SheetNames){
     const candidate=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,defval:'',raw:false});
-    for(let i=0;i<Math.min(candidate.length,100);i++){
+    for(let i=0;i<Math.min(candidate.length,1000);i++){
      const row=candidate[i]||[];
      if(findCol(row,'code')>=0&&findCol(row,'qty')>=0&&findCol(row,'cfa')>=0){headerIndex=i;headers=row;dataMatrix=candidate;break}
     }
     if(headerIndex>=0)break;
    }
-   if(headerIndex<0)throw new Error('Item Number, Transfer Qty CBO, CFA NAME headings കണ്ടെത്താനായില്ല. എല്ലാ Excel sheets-ലും ആദ്യ 100 rows പരിശോധിച്ചു. Column പേരുകൾ വ്യത്യസ്തമാണെങ്കിൽ ശരിയായ TO Excel തിരഞ്ഞെടുക്കുക.');
+   if(headerIndex<0){
+    const samples=wb.SheetNames.map(name=>{
+     const rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:'',raw:false});
+     const nonempty=rows.filter(r=>r.some(v=>String(v==null?'':v).trim()!=='')).slice(0,8);
+     return name+': '+nonempty.map(r=>r.map(v=>String(v==null?'':v).trim()).filter(Boolean).join(' | ')).join(' / ');
+    }).join(' || ').slice(0,1800);
+    throw new Error('Excel headings match ആയില്ല. Sheets: '+wb.SheetNames.join(', ')+'. ആദ്യ 1000 rows പരിശോധിച്ചു. ആദ്യ rows-ൽ കണ്ടത്: '+samples);
+   }
    records=dataMatrix.slice(headerIndex+1).filter(row=>row.some(v=>String(v==null?'':v).trim()!=='')).map(row=>Object.fromEntries(headers.map((h,i)=>[String(h||'').trim(),row[i]??''])));
   }else{
    const text=String(reader.result||'');const lines=parseCsv(text);
