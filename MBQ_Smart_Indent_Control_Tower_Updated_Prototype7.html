@@ -222,7 +222,77 @@ async function persistToRecords(items){localStorage.setItem(TO_STORAGE_KEY,JSON.
 function toNorm(v){return String(v==null?'':v).trim().toLowerCase().replace(/[ _-]+/g,'')}
 function toField(row,names){const keys=Object.keys(row||{});for(const name of names){const key=keys.find(k=>toNorm(k)===toNorm(name));if(key&&row[key]!==''&&row[key]!=null)return row[key]}return ''}
 function toNum(v){const n=Number(String(v==null?'':v).replace(/,/g,''));return Number.isFinite(n)?n:0}
-function poFileSelected(input){const file=input.files&&input.files[0];if(!file)return;const reader=new FileReader();reader.onload=async function(){try{let records;const ext=file.name.split('.').pop().toLowerCase();if(ext==='xlsx'||ext==='xls'){const wb=XLSX.read(reader.result,{type:'array',cellDates:true});records=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''})}else{records=parseCsv(reader.result);if(records.length>1){const headers=records.shift();records=records.map(r=>Object.fromEntries(headers.map((h,i)=>[h,r[i]||''])))}}const match=file.name.match(/TRANSNO[ _-]*\d+/i);const toNo=(match?match[0].replace(/[ _]+/g,'-'):String(prompt('TO Number നൽകുക (ഉദാ: TRANSNO-000091085):','')||'')).toUpperCase().trim();if(!toNo)return;const previous=await loadToRecords(),old=previous.filter(x=>x.toNo===toNo);const imported=records.map(row=>{const code=String(toField(row,['Item number','Item Code','FG Code','Material'])||'').trim(),qty=toNum(toField(row,['Transfer Qty CBO'])),cfa=String(toField(row,['CFA NAME','CFA','Warehouse'])||'').trim();if(!code||!cfa||qty<0)return null;const p=old.find(x=>x.id===toNo+'|'+code+'|'+cfa.toUpperCase());return {id:toNo+'|'+code+'|'+cfa.toUpperCase(),toNo,code,product:String(toField(row,['Product name','Description'])||''),cfa,qty,fullyReceived:!!(p&&p.fullyReceived),received:p&&p.fullyReceived?qty:0}}).filter(Boolean);if(!imported.length){showToast('TO file-ൽ Item number, Transfer Qty CBO, CFA NAME columns പരിശോധിക്കുക.');return}await persistToRecords(previous.filter(x=>x.toNo!==toNo).concat(imported));document.getElementById('poFileStatus').textContent='Imported '+toNo+' · '+imported.length+' item lines. Duplicate upload replaces this TO.';input.value=''}catch(e){showToast('TO file വായിക്കാനായില്ല: '+e.message)}};if(file.name.toLowerCase().endsWith('.csv'))reader.readAsText(file);else reader.readAsArrayBuffer(file)}
+function poFileSelected(input){
+ const file=input.files&&input.files[0];if(!file)return;
+ const status=document.getElementById('poFileStatus');if(status)status.textContent='Reading '+file.name+'…';
+ const reader=new FileReader();
+ reader.onload=async function(){try{
+  let records=[];const ext=file.name.split('.').pop().toLowerCase();
+  if(ext==='xlsx'||ext==='xls'){
+   if(!window.XLSX)throw new Error('Excel reader load ആയിട്ടില്ല. Page refresh ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.');
+   const wb=XLSX.read(reader.result,{type:'array',cellDates:true});
+   const sheet=wb.Sheets[wb.SheetNames[0]];
+   const matrix=XLSX.utils.sheet_to_json(sheet,{header:1,defval:'',raw:false});
+   const norm=h=>String(h==null?'':h).trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+   const headerAliases={
+    code:['itemnumber','itemno','itemcode','fgcode','material','materialcode','productcode','sku','item'],
+    qty:['transferqtycbo','transferquantitycbo','transferqty','transferquantity','qtycbo','quantitycbo','transferqtycbb','cbb'],
+    cfa:['cfaname','cfa','warehouse','warehousename','location','shipfrom'],
+    product:['productname','description','materialdescription','itemdescription','product','itemname'],
+    toNo:['tonumber','tono','transferordernumber','transferorderno','transferorder','transno','documentnumber']
+   };
+   const findCol=(headers,type)=>headers.findIndex(h=>headerAliases[type].includes(norm(h)));
+   let headerIndex=-1,headers=[];
+   for(let i=0;i<Math.min(matrix.length,30);i++){
+    const row=matrix[i]||[];
+    if(findCol(row,'code')>=0&&findCol(row,'qty')>=0&&findCol(row,'cfa')>=0){headerIndex=i;headers=row;break}
+   }
+   if(headerIndex<0)throw new Error('Item Number, Transfer Qty CBO, CFA NAME എന്നീ column headings കണ്ടെത്താനായില്ല. Excel-ലെ ആദ്യ sheet-ൽ headings ഉണ്ടെന്ന് ഉറപ്പാക്കുക.');
+   records=matrix.slice(headerIndex+1).filter(row=>row.some(v=>String(v==null?'':v).trim()!=='')).map(row=>Object.fromEntries(headers.map((h,i)=>[String(h||'').trim(),row[i]??''])));
+  }else{
+   const text=String(reader.result||'');const lines=parseCsv(text);
+   if(!lines.length)throw new Error('CSV file empty ആണ്.');
+   const norm=h=>String(h==null?'':h).trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+   const aliases={code:['itemnumber','itemno','itemcode','fgcode','material','materialcode','productcode','sku','item'],qty:['transferqtycbo','transferquantitycbo','transferqty','transferquantity','qtycbo','quantitycbo','transferqtycbb','cbb'],cfa:['cfaname','cfa','warehouse','warehousename','location','shipfrom'],product:['productname','description','materialdescription','itemdescription','product','itemname'],toNo:['tonumber','tono','transferordernumber','transferorderno','transferorder','transno','documentnumber']};
+   let hi=lines.findIndex(row=>['code','qty','cfa'].every(type=>row.some(h=>aliases[type].includes(norm(h)))));
+   if(hi<0)throw new Error('CSV headings കണ്ടെത്താനായില്ല. Item Number, Transfer Qty CBO, CFA NAME columns പരിശോധിക്കുക.');
+   const headers=lines[hi];records=lines.slice(hi+1).filter(row=>row.some(v=>String(v||'').trim())).map(row=>Object.fromEntries(headers.map((h,i)=>[String(h||'').trim(),row[i]||''])));
+  }
+  const norm=h=>String(h==null?'':h).trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+  const aliases={
+   code:['itemnumber','itemno','itemcode','fgcode','material','materialcode','productcode','sku','item'],
+   qty:['transferqtycbo','transferquantitycbo','transferqty','transferquantity','qtycbo','quantitycbo','transferqtycbb','cbb'],
+   cfa:['cfaname','cfa','warehouse','warehousename','location','shipfrom'],
+   product:['productname','description','materialdescription','itemdescription','product','itemname'],
+   toNo:['tonumber','tono','transferordernumber','transferorderno','transferorder','transno','documentnumber']
+  };
+  const val=(row,type)=>{for(const k of Object.keys(row||{})){if(aliases[type].includes(norm(k))&&String(row[k]??'').trim()!=='')return row[k]}return ''};
+  const filenameMatch=file.name.match(/TRANSNO[ _-]*\d+/i);
+  const promptNo=filenameMatch?filenameMatch[0].replace(/[ _]+/g,'-').toUpperCase():null;
+  const previous=await loadToRecords(),imported=[];
+  let fallbackTo=promptNo;
+  for(const row of records){
+   const code=String(val(row,'code')||'').trim(),qty=toNum(val(row,'qty')),cfa=String(val(row,'cfa')||'').trim();
+   if(!code||!cfa||!String(val(row,'qty')??'').trim()||qty<0)continue;
+   const toNo=String(val(row,'toNo')||fallbackTo||'').trim().toUpperCase();
+   if(!toNo)continue;
+   const id=toNo+'|'+code+'|'+cfa.toUpperCase();
+   const old=previous.find(x=>x.id===id);
+   imported.push({id,toNo,code,product:String(val(row,'product')||''),cfa,qty,fullyReceived:!!(old&&old.fullyReceived),received:old&&old.fullyReceived?qty:0});
+  }
+  if(!imported.length){
+   const toNo=promptNo||String(prompt('TO Number നൽകുക (ഉദാ: TRANSNO-000091085):','')||'').toUpperCase().trim();
+   if(!toNo){if(status)status.textContent='TO number നൽകാത്തതിനാൽ import ചെയ്തിട്ടില്ല.';return}
+   throw new Error('ഒരു valid item row പോലും കണ്ടെത്തിയില്ല. Item Number, Transfer Qty CBO, CFA NAME columns പരിശോധിക്കുക.');
+  }
+  const touched=new Set(imported.map(x=>x.toNo));
+  const kept=previous.filter(x=>!touched.has(x.toNo));
+  await persistToRecords(kept.concat(imported));
+  if(status)status.textContent='Imported '+[...touched].join(', ')+' · '+imported.length+' item lines. Duplicate upload replaces the same TO.';
+  input.value='';
+ }catch(e){if(status)status.textContent='Upload failed: '+e.message;showToast('TO upload: '+e.message);console.error('TO upload failed',e)}};
+ if(file.name.toLowerCase().endsWith('.csv'))reader.readAsText(file);else reader.readAsArrayBuffer(file)
+}
 function groupedTos(items){const map=new Map();items.forEach(r=>{if(!map.has(r.toNo))map.set(r.toNo,{toNo:r.toNo,cfas:new Set(),items:[]});const g=map.get(r.toNo);g.items.push(r);g.cfas.add(r.cfa)});return [...map.values()].map(g=>{g.cfa=[...g.cfas].join(' / ');g.total=g.items.reduce((s,r)=>s+toNum(r.qty),0);g.received=g.items.reduce((s,r)=>s+(r.fullyReceived?toNum(r.qty):0),0);g.open=g.total-g.received;g.isReceived=g.items.length>0&&g.items.every(r=>r.fullyReceived);return g}).sort((a,b)=>a.toNo.localeCompare(b.toNo))}
 function escapeToHtml(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function renderToTracker(){const items=getToRecords(),groups=groupedTos(items),body=document.getElementById('toRows');if(!body)return;document.getElementById('toTotalQty').textContent=items.reduce((s,r)=>s+toNum(r.qty),0).toLocaleString('en-IN');document.getElementById('toReceivedQty').textContent=items.reduce((s,r)=>s+(r.fullyReceived?toNum(r.qty):0),0).toLocaleString('en-IN');document.getElementById('toOpenQty').textContent=items.reduce((s,r)=>s+(r.fullyReceived?0:toNum(r.qty)),0).toLocaleString('en-IN');body.innerHTML=groups.map(g=>{const detail=toExpanded.has(g.toNo)?'<tr><td colspan="9"><b>Item details · '+escapeToHtml(g.toNo)+'</b><table style="min-width:650px"><thead><tr><th>Item Number</th><th>Product Name</th><th>Transfer Qty CBO</th><th>CFA</th></tr></thead><tbody>'+g.items.map(r=>'<tr><td>'+escapeToHtml(r.code)+'</td><td>'+escapeToHtml(r.product||'—')+'</td><td>'+toNum(r.qty).toLocaleString('en-IN')+'</td><td>'+escapeToHtml(r.cfa)+'</td></tr>').join('')+'<tr><td colspan="2"><b>Total</b></td><td><b>'+g.total.toLocaleString('en-IN')+' CBB</b></td><td>—</td></tr></tbody></table></td></tr>':'';return '<tr><td><input type="checkbox" '+(toSelected.has(g.toNo)?'checked':'')+' '+(g.isReceived?'disabled':'')+' onchange="selectToGroup(\''+g.toNo+'\',this.checked)"></td><td><b>'+escapeToHtml(g.toNo)+'</b></td><td>'+escapeToHtml(g.cfa)+'</td><td>'+g.items.length+'</td><td><b>'+g.total.toLocaleString('en-IN')+'</b></td><td><b>'+g.received.toLocaleString('en-IN')+'</b></td><td><b>'+g.open.toLocaleString('en-IN')+'</b></td><td><span class="pill '+(g.isReceived?'green':'amber')+'">'+(g.isReceived?'Received / Closed':'Open TO')+'</span></td><td><button class="btn" onclick="toggleToDetails(\''+g.toNo+'\')">'+(toExpanded.has(g.toNo)?'Hide Items':'View Items')+'</button> '+(g.isReceived?'<button class="btn" onclick="reopenTo(\''+g.toNo+'\')">Reopen TO</button>':'')+' <button class="btn" onclick="removeTo(\''+g.toNo+'\')">Remove TO</button></td></tr>'+detail}).join('')||'<tr><td colspan="8" class="empty">TO Excel upload ചെയ്താൽ ഇവിടെ കാണാം.</td></tr>';document.getElementById('toSelectedCount').textContent=toSelected.size+' selected'}
