@@ -248,7 +248,7 @@ function poFileSelected(input){
     const candidate=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,defval:'',raw:false});
     for(let i=0;i<Math.min(candidate.length,1000);i++){
      const row=candidate[i]||[];
-     if(findCol(row,'code')>=0&&findCol(row,'qty')>=0&&findCol(row,'cfa')>=0){headerIndex=i;headers=row;dataMatrix=candidate;break}
+     if(findCol(row,'code')>=0&&findCol(row,'qty')>=0){headerIndex=i;headers=row;dataMatrix=candidate;break}
     }
     if(headerIndex>=0)break;
    }
@@ -266,7 +266,7 @@ function poFileSelected(input){
    if(!lines.length)throw new Error('CSV file empty ആണ്.');
    const norm=h=>String(h==null?'':h).trim().toLowerCase().replace(/[^a-z0-9]/g,'');
    const aliases={code:['itemnumber','itemno','itemcode','fgcode','material','materialcode','productcode','sku','item'],qty:['transferqtycbo','transferquantitycbo','transferqty','transferquantity','qtycbo','quantitycbo','transferqtycbb','cbb'],cfa:['cfaname','cfa','warehouse','warehousename','location','shipfrom'],product:['productname','description','materialdescription','itemdescription','product','itemname'],toNo:['tonumber','tono','transferordernumber','transferorderno','transferorder','transno','documentnumber']};
-   let hi=lines.findIndex(row=>['code','qty','cfa'].every(type=>row.some(h=>headerMatches(h,aliases[type]))));
+   let hi=lines.findIndex(row=>['code','qty'].every(type=>row.some(h=>headerMatches(h,aliases[type]))));
    if(hi<0)throw new Error('CSV headings കണ്ടെത്താനായില്ല. Item Number, Transfer Qty CBO, CFA NAME columns പരിശോധിക്കുക.');
    const headers=lines[hi];records=lines.slice(hi+1).filter(row=>row.some(v=>String(v||'').trim())).map(row=>Object.fromEntries(headers.map((h,i)=>[String(h||'').trim(),row[i]||''])));
   }
