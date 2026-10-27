@@ -40,10 +40,25 @@ function recalculateSuggestions(){
   showToast('Demo AI suggestions recalculated independently of Sales Head Indent.');
 }
 function renderWatch(){document.getElementById('watchlist').innerHTML=rows.slice(0,10).map(r=>`<tr><td class="sku">${r.sku}</td><td>${r.indent.toLocaleString('en-IN')}</td><td>${r.avg}</td><td>${r.suggest.toLocaleString('en-IN')}</td><td>${riskPill(r.risk)}</td><td><button class="btn" onclick="go('suggest')">Review</button></td></tr>`).join('')}
-function renderSuggestions(){let q=(document.getElementById('suggestSearch')?.value||'').toLowerCase(),rf=document.getElementById('riskFilter')?.value||'all',cf=document.getElementById('cfaFilter')?.value||'all';let data=rows.filter(r=>r.sku.toLowerCase().includes(q)&&(rf==='all'||r.risk===rf)&&(cf==='all'||r.cfa===cf));document.getElementById('suggestRows').innerHTML=data.map(r=>`<tr><td class="sku">${r.sku}</td><td>${r.indent}</td><td>${r.avg}</td><td>${r.cover} days</td><td>${r.open}</td><td><b>${r.suggest}</b></td><td>${riskPill(r.risk)}</td><td>${r.risk==='High'?'Check cover / open supply':r.risk==='Review'?'Compare against peak plan':'Monitor trend'}</td></tr>`).join('')||'<tr><td colspan="8" class="empty">No matching SKU groups.</td></tr>'}
+function renderSuggestions(){let q=(document.getElementById('suggestSearch')?.value||'').toLowerCase(),rf=document.getElementById('riskFilter')?.value||'all',cf=document.getElementById('cfaFilter')?.value||'all';let data=rows.filter(r=>r.sku.toLowerCase().includes(q)&&(rf==='all'||r.risk===rf)&&(cf==='all'||r.cfa===cf));document.getElementById('suggestRows').innerHTML=data.map(r=>{const soh=mbqLiveStockForCode(r.code,cf==='all'?'all':cf);return `<tr><td class="sku">${r.sku}</td><td>${r.indent}</td><td>${r.avg}</td><td>${soh.toLocaleString('en-IN')} CBB</td><td>${r.open}</td><td><b>${r.suggest}</b></td><td>${riskPill(r.risk)}</td><td>${r.risk==='High'?'Check cover / open supply':r.risk==='Review'?'Compare against peak plan':'Monitor trend'}</td></tr>`}).join('')||'<tr><td colspan="8" class="empty">No matching SKU groups.</td></tr>'}
 let liveSohRows=[];let liveSohMeta=null;let liveSohError='';
 function keyValue(obj, candidates){const keys=Object.keys(obj||{});for(const candidate of candidates){const found=keys.find(k=>k.trim().toLowerCase()===candidate.toLowerCase());if(found&&obj[found]!==''&&obj[found]!==null&&obj[found]!==undefined)return obj[found]}for(const candidate of candidates){const found=keys.find(k=>k.trim().toLowerCase().includes(candidate.toLowerCase()));if(found&&obj[found]!==''&&obj[found]!==null&&obj[found]!==undefined)return obj[found]}return ''}
 function normalCfa(raw){const v=String(raw||'').toUpperCase();if(/\bTVD\b/.test(v))return 'TVD';if(/\bPAY\b/.test(v))return 'PAY';if(/\bALU\b/.test(v))return 'ALU';return String(raw||'Unmapped').trim()||'Unmapped'}
+function mbqCodeKey(v){return String(v??'').trim().toUpperCase().replace(/\s+/g,'')}
+function mbqLiveStockMap(){
+ const map=new Map();liveSohRows.forEach(raw=>{
+  const code=mbqCodeKey(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']));
+  const cfa=normalCfa(keyValue(raw,['WAREHOUSE','Warehouse','CFA','LocationCode','Location Code','Location_Code','Location Name','Location','Branch','Site','Store']));
+  if(!code||!['ALU','PAY','TVD'].includes(cfa))return;
+  const qty=Number(String(keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity','Available Quantity','Inventory','Stock Quantity'])??0).replace(/,/g,''))||0;
+  const k=cfa+'|'+code,old=map.get(k)||{stock:0,shelf:0};old.stock+=qty;
+  const sh=keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%']);
+  const sn=Number(String(sh??'').replace('%','').replace(/,/g,''));if(sh!==''&&Number.isFinite(sn))old.shelf=old.shelf?Math.min(old.shelf,sn):sn;map.set(k,old);
+ });return map;
+}
+function mbqLiveStockForCode(code,cfa='all'){if(!liveSohRows.length)return 0;const map=mbqLiveStockMap(),key=mbqCodeKey(code);if(!key)return 0;return cfa!=='all'?(map.get(cfa+'|'+key)?.stock||0):['ALU','PAY','TVD'].reduce((sum,c)=>sum+(map.get(c+'|'+key)?.stock||0),0)}
+function mbqLiveStockForGroup(sku,cfa='all'){const codes=[...new Set(rows.filter(r=>r.sku===sku&&r.code).map(r=>mbqCodeKey(r.code)))];return codes.reduce((sum,code)=>sum+mbqLiveStockForCode(code,cfa),0)}
+function refreshMbqLiveStockViews(){if(!liveSohRows.length)return;const map=mbqLiveStockMap();rows.forEach(r=>{r.stock=mbqLiveStockForCode(r.code);const sh=['ALU','PAY','TVD'].map(c=>map.get(c+'|'+mbqCodeKey(r.code))?.shelf||0).filter(Boolean);if(sh.length)r.shelfLife=Math.min(...sh)});renderIndentWorkspace();renderSuggestions();renderWatch();allocationData=[];buildAllocationData();runCfaAllocation()}
 function renderStock(){
  const q=(document.getElementById('stockSearch')?.value||'').toLowerCase().trim();
  const cf=document.getElementById('stockCfa')?.value||'all';
@@ -97,19 +112,19 @@ function renderIndentWorkspace(){
  if(mode==='group'){
   const selectedGroup=document.getElementById('entrySkuGroup')?.value||'';
   const groupRows=sourceRows.map((r,i)=>({r,i,items:rows.filter(x=>x.sku===r[0])})).filter(x=>!selectedGroup||x.r[0]===selectedGroup);
-  document.getElementById('indentWorkspaceCount').textContent=`${groupRows.length} SKU Group${groupRows.length===1?'':'s'} · Demo values`;
+  document.getElementById('indentWorkspaceCount').textContent=`${groupRows.length} SKU Group${groupRows.length===1?'':'s'} · LIVE SOH${liveSohRows.length?' connected':' loading'}`;
   head.innerHTML='<tr><th>SKU GROUP</th><th>Last 2 Months Avg CBB</th><th>Current SOH</th><th>Indent vs 2M Avg Sales Gap (%)</th><th>Monthly Indent (CBB)</th></tr>';
-  body.innerHTML=groupRows.map(({r,i})=>{let avg=Number(r[2])||0,soh=Math.round(avg*(.35+(i%5)*.08));return `<tr><td class="sku">${r[0]}</td><td><b>${avg.toLocaleString('en-IN')}</b></td><td>${soh.toLocaleString('en-IN')}</td><td id="groupgap-${i}">${gapText(r[1],avg)}</td><td><input aria-label="${r[0]} monthly indent" data-group-index="${i}" class="group-indent-input" type="number" min="0" step="1" value="${r[1]}" style="width:125px;max-width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-weight:750;text-align:right" onchange="markGroupIndentChanged(this)" oninput="markGroupIndentChanged(this)"></td></tr>`}).join('')||'<tr><td colspan="5" class="empty">SKU Group കണ്ടെത്താനായില്ല.</td></tr>';
+  body.innerHTML=groupRows.map(({r,i})=>{let avg=Number(r[2])||0,soh=mbqLiveStockForGroup(r[0]);return `<tr><td class="sku">${r[0]}</td><td><b>${avg.toLocaleString('en-IN')}</b></td><td>${soh.toLocaleString('en-IN')}</td><td id="groupgap-${i}">${gapText(r[1],avg)}</td><td><input aria-label="${r[0]} monthly indent" data-group-index="${i}" class="group-indent-input" type="number" min="0" step="1" value="${r[1]}" style="width:125px;max-width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-weight:750;text-align:right" onchange="markGroupIndentChanged(this)" oninput="markGroupIndentChanged(this)"></td></tr>`}).join('')||'<tr><td colspan="5" class="empty">SKU Group കണ്ടെത്താനായില്ല.</td></tr>';
   const panel=document.getElementById('linkedItemsPanel');
   if(selectedGroup){
-   const linkedItems=rows.filter(x=>x.sku===selectedGroup).map(x=>({code:x.code,description:x.description||'Description unavailable in assortment master',soh:x.stock,mrp:x.mrp}));
+   const linkedItems=rows.filter(x=>x.sku===selectedGroup).map(x=>({code:x.code,description:x.description||'Description unavailable in assortment master',soh:mbqLiveStockForCode(x.code),mrp:x.mrp}));
    panel.style.display='block';panel.innerHTML=`<h3 style="margin:0 0 10px">${selectedGroup} — Linked Items with MRP</h3><div class="table-wrap"><table><thead><tr><th>ITEMID</th><th>DESCRIPTION</th><th>CURRENT SOH</th><th>MRP (₹)</th><th>SKU Group</th></tr></thead><tbody>${linkedItems.map(x=>`<tr><td class="sku">${x.code}</td><td>${x.description}</td><td><b>${x.soh}</b></td><td>₹${x.mrp}</td><td>${selectedGroup}</td></tr>`).join('')}</tbody></table></div><p class="small-note">OMD 1+1 120G-നുള്ള item mapping നിങ്ങൾ നൽകിയ ഉദാഹരണത്തെ അടിസ്ഥാനമാക്കിയതാണ്.</p>`;
   } else {panel.style.display='none';panel.innerHTML='';}
   document.getElementById('indentWorkspaceNote').textContent='SKU Group filter തിരഞ്ഞെടുക്കുക; അതിന്റെ linked Items/SOH/MRP പട്ടിക താഴെ കാണാം.';return
  }
- let data=getIndentFilteredRows();document.getElementById('indentWorkspaceCount').textContent=`${data.length} item rows · demo stock values`;
+ let data=getIndentFilteredRows();document.getElementById('indentWorkspaceCount').textContent=`${data.length} item rows · LIVE SOH${liveSohRows.length?' connected':' loading'}`;
  const hideMrp=!!(document.getElementById('entrySkuGroup')?.value);head.innerHTML='<tr><th>SKU Group / Item</th><th>FG Code</th>'+(hideMrp?'':'<th>MRP</th>')+'<th>CFA</th><th>Last Month Billing CBB</th><th>Previous Month Billing CBB</th><th>Last 2 Months Avg CBB</th><th>Current SOH</th><th>Shelf Life %</th><th>Indent vs 2M Avg Sales Gap (%)</th><th>Manual Indent Qty</th><th>Action</th></tr>';
- body.innerHTML=data.map(r=>{let avg=Number(r.avg??r.salesDay*25)||0,last=Math.round(avg*.9),prev=Math.round(avg*1.1),existing=indentLines.find(x=>x.mode==='item'&&x.sku===r.sku&&x.code===r.code),qty=existing?existing.qty:'';return `<tr><td class="sku">${r.sku}</td><td>${r.code}</td>${hideMrp?'':`<td>₹${Number(r.mrp).toLocaleString('en-IN')}</td>`}<td>${r.cfa} CFA</td><td>${last.toLocaleString('en-IN')}</td><td>${prev.toLocaleString('en-IN')}</td><td><b>${avg.toLocaleString('en-IN')}</b></td><td>${r.stock.toLocaleString('en-IN')}</td><td>${riskPill(r.shelfLife>60?'Normal':'Review')} ${r.shelfLife}%</td><td id="itemgap-${r.code}">${gapText(qty,avg)}</td><td><input id="itemqty-${r.code}" data-sku="${r.sku}" data-code="${r.code}" data-avg="${avg}" oninput="updateItemGap(this)" type="number" min="0" value="${qty}" placeholder="CBB" style="width:100px;padding:7px;border:1px solid var(--line);border-radius:7px"></td><td><button class="btn" onclick="addItemIndent('${r.sku.replace(/'/g, "\'")}','${r.code}')">Add Item</button></td></tr>`}).join('')||'<tr><td colspan="12" class="empty">ഈ filter-ൽ items ഇല്ല.</td></tr>';
+ body.innerHTML=data.map(r=>{let avg=Number(r.avg??r.salesDay*25)||0,last=Math.round(avg*.9),prev=Math.round(avg*1.1),existing=indentLines.find(x=>x.mode==='item'&&x.sku===r.sku&&x.code===r.code),qty=existing?existing.qty:'',liveStock=mbqLiveStockForCode(r.code,document.getElementById('entryCfa')?.value||'all');return `<tr><td class="sku">${r.sku}</td><td>${r.code}</td>${hideMrp?'':`<td>₹${Number(r.mrp).toLocaleString('en-IN')}</td>`}<td>${r.cfa} CFA</td><td>${last.toLocaleString('en-IN')}</td><td>${prev.toLocaleString('en-IN')}</td><td><b>${avg.toLocaleString('en-IN')}</b></td><td>${liveStock.toLocaleString('en-IN')}</td><td>${riskPill(r.shelfLife>60?'Normal':'Review')} ${r.shelfLife}%</td><td id="itemgap-${r.code}">${gapText(qty,avg)}</td><td><input id="itemqty-${r.code}" data-sku="${r.sku}" data-code="${r.code}" data-avg="${avg}" oninput="updateItemGap(this)" type="number" min="0" value="${qty}" placeholder="CBB" style="width:100px;padding:7px;border:1px solid var(--line);border-radius:7px"></td><td><button class="btn" onclick="addItemIndent('${r.sku.replace(/'/g, "\'")}','${r.code}')">Add Item</button></td></tr>`}).join('')||'<tr><td colspan="12" class="empty">ഈ filter-ൽ items ഇല്ല.</td></tr>';
 }
 function markGroupIndentChanged(el){el.style.borderColor='#0ea5a4';el.style.background='#f0fdfa';const i=Number(el.dataset.groupIndex),avg=Number(sourceRows[i]?.[2])||0,gap=document.getElementById('groupgap-'+i);if(gap)gap.textContent=gapText(el.value,avg)}
 function clearAllMonthlyIndents(){
@@ -154,7 +169,7 @@ function buildAllocationData(){
  allocationData=[];
  rows.forEach((r,i)=>cfas.forEach((c,j)=>{
    const base=Math.max(1,Number(r.avg)||1),last=Math.round(base*c.factor*(.88+((i+j)%5)*.06)),prev=Math.round(base*c.factor*(1.12-((i+j)%4)*.05)),avg=(last+prev)/2;
-   const soh=Math.round(base*(.22+((i+j)%6)*.09)),incoming=((i+j)%4===0)?Math.round(base*.12):0,target=Math.round(avg*.25);
+   const soh=mbqLiveStockForCode(r.code,c.key),incoming=0,target=Math.round(avg*.25);
    const net=Math.max(0,Math.ceil(avg+target-soh-incoming));
    const priority=(soh+incoming)<avg*.35?'Critical':(soh+incoming)<avg*.65?'High':'Normal';
    allocationData.push({cfa:c.name,cfaKey:c.key,sku:r.sku,code:r.code,last,prev,avg,soh,incoming,target,net,allocation:0,priority});
@@ -197,7 +212,7 @@ async function loadLiveSoh(){
     const payload=await response.json();
     if(!response.ok||payload.success!==true)throw new Error(payload.detail||payload.error||('HTTP '+response.status));
     if(!Array.isArray(payload.data))throw new Error('API response has no data array');
-    liveSohRows=payload.data;
+    liveSohRows=payload.data;refreshMbqLiveStockViews();
     liveSohMeta={sheet:payload.sheet||'LIVE STOCK REPORT',loadedAt:payload.loadedAt||'',count:payload.rows||payload.data.length};
     liveSohError='';
     const cfas=['ALU','PAY','TVD'];
