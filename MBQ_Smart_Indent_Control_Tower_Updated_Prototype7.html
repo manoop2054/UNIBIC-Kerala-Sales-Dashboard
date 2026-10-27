@@ -589,7 +589,7 @@ function buildAllocationData(){
  allocationData=[];
  if(mbqCfaRecords&&Object.values(mbqCfaRecords).some(a=>a.length)){
   ['ALU','PAY','TVD'].forEach(k=>(mbqCfaRecords[k]||[]).forEach(r=>{
-   allocationData.push({cfa:k+' CFA',cfaKey:k,sku:r.sku,code:r.sku,last:'—',prev:'—',avg:mbqN(r.sales),soh:mbqN(r.sohHigh),incoming:mbqN(r.openPo),clPo:mbqN(r.clPo),mbq:mbqN(r.mbq),shortExcess:r.shortExcess,dos:r.dos,allocation:'—',net:mbqN(r.mbq),priority:mbqN(r.shortExcess)!==0?'Review':'Normal',fc:r.fc,fr:r.fr,trend:r.trend}));
+   allocationData.push({cfa:k+' CFA',cfaKey:k,sku:r.sku,code:r.sku,last:'—',prev:'—',avg:mbqN(r.sales),soh:mbqN(r.sohHigh),incoming:mbqN(r.openPo),clPo:mbqN(r.clPo),mbq:mbqN(r.mbq),shortExcess:r.shortExcess,dos:r.dos,allocation:'—',net:mbqN(r.mbq),priority:mbqN(r.shortExcess)!==0?'Review':'Normal',fc:r.fc,fr:r.fr,trend:r.trend});
   }));
   return;
  }
