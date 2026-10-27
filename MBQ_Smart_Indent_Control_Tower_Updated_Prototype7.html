@@ -271,6 +271,8 @@ function poFileSelected(input){
   const promptNo=filenameMatch?filenameMatch[0].replace(/[ _]+/g,'-').toUpperCase():null;
   const previous=await loadToRecords(),imported=[];
   let fallbackTo=promptNo;
+  if(!fallbackTo&&!records.some(row=>String(val(row,'toNo')||'').trim()))fallbackTo=String(prompt('TO Number നൽകുക (ഉദാ: TRANSNO-000091085):','')||'').toUpperCase().trim();
+  if(!fallbackTo&&!records.some(row=>String(val(row,'toNo')||'').trim())){if(status)status.textContent='TO number നൽകാത്തതിനാൽ import ചെയ്തിട്ടില്ല.';return}
   for(const row of records){
    const code=String(val(row,'code')||'').trim(),qty=toNum(val(row,'qty')),cfa=String(val(row,'cfa')||'').trim();
    if(!code||!cfa||!String(val(row,'qty')??'').trim()||qty<0)continue;
