@@ -145,5 +145,32 @@ function go(page){document.querySelectorAll('.section').forEach(s=>s.classList.r
 document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>go(b.dataset.page)));
 document.getElementById('entrySkuGroup').innerHTML='<option value="">All (എല്ലാ SKU Groups-ഉം ഒരുമിച്ച് കാണിക്കുക)</option>'+sourceRows.map(r=>`<option value="${r[0]}">${r[0]}</option>`).join('');
 document.getElementById('entryMrp').innerHTML='<option value="all">All MRP</option>'+[...new Set(rows.map(r=>r.mrp))].sort((a,b)=>a-b).map(v=>`<option value="${v}">₹${v}</option>`).join('');
+async function loadLiveSoh(){
+  const tbody=document.getElementById('stockRows');
+  if(tbody)tbody.innerHTML='<tr><td colspan="8" class="empty">LIVE SOH workbook load cheyyunnu…</td></tr>';
+  try{
+    const response=await fetch('/api/mbq/soh',{cache:'no-store'});
+    const payload=await response.json();
+    if(!response.ok||payload.success!==true)throw new Error(payload.detail||payload.error||('HTTP '+response.status));
+    if(!Array.isArray(payload.data))throw new Error('API response has no data array');
+    liveSohRows=payload.data;
+    liveSohMeta={sheet:payload.sheet||'LIVE STOCK REPORT',loadedAt:payload.loadedAt||'',count:payload.rows||payload.data.length};
+    liveSohError='';
+    const cfas=[...new Set(liveSohRows.map(raw=>normalCfa(keyValue(raw,['WAREHOUSE','Warehouse','CFA','Location','Location Name','Branch']))).filter(Boolean))].sort();
+    const select=document.getElementById('stockCfa');
+    if(select){
+      const previous=select.value;
+      select.innerHTML='<option value="all">All CFAs</option>'+cfas.map(c=>'<option value="'+String(c).replace(/[<>&"]/g,'')+'">'+String(c).replace(/[<>&"]/g,'')+'</option>').join('');
+      if(cfas.includes(previous))select.value=previous;
+    }
+    renderStock();
+    console.log('MBQ LIVE SOH API loaded:',liveSohRows.length,'rows; CFAs:',cfas.join(', '));
+  }catch(error){
+    liveSohRows=[];
+    liveSohError=String(error&&error.message||error||'Unknown error');
+    console.error('MBQ LIVE SOH UI load failed:',error);
+    renderStock();
+  }
+}
 async function fetchGitHubAssortment(){try{const res=await fetch("https://raw.githubusercontent.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/feature/mbq-smart-indent-dashboard/KERALA%20ASSORTMENT%20FILE%20.csv");if(!res.ok)throw new Error("HTTP "+res.status);const text=await res.text();const parsed=parseCsv(text);if(parsed.length>1){const headers=parsed[0].map(h=>h.trim());const fgIdx=headers.findIndex(h=>h==="ItemId");const groupIdx=headers.findIndex(h=>h==="SKU_Group");const mrpIdx=headers.findIndex(h=>h==="MRP_Price");const descIdx=headers.findIndex(h=>h==="Description");sourceRows.length=0;rows.length=0;indentLines.length=0;const addedGroups=new Set();parsed.slice(1).forEach((r,i)=>{const fgCode=fgIdx>=0&&r[fgIdx]?r[fgIdx].trim():"";const skuGroup=groupIdx>=0&&r[groupIdx]?r[groupIdx].trim():"";const mrpVal=mrpIdx>=0&&!isNaN(parseFloat(r[mrpIdx]))?parseFloat(r[mrpIdx]):0;const desc=descIdx>=0&&r[descIdx]?r[descIdx].trim():"";if(skuGroup){if(!addedGroups.has(skuGroup)){addedGroups.add(skuGroup);sourceRows.push([skuGroup,0,0,0,"Normal","TVD"]);}rows.push({sku:skuGroup,indent:0,avg:0,suggest:0,risk:"Normal",cfa:"TVD",cover:0,open:0,stock:0,code:fgCode,shelfLife:100,mrp:mrpVal,salesDay:0,description:desc});indentLines.push({mode:"group",sku:skuGroup,code:fgCode,qty:0,note:desc,source:"GitHub Assortment"});}});const groupSelect=document.getElementById("entrySkuGroup");if(groupSelect){groupSelect.innerHTML="<option value=\"\">All (Ella SKU Groups-um)</option>"+Array.from(addedGroups).map(g=>`<option value="${g}">${g}</option>`).join("");}renderIndentWorkspace();renderIndent();renderWatch();renderSuggestions();renderStock();showToast("Exact GitHub Kerala Assortment Master loaded successfully!");}}catch(e){console.warn("Assortment load failed:",e);showToast("GitHub Assortment load cheyyan kazhinjilla!");}}fetchGitHubAssortment();loadLiveSoh();document.getElementById('skuCount').textContent=rows.length;renderWatch();renderSuggestions();renderStock();renderIndent();renderDrafts();changeIndentMode();buildAllocationData();runCfaAllocation();renderFlash();
 </script></body></html>
