@@ -60,6 +60,11 @@ app.get("/api/mbq/soh", async (req, res) => {
   }
 });
 
+const TO_STATE_FILE = path.join(CACHE_DIR, "open-to-state.json");
+let toStateWrite = Promise.resolve();
+async function readToState() { try { return JSON.parse(await fs.promises.readFile(TO_STATE_FILE, "utf8")); } catch (e) { if (e.code === "ENOENT") return []; throw e; } }
+app.get("/api/mbq/open-to", async (req, res) => { try { await fs.promises.mkdir(CACHE_DIR, { recursive: true }); res.setHeader("Cache-Control", "no-store"); res.json({ success: true, data: await readToState() }); } catch (error) { res.status(500).json({ success: false, error: "Could not read Open TO state", detail: error.message }); } });
+app.put("/api/mbq/open-to", express.json({ limit: "5mb" }), async (req, res) => { try { if (!Array.isArray(req.body && req.body.data)) return res.status(400).json({ success: false, error: "data must be an array" }); await fs.promises.mkdir(CACHE_DIR, { recursive: true }); const data = req.body.data; toStateWrite = toStateWrite.then(() => fs.promises.writeFile(TO_STATE_FILE, JSON.stringify(data), "utf8")); await toStateWrite; res.json({ success: true, count: data.length, savedAt: new Date().toISOString() }); } catch (error) { res.status(500).json({ success: false, error: "Could not save Open TO state", detail: error.message }); } });
 app.get("/api/mbq/status", (req, res) => res.json({ service: "MBQ Smart Indent Dashboard", liveSohEndpoint: "/api/mbq/soh" }));
 
 app.get("/health", (req, res) => {
