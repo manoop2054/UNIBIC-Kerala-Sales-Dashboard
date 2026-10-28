@@ -211,7 +211,7 @@ function clearAllMonthlyIndents(){
   renderSuggestions();
   showToast("Ella Monthly Indent values-um Clear cheythu!");
 }
-function saveGroupIndents(){document.querySelectorAll('.group-indent-input').forEach(el=>{let i=Number(el.dataset.groupIndex),qty=Math.max(0,Number(el.value)||0);sourceRows[i][1]=qty;rows[i].indent=qty;let line=indentLines.find(x=>x.mode==='group'&&x.sku===sourceRows[i][0]);if(line)line.qty=qty;else indentLines.push({mode:'group',sku:sourceRows[i][0],code:rows[i].code,qty,note:'',source:'Manual group entry'});el.style.borderColor='var(--line)';el.style.background='#fff'});renderIndent();renderWatch();renderSuggestions();showToast('SKU Group indent quantities working list-ൽ save ചെയ്തു.')}
+function saveGroupIndents(){document.querySelectorAll('.group-indent-input').forEach(el=>{let i=Number(el.dataset.groupIndex),qty=Math.max(0,Number(el.value)||0);sourceRows[i][1]=qty;rows[i].indent=qty;let line=indentLines.find(x=>x.mode==='group'&&x.sku===sourceRows[i][0]);if(line)line.qty=qty;else indentLines.push({mode:'group',sku:sourceRows[i][0],code:rows[i].code,qty,note:'',source:'Manual group entry'});el.style.borderColor='var(--line)';el.style.background='#fff'});renderIndent();renderWatch();renderSuggestions();if(typeof renderMbqExcelView==='function')renderMbqExcelView();showToast('SKU Group indent quantities working list-ൽ save ചെയ്തു.')}
 function resetGroupIndents(){sourceRows.forEach(r=>{const original=referenceIndentValues[r[0]];if(original!==undefined)r[1]=original});renderIndentWorkspace();showToast('Reference indent quantities restored.')}const referenceIndentValues=Object.fromEntries(sourceRows.map(r=>[r[0],r[1]]));
 function toQtyForIndentLine(line){if(line.mode!=='item'||!line.code)return 0;return getToRecords().filter(t=>String(t.code).trim().toUpperCase()===String(line.code).trim().toUpperCase()&&(!line.cfaKey||normalCfa(t.cfa)===normalCfa(line.cfaKey))).reduce((s,t)=>s+Number(t.qty||0),0)}
 function openToQtyFor(cfa,code){const ck=String(code||'').trim().toUpperCase().replace(/\s+/g,'');return getToRecords().filter(t=>!t.fullyReceived&&String(t.code||'').trim().toUpperCase().replace(/\s+/g,'')===ck&&normalCfa(t.cfa)===normalCfa(cfa)).reduce((sum,t)=>sum+toNum(t.qty),0)}
@@ -351,7 +351,7 @@ function applyIndentUpload(){
   if(sr){if(x.tvd!=='')sr[2]=Number(x.tvd);if(x.pay!=='')sr[3]=Number(x.pay);if(x.alu!=='')sr[4]=Number(x.alu);}
   applied++;
  });
- renderIndent();renderIndentWorkspace();document.getElementById('uploadPreviewPanel').style.display='none';
+ renderIndent();renderIndentWorkspace();if(typeof renderMbqExcelView==='function')renderMbqExcelView();document.getElementById('uploadPreviewPanel').style.display='none';
  showToast(applied+' SKU Group row(s) applied. Blank cells were ignored.');
 }
 let allocationData=[];
