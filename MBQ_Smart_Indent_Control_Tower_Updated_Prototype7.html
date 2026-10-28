@@ -236,28 +236,82 @@ const SALES_HEAD_XLSX_B64='UEsDBBQAAAAIACQ2Wl1Gx01IlQAAAM0AAAAQAAAAZG9jUHJvcHMvY
 function downloadSalesHeadTemplate(){
  try{
   if(!window.XLSX)throw new Error('Excel library not loaded. Refresh the dashboard and try again.');
-  const groups=[...new Set([
-   ...sourceRows.map(r=>String(r[0]||'').trim()),
-   ...rows.map(r=>String(r.sku||'').trim()),
-   ...mbqSalesRows.map(r=>String(r.SKU_Group??r.SKU_GROUP??r['SKU Group']??'').trim())
-  ].filter(Boolean))].sort((a,b)=>a.localeCompare(b));
-  const headers=['SKU GROUP','TOTAL INDENT BY RBM (CBB)'];
-  const data=[headers,...groups.map(g=>[g,''])];
+  const groups=[...new Set([...sourceRows.map(r=>String(r[0]||'').trim()),...rows.map(r=>String(r.sku||'').trim()),...mbqSalesRows.map(r=>String(r.SKU_Group??r.SKU_GROUP??r['SKU Group']??'').trim())].filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const headers=['SKU GROUP','AVG SALE LAST 2 MONTH - TVD','AVG SALE LAST 2 MONTH - PAY','AVG SALE LAST 2 MONTH - ALU','SUM AVG SALE LAST 2 MONTH','RATIO','Total Indent BY RBM/Sales Head','CFA WISE ALLOCATION - TVD','CFA WISE ALLOCATION - PAY','CFA WISE ALLOCATION - ALU'];
+  const history=mbqSelectedMonthHistory().slice(-2);
+  const data=[headers,...groups.map(g=>{
+    const avgs=['TVD','PAY','ALU'].map(cfa=>{
+      if(!Array.isArray(mbqSalesRows)||!mbqSalesRows.length||history.length!==2)return '';
+      const vals=history.map(m=>mbqLoadedSalesValue(g,cfa,m.month));
+      return vals.some(v=>v===null||!Number.isFinite(Number(v)))?'':(Number(vals[0])+Number(vals[1]))/2;
+    });
+    const sum=avgs.every(v=>v!=='')?avgs.reduce((a,b)=>a+Number(b),0):'';
+    return [g,...avgs,sum,'','','','',''];
+  })];
   const ws=XLSX.utils.aoa_to_sheet(data);
-  ws['!cols']=[{wch:38},{wch:30}];
-  ws['!freeze']={xSplit:0,ySplit:1};
-  ws['!autofilter']={ref:'A1:B'+Math.max(1,data.length)};
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Sales Head Indent');
+  ws['!cols']=[{wch:24},{wch:27},{wch:27},{wch:27},{wch:26},{wch:12},{wch:30},{wch:26},{wch:26},{wch:26}];
+  ws['!freeze']={xSplit:0,ySplit:1};ws['!autofilter']={ref:'A1:J'+Math.max(1,data.length)};
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Sales Head Indent');
   const month=document.getElementById('month')?.value||'November 2026';
-  const safeMonth=month.replace(/[^A-Za-z0-9]+/g,'_');
-  XLSX.writeFile(wb,'MBQ_Sales_Head_Indent_'+safeMonth+'.xlsx',{compression:true});
-  showToast(groups.length?'Sales Head Indent Excel downloaded. Enter total CBB in column B, save, then upload.':'Excel template downloaded. SKU list is not loaded yet; load the workbook/source first for the SKU list.');
+  XLSX.writeFile(wb,'MBQ_Sales_Head_Indent_'+month.replace(/[^A-Za-z0-9]+/g,'_')+'.xlsx',{compression:true});
+  showToast(groups.length?'10-column Sales Head Excel downloaded. Fill Total Indent or CFA allocations; blank cells are allowed.':'Excel template downloaded. SKU list is not loaded yet; load the workbook/source first for the SKU list.');
  }catch(e){console.error('Sales Head template download failed:',e);showToast('Excel download failed: '+(e.message||'Please refresh and retry'));}
 }
-let pendingUpload=[];function previewIndentUpload(input){const file=input.files&&input.files[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{let records;const ext=file.name.split('.').pop().toLowerCase();if((ext==='xlsx'||ext==='xls')&&window.XLSX){const wb=XLSX.read(reader.result,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];records=XLSX.utils.sheet_to_json(ws,{header:1,defval:''}).map(row=>row.map(v=>String(v??'')))}else{const text=String(reader.result||'').replace(/^\uFEFF/,'');records=parseCsv(text)}if(records.length<2)throw new Error('Rows not found');const headers=records[0].map(x=>x.trim().toLowerCase());const col=names=>headers.findIndex(h=>names.some(n=>h===n||h.includes(n)));const gi=col(['sku group']),ti=col(['total indent by rbm','total indent']),vi=col(['cfa wise allocation - tvd','tvd allocation']),pi=col(['cfa wise allocation - pay','pay allocation']),ai=col(['cfa wise allocation - alu','alu allocation']);if(gi<0||ti<0)throw new Error('SKU GROUP / Total Indent columns not found.');const known=new Set(sourceRows.map(r=>r[0].toLowerCase()));pendingUpload=records.slice(1).filter(r=>r.some(v=>v.trim())).map(r=>{const sku=(r[gi]||'').trim(),total=(r[ti]||'').trim(),tvd=vi<0?'':(r[vi]||'').trim(),pay=pi<0?'':(r[pi]||'').trim(),alu=ai<0?'':(r[ai]||'').trim();let errors=[];if(!known.has(sku.toLowerCase()))errors.push('Unknown SKU Group');if(total!==''&&(!Number.isFinite(Number(total))||Number(total)<0))errors.push('Invalid total indent');return {sku,total,tvd,pay,alu,errors}});document.getElementById('uploadValidation').textContent=`Rows: ${pendingUpload.length}. Validation complete.`;document.getElementById('uploadPreviewRows').innerHTML=pendingUpload.map(x=>`<tr><td>${x.sku||'—'}</td><td>${x.total||'—'}</td><td>${x.tvd||'—'}</td><td>${x.pay||'—'}</td><td>${x.alu||'—'}</td><td>${x.errors.length?'<span class="pill amber">'+x.errors.join('; ')+'</span>':'<span class="pill green">Ready</span>'}</td></tr>`).join('');document.getElementById('uploadPreviewPanel').style.display='block'}catch(e){showToast('Upload Error: '+e.message)}};if(/\.xlsx?$/.test(file.name.toLowerCase()))reader.readAsArrayBuffer(file);else reader.readAsText(file)}
+let pendingUpload=[];
+function previewIndentUpload(input){
+ const file=input.files&&input.files[0];if(!file)return;
+ const reader=new FileReader();
+ reader.onload=()=>{
+  try{
+   let records;const ext=file.name.split('.').pop().toLowerCase();
+   if(['xlsx','xls','xlsb'].includes(ext)&&window.XLSX){const wb=XLSX.read(reader.result,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];records=XLSX.utils.sheet_to_json(ws,{header:1,defval:''}).map(row=>row.map(v=>String(v??'')));}
+   else{records=parseCsv(String(reader.result||'').replace(/^\uFEFF/,''));}
+   if(records.length<2)throw new Error('No data rows found.');
+   const norm=h=>String(h??'').trim().toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+   const headers=records[0].map(norm);
+   const col=names=>headers.findIndex(h=>names.some(n=>h===norm(n)||h.includes(norm(n))));
+   const gi=col(['sku group']);
+   const ti=col(['total indent by rbm sales head','total indent by rbm','total indent']);
+   const vi=col(['cfa wise allocation tvd','tvd allocation']);
+   const pi=col(['cfa wise allocation pay','pay allocation']);
+   const ai=col(['cfa wise allocation alu','alu allocation']);
+   if(gi<0)throw new Error('SKU GROUP heading not found.');
+   if(ti<0&&vi<0&&pi<0&&ai<0)throw new Error('No supported indent column found. Include Total Indent or at least one CFA allocation heading.');
+   const known=new Set([...sourceRows.map(r=>String(r[0]||'').trim().toLowerCase()),...rows.map(r=>String(r.sku||'').trim().toLowerCase()),...mbqSalesRows.map(r=>String(r.SKU_Group??r.SKU_GROUP??r['SKU Group']??'').trim().toLowerCase())].filter(Boolean));
+   pendingUpload=records.slice(1).filter(r=>r.some(v=>String(v??'').trim())).map(r=>{
+    const sku=String(r[gi]??'').trim(),total=ti<0?'':String(r[ti]??'').trim(),tvd=vi<0?'':String(r[vi]??'').trim(),pay=pi<0?'':String(r[pi]??'').trim(),alu=ai<0?'':String(r[ai]??'').trim();
+    const errors=[];if(!sku)errors.push('SKU Group missing');else if(known.size&&!known.has(sku.toLowerCase()))errors.push('Unknown SKU Group');
+    const values=[['Total Indent',total],['TVD allocation',tvd],['PAY allocation',pay],['ALU allocation',alu]];
+    values.forEach(([label,v])=>{if(v!==''&&(!Number.isFinite(Number(v))||Number(v)<0))errors.push('Invalid '+label);});
+    const anyQty=[total,tvd,pay,alu].some(v=>v!=='');
+    return {sku,total,tvd,pay,alu,anyQty,errors};
+   });
+   document.getElementById('uploadValidation').textContent='Rows: '+pendingUpload.length+'. Blank quantity cells are allowed; rows with values will be applied.';
+   document.getElementById('uploadPreviewRows').innerHTML=pendingUpload.map(x=>'<tr><td>'+mbqEscape(x.sku||'—')+'</td><td>'+mbqEscape(x.total||'—')+'</td><td>'+mbqEscape(x.tvd||'—')+'</td><td>'+mbqEscape(x.pay||'—')+'</td><td>'+mbqEscape(x.alu||'—')+'</td><td>'+(x.errors.length?'<span class="pill amber">'+mbqEscape(x.errors.join('; '))+'</span>':(!x.anyQty?'<span class="pill blue">Blank — skipped</span>':'<span class="pill green">Ready</span>'))+'</td></tr>').join('');
+   document.getElementById('uploadPreviewPanel').style.display='block';
+  }catch(e){showToast('Upload Error: '+e.message);}
+ };
+ if(/\.(xlsx|xls|xlsb)$/i.test(file.name))reader.readAsArrayBuffer(file);else reader.readAsText(file);
+}
 function parseCsv(text){const out=[];let row=[],v='',quoted=false;for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'&&quoted&&text[i+1]==='"'){v+='"';i++}else if(c==='"'){quoted=!quoted}else if(c===','&&!quoted){row.push(v);v=''}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&text[i+1]==='\n')i++;row.push(v);out.push(row);row=[];v=''}else v+=c}if(v.length||row.length){row.push(v);out.push(row)}return out}
-function applyIndentUpload(){pendingUpload.forEach(x=>{if(x.total!==''){const r=rows.find(y=>y.sku.toLowerCase()===x.sku.toLowerCase());if(r)upsertIndentLine({mode:'group',sku:r.sku,code:r.code,qty:Number(x.total),note:'Uploaded Sales Head template',source:'Sales Head upload'});const sr=sourceRows.find(y=>y[0].toLowerCase()===x.sku.toLowerCase());if(sr)sr[1]=Number(x.total)}});renderIndent();renderIndentWorkspace();document.getElementById('uploadPreviewPanel').style.display='none';showToast('Validated values applied.')}
+function applyIndentUpload(){
+ const valid=pendingUpload.filter(x=>x.sku&&!x.errors.length&&x.anyQty);
+ if(!valid.length){showToast('Apply ചെയ്യാൻ quantity നൽകിയ valid row ഇല്ല. Blank cells upload തടയില്ല.');return;}
+ let applied=0;
+ valid.forEach(x=>{
+  const key=x.sku.toLowerCase(),r=rows.find(y=>String(y.sku||'').toLowerCase()===key),sr=sourceRows.find(y=>String(y[0]||'').toLowerCase()===key);
+  const allocs=[x.tvd,x.pay,x.alu],hasAlloc=allocs.some(v=>v!=='');
+  const totalQty=x.total!==''?Number(x.total):(hasAlloc?allocs.reduce((sum,v)=>sum+(v===''?0:Number(v)),0):null);
+  if(totalQty!==null&&Number.isFinite(totalQty)){
+   if(r)upsertIndentLine({mode:'group',sku:r.sku,code:r.code||'',qty:totalQty,note:'Uploaded Sales Head template',source:'Sales Head upload'});
+   if(sr)sr[1]=totalQty;
+  }
+  if(sr){if(x.tvd!=='')sr[2]=Number(x.tvd);if(x.pay!=='')sr[3]=Number(x.pay);if(x.alu!=='')sr[4]=Number(x.alu);}
+  applied++;
+ });
+ renderIndent();renderIndentWorkspace();document.getElementById('uploadPreviewPanel').style.display='none';
+ showToast(applied+' SKU Group row(s) applied. Blank cells were ignored.');
+}
 let allocationData=[];
 function buildAllocationData(){
  const cfas=[{name:'ALU CFA',key:'ALU'},{name:'PAY CFA',key:'PAY'},{name:'TVD CFA',key:'TVD'}];
