@@ -107,11 +107,12 @@ async function readMbqGsvCache() {
     const stat = await fs.promises.stat(cache);
     if (Date.now() - stat.mtimeMs < 6 * 60 * 60 * 1000) return JSON.parse(await fs.promises.readFile(cache, "utf8"));
   } catch (_) {}
+  if (gsvLoadError && !gsvLoadPromise) throw new Error(gsvLoadError);
   if (!gsvLoadPromise) {
     gsvLoadPromise = buildMbqGsvAggregate().catch(error => {
       gsvLoadError = error.message || String(error);
       console.error("MBQ GSV load failed:", error.stack || error.message);
-      throw error;
+      return null;
     }).finally(() => { gsvLoadPromise = null; });
   }
   throw Object.assign(new Error("GSV data is loading"), { loading: true });
