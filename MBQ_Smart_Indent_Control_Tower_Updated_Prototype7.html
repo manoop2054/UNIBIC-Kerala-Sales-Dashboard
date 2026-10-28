@@ -511,7 +511,7 @@ function mbqPlannerUsableSoh(cfa,code){
   const rawCfa=normalCfa(keyValue(raw,['WAREHOUSE','Warehouse','CFA','LocationCode','Location Code','Location_Code','Location Name','Location','Branch','Site','Store']));
   if(rawCode!==key||rawCfa!==cfa)return;
   matched=true;
-  const shelfKey=Object.keys(raw).find(k=>shelfKeys.some(a=>k.trim().toUpperCase()===a));
+  const normShelfKey=v=>String(v||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');const shelfKey=Object.keys(raw).find(k=>shelfKeys.some(a=>normShelfKey(k)===normShelfKey(a)));
   if(!shelfKey)return;
   const shelfRaw=raw[shelfKey];if(shelfRaw===null||shelfRaw===undefined||String(shelfRaw).trim()==='')return;
   const shelf=Number(String(shelfRaw).replace('%','').replace(/,/g,''));
@@ -562,11 +562,12 @@ function renderDaysPlanner(){
   output.push({cfa:cfaName,sku,code,avgDaily,demand,soh,to,net,complete:rowComplete});
  });
  const completeRows=output.filter(r=>r.complete);
- set('daysPlanDemand',output.length&&completeRows.length?fmt(periodDemand):'No Data Available');
- set('daysPlanIndent',output.length&&completeRows.length?fmt(netTotal):'No Data Available');
- set('daysPlanLoad',output.length&&completeRows.length?fmt(hasCap?Math.min(netTotal,cap):netTotal):'No Data Available');
+ const allRowsComplete=output.length>0&&completeRows.length===output.length;
+ set('daysPlanDemand',allRowsComplete?fmt(periodDemand):'No Data Available');
+ set('daysPlanIndent',allRowsComplete?fmt(netTotal):'No Data Available');
+ set('daysPlanLoad',allRowsComplete?fmt(hasCap?Math.min(netTotal,cap):netTotal):'No Data Available');
  set('daysPlanLoadSub',hasCap?'Capped at '+fmt(cap)+' CBB': 'No capacity cap entered · uncapped requirement shown');
- set('daysPlanShortage',hasCap&&output.length&&completeRows.length?fmt(Math.max(0,netTotal-cap)):'No Data Available');
+ set('daysPlanShortage',hasCap&&allRowsComplete?fmt(Math.max(0,netTotal-cap)):'No Data Available');
  const status=document.getElementById('daysPlanStatus');
  if(status)status.textContent=!mbqGsvRows.length?'GSV UNAVAILABLE':!liveSohRows.length?'LIVE SOH UNAVAILABLE':!toAvailable?'OPEN TO DATA UNAVAILABLE':!validPeriod?'SELECT VALID DAYS':completeRows.length===output.length?'SOURCE DATA CONNECTED':'PARTIAL SOURCE DATA';
  const tbody=document.getElementById('daysPlanRows');
