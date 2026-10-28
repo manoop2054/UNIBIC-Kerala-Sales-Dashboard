@@ -287,7 +287,9 @@ function downloadSalesHeadTemplate(){
 let pendingUpload=[];
 function previewIndentUpload(input){
  const file=input.files&&input.files[0];if(!file)return;
+ input.value=''; // Allow selecting the same file again to retry an upload.
  const reader=new FileReader();
+ reader.onerror=()=>{const msg='Excel file വായിക്കാൻ കഴിഞ്ഞില്ല. File വീണ്ടും download ചെയ്ത് ശ്രമിക്കുക.';const panel=document.getElementById('uploadPreviewPanel');const note=document.getElementById('uploadValidation');if(note)note.textContent=msg;if(panel)panel.style.display='block';showToast(msg);};
  reader.onload=()=>{
   try{
    let records;const ext=file.name.split('.').pop().toLowerCase();
@@ -316,9 +318,9 @@ function previewIndentUpload(input){
    document.getElementById('uploadValidation').textContent='Rows: '+pendingUpload.length+'. Blank quantity cells are allowed; rows with values will be applied.';
    document.getElementById('uploadPreviewRows').innerHTML=pendingUpload.map(x=>'<tr><td>'+mbqEscape(x.sku||'—')+'</td><td>'+mbqEscape(x.total||'—')+'</td><td>'+mbqEscape(x.tvd||'—')+'</td><td>'+mbqEscape(x.pay||'—')+'</td><td>'+mbqEscape(x.alu||'—')+'</td><td>'+(x.errors.length?'<span class="pill amber">'+mbqEscape(x.errors.join('; '))+'</span>':(!x.anyQty?'<span class="pill blue">Blank — skipped</span>':'<span class="pill green">Ready</span>'))+'</td></tr>').join('');
    document.getElementById('uploadPreviewPanel').style.display='block';
-  }catch(e){showToast('Upload Error: '+e.message);}
+  }catch(e){const msg='Upload Error: '+(e&&e.message?e.message:String(e));const panel=document.getElementById('uploadPreviewPanel');const note=document.getElementById('uploadValidation');if(note)note.textContent=msg;if(panel)panel.style.display='block';showToast(msg);}
  };
- if(/\.(xlsx|xls|xlsb)$/i.test(file.name))reader.readAsArrayBuffer(file);else reader.readAsText(file);
+ if(/\.(xlsx|xls|xlsb)$/i.test(file.name)){if(!window.XLSX){const msg='Excel reader load ആയിട്ടില്ല. Ctrl+F5 ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.';const panel=document.getElementById('uploadPreviewPanel');const note=document.getElementById('uploadValidation');if(note)note.textContent=msg;if(panel)panel.style.display='block';showToast(msg);return;}reader.readAsArrayBuffer(file);}else reader.readAsText(file);
 }
 function parseCsv(text){const out=[];let row=[],v='',quoted=false;for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'&&quoted&&text[i+1]==='"'){v+='"';i++}else if(c==='"'){quoted=!quoted}else if(c===','&&!quoted){row.push(v);v=''}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&text[i+1]==='\n')i++;row.push(v);out.push(row);row=[];v=''}else v+=c}if(v.length||row.length){row.push(v);out.push(row)}return out}
 function applyIndentUpload(){
