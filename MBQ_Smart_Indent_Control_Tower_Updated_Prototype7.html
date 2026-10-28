@@ -138,7 +138,48 @@ function recalculateSuggestions(){
   renderWatch();renderSuggestions();showToast('Suggestions recalculated from verified billing source data.');
 }
 function renderWatch(){document.getElementById('watchlist').innerHTML=rows.slice(0,10).map(r=>`<tr><td class="sku">${r.sku}</td><td>${r.indent==null?'No data available':Number(r.indent).toLocaleString('en-IN')}</td><td>${r.avg==null?'No data available':Number(r.avg).toLocaleString('en-IN')}</td><td>${r.suggest==null?'No data available':Number(r.suggest).toLocaleString('en-IN')}</td><td>${riskPill(r.risk||'No data available')}</td><td><button class="btn" onclick="go('suggest')">Review</button></td></tr>`).join('')||'<tr><td colspan="6" class="empty">No data available.</td></tr>'}
-function renderSuggestions(){const q=String(document.getElementById('suggestSearch')?.value||'').trim().toLowerCase();const rf=String(document.getElementById('riskFilter')?.value||'all').trim().toLowerCase();const cfRaw=String(document.getElementById('cfaFilter')?.value||'all').trim();const cf=cfRaw.toLowerCase()==='all'?'all':normalCfa(cfRaw);const base=Array.isArray(rows)&&rows.length?rows:sourceRows.map(r=>({sku:r[0],indent:r[1],avg:r[2],suggest:null,risk:'No data available',cfa:r[5],code:''}));let data=base;if(q)data=data.filter(r=>String(r.sku||'').toLowerCase().includes(q));if(rf!=='all')data=data.filter(r=>String(r.risk||'').trim().toLowerCase()===rf);/* CFA is a view filter for CFA-specific stock and open-TO metrics, not a SKU-group membership filter. */const body=document.getElementById('suggestRows');if(!body)return;body.innerHTML=data.map(r=>{const stockMap=mbqLiveStockMap();const groupCodes=[...new Set(base.filter(x=>x.sku===r.sku).map(x=>mbqCodeKey(x.code)).filter(Boolean))];if(!groupCodes.length&&r.code)groupCodes.push(mbqCodeKey(r.code));const stockCfas=cf==='all'?['ALU','PAY','TVD']:[cf];const hasStock=groupCodes.some(code=>stockCfas.some(k=>stockMap.has(k+'|'+code)));const soh=groupCodes.reduce((sum,code)=>sum+stockCfas.reduce((n,k)=>n+(stockMap.get(k+'|'+code)?.stock||0),0),0);const hasSales=r.salesSourceVerified===true&&Number(r.avg)>0;const dailyAvg=hasSales?Number(r.avg)/30:null;const coverDays=dailyAvg>0&&hasStock?soh/dailyAvg:null;const toRecords=getToRecords();const hasToData=toRecords.length>0;const openQty=hasToData?[...new Set(base.filter(x=>x.sku===r.sku).map(x=>x.code).filter(Boolean))].reduce((sum,code)=>sum+(cf==='all'?['ALU','PAY','TVD'].reduce((n,k)=>n+openToQtyFor(k,code),0):openToQtyFor(cf,code)),0):null;const suggestion=hasSales?Math.max(0,Number(r.suggest||0)-(openQty===null?0:openQty)):null;const coverLabel=coverDays!==null?coverDays.toFixed(1)+' days':'No data available';const coverNote=coverDays!==null?(coverDays<15?'Below 15-day target':coverDays>15?'Above 15-day target':'At 15-day target'):'Required stock or billing data unavailable';return '<tr><td class="sku">'+r.sku+'</td><td>'+(r.indent==null?'No data available':Number(r.indent).toLocaleString('en-IN'))+'</td><td>'+(hasSales?Number(r.avg).toLocaleString('en-IN'):'No data available')+'</td><td>'+(hasStock?soh.toLocaleString('en-IN'):'No data available')+'</td><td title="'+coverNote+'">'+coverLabel+' <span class="small-note">('+coverNote+')</span></td><td>'+(openQty===null?'No data available':openQty.toLocaleString('en-IN'))+'</td><td><b>'+(suggestion===null?'No data available':suggestion.toLocaleString('en-IN'))+'</b></td><td>'+riskPill(hasSales?(r.risk||'Review'):'No data available')+'</td><td>'+(hasSales?(r.risk==='High'?'Check cover / open supply':r.risk==='Review'?'Compare against peak plan':'Monitor trend'):'Billing source data unavailable')+'</td></tr>'}).join('')||'<tr><td colspan="9" class="empty">No matching SKU groups. Clear the search or select All risk levels / All CFAs.</td></tr>'}
+function renderSuggestions(){
+ const q=String(document.getElementById('suggestSearch')?.value||'').trim().toLowerCase();
+ const rf=String(document.getElementById('riskFilter')?.value||'all').trim().toLowerCase();
+ const cfRaw=String(document.getElementById('cfaFilter')?.value||'all').trim();
+ const cf=cfRaw.toLowerCase()==='all'?'all':normalCfa(cfRaw);
+ const base=Array.isArray(rows)&&rows.length?rows:sourceRows.map(r=>({sku:r[0],indent:r[1],avg:r[2],suggest:null,risk:'No data available',cfa:r[5],code:''}));
+ let data=base;
+ if(q)data=data.filter(r=>String(r.sku||'').toLowerCase().includes(q));
+ const body=document.getElementById('suggestRows');if(!body)return;
+ const stockMap=mbqLiveStockMap(),history=mbqSelectedMonthHistory().slice(-2),toRecords=getToRecords();
+ const cfas=cf==='all'?['ALU','PAY','TVD']:[cf];
+ const fmt=v=>Number(v).toLocaleString('en-IN',{maximumFractionDigits:1});
+ const groupRows=sku=>base.filter(x=>String(x.sku||'').trim().toLowerCase()===String(sku||'').trim().toLowerCase());
+ body.innerHTML=data.map(r=>{
+  const members=groupRows(r.sku);
+  const codes=[...new Set(members.map(x=>mbqCodeKey(x.code)).filter(Boolean))];
+  if(!codes.length&&r.code)codes.push(mbqCodeKey(r.code));
+  const salesFor=(code,month)=>{
+   const monthKey=month.year+'-'+String(month.month).padStart(2,'0');
+   const found=mbqGsvRows.filter(x=>x.month===monthKey&&cfas.includes(normalCfa(x.cfa))&&mbqGsvNormCode(x.itemId)===code);
+   if(!found.length)return null;
+   return found.reduce((sum,x)=>sum+(Number(x.quantity)||0),0);
+  };
+  const monthTotals=history.map(m=>{const vals=codes.map(code=>salesFor(code,m));return vals.some(v=>v===null)?null:vals.reduce((sum,v)=>sum+Number(v||0),0)});
+  const hasSales=monthTotals.length===2&&monthTotals.every(v=>v!==null)&&monthTotals.some(v=>Number(v)>0);
+  const l2mAvg=hasSales?(Number(monthTotals[0])+Number(monthTotals[1]))/2:null;
+  const sohKeys=codes.flatMap(code=>cfas.map(k=>k+'|'+code));
+  const hasStock=sohKeys.some(k=>stockMap.has(k));
+  const soh=codes.reduce((sum,code)=>sum+cfas.reduce((n,k)=>n+(stockMap.get(k+'|'+code)?.stock||0),0),0);
+  const dailyAvg=hasSales?l2mAvg/30:null;
+  const coverDays=dailyAvg>0&&hasStock?soh/dailyAvg:null;
+  const hasToData=toRecords.length>0;
+  const openQty=hasToData?codes.reduce((sum,code)=>sum+cfas.reduce((n,k)=>n+openToQtyFor(k,code),0),0):null;
+  const suggestion=hasSales?Math.max(0,Math.ceil(l2mAvg*1.08)-(openQty===null?0:openQty)):null;
+  const risk=hasSales?(coverDays===null?'Review':coverDays<7?'High':coverDays<15?'Review':'Normal'):'No data available';
+  if(rf!=='all'&&risk.toLowerCase()!==rf)return '';
+  const coverLabel=coverDays!==null?coverDays.toFixed(1)+' days':'No data available';
+  const coverNote=coverDays!==null?(coverDays<15?'Below 15-day target':coverDays>15?'Above 15-day target':'At 15-day target'):'Required stock or billing data unavailable';
+  const latestSales=hasSales?Number(monthTotals[1]):null;
+  return '<tr><td class="sku">'+r.sku+'</td><td>'+(latestSales===null?'No data available':fmt(latestSales))+'</td><td>'+(hasSales?fmt(l2mAvg):'No data available')+'</td><td>'+(hasStock?fmt(soh):'No data available')+'</td><td title="'+coverNote+'">'+coverLabel+' <span class="small-note">('+coverNote+')</span></td><td>'+(openQty===null?'No data available':fmt(openQty))+'</td><td><b>'+(suggestion===null?'No data available':fmt(suggestion))+'</b></td><td>'+riskPill(risk)+'</td><td>'+(hasSales?(risk==='High'?'Urgent: low cover against CFA billing':risk==='Review'?'Review CFA cover and incoming supply':'Monitor CFA billing and cover'):'CFA-wise billing data unavailable for both selected months')+'</td></tr>';
+ }).join('')||'<tr><td colspan="9" class="empty">No matching SKU groups or verified CFA-wise billing data. Clear the search or select All risk levels / All CFAs.</td></tr>';
+}
 let liveSohRows=[];let liveSohMeta=null;let liveSohError='';
 
 let mbqGsvRows = [];
