@@ -911,11 +911,41 @@ function applyProductionSettingsUpload(){
  showToast('Excel production settings imported.');
 }
 
-function saveProductionFrequency(){
+const MBQ_PRODUCTION_SETTINGS_API='https://unibic-shared-api.manumulanthuruthy.workers.dev/api/mbq/production-settings';
+async function loadCloudProductionSettings(){
+ const status=document.getElementById('productionFrequencyStatus');
+ try{
+  const res=await fetch(MBQ_PRODUCTION_SETTINGS_API,{method:'GET',cache:'no-store'});
+  const payload=await res.json();
+  if(!res.ok||payload.success!==true||!payload.settings||typeof payload.settings!=='object')throw new Error(payload.error||payload.detail||('HTTP '+res.status));
+  localStorage.setItem('mbqProductionFrequencySettings',JSON.stringify(payload.settings));
+  renderProductionFrequencySettings();renderMbqExcelView();
+  if(status)status.textContent='Cloud settings loaded for all browsers. '+Object.keys(payload.settings).length+' SKU Group records available.';
+ }catch(error){
+  console.warn('MBQ cloud production settings unavailable:',error);
+  if(status)status.textContent='Cloud settings unavailable; showing this browser’s saved settings. Save will report whether cloud sync succeeds.';
+ }
+}
+async function saveProductionFrequency(){
  const values=mbqProductionSettings();document.querySelectorAll('[data-prod-sku][data-prod-field]').forEach(el=>{const sku=el.getAttribute('data-prod-sku'),field=el.getAttribute('data-prod-field');if(!values[sku])values[sku]={};values[sku][field]=el.value.trim()===''?'':Number(el.value);});
- Object.keys(values).forEach(sku=>{if(values[sku].prodDays===''||values[sku].prodDays===undefined||values[sku].prodDays===null){const mapped=mbqProdDaysFromFreq(values[sku].freq);if(mapped!==null)values[sku].prodDays=mapped;}});localStorage.setItem('mbqProductionFrequencySettings',JSON.stringify(values));
- const status=document.getElementById('productionFrequencyStatus');if(status)status.textContent='Saved '+Object.keys(values).length+' SKU Group settings in this browser. MBQ Excel View updated where required inputs are available.';
- renderMbqExcelView();showToast('Production frequency settings saved.');
+ Object.keys(values).forEach(sku=>{if(values[sku].prodDays===''||values[sku].prodDays===undefined||values[sku].prodDays===null){const mapped=mbqProdDaysFromFreq(values[sku].freq);if(mapped!==null)values[sku].prodDays=mapped;}});
+ localStorage.setItem('mbqProductionFrequencySettings',JSON.stringify(values));
+ const status=document.getElementById('productionFrequencyStatus');
+ const pin=prompt('Enter the authorized MBQ settings write PIN to save these settings for all browsers:');
+ if(pin===null){if(status)status.textContent='Cloud save cancelled. Changes remain only in this browser.';return;}
+ if(!pin.trim()){if(status)status.textContent='Cloud save not completed: write PIN is required. Changes remain only in this browser.';return;}
+ if(status)status.textContent='Saving production settings to shared cloud storage…';
+ try{
+  const res=await fetch(MBQ_PRODUCTION_SETTINGS_API,{method:'POST',headers:{'Content-Type':'application/json','X-Upload-Pin':pin.trim()},body:JSON.stringify({settings:values})});
+  let payload={};try{payload=await res.json()}catch(e){}
+  if(!res.ok||payload.success!==true)throw new Error(payload.error||payload.detail||('HTTP '+res.status));
+  if(status)status.textContent='Cloud saved successfully: '+Object.keys(values).length+' SKU Group settings are now shared across browsers and systems. MBQ Excel View updated.';
+  renderMbqExcelView();showToast('Production settings saved to shared cloud.');
+ }catch(error){
+  console.error('MBQ cloud production settings save failed:',error);
+  if(status)status.textContent='Cloud save FAILED ('+(error.message||'request error')+'). Changes remain only in this browser; verify Worker table/PIN/CORS and try again.';
+  showToast('Cloud save failed; settings are local only.');
+ }
 }
 function renderMbqExcelView(){const key=document.getElementById('mbqSheetSelect')?.value||'DATA',host=document.getElementById('mbqExcelTableHost');if(!host)return;const label=key==='DATA'?'All CFA':key+' CFA';if(mbqExcelSheets[key]&&mbqSalesRows.length){mbqRenderLoadedWorkbook(key,host,label);return;}document.getElementById('mbqStatCfa').textContent=label;const unique=[...new Set(rows.filter(r=>r&&r.sku).map(r=>r.sku))].sort((a,b)=>a.localeCompare(b));const q=mbqText(document.getElementById('mbqViewSearch')?.value).toLowerCase(),size=Number(document.getElementById('mbqViewPageSize')?.value)||250;const filtered=unique.filter(sku=>!q||sku.toLowerCase().includes(q)||rows.some(r=>r.sku===sku&&[r.code,r.description,r.mrp].some(v=>mbqText(v).toLowerCase().includes(q))));const shown=filtered.slice(0,size);document.getElementById('mbqStatRows').textContent=filtered.length.toLocaleString('en-IN');document.getElementById('mbqStatCols').textContent=MBQ_OFFICIAL_HEADERS.length;const hasAssortment=unique.length>0,hasSoh=liveSohRows.length>0;document.getElementById('mbqStatSource').textContent=hasAssortment&&hasSoh?'Assortment + LIVE SOH':hasAssortment?'Assortment only':'Source unavailable';const status=document.getElementById('mbqWorkbookStatus');if(status){status.classList.toggle('ready',hasAssortment&&hasSoh);status.innerHTML='<span class="dot"></span><span>'+mbqEscape((hasAssortment?'Assortment '+unique.length+' SKU groups':'Assortment unavailable')+' · '+(hasSoh?'LIVE SOH '+liveSohRows.length+' rows':'LIVE SOH unavailable')+' · Missing sources are not fabricated')+'</span>';}if(!hasAssortment){host.innerHTML='<div class="excel-empty"><strong>Assortment source unavailable</strong>SKU Group headings remain ready, but rows will appear when the GitHub Kerala Assortment source loads.</div>';return;}const body=shown.map(sku=>{const under=mbqExcelGroupSoh(sku,key,true),over=mbqExcelGroupSoh(sku,key,false),plant=mbqExcelPlantSohForGroup(sku);const vals={'SKU GROUP':sku,'IND':mbqUploadedIndentForSku(sku),'SOH<60%':under,'SOH>60%':over,'PLANT SOH':plant};return '<tr>'+MBQ_OFFICIAL_HEADERS.map(h=>'<td>'+mbqEscape(mbqExcelFmt(Object.prototype.hasOwnProperty.call(vals,h)?vals[h]:''))+'</td>').join('')+'</tr>';}).join('');const head='<thead><tr>'+MBQ_OFFICIAL_HEADERS.map(h=>'<th>'+mbqEscape(h)+'</th>').join('')+'</tr></thead>';const trendVals=['No Data Available','No Data Available','No Data Available'];const trendNames=['T.TREND','PO TREND','S.TREND'];const trendNotes=['Total Trend','PO Trend','Sales Trend'];const kpis='<div id="mbqTrendKpis" class="mbq-trend-kpis">'+trendNames.map((n,i)=>'<div class="mbq-trend-kpi"><div class="k-label">'+n+'</div><div class="k-value">'+trendVals[i]+'</div><div class="k-foot">'+(key==='ALU'?trendNotes[i]:'Waiting for '+mbqEscape(label)+' source data')+'</div></div>').join('')+'</div>';host.innerHTML=kpis+'<div class="excel-status ready" style="margin:0 0 8px"><span class="dot"></span><span>Showing '+shown.length.toLocaleString('en-IN')+' of '+filtered.length.toLocaleString('en-IN')+' SKU groups · '+mbqEscape(label)+' · Unsupported fields marked No Data Available</span></div><div class="excel-table-wrap"><table class="excel-table">'+head+'<tbody>'+(body||'<tr><td colspan="'+MBQ_OFFICIAL_HEADERS.length+'" class="empty">No matching SKU groups.</td></tr>')+'</tbody></table></div>';}
 function exportMbqView(){const key=document.getElementById('mbqSheetSelect')?.value||'DATA';const table=document.querySelector('#mbqExcelTableHost table');if(!table){showToast('No source-backed rows available to export.');return;}const wb=XLSX.utils.book_new(),ws=XLSX.utils.table_to_sheet(table);XLSX.utils.book_append_sheet(wb,ws,key);XLSX.writeFile(wb,'MBQ_'+key+'_Source_View.xlsx');showToast('Source-backed MBQ view exported.');}
@@ -958,6 +988,7 @@ async function restoreMbqLocalData(){
   const po=await mbqCacheGet('mbqPoCache');if(po&&po.rows){mbqPoRecords=po.rows;mbqPoHeaders=po.headers||[];mbqPoFileName=po.name||'';renderMbqPoPreview();}
 }
 
+loadCloudProductionSettings();
 loadLiveSoh();
 loadMbqGsv();
 loadToRecords().then(()=>renderToTracker());document.getElementById('skuCount').textContent=rows.length||'—';renderWatch();renderSuggestions();renderStock();renderIndent();renderDrafts();changeIndentMode();buildAllocationData();runCfaAllocation();renderFlash();
