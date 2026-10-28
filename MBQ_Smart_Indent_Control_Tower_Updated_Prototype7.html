@@ -718,7 +718,7 @@ function mbqUploadedIndentForSku(sku){const key=String(sku||'').trim().toLowerCa
 function mbqExcelFmt(v){if(v===null||v===undefined||v==='')return 'No Data Available';if(typeof v==='number')return v.toLocaleString('en-IN',{maximumFractionDigits:2});return String(v);}
 function mbqSelectedMonthHistory(){
   const raw=document.getElementById('month')?.value||'November 2026';const m=raw.match(/([A-Za-z]+)\s+(\d{4})/);const months=['January','February','March','April','May','June','July','August','September','October','November','December'];const mi=m?months.findIndex(x=>x.toLowerCase()===m[1].toLowerCase()):10;const year=m?Number(m[2]):2026;const base=mi<0?10:mi;
-  return [3,2,1].map(back=>{let ix=base-back,y=year;while(ix<0){ix+=12;y--;}return {month:ix+1,label:months[ix].slice(0,3).toUpperCase(),year:y};});
+  return [2,1,0].map(back=>{let ix=base-back,y=year;while(ix<0){ix+=12;y--;}return {month:ix+1,label:months[ix].slice(0,3).toUpperCase(),year:y};});
 }
 function mbqLoadedSalesValue(sku,cfa,month){
   let total=0,found=false,monthAvailable=false;const norm=v=>{const t=String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(t.includes('ALU'))return 'ALU';if(t.includes('PAY'))return 'PAY';if(t.includes('TVD'))return 'TVD';return t;};
