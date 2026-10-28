@@ -480,9 +480,9 @@ function mbqSelectedMonthHistory(){
   return [3,2,1].map(back=>{let ix=base-back,y=year;while(ix<0){ix+=12;y--;}return {month:ix+1,label:months[ix].slice(0,3).toUpperCase(),year:y};});
 }
 function mbqLoadedSalesValue(sku,cfa,month){
-  let total=0,found=false;const norm=v=>{const t=String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(t.includes('ALU'))return 'ALU';if(t.includes('PAY'))return 'PAY';if(t.includes('TVD'))return 'TVD';return t;};
-  for(const r of mbqSalesRows){const group=String(r.SKU_Group??r.SKU_GROUP??r['SKU Group']??'').trim();const mo=Number(r.Month??r.MONTH);const loc=norm(r.LocationCode??r['Location Code']??r.CFA??'');if(group.toUpperCase()!==String(sku).trim().toUpperCase()||mo!==month)continue;if(cfa!=='DATA'&&loc!==cfa)continue;const q=Number(r.QuantityinCBO??r.Quantity_in_CBO??r.CBO??0);if(Number.isFinite(q)){total+=q;found=true;}}
-  return found?total:null;
+  let total=0,found=false,monthAvailable=false;const norm=v=>{const t=String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(t.includes('ALU'))return 'ALU';if(t.includes('PAY'))return 'PAY';if(t.includes('TVD'))return 'TVD';return t;};
+  for(const r of mbqSalesRows){const group=String(r.SKU_Group??r.SKU_GROUP??r['SKU Group']??'').trim();const mo=Number(r.Month??r.MONTH);const loc=norm(r.LocationCode??r['Location Code']??r.CFA??'');if(mo!==month||(cfa!=='DATA'&&loc!==cfa))continue;monthAvailable=true;if(group.toUpperCase()!==String(sku).trim().toUpperCase())continue;const q=Number(r.QuantityinCBO??r.Quantity_in_CBO??r.CBO??0);if(Number.isFinite(q)){total+=q;found=true;}}
+  return found?total:(monthAvailable?0:null);
 }
 function mbqRenderLoadedWorkbook(key,host,label){
   const sheet=mbqExcelSheets[key];if(!sheet)return false;const history=mbqSelectedMonthHistory();const original=sheet.headers.slice();const headers=original.slice();const monthIx=original.map((h,i)=>({h:String(h).trim().toUpperCase(),i})).filter(x=>['JUL','AUG','SEP','OCT','NOV','DEC','JAN','FEB','MAR','APR','MAY','JUN'].includes(x.h));
