@@ -144,6 +144,8 @@ function mbqApplyGsvSales(){
       r.avg=found.reduce((s,v)=>s+Number(v||0),0)/found.length;
       r.salesDay=Number(r.avg)/30;
       r.salesSourceVerified=Number(r.avg)>0;
+      r.suggest=Number(r.avg)>0?Math.max(0,Math.round(Number(r.avg)*1.08)):null;
+      r.risk=Number(r.stock||0)<Number(r.avg)*0.35?"High":Number(r.stock||0)<Number(r.avg)*0.65?"Review":"Normal";
       r.gsvMonthsMatched=found.length;
     }
   });
@@ -171,8 +173,8 @@ async function loadMbqGsv(attempt=0){
     mbqGsvRows=Array.isArray(result.data)?result.data:[];
     mbqGsvMeta=result;
     mbqApplyGsvSales();
-    const pill=document.querySelector("#page-settings .excel-pill");
-    if(pill)pill.textContent="GSV linked · "+Number(result.matchedRows||0).toLocaleString("en-IN")+" source rows";
+    const pill=[...document.querySelectorAll("#page-indent .excel-pill")].find(el=>el.textContent.includes("GSV source status pending"));
+    if(pill)pill.textContent="Sales / Billing · GSV linked · "+Number(result.matchedRows||0).toLocaleString("en-IN")+" rows";
     console.info("MBQ GSV connected",{rows:result.rows,aggregateRows:result.aggregateRows,detected:result.detected});
     showToast("GSV Billing data linked. Matched "+Number(result.matchedRows||0).toLocaleString("en-IN")+" source rows.");
   }catch(error){
