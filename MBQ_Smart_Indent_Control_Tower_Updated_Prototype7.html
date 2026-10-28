@@ -94,7 +94,7 @@
   </div>
 </section>
 
-<section class="section" id="page-settings"><div class="page-head"><div><div class="eyebrow">Configuration</div><h1>Master Data & Settings</h1><p>Configure business rules that drive recommendations. Keep assumptions transparent.</p></div><div class="actions"><button class="btn primary" onclick="showToast('Settings draft saved.')">Save settings</button></div></div><div class="card" style="margin-bottom:14px"><div class="card-head"><h3>SKU Group Production Frequency</h3><small>Frequency changes can be updated per SKU Group</small><button class="btn primary" onclick="saveProductionFrequency()">Save production settings</button></div><p class="small-note">PROD FREQ = ഒരു മാസത്തിൽ ആ SKU Group എത്ര തവണ production ചെയ്യും. MBQ DAYS (BASED on PROD FREQ), TRANSIT DAYS എന്നിവ കൂടി ഉപയോഗിച്ച് MBQ DAYS, MBQ വീണ്ടും കണക്കാക്കും. Workbook-ൽ ലഭ്യമല്ലാത്ത values സ്വയം കെട്ടിച്ചമയ്ക്കില്ല.</p><div class="table-wrap"><table><thead><tr><th>SKU GROUP</th><th>PROD FREQ / MONTH</th><th>MBQ DAYS BASED ON PROD FREQ</th><th>TRANSIT DAYS</th></tr></thead><tbody id="productionFrequencyRows"><tr><td colspan="4" class="empty">SKU Groups loading…</td></tr></tbody></table></div><div class="small-note" id="productionFrequencyStatus">Saved settings apply in this browser and recalculate MBQ Excel View.</div></div><div class="card"><div class="card-head"><h3>Planning rules</h3><small>Review with business owner before go-live</small></div><div class="form-grid"><div class="field"><label>Default plant lead time</label><select><option>4 days</option><option selected>5 days</option></select></div><div class="field"><label>Primary indent prediction basis</label><select><option selected>Last 2 months</option><option>Last 3 months (trend views only)</option></select></div><div class="field"><label>Primary planning unit</label><select><option selected>CBO / Cases</option><option>Units</option><option>Value (₹)</option></select></div><div class="field"><label>Stock threshold rule</label><select><option>Needs confirmation</option><option>Cover days</option><option>Remaining shelf-life %</option></select></div><div class="field"><label>Mid-month window default</label><input value="13th–15th (flexible 2–3 days)"></div><div class="field"><label>Month-end window default</label><input value="29th–31st (month-length aware)"></div><div class="field"><label>Mid-month billing target</label><input value="₹2.0–2.5 crore"></div><div class="field"><label>Month-end billing target</label><input value="~₹2.5 crore"></div><div class="field full"><label>Validation checklist</label><textarea>Confirm year/month mapping in SALES data; confirm meaning of SOH threshold; confirm CBO/case/pallet conversions; confirm whether daily flash uses order entry, invoice billing or dispatched sales; confirm source refresh procedure.</textarea></div></div></div></section>
+<section class="section" id="page-settings"><div class="page-head"><div><div class="eyebrow">Configuration</div><h1>Master Data & Settings</h1><p>Configure business rules that drive recommendations. Keep assumptions transparent.</p></div><div class="actions"><button class="btn primary" onclick="showToast('Settings draft saved.')">Save settings</button></div></div><div class="card" style="margin-bottom:14px"><div class="card-head"><h3>SKU Group Production Frequency</h3><small>Frequency changes can be updated per SKU Group</small><button class="btn primary" onclick="saveProductionFrequency()">Save production settings</button></div><p class="small-note">PROD FREQ = ഒരു മാസത്തിൽ ആ SKU Group എത്ര തവണ production ചെയ്യും. MBQ DAYS (BASED on PROD FREQ), TRANSIT DAYS എന്നിവ കൂടി ഉപയോഗിച്ച് MBQ DAYS, MBQ വീണ്ടും കണക്കാക്കും. Workbook-ൽ ലഭ്യമല്ലാത്ത values സ്വയം കെട്ടിച്ചമയ്ക്കില്ല.</p><div class="actions" style="justify-content:flex-start;flex-wrap:wrap;margin:12px 0"><button class="btn" type="button" onclick="downloadProductionTemplate()">Download Excel Template</button><label class="btn" for="productionSettingsFile" style="cursor:pointer">Upload Excel</label><input id="productionSettingsFile" type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="previewProductionSettingsUpload(this)"><button class="btn primary" type="button" id="applyProductionUploadBtn" onclick="applyProductionSettingsUpload()" disabled>Apply Uploaded Settings</button><span class="small-note" id="productionUploadStatus">Excel/CSV upload · preview and validate before saving</span></div><div class="table-wrap" id="productionUploadPreviewWrap" style="display:none;margin-bottom:14px"><table><thead><tr><th>SKU GROUP</th><th>PROD FREQ / MONTH</th><th>MBQ DAYS BASED ON PROD FREQ</th><th>TRANSIT DAYS</th><th>Validation</th></tr></thead><tbody id="productionUploadPreviewRows"></tbody></table></div><div class="table-wrap"><table><thead><tr><th>SKU GROUP</th><th>PROD FREQ / MONTH</th><th>MBQ DAYS BASED ON PROD FREQ</th><th>TRANSIT DAYS</th></tr></thead><tbody id="productionFrequencyRows"><tr><td colspan="4" class="empty">SKU Groups loading…</td></tr></tbody></table></div><div class="small-note" id="productionFrequencyStatus">Saved settings apply in this browser and recalculate MBQ Excel View.</div></div><div class="card"><div class="card-head"><h3>Planning rules</h3><small>Review with business owner before go-live</small></div><div class="form-grid"><div class="field"><label>Default plant lead time</label><select><option>4 days</option><option selected>5 days</option></select></div><div class="field"><label>Primary indent prediction basis</label><select><option selected>Last 2 months</option><option>Last 3 months (trend views only)</option></select></div><div class="field"><label>Primary planning unit</label><select><option selected>CBO / Cases</option><option>Units</option><option>Value (₹)</option></select></div><div class="field"><label>Stock threshold rule</label><select><option>Needs confirmation</option><option>Cover days</option><option>Remaining shelf-life %</option></select></div><div class="field"><label>Mid-month window default</label><input value="13th–15th (flexible 2–3 days)"></div><div class="field"><label>Month-end window default</label><input value="29th–31st (month-length aware)"></div><div class="field"><label>Mid-month billing target</label><input value="₹2.0–2.5 crore"></div><div class="field"><label>Month-end billing target</label><input value="~₹2.5 crore"></div><div class="field full"><label>Validation checklist</label><textarea>Confirm year/month mapping in SALES data; confirm meaning of SOH threshold; confirm CBO/case/pallet conversions; confirm whether daily flash uses order entry, invoice billing or dispatched sales; confirm source refresh procedure.</textarea></div></div></div></section>
 <div class="footer">MBQ Smart Indent Planning</div></div></main></div><div class="toast" id="toast"></div>
 <script>
 const sourceRows=[];
@@ -844,11 +844,76 @@ function mbqProductionRows(){
 function renderProductionFrequencySettings(){
  const host=document.getElementById('productionFrequencyRows');if(!host)return;const saved=mbqProductionSettings(),items=mbqProductionRows();
  if(!items.length){host.innerHTML='<tr><td colspan="4" class="empty">SKU Group source not available yet. Load the official MBQ workbook or connect the assortment source.</td></tr>';return;}
- host.innerHTML=items.map((r,i)=>{const v=saved[r.sku]||{};const freq=v.freq??r.freq,prod=mbqProdDaysFromFreq(freq)??(v.prodDays??r.prodDays),transit=v.transitDays??r.transitDays;return '<tr><td>'+mbqEscape(r.sku)+'</td><td><input type="number" min="0" step="1" data-prod-sku="'+mbqEscape(r.sku)+'" data-prod-field="freq" onchange="mbqUpdateMappedProdDays(this)" value="'+mbqEscape(freq??'')+'" placeholder="No Data Available" style="width:110px"></td><td><input type="number" min="0" step="0.5" data-prod-sku="'+mbqEscape(r.sku)+'" data-prod-field="prodDays" value="'+mbqEscape(prod??'')+'" placeholder="Auto from PROD FREQ" style="width:130px" readonly></td><td><input type="number" min="0" step="0.5" data-prod-sku="'+mbqEscape(r.sku)+'" data-prod-field="transitDays" value="'+mbqEscape(transit??'')+'" placeholder="No Data Available" style="width:110px"></td></tr>';}).join('');
+ host.innerHTML=items.map((r,i)=>{const v=saved[r.sku]||{};const freq=v.freq??r.freq,prod=v.prodDays!==undefined&&v.prodDays!==''?v.prodDays:(r.prodDays!==''&&r.prodDays!==undefined?r.prodDays:mbqProdDaysFromFreq(freq)),transit=v.transitDays??r.transitDays;return '<tr><td>'+mbqEscape(r.sku)+'</td><td><input type="number" min="0" step="1" data-prod-sku="'+mbqEscape(r.sku)+'" data-prod-field="freq" onchange="mbqUpdateMappedProdDays(this)" value="'+mbqEscape(freq??'')+'" placeholder="No Data Available" style="width:110px"></td><td><input type="number" min="0" step="0.5" data-prod-sku="'+mbqEscape(r.sku)+'" data-prod-field="prodDays" value="'+mbqEscape(prod??'')+'" placeholder="Auto from PROD FREQ" style="width:130px" readonly></td><td><input type="number" min="0" step="0.5" data-prod-sku="'+mbqEscape(r.sku)+'" data-prod-field="transitDays" value="'+mbqEscape(transit??'')+'" placeholder="No Data Available" style="width:110px"></td></tr>';}).join('');
 }
+
+let mbqPendingProductionUpload=null;
+function mbqProductionHeaderKey(value){return String(value??'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');}
+function downloadProductionTemplate(){
+ const headers=['SKU GROUP','PROD FREQ / MONTH','MBQ DAYS BASED ON PROD FREQ','TRANSIT DAYS'];
+ const saved=mbqProductionSettings();
+ const data=[headers,...mbqProductionRows().map(r=>{const v=saved[r.sku]||{};return [r.sku,v.freq??r.freq??'',v.prodDays??r.prodDays??'',v.transitDays??r.transitDays??''];})];
+ const ws=XLSX.utils.aoa_to_sheet(data);ws['!cols']=[{wch:32},{wch:22},{wch:34},{wch:18}];
+ const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Production Settings');
+ XLSX.writeFile(wb,'MBQ_Production_Settings_Template.xlsx');
+ const status=document.getElementById('productionUploadStatus');if(status)status.textContent='Excel template downloaded. Fill values and upload it here.';
+}
+function previewProductionSettingsUpload(input){
+ const status=document.getElementById('productionUploadStatus'),wrap=document.getElementById('productionUploadPreviewWrap'),host=document.getElementById('productionUploadPreviewRows'),btn=document.getElementById('applyProductionUploadBtn');
+ mbqPendingProductionUpload=null;if(btn)btn.disabled=true;if(wrap)wrap.style.display='none';if(!input.files||!input.files[0])return;
+ const file=input.files[0],reader=new FileReader();
+ reader.onload=event=>{
+  try{
+   const wb=XLSX.read(event.target.result,{type:'array',cellDates:false}),sheet=wb.Sheets[wb.SheetNames[0]];
+   if(!sheet)throw new Error('No worksheet found');
+   const matrix=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
+   if(!matrix.length)throw new Error('Worksheet is empty');
+   const headers=matrix[0].map(mbqProductionHeaderKey);
+   const find=aliases=>headers.findIndex(h=>aliases.includes(h));
+   const ix={sku:find(['SKUGROUP']),freq:find(['PRODFREQ','PRODFREQMONTH','PRODUCTIONFREQUENCY']),days:find(['MBQDAYSBASEDONPRODFREQ','MBQDAYS']),transit:find(['TRANSITDAYS'])};
+   const missing=[['SKU GROUP',ix.sku],['PROD FREQ / MONTH',ix.freq],['MBQ DAYS BASED ON PROD FREQ',ix.days],['TRANSIT DAYS',ix.transit]].filter(x=>x[1]<0).map(x=>x[0]);
+   if(missing.length)throw new Error('Missing required columns: '+missing.join(', '));
+   const existing=new Set(mbqProductionRows().map(r=>r.sku.toLowerCase())),seen=new Set(),parsed=[],issues=[];
+   const numeric=(v,label,row,required=false)=>{if(v===null||v===undefined||String(v).trim()==='')return '';const n=Number(String(v).replace(/,/g,'').trim());if(!Number.isFinite(n)||n<0){issues.push('Row '+row+': invalid '+label);return '';}return n;};
+   matrix.slice(1).forEach((row,index)=>{
+    const rowNum=index+2,sku=String(row[ix.sku]??'').trim();if(!sku)return;
+    const key=sku.toLowerCase();let valid=true;
+    if(seen.has(key)){issues.push('Row '+rowNum+': duplicate SKU GROUP '+sku);valid=false;}seen.add(key);
+    if(existing.size&&!existing.has(key)){issues.push('Row '+rowNum+': SKU GROUP not found in loaded master — '+sku);valid=false;}
+    const freq=numeric(row[ix.freq],'PROD FREQ / MONTH',rowNum),days=numeric(row[ix.days],'MBQ DAYS',rowNum),transit=numeric(row[ix.transit],'TRANSIT DAYS',rowNum);
+    if(freq!==''&&(!Number.isInteger(freq)||freq<=0)){issues.push('Row '+rowNum+': PROD FREQ must be a positive whole number');valid=false;}
+    if([freq,days,transit].every(v=>v==='')){issues.push('Row '+rowNum+': no settings supplied');valid=false;}
+    parsed.push({sku,freq,prodDays:days,transitDays:transit,valid});
+   });
+   if(!parsed.length)throw new Error('No SKU Group rows found under the header');
+   mbqPendingProductionUpload={rows:parsed,issues};
+   if(host)host.innerHTML=parsed.map(r=>'<tr><td>'+mbqEscape(r.sku)+'</td><td>'+mbqEscape(r.freq===''?'No Data Available':r.freq)+'</td><td>'+mbqEscape(r.prodDays===''?'No Data Available':r.prodDays)+'</td><td>'+mbqEscape(r.transitDays===''?'No Data Available':r.transitDays)+'</td><td>'+(r.valid?'<span class="pill green">Valid row</span>':'<span class="pill amber">Review required</span>')+'</td></tr>').join('');
+   if(wrap)wrap.style.display='block';
+   const validCount=parsed.filter(r=>r.valid).length;
+   if(status)status.textContent=validCount+' valid rows · '+issues.length+' validation issue(s). '+(issues.length?'Fix Excel issues and upload again.':'Preview looks good; apply to merge settings.');
+   if(btn)btn.disabled=issues.length>0||validCount===0;
+  }catch(err){if(status)status.textContent='Upload rejected: '+err.message;mbqPendingProductionUpload=null;if(btn)btn.disabled=true;}
+ };
+ reader.onerror=()=>{if(status)status.textContent='Unable to read this file. Please try the Excel template.';};
+ reader.readAsArrayBuffer(file);
+}
+function applyProductionSettingsUpload(){
+ const pending=mbqPendingProductionUpload,status=document.getElementById('productionUploadStatus');
+ if(!pending||pending.issues.length||!pending.rows.length){if(status)status.textContent='No validated upload to apply.';return;}
+ const values=mbqProductionSettings();
+ pending.rows.forEach(r=>{if(!r.valid)return;const prior=values[r.sku]||{};values[r.sku]={freq:r.freq===''?(prior.freq??''):r.freq,prodDays:r.prodDays===''?(prior.prodDays??''):r.prodDays,transitDays:r.transitDays===''?(prior.transitDays??''):r.transitDays};});
+ localStorage.setItem('mbqProductionFrequencySettings',JSON.stringify(values));
+ mbqPendingProductionUpload=null;
+ const btn=document.getElementById('applyProductionUploadBtn');if(btn)btn.disabled=true;
+ if(status)status.textContent='Imported '+pending.rows.length+' SKU Group rows. Review and click Save production settings to commit them in this browser.';
+ renderProductionFrequencySettings();
+ const statusLine=document.getElementById('productionFrequencyStatus');if(statusLine)statusLine.textContent='Excel settings staged in this browser. Click Save production settings to save and recalculate.';
+ showToast('Excel production settings imported.');
+}
+
 function saveProductionFrequency(){
  const values=mbqProductionSettings();document.querySelectorAll('[data-prod-sku][data-prod-field]').forEach(el=>{const sku=el.getAttribute('data-prod-sku'),field=el.getAttribute('data-prod-field');if(!values[sku])values[sku]={};values[sku][field]=el.value.trim()===''?'':Number(el.value);});
- Object.keys(values).forEach(sku=>{const mapped=mbqProdDaysFromFreq(values[sku].freq);if(mapped!==null)values[sku].prodDays=mapped;});localStorage.setItem('mbqProductionFrequencySettings',JSON.stringify(values));
+ Object.keys(values).forEach(sku=>{if(values[sku].prodDays===''||values[sku].prodDays===undefined||values[sku].prodDays===null){const mapped=mbqProdDaysFromFreq(values[sku].freq);if(mapped!==null)values[sku].prodDays=mapped;}});localStorage.setItem('mbqProductionFrequencySettings',JSON.stringify(values));
  const status=document.getElementById('productionFrequencyStatus');if(status)status.textContent='Saved '+Object.keys(values).length+' SKU Group settings in this browser. MBQ Excel View updated where required inputs are available.';
  renderMbqExcelView();showToast('Production frequency settings saved.');
 }
