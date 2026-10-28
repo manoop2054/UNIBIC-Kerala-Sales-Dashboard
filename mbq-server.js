@@ -4,11 +4,119 @@ const fs = require("fs");
 const os = require("os");
 const https = require("https");
 const XLSX = require("xlsx");
+const ExcelJS = require("exceljs");
 
 const SOH_URL = process.env.SOH_SHARE_URL || "https://github.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/releases/download/v1.0/LIVE.STOCK.xlsb";
 const SOH_SHEET = process.env.SOH_SHEET_NAME || "LIVE STOCK REPORT";
 const CACHE_DIR = path.join(os.tmpdir(), "mbq-live-data");
 let sohLoadPromise = null;
+
+const GSV_URL = process.env.GSV_SHARE_URL || "https://github.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/releases/download/v1.0/KL.LIVE.GSV.LINK-MANOOB.xlsx";
+const GSV_SHEET = process.env.GSV_SHEET_NAME || "ACX_Sales_Register";
+let gsvLoadPromise = null;
+let gsvLoadError = null;
+function gsvNorm(v) { return String(v == null ? "" : v).trim().toLowerCase().replace(/[^a-z0-9]/g, ""); }
+function gsvCellValue(value) {
+  if (value == null) return value;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "object") {
+    if (Array.isArray(value.richText)) return value.richText.map(x => x.text || "").join("");
+    if (Object.prototype.hasOwnProperty.call(value, "result")) return gsvCellValue(value.result);
+    if (Object.prototype.hasOwnProperty.call(value, "text")) return value.text;
+    return "";
+  }
+  return value;
+}
+function gsvDateMonth(value) {
+  if (value == null || value === "") return "";
+  let d;
+  if (value instanceof Date) d = value;
+  else if (typeof value === "number" && value > 20000 && value < 80000) d = new Date(Date.UTC(1899, 11, 30) + value * 86400000);
+  else d = new Date(String(value));
+  return Number.isNaN(d.getTime()) ? "" : d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0");
+}
+function gsvCfa(value) {
+  const v = String(value || "").toUpperCase();
+  if (/\bALU\b/.test(v)) return "ALU";
+  if (/\bPAY\b/.test(v)) return "PAY";
+  if (/\bTVD\b/.test(v)) return "TVD";
+  return "";
+}
+async function buildMbqGsvAggregate() {
+  await fs.promises.mkdir(CACHE_DIR, { recursive: true });
+  const source = path.join(CACHE_DIR, "KL.LIVE.GSV.LINK-MANOOB.xlsx");
+  const cache = path.join(CACHE_DIR, "gsv-aggregate.json");
+  const tmp = cache + ".tmp";
+  console.log("MBQ GSV: downloading source workbook");
+  await downloadToFile(GSV_URL, source);
+  const stats = { sourceBytes: (await fs.promises.stat(source)).size, sheet: GSV_SHEET };
+  const aggregate = new Map();
+  let headers = null, indexes = null, rowCount = 0, matchedRows = 0, sheetFound = false;
+  const reader = new ExcelJS.stream.xlsx.WorkbookReader(source, { sharedStrings: "cache", hyperlinks: "ignore", worksheets: "emit", styles: "ignore" });
+  for await (const sheet of reader) {
+    if (sheet.name !== GSV_SHEET) continue;
+    sheetFound = true;
+    for await (const row of sheet) {
+      const values = row.values || [];
+      if (!headers) {
+        headers = values.map(v => String(gsvCellValue(v) ?? "").trim());
+        const find = aliases => { for (const alias of aliases) { const i = headers.findIndex(h => gsvNorm(h) === gsvNorm(alias)); if (i > 0) return i; } return -1; };
+        indexes = {
+          item: find(["ItemId","Item ID","ItemCode","Item Code","FG Code","Product Code","Item No"]),
+          date: find(["PostingDate","Posting Date","Date","Invoice Date"]),
+          qty: find(["QuantityinCBD","QuantityinCBO","Quantity in CBO","CBO","CBB","QuantityinBox","Quantity"]),
+          amount: find(["AmountToCustomer","Amount To Customer","GSV Amount","GSV","GSV IN LAKH","AssesableValue","AssessableValue","Amount"]),
+          cfa: find(["LocationCode","Location Code","Location_Code","CFA","Warehouse","Branch","Site"])
+        };
+        stats.headers = headers.filter(Boolean);
+        stats.detected = Object.fromEntries(Object.entries(indexes).map(([k,i]) => [k, i > 0 ? headers[i] : null]));
+        if (indexes.item < 1 || indexes.date < 1 || indexes.qty < 1) throw new Error("GSV required columns not detected. Headers: " + headers.filter(Boolean).join(", "));
+        continue;
+      }
+      rowCount++;
+      const get = i => i > 0 ? gsvCellValue(values[i]) : "";
+      const item = String(get(indexes.item) ?? "").trim().toUpperCase().replace(/\s+/g, "");
+      const month = gsvDateMonth(get(indexes.date));
+      const qty = Number(String(get(indexes.qty) ?? "").replace(/,/g, ""));
+      const amountRaw = indexes.amount > 0 ? Number(String(get(indexes.amount) ?? "").replace(/,/g, "")) : NaN;
+      if (!item || !month || !Number.isFinite(qty)) continue;
+      const cfa = indexes.cfa > 0 ? gsvCfa(get(indexes.cfa)) : "";
+      const key = item + "|" + month + "|" + (cfa || "ALL");
+      const old = aggregate.get(key) || { itemId: item, month, cfa: cfa || "ALL", quantity: 0, amount: 0, amountAvailable: false, rows: 0 };
+      old.quantity += qty;
+      if (Number.isFinite(amountRaw)) { old.amount += amountRaw; old.amountAvailable = true; }
+      old.rows++;
+      aggregate.set(key, old);
+      matchedRows++;
+      if (rowCount % 20000 === 0) console.log("MBQ GSV progress:", rowCount, "rows");
+    }
+    break;
+  }
+  if (!sheetFound) throw new Error("GSV worksheet not found: " + GSV_SHEET);
+  if (!indexes || !aggregate.size) throw new Error("GSV workbook contained no usable item/month/quantity records");
+  const payload = { success: true, data: Array.from(aggregate.values()), rows: rowCount, matchedRows, aggregateRows: aggregate.size, loadedAt: new Date().toISOString(), detected: stats.detected, headers: stats.headers, sourceBytes: stats.sourceBytes };
+  await fs.promises.writeFile(tmp, JSON.stringify(payload), "utf8");
+  await fs.promises.rename(tmp, cache);
+  console.log("MBQ GSV ready:", JSON.stringify({ rows: rowCount, matchedRows, aggregateRows: aggregate.size, detected: stats.detected }));
+  gsvLoadError = null;
+  return payload;
+}
+async function readMbqGsvCache() {
+  const cache = path.join(CACHE_DIR, "gsv-aggregate.json");
+  try {
+    const stat = await fs.promises.stat(cache);
+    if (Date.now() - stat.mtimeMs < 6 * 60 * 60 * 1000) return JSON.parse(await fs.promises.readFile(cache, "utf8"));
+  } catch (_) {}
+  if (!gsvLoadPromise) {
+    gsvLoadPromise = buildMbqGsvAggregate().catch(error => {
+      gsvLoadError = error.message || String(error);
+      console.error("MBQ GSV load failed:", error.stack || error.message);
+      throw error;
+    }).finally(() => { gsvLoadPromise = null; });
+  }
+  throw Object.assign(new Error("GSV data is loading"), { loading: true });
+}
+
 function downloadToFile(url, dest, redirects = 0) {
   return new Promise((resolve, reject) => {
     if (redirects > 8) return reject(new Error("Too many download redirects"));
@@ -48,6 +156,18 @@ const prototypeFile = path.join(
   __dirname,
   "MBQ_Smart_Indent_Control_Tower_Updated_Prototype7.html"
 );
+
+
+app.get("/api/mbq/gsv", async (req, res) => {
+  try {
+    const result = await readMbqGsvCache();
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.json(result);
+  } catch (error) {
+    if (error.loading) return res.status(202).json({ success: false, loading: true, message: "GSV workbook is being processed; retry shortly." });
+    res.status(500).json({ success: false, loading: false, error: "GSV load failed", detail: gsvLoadError || error.message });
+  }
+});
 
 app.get("/api/mbq/soh", async (req, res) => {
   try {
