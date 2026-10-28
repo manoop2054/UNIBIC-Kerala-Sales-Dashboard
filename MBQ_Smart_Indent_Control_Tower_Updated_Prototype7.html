@@ -239,14 +239,23 @@ function parseCsv(text){const out=[];let row=[],v='',quoted=false;for(let i=0;i<
 function applyIndentUpload(){pendingUpload.forEach(x=>{if(x.total!==''){const r=rows.find(y=>y.sku.toLowerCase()===x.sku.toLowerCase());if(r)upsertIndentLine({mode:'group',sku:r.sku,code:r.code,qty:Number(x.total),note:'Uploaded Sales Head template',source:'Sales Head upload'});const sr=sourceRows.find(y=>y[0].toLowerCase()===x.sku.toLowerCase());if(sr)sr[1]=Number(x.total)}});renderIndent();renderIndentWorkspace();document.getElementById('uploadPreviewPanel').style.display='none';showToast('Validated values applied.')}
 let allocationData=[];
 function buildAllocationData(){
- const cfas=[{name:'ALU CFA',key:'ALU',factor:1.12},{name:'PAY CFA',key:'PAY',factor:.78},{name:'TVD CFA',key:'TVD',factor:.62}];
+ const cfas=[{name:'ALU CFA',key:'ALU'},{name:'PAY CFA',key:'PAY'},{name:'TVD CFA',key:'TVD'}];
  allocationData=[];
- rows.forEach((r,i)=>cfas.forEach((c,j)=>{
-   const base=Math.max(1,Number(r.avg)||1),last=Math.round(base*c.factor*(.88+((i+j)%5)*.06)),prev=Math.round(base*c.factor*(1.12-((i+j)%4)*.05)),avg=(last+prev)/2;
-   const soh=mbqLiveStockForCode(r.code,c.key),incoming=openToQtyFor(c.key,r.code),target=Math.round(avg*.25);
-   const net=Math.max(0,Math.ceil(avg+target-soh-incoming));
-   const priority=(soh+incoming)<avg*.35?'Critical':(soh+incoming)<avg*.65?'High':'Normal';
-   allocationData.push({cfa:c.name,cfaKey:c.key,sku:r.sku,code:r.code,last,prev,avg,soh,incoming,target,net,allocation:0,priority});
+ if(!Array.isArray(mbqSalesRows)||!mbqSalesRows.length)return;
+ const history=mbqSelectedMonthHistory().slice(-2);
+ if(history.length!==2)return;
+ rows.forEach(r=>cfas.forEach(c=>{
+   const code=String(r.code||'').trim(),sku=String(r.sku||'').trim();
+   if(!sku)return;
+   const sales=history.map(m=>mbqLoadedSalesValue(sku,c.key,m.month));
+   if(sales.some(v=>v===null||!Number.isFinite(Number(v))))return;
+   const last=Number(sales[1]),prev=Number(sales[0]),avg=(last+prev)/2;
+   const soh=mbqLiveStockForCode(code,c.key),incoming=openToQtyFor(c.key,code);
+   if(soh===null||soh===undefined||!Number.isFinite(Number(soh)))return;
+   const target=Math.ceil(avg*.25);
+   const net=Math.max(0,Math.ceil(avg+target-Number(soh)-Number(incoming||0)));
+   const priority=(Number(soh)+Number(incoming||0))<avg*.35?'Critical':(Number(soh)+Number(incoming||0))<avg*.65?'High':'Normal';
+   allocationData.push({cfa:c.name,cfaKey:c.key,sku,code,last,prev,avg,soh:Number(soh),incoming:Number(incoming||0),target,net,allocation:0,priority});
  }));
 }
 function runCfaAllocation(){
