@@ -899,10 +899,13 @@ function mbqLoadedSalesValue(sku,cfa,month){
 }
 function mbqRecalcContributionRows(sheet){
   const headers=(sheet.headers||[]).map(h=>String(h).trim().toUpperCase());
-  const ix={cat:headers.indexOf('CAT'),rank:headers.indexOf('RANK'),con:headers.indexOf('CONTRI%'),cum:headers.indexOf('CUM CONTRI%')};
-  if(ix.con<0||ix.rank<0||ix.cum<0||ix.cat<0)return sheet.rows||[];
+  const ix={sku:headers.indexOf('SKU GROUP'),ctg:headers.indexOf('CTG'),cat:headers.indexOf('CAT'),rank:headers.indexOf('RANK'),con:headers.indexOf('CONTRI%'),cum:headers.indexOf('CUM CONTRI%')};
+  const sourceRows=(sheet.rows||[]);
+  const classifyCtg=(skuGroup)=>{const description=String(skuGroup??'').trim().toUpperCase();if(description.includes('CAKE'))return 'CAKE';if(description.includes('WF'))return 'WAFER';return 'CORE';};
+  const prepared=sourceRows.map(row=>{const copy=row.slice();if(ix.sku>=0&&ix.ctg>=0)copy[ix.ctg]=classifyCtg(copy[ix.sku]);return copy;});
+  if(ix.con<0||ix.rank<0||ix.cum<0||ix.cat<0)return prepared;
   const parsed=(v)=>{if(v===null||v===undefined||String(v).trim()==='')return null;const raw=String(v).trim();const hasPct=raw.endsWith('%');const n=Number(raw.replace(/%$/,'').replace(/,/g,''));if(!Number.isFinite(n))return null;return hasPct||n>1?n/100:n;};
-  const items=(sheet.rows||[]).map((row,index)=>({row:row.slice(),index,contribution:parsed(row[ix.con])}));
+  const items=prepared.map((row,index)=>({row,index,contribution:parsed(row[ix.con])}));
   const ranked=items.filter(x=>x.contribution!==null).sort((a,b)=>b.contribution-a.contribution||a.index-b.index);
   let cumulative=0;
   ranked.forEach((item,i)=>{
