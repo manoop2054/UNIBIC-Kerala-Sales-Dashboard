@@ -964,37 +964,42 @@ function renderFlash(){
  const cfaKey=c==='All CFAs'?'DATA':normalCfa(c);
  const month=mbqSelectedMonthHistory().slice(-1)[0];
  const monthKey=month.year+'-'+String(month.month).padStart(2,'0');
- const groups=sourceRows.filter(r=>String(r[0]||'').trim());
- const detail=groups.map(sr=>{
-  const sku=String(sr[0]).trim();
-  const groupLine=indentLines.find(x=>x.mode==='group'&&String(x.sku).trim().toLowerCase()===sku.toLowerCase()&&(cfaKey==='DATA'||!x.cfaKey||normalCfa(x.cfaKey)===cfaKey));
-  const itemLines=indentLines.filter(x=>x.mode==='item'&&String(x.sku).trim().toLowerCase()===sku.toLowerCase()&&x.code&&(cfaKey==='DATA'||normalCfa(x.cfaKey||'')===cfaKey));
-  let indent=groupLine?Number(groupLine.qty):Number(sr[1]);
-  if((!Number.isFinite(indent)||sr[1]===null||sr[1]===undefined||sr[1]==='')&&itemLines.length)indent=itemLines.reduce((sum,x)=>sum+(Number(x.qty)||0),0);
-  const indentAvailable=indent!==null&&indent!==undefined&&indent!==''&&Number.isFinite(Number(indent));
+ const fmt=v=>v===null||v===undefined||!Number.isFinite(Number(v))?'No Data Available':Number(v).toLocaleString('en-IN',{maximumFractionDigits:0});
+ const pct=v=>v===null||v===undefined||!Number.isFinite(Number(v))?'No Data Available':Number(v).toLocaleString('en-IN',{maximumFractionDigits:1})+'%';
+ const salesHeadRows=(Array.isArray(sourceRows)?sourceRows:[]).filter(r=>String(r[0]||'').trim());
+ const allocationRows=Array.isArray(allocationData)?allocationData:[];
+ const skuNames=[...new Set([...salesHeadRows.map(r=>String(r[0]||'').trim()),...allocationRows.map(r=>String(r.sku||'').trim())].filter(Boolean))];
+ const detail=skuNames.map(sku=>{
+  const sr=salesHeadRows.find(r=>String(r[0]||'').trim().toLowerCase()===sku.toLowerCase());
+  const alloc=allocationRows.filter(x=>String(x.sku||'').trim().toLowerCase()===sku.toLowerCase()&&(cfaKey==='DATA'||normalCfa(x.cfaKey||x.cfa)===cfaKey));
+  let indent=null;
+  if(cfaKey==='DATA'){
+   const uploaded=typeof mbqUploadedIndentForSku==='function'?mbqUploadedIndentForSku(sku):null;
+   const raw=uploaded!==null&&uploaded!==undefined?uploaded:(sr?sr[1]:null);
+   if(raw!==null&&raw!==undefined&&raw!==''&&Number.isFinite(Number(raw)))indent=Number(raw);
+  }else if(alloc.length){indent=alloc.reduce((sum,x)=>sum+(Number(x.allocation)||0),0);}
   const billed=mbqGsvRows.length?mbqGsvGroupMonth(sku,cfaKey,monthKey):null;
-  const billedAvailable=billed!==null&&Number.isFinite(Number(billed));
-  const achievement=indentAvailable&&Number(indent)>0&&billedAvailable?Number(billed)/Number(indent)*100:null;
-  const balance=indentAvailable&&billedAvailable?Number(indent)-Number(billed):null;
-  const balancePct=indentAvailable&&Number(indent)>0&&billedAvailable?Math.max(0,balance)/Number(indent)*100:null;
-  return {sku,indent:indentAvailable?Number(indent):null,billed:billedAvailable?Number(billed):null,achievement,balance,balancePct};
- });
- const fmt=v=>v===null||v===undefined?'No Data Available':Number(v).toLocaleString('en-IN',{maximumFractionDigits:0});
- const pct=v=>v===null||v===undefined?'No Data Available':Number(v).toLocaleString('en-IN',{maximumFractionDigits:0})+'%';
- const totalIndent=detail.length&&detail.every(x=>x.indent!==null)?detail.reduce((s,x)=>s+x.indent,0):null;
- const totalBilled=detail.length&&detail.every(x=>x.billed!==null)?detail.reduce((s,x)=>s+x.billed,0):null;
+  const billedValue=billed!==null&&Number.isFinite(Number(billed))?Number(billed):null;
+  const achievement=indent!==null&&indent>0&&billedValue!==null?billedValue/indent*100:null;
+  const balance=indent!==null&&billedValue!==null?indent-billedValue:null;
+  const balancePct=indent!==null&&indent>0&&billedValue!==null?Math.max(0,balance)/indent*100:null;
+  return {sku,indent,billed:billedValue,achievement,balance,balancePct};
+ }).filter(x=>x.indent!==null||x.billed!==null);
+ const sumField=key=>detail.length&&detail.every(x=>x[key]!==null)?detail.reduce((sum,x)=>sum+Number(x[key]||0),0):null;
+ const totalIndent=sumField('indent'),totalBilled=sumField('billed');
  const totalAchievement=totalIndent!==null&&totalIndent>0&&totalBilled!==null?totalBilled/totalIndent*100:null;
  const totalBalance=totalIndent!==null&&totalBilled!==null?totalIndent-totalBilled:null;
  const totalBalancePct=totalIndent!==null&&totalIndent>0&&totalBilled!==null?Math.max(0,totalBalance)/totalIndent*100:null;
  const totalIndentText=totalIndent===null?'No Data Available':fmt(totalIndent)+' CBB';
  const totalBilledText=totalBilled===null?'No Data Available':fmt(totalBilled)+' CBB';
- document.getElementById('flashText').innerText='UNIBIC KERALA · DAILY INDENT FLASH\nReport date: '+d+' | CFA: '+c+'\nIndent total: '+totalIndentText+'\nRunning-month billed: '+totalBilledText+'\nBilled achievement: '+pct(totalAchievement)+'\nNote: GSV is month-aggregated; selected-date billing is not available.';
+ const flash=document.getElementById('flashText');
+ if(flash)flash.innerText='UNIBIC KERALA · DAILY INDENT FLASH\nReport date: '+d+' | CFA: '+c+'\nSales Head IND / CFA Indent: '+totalIndentText+'\nRunning-month billed ('+month.label+' '+month.year+'): '+totalBilledText+'\nBilled achievement: '+pct(totalAchievement)+'\nBalance to indent: '+(totalBalance===null?'No Data Available':fmt(totalBalance)+' CBB')+'\nNote: GSV is month-aggregated; selected-date billing is not available.';
  const summary=document.getElementById('flashGroupSummary');
- if(summary)summary.innerHTML=[['Total indent',totalIndentText],['Running-month billed',totalBilledText],['Overall achievement',pct(totalAchievement)],['Balance %',pct(totalBalancePct)]].map(([label,value])=>'<div class="card kpi"><div class="label">'+label+'</div><div class="value" style="font-size:18px">'+value+'</div></div>').join('');
+ if(summary)summary.innerHTML=[['Total Indent (CBB)',totalIndentText],['Running-month Billed (CBB)',totalBilledText],['Overall Achievement',pct(totalAchievement)],['Balance %',pct(totalBalancePct)]].map(([label,value])=>'<div class="card kpi"><div class="label">'+label+'</div><div class="value" style="font-size:18px">'+value+'</div></div>').join('');
  const body=document.getElementById('flashGroupRows');
- if(body)body.innerHTML=detail.map(x=>'<tr><td class="sku">'+mbqEscape(x.sku)+'</td><td>'+fmt(x.indent)+'</td><td>'+fmt(x.billed)+'</td><td><b>'+pct(x.achievement)+'</b></td><td>'+pct(x.balancePct)+'</td><td>'+fmt(x.balance)+'</td></tr>').join('')+'<tr><th>TOTAL</th><th>'+fmt(totalIndent)+'</th><th>'+fmt(totalBilled)+'</th><th>'+pct(totalAchievement)+'</th><th>'+pct(totalBalancePct)+'</th><th>'+fmt(totalBalance)+'</th></tr>';
+ if(body)body.innerHTML=(detail.length?detail.map(x=>'<tr><td class="sku">'+mbqEscape(x.sku)+'</td><td>'+fmt(x.indent)+'</td><td>'+fmt(x.billed)+'</td><td><b>'+pct(x.achievement)+'</b></td><td>'+pct(x.balancePct)+'</td><td>'+fmt(x.balance)+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">Sales Head IND / CFA Allocation and GSV billing data are required to calculate this report.</td></tr>')+'<tr><th>TOTAL</th><th>'+fmt(totalIndent)+'</th><th>'+fmt(totalBilled)+'</th><th>'+pct(totalAchievement)+'</th><th>'+pct(totalBalancePct)+'</th><th>'+fmt(totalBalance)+'</th></tr>';
  const note=document.getElementById('flashGroupNote');
- if(note)note.textContent='Billing period: '+month.label+' '+month.year+' · '+c+'. Achievement = billed ÷ indent × 100. Balance % = max(indent − billed, 0) ÷ indent × 100. Over-billing can make achievement exceed 100%. GSV currently supplies monthly aggregates, not selected-date billing.';
+ if(note)note.textContent='Billing period: '+month.label+' '+month.year+' · '+c+'. All CFAs shows Sales Head IND; a selected CFA shows its CFA allocation. Achievement = running-month billed ÷ indent × 100. Balance % = max(indent − billed, 0) ÷ indent × 100. GSV is monthly aggregate data, not selected-date billing. CFA-specific indent requires CFA Allocation to be completed.';
 }
 function copyFlash(){let text=document.getElementById('flashText').innerText;navigator.clipboard?.writeText(text).then(()=>showToast('Flash text copied.')).catch(()=>showToast('Copy unavailable; select and copy the flash text.'))}
 function exportFlashGroupReport(){const table=document.querySelector('#flashGroupRows')?.closest('table');if(!table)return;const rows=[...table.querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(td=>'"'+td.innerText.replaceAll('"','""')+'"').join(',')).join('\n');const blob=new Blob([rows],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='UNIBIC_Group_Indent_vs_Billed.csv';a.click();URL.revokeObjectURL(url);showToast('Group-wise report exported.')}
