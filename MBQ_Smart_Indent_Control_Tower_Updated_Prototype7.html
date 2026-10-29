@@ -777,7 +777,44 @@ function downloadCsvRows(name,rows){const csv=rows.map(r=>r.map(csvCell).join(',
 function exportToSummaryCsv(){const groups=groupedTos(getToRecords());if(!groups.length){showToast('TO data ഇല്ല.');return}downloadCsvRows('Open_TO_Summary.csv',[['TO Number','CFA','Total Items','Total CBB','Received CBB','Open TO CBB','Status'],...groups.map(g=>[g.toNo,g.cfa,g.items.length,g.total,g.received,g.open,g.isReceived?'Received / Closed':'Open TO'])])}
 function exportToCsv(){const items=getToRecords();if(!items.length){showToast('TO data ഇല്ല.');return}downloadCsvRows('Open_TO_Item_Details.csv',[['TO Number','Item Number','Product Name','CFA','Transfer Qty CBO','Received CBB','Open TO CBB','Status'],...items.map(r=>[r.toNo,r.code,r.product,r.cfa,r.qty,r.fullyReceived?r.qty:0,r.fullyReceived?0:r.qty,r.fullyReceived?'Received / Closed':'Open TO'])])}
 function printToReport(mode='details'){const items=getToRecords(),groups=groupedTos(items);if(!items.length){showToast('TO data ഇല്ല.');return}const summary=mode==='summary',rows=summary?groups.map(g=>'<tr><td>'+escapeToHtml(g.toNo)+'</td><td>'+escapeToHtml(g.cfa)+'</td><td>'+g.items.length+'</td><td>'+g.total+'</td><td>'+g.received+'</td><td>'+g.open+'</td><td>'+(g.isReceived?'Received / Closed':'Open TO')+'</td></tr>').join(''):items.map(r=>'<tr><td>'+escapeToHtml(r.toNo)+'</td><td>'+escapeToHtml(r.code)+'</td><td>'+escapeToHtml(r.product)+'</td><td>'+escapeToHtml(r.cfa)+'</td><td>'+r.qty+'</td><td>'+(r.fullyReceived?r.qty:0)+'</td><td>'+(r.fullyReceived?0:r.qty)+'</td><td>'+(r.fullyReceived?'Received / Closed':'Open TO')+'</td></tr>').join(''),heads=summary?'<th>TO Number</th><th>CFA</th><th>Total Items</th><th>Total CBB</th><th>Received CBB</th><th>Open CBB</th><th>Status</th>':'<th>TO Number</th><th>Item Number</th><th>Product Name</th><th>CFA</th><th>Transfer Qty CBO</th><th>Received CBB</th><th>Open TO CBB</th><th>Status</th>',w=window.open('','_blank');if(!w){showToast('Print popup അനുവദിക്കുക.');return}w.document.write('<html><head><title>Open TO Report</title><style>body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}.plant-stockout-row td{background:#fff0f0!important;color:#8f1d1d}.plant-stockout-cell{background:#fee2e2!important;color:#991b1b!important;font-weight:800}.mbq-short-cell{background:#fee2e2!important;color:#991b1b!important;font-weight:800}.mbq-excess-cell{background:#dcfce7!important;color:#166534!important;font-weight:800}.mbq-gap-high{background:#fff0f0!important;color:#991b1b!important;font-weight:700}.mbq-gap-low{background:#ecfdf5!important;color:#166534!important;font-weight:700}
-</style></head><body><h2>Open TO '+(summary?'Summary':'Item Details')+'</h2><table><tr>'+heads+'</tr>'+rows+'</table><script>window.onload=function(){window.print()}<\\/script></body></html>');w.document.close()}
+</style></head><body><h2>Open TO '+(summary?'Summary':'Item Details')+'</h2><table><tr>'+heads+'</tr>'+rows+'</table><script>window.onload=function(){window.print()}<\\/script>
+<script>
+/* MBQ whole-number display formatting: presentation only; keep calculations untouched. */
+(function(){
+ function normalizeTextNode(node){
+   if(!node || node.nodeType!==3) return;
+   const raw=node.nodeValue;
+   if(!raw || !raw.trim()) return;
+   const t=raw.trim();
+   // Only standalone numeric values; never alter SKU names, dates, labels or mixed explanatory text.
+   const m=t.match(/^([₹$]?\\s*[+−-]?)((?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d+)?)(\\s*%|\\s*(?:days?|CBB|CBO|rows|items)\\b)?$/i);
+   if(!m) return;
+   const n=Number(m[2].replace(/,/g,''));
+   if(!Number.isFinite(n) || !m[2].includes('.')) return;
+   const rounded=Math.round(n);
+   const formatted=rounded.toLocaleString('en-IN');
+   node.nodeValue=raw.replace(t, m[1]+formatted+(m[3]||''));
+ }
+ function scan(root){
+   if(!root) return;
+   const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+   const nodes=[]; while(walker.nextNode()) nodes.push(walker.currentNode);
+   nodes.forEach(normalizeTextNode);
+ }
+ function run(){scan(document.body);}
+ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',run,{once:true}); else run();
+ const observer=new MutationObserver(records=>{
+   for(const record of records){
+     if(record.type==='characterData') normalizeTextNode(record.target);
+     for(const node of record.addedNodes||[]) if(node.nodeType===1) scan(node); else normalizeTextNode(node);
+   }
+ });
+ const start=()=>{if(document.body) observer.observe(document.body,{subtree:true,childList:true,characterData:true});};
+ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start,{once:true}); else start();
+})();
+</script>
+
+</body></html>');w.document.close()}
 function showPreviousIndent(){document.getElementById('prevIndentPanel').innerHTML='<strong>Previous month balance review</strong> Example loaded.';showToast('Previous indent review opened.')}
 function renderFlash(){
  const d=document.getElementById('flashDate')?.value||'Selected date',c=document.getElementById('flashCfa')?.value||'All CFAs';
