@@ -503,19 +503,19 @@ function previewIndentUpload(input){
      for(let ri=0;ri<Math.min(candidate.length,40);ri++){
       const hs=candidate[ri].map(norm);
       const hasSku=hs.some(h=>h==='sku group'||h==='sku groups'||h==='sku group name');
-      const hasQty=hs.some(h=>['total indent by rbm sales head','total indent by rbm','total indent','cfa wise allocation tvd','tvd allocation','cfa wise allocation pay','pay allocation','cfa wise allocation alu','alu allocation'].some(n=>h===norm(n)||h.includes(norm(n))));
+      const hasQty=hs.some(h=>['total indent by rbm sales head','total indent by rbm','total indent','qty cbb','qty cbo','sales head ind','sales head indent','cfa wise allocation tvd','tvd allocation','cfa wise allocation pay','pay allocation','cfa wise allocation alu','alu allocation'].some(n=>h===norm(n)||h.includes(norm(n))));
       if(hasSku&&hasQty){chosen={records:candidate,headerIndex:ri};break;}
      }
      if(chosen)break;
     }
     if(!chosen)throw new Error('SKU GROUP and Total Indent/CFA Allocation headings were not found together in the first 40 rows of any sheet.');
     records=chosen.records;var headerIndex=chosen.headerIndex;
-   }else{records=parseCsv(String(reader.result||'').replace(/^\uFEFF/,''));var headerIndex=records.findIndex(r=>{const hs=r.map(norm);return hs.some(h=>h==='sku group'||h==='sku groups'||h==='sku group name')&&hs.some(h=>['total indent by rbm sales head','total indent by rbm','total indent','cfa wise allocation tvd','tvd allocation','cfa wise allocation pay','pay allocation','cfa wise allocation alu','alu allocation'].some(n=>h===norm(n)||h.includes(norm(n))))});}
+   }else{records=parseCsv(String(reader.result||'').replace(/^\uFEFF/,''));var headerIndex=records.findIndex(r=>{const hs=r.map(norm);return hs.some(h=>h==='sku group'||h==='sku groups'||h==='sku group name')&&hs.some(h=>['total indent by rbm sales head','total indent by rbm','total indent','qty cbb','qty cbo','sales head ind','sales head indent','cfa wise allocation tvd','tvd allocation','cfa wise allocation pay','pay allocation','cfa wise allocation alu','alu allocation'].some(n=>h===norm(n)||h.includes(norm(n))))});}
    if(!records||records.length<2||headerIndex<0)throw new Error('Could not find a valid header row and data rows.');
    const headers=records[headerIndex].map(norm);
    const col=names=>headers.findIndex(h=>names.some(n=>h===norm(n)||h.includes(norm(n))));
    const gi=col(['sku group','sku groups','sku group name']);
-   const ti=col(['total indent by rbm sales head','total indent by rbm','total indent']);
+   const ti=col(['total indent by rbm sales head','total indent by rbm','total indent','qty cbb','qty cbo','sales head ind','sales head indent']);
    const vi=col(['cfa wise allocation tvd','tvd allocation']);
    const pi=col(['cfa wise allocation pay','pay allocation']);
    const ai=col(['cfa wise allocation alu','alu allocation']);
