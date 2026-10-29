@@ -789,24 +789,31 @@ function renderDaysPlanner(){
   const demand=salesAvailable&&validPeriod?Math.max(0,avgDaily*days):null;
   const soh=mbqPlannerUsableSoh(cfa,code);
   const to=toAvailable?openToQtyFor(cfa,code):null;
-  const net=demand!==null&&soh!==null&&to!==null?Math.max(0,demand-soh-to):null;
+  // Keep demand planning usable when optional Open TO data is missing.
+  // Missing Open TO is provisionally treated as zero and explicitly flagged.
+  // Missing SOH is also provisionally zero so known demand is still visible.
+  const usableSoh=soh===null?0:soh;
+  const usableTo=to===null?0:to;
+  const net=demand!==null?Math.max(0,demand-usableSoh-usableTo):null;
   const rowComplete=demand!==null&&soh!==null&&to!==null;
-  if(demand!==null)periodDemand+=demand;else demandComplete=false;
-  if(net!==null)netTotal+=net;else demandComplete=false;
-  output.push({cfa:cfaName,sku,code,avgDaily,demand,soh,to,net,complete:rowComplete});
+  if(demand!==null)periodDemand+=demand;
+  if(net!==null)netTotal+=net;
+  output.push({cfa:cfaName,sku,code,avgDaily,demand,soh,to,net,complete:rowComplete,provisional:demand!==null&&(soh===null||to===null)});
  });
- const completeRows=output.filter(r=>r.complete);
- const allRowsComplete=output.length>0&&completeRows.length===output.length;
- set('daysPlanDemand',allRowsComplete?fmt(periodDemand):'No Data Available');
- set('daysPlanIndent',allRowsComplete?fmt(netTotal):'No Data Available');
- set('daysPlanLoad',allRowsComplete?fmt(hasCap?Math.min(netTotal,cap):netTotal):'No Data Available');
+ const demandRows=output.filter(r=>r.demand!==null);
+ const netRows=output.filter(r=>r.net!==null);
+ const hasDemand=demandRows.length>0&&validPeriod;
+ const hasNet=netRows.length>0&&validPeriod;
+ set('daysPlanDemand',hasDemand?fmt(periodDemand):'No Data Available');
+ set('daysPlanIndent',hasNet?fmt(netTotal):'No Data Available');
+ set('daysPlanLoad',hasNet?fmt(hasCap?Math.min(netTotal,cap):netTotal):'No Data Available');
  set('daysPlanLoadSub',hasCap?'Capped at '+fmt(cap)+' CBB': 'No capacity cap entered · uncapped requirement shown');
- set('daysPlanShortage',hasCap&&allRowsComplete?fmt(Math.max(0,netTotal-cap)):'No Data Available');
+ set('daysPlanShortage',hasCap&&hasNet?fmt(Math.max(0,netTotal-cap)):'No Data Available');
  const status=document.getElementById('daysPlanStatus');
- if(status)status.textContent=!mbqGsvRows.length?'GSV UNAVAILABLE':!liveSohRows.length?'LIVE SOH UNAVAILABLE':!toAvailable?'OPEN TO DATA UNAVAILABLE':!validPeriod?'SELECT VALID DAYS':completeRows.length===output.length?'SOURCE DATA CONNECTED':'PARTIAL SOURCE DATA';
+ if(status)status.textContent=!validPeriod?'SELECT VALID DAYS':!hasDemand?'SALES DATA UNAVAILABLE':!liveSohRows.length?'PROVISIONAL · LIVE SOH UNAVAILABLE':!toAvailable?'PROVISIONAL · OPEN TO ASSUMED ZERO':output.some(r=>!r.complete)?'PARTIAL SOURCE DATA':'SOURCE DATA CONNECTED';
  const tbody=document.getElementById('daysPlanRows');
  if(tbody){
-  tbody.innerHTML=output.map(r=>'<tr><td>'+r.cfa+'</td><td class="sku">'+mbqEscape(r.sku)+'</td><td>'+mbqEscape(r.code)+'</td><td>'+(r.avgDaily===null?'No Data Available':fmt(r.avgDaily))+'</td><td>'+(r.demand===null?'No Data Available':fmt(r.demand))+'</td><td>'+(r.soh===null?'No Data Available':fmt(r.soh))+'</td><td>'+(r.to===null?'No Data Available':fmt(r.to))+'</td><td><b>'+(r.net===null?'No Data Available':fmt(r.net))+'</b></td><td><b>'+(r.net===null?'No Data Available':fmt(hasCap?Math.min(r.net,cap):r.net))+'</b></td><td>'+(r.complete?'<span class="pill green">Calculated</span>':'<span class="pill amber">No Data Available</span>')+'</td></tr>').join('')||'<tr><td colspan="10" class="empty">No assortment items available.</td></tr>';
+  tbody.innerHTML=output.map(r=>'<tr><td>'+r.cfa+'</td><td class="sku">'+mbqEscape(r.sku)+'</td><td>'+mbqEscape(r.code)+'</td><td>'+(r.avgDaily===null?'No Data Available':fmt(r.avgDaily))+'</td><td>'+(r.demand===null?'No Data Available':fmt(r.demand))+'</td><td>'+(r.soh===null?'No Data Available':fmt(r.soh))+'</td><td>'+(r.to===null?'No Data Available':fmt(r.to))+'</td><td><b>'+(r.net===null?'No Data Available':fmt(r.net))+'</b></td><td><b>'+(r.net===null?'No Data Available':fmt(hasCap?Math.min(r.net,cap):r.net))+'</b></td><td>'+(r.complete?'<span class="pill green">Calculated</span>':r.provisional?'<span class="pill amber">Provisional · missing source</span>':'<span class="pill amber">No Data Available</span>')+'</td></tr>').join('')||'<tr><td colspan="10" class="empty">No assortment items available.</td></tr>';
  }
 }
 
