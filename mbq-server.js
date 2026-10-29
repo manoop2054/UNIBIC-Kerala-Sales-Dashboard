@@ -195,6 +195,12 @@ async function ensureDraftTable() {
 }
 let draftTableReady = null;
 function readyDrafts() { if (!draftTableReady) draftTableReady = ensureDraftTable(); return draftTableReady; }
+const MBQ_DRAFTS_PIN = process.env.MBQ_DRAFTS_PIN || "";
+app.use("/api/mbq/drafts", (req, res, next) => {
+  if (!MBQ_DRAFTS_PIN) return res.status(503).json({ success: false, error: "Shared draft access PIN is not configured" });
+  if (String(req.get("X-MBQ-Drafts-Pin") || "") !== MBQ_DRAFTS_PIN) return res.status(401).json({ success: false, error: "Shared draft access PIN is missing or incorrect" });
+  next();
+});
 app.get("/api/mbq/drafts", async (req, res) => {
   try {
     await readyDrafts();
