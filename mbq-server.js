@@ -5,6 +5,8 @@ const os = require("os");
 const https = require("https");
 const XLSX = require("xlsx");
 const ExcelJS = require("exceljs");
+const { Pool } = require("pg");
+const draftPool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 5 }) : null;
 
 const SOH_URL = process.env.SOH_SHARE_URL || "https://github.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/releases/download/v1.0/LIVE.STOCK.xlsb";
 const SOH_SHEET = process.env.SOH_SHEET_NAME || "LIVE STOCK REPORT";
@@ -179,6 +181,75 @@ app.get("/api/mbq/soh", async (req, res) => {
     console.error("MBQ LIVE SOH load failed:", error.stack || error.message);
     res.status(500).json({ success: false, error: "LIVE SOH load failed", detail: error.message });
   }
+});
+
+// Shared MBQ drafts: PostgreSQL storage keeps drafts available across browsers and devices.
+async function ensureDraftTable() {
+  if (!draftPool) throw new Error("Shared draft storage is not configured (DATABASE_URL missing)");
+  await draftPool.query(`CREATE TABLE IF NOT EXISTS mbq_shared_drafts (
+    id BIGSERIAL PRIMARY KEY, draft_type TEXT NOT NULL, draft_name TEXT NOT NULL,
+    file_name TEXT, content_type TEXT, file_size BIGINT,
+    payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+}
+let draftTableReady = null;
+function readyDrafts() { if (!draftTableReady) draftTableReady = ensureDraftTable(); return draftTableReady; }
+app.get("/api/mbq/drafts", async (req, res) => {
+  try {
+    await readyDrafts();
+    const type = String(req.query.type || "").slice(0, 100);
+    const result = type
+      ? await draftPool.query("SELECT id, draft_type, draft_name, file_name, content_type, file_size, created_at, updated_at, payload->>'month' AS month, CASE WHEN jsonb_typeof(payload->'lines')='array' THEN jsonb_array_length(payload->'lines') ELSE 0 END AS line_count FROM mbq_shared_drafts WHERE draft_type=$1 ORDER BY updated_at DESC LIMIT 100", [type])
+      : await draftPool.query("SELECT id, draft_type, draft_name, file_name, content_type, file_size, created_at, updated_at FROM mbq_shared_drafts ORDER BY updated_at DESC LIMIT 100");
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ success: true, drafts: result.rows });
+  } catch (error) { res.status(500).json({ success: false, error: "Could not load shared drafts", detail: error.message }); }
+});
+app.get("/api/mbq/drafts/:id", async (req, res) => {
+  try {
+    await readyDrafts();
+    const result = await draftPool.query("SELECT id, draft_type, draft_name, file_name, content_type, file_size, payload, created_at, updated_at FROM mbq_shared_drafts WHERE id=$1", [req.params.id]);
+    if (!result.rowCount) return res.status(404).json({ success: false, error: "Draft not found" });
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ success: true, draft: result.rows[0] });
+  } catch (error) { res.status(500).json({ success: false, error: "Could not open draft", detail: error.message }); }
+});
+app.post("/api/mbq/drafts", express.json({ limit: "40mb" }), async (req, res) => {
+  try {
+    await readyDrafts();
+    const b = req.body || {};
+    if (!String(b.type || "").trim() || !String(b.name || "").trim() || !b.payload || typeof b.payload !== "object")
+      return res.status(400).json({ success: false, error: "type, name and payload are required" });
+    const size = Number(b.fileSize || 0);
+    if (size > 25 * 1024 * 1024) return res.status(413).json({ success: false, error: "Draft file limit is 25 MB" });
+    const result = await draftPool.query(
+      "INSERT INTO mbq_shared_drafts(draft_type,draft_name,file_name,content_type,file_size,payload) VALUES($1,$2,$3,$4,$5,$6::jsonb) RETURNING id,draft_type,draft_name,file_name,file_size,created_at,updated_at",
+      [String(b.type).slice(0,100),String(b.name).trim().slice(0,200),b.fileName ? String(b.fileName).slice(0,255) : null,b.contentType ? String(b.contentType).slice(0,150) : null,Number.isFinite(size) ? size : 0,JSON.stringify(b.payload)]
+    );
+    res.status(201).json({ success: true, draft: result.rows[0] });
+  } catch (error) { res.status(500).json({ success: false, error: "Could not save shared draft", detail: error.message }); }
+});
+app.put("/api/mbq/drafts/:id", express.json({ limit: "40mb" }), async (req, res) => {
+  try {
+    await readyDrafts();
+    const b = req.body || {};
+    if (!String(b.name || "").trim() || !b.payload || typeof b.payload !== "object") return res.status(400).json({ success: false, error: "name and payload are required" });
+    const result = await draftPool.query(
+      "UPDATE mbq_shared_drafts SET draft_name=$1,file_name=$2,content_type=$3,file_size=$4,payload=$5::jsonb,updated_at=NOW() WHERE id=$6 RETURNING id,draft_type,draft_name,file_name,file_size,created_at,updated_at",
+      [String(b.name).trim().slice(0,200),b.fileName ? String(b.fileName).slice(0,255) : null,b.contentType ? String(b.contentType).slice(0,150) : null,Number(b.fileSize || 0),JSON.stringify(b.payload),req.params.id]
+    );
+    if (!result.rowCount) return res.status(404).json({ success: false, error: "Draft not found" });
+    res.json({ success: true, draft: result.rows[0] });
+  } catch (error) { res.status(500).json({ success: false, error: "Could not update shared draft", detail: error.message }); }
+});
+app.delete("/api/mbq/drafts/:id", async (req, res) => {
+  try {
+    await readyDrafts();
+    const result = await draftPool.query("DELETE FROM mbq_shared_drafts WHERE id=$1 RETURNING id", [req.params.id]);
+    if (!result.rowCount) return res.status(404).json({ success: false, error: "Draft not found" });
+    res.json({ success: true, id: result.rows[0].id });
+  } catch (error) { res.status(500).json({ success: false, error: "Could not delete draft", detail: error.message }); }
 });
 
 const TO_STATE_FILE = path.join(CACHE_DIR, "open-to-state.json");
