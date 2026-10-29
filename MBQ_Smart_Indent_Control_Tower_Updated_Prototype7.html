@@ -524,14 +524,14 @@ function previewIndentUpload(input){
    const known=new Set([...sourceRows.map(r=>String(r[0]||'').trim().toLowerCase()),...rows.map(r=>String(r.sku||'').trim().toLowerCase()),...mbqSalesRows.map(r=>String(r.SKU_Group??r.SKU_GROUP??r['SKU Group']??'').trim().toLowerCase())].filter(Boolean));
    pendingUpload=records.slice(headerIndex+1).filter(r=>r.some(v=>String(v??'').trim())).map(r=>{
     const sku=String(r[gi]??'').trim(),total=ti<0?'':String(r[ti]??'').trim(),tvd=vi<0?'':String(r[vi]??'').trim(),pay=pi<0?'':String(r[pi]??'').trim(),alu=ai<0?'':String(r[ai]??'').trim();
-    const errors=[];if(!sku)errors.push('SKU Group missing');else if(known.size&&!known.has(sku.toLowerCase()))errors.push('Unknown SKU Group');
+    const errors=[],warnings=[];if(!sku)errors.push('SKU Group missing');else if(known.size&&!known.has(sku.toLowerCase()))warnings.push('Not in assortment master — will be listed for manual CFA allocation; item code/SOH mapping unavailable');
     const values=[['Total Indent',total],['TVD allocation',tvd],['PAY allocation',pay],['ALU allocation',alu]];
     values.forEach(([label,v])=>{if(v!==''&&(!Number.isFinite(Number(v))||Number(v)<0))errors.push('Invalid '+label);});
     const anyQty=[total,tvd,pay,alu].some(v=>v!=='');
-    return {sku,total,tvd,pay,alu,anyQty,errors};
+    return {sku,total,tvd,pay,alu,anyQty,errors,warnings};
    });
    document.getElementById('uploadValidation').textContent='Rows: '+pendingUpload.length+'. Blank quantity cells are allowed; rows with values will be applied.';
-   document.getElementById('uploadPreviewRows').innerHTML=pendingUpload.map(x=>'<tr><td>'+mbqEscape(x.sku||'—')+'</td><td>'+mbqEscape(x.total||'—')+'</td><td>'+mbqEscape(x.tvd||'—')+'</td><td>'+mbqEscape(x.pay||'—')+'</td><td>'+mbqEscape(x.alu||'—')+'</td><td>'+(x.errors.length?'<span class="pill amber">'+mbqEscape(x.errors.join('; '))+'</span>':(!x.anyQty?'<span class="pill blue">Blank — skipped</span>':'<span class="pill green">Ready</span>'))+'</td></tr>').join('');
+   document.getElementById('uploadPreviewRows').innerHTML=pendingUpload.map(x=>'<tr><td>'+mbqEscape(x.sku||'—')+'</td><td>'+mbqEscape(x.total||'—')+'</td><td>'+mbqEscape(x.tvd||'—')+'</td><td>'+mbqEscape(x.pay||'—')+'</td><td>'+mbqEscape(x.alu||'—')+'</td><td>'+(x.errors.length?'<span class="pill amber">'+mbqEscape(x.errors.join('; '))+'</span>':(x.warnings?.length?'<span class="pill amber">'+mbqEscape(x.warnings.join('; '))+'</span>':(!x.anyQty?'<span class="pill blue">Blank — skipped</span>':'<span class="pill green">Ready</span>')))+'</td></tr>').join('');
    document.getElementById('uploadPreviewPanel').style.display='block';
   }catch(e){const msg='Upload Error: '+(e&&e.message?e.message:String(e));const panel=document.getElementById('uploadPreviewPanel');const note=document.getElementById('uploadValidation');if(note)note.textContent=msg;if(panel)panel.style.display='block';showToast(msg);}
  };
@@ -544,13 +544,20 @@ function mbqApplySalesHeadRows(items){
  let applied=0,unmatched=[];
  (items||[]).forEach(x=>{
   if(!x||!x.sku||x.errors?.length||!x.anyQty)return;
-  const key=normSku(x.sku),sr=sourceRows.find(y=>normSku(y[0])===key);
-  if(!sr){unmatched.push(x);return;}
+  const key=normSku(x.sku);
+  let sr=sourceRows.find(y=>normSku(y[0])===key);
   const allocs=[x.tvd,x.pay,x.alu],hasAlloc=allocs.some(v=>v!=='');
   const totalQty=x.total!==''?Number(x.total):(hasAlloc?allocs.reduce((sum,v)=>sum+(v===''?0:Number(v)),0):null);
+  if(!sr){
+   if(totalQty===null||!Number.isFinite(totalQty)){unmatched.push(x);return;}
+   sr=[String(x.sku).trim(),totalQty,x.tvd===''?'':Number(x.tvd),x.pay===''?'':Number(x.pay),x.alu===''?'':Number(x.alu)];
+   sourceRows.push(sr);
+  }
   if(totalQty!==null&&Number.isFinite(totalQty)){
    sr[1]=totalQty;
-   rows.filter(y=>normSku(y.sku)===key).forEach(y=>y.indent=totalQty);
+   let matches=rows.filter(y=>normSku(y.sku)===key);
+   if(!matches.length){const sourceItem=rows.find(y=>normSku(y.sku)===key);rows.push({sku:sr[0],indent:totalQty,avg:null,suggest:null,risk:'Review',cfa:'',code:'',description:'Item code not mapped — manual allocation only'});}
+   else matches.forEach(y=>y.indent=totalQty);
    const first=rows.find(y=>normSku(y.sku)===key);
    upsertIndentLine({mode:'group',sku:sr[0],code:first?.code||'',qty:totalQty,note:'Uploaded Sales Head template',source:'Sales Head upload'});
   }
@@ -594,50 +601,55 @@ let allocationData=[];
 function buildAllocationData(){
  const cfas=[{name:'ALU CFA',key:'ALU'},{name:'PAY CFA',key:'PAY'},{name:'TVD CFA',key:'TVD'}];
  allocationData=[];
- if(!Array.isArray(mbqGsvRows)||!mbqGsvRows.length)return;
  const history=mbqSelectedMonthHistory().slice(-2);
  if(history.length!==2)return;
  let stockMap=new Map();
  try{if(Array.isArray(liveSohRows)&&liveSohRows.length)stockMap=mbqLiveStockMap();}catch(e){}
  const gsvQty=(code,cfa,month)=>{
    const codeKey=mbqGsvNormCode(code),monthKey=String(month.year)+'-'+String(month.month).padStart(2,'0');
-   if(!codeKey)return null;
+   if(!codeKey||!Array.isArray(mbqGsvRows)||!mbqGsvRows.length)return null;
    const monthRows=mbqGsvRows.filter(x=>x.month===monthKey&&normalCfa(x.cfa)===cfa);
    if(!monthRows.length)return null;
    const matches=monthRows.filter(x=>mbqGsvNormCode(x.itemId)===codeKey);
    return matches.reduce((sum,x)=>sum+(Number(x.quantity)||0),0);
  };
  const grouped=new Map();
- rows.forEach(r=>{
-   const sku=String(r.sku||'').trim(),code=String(r.code||'').trim(),codeKey=mbqCodeKey(code);
-   if(!sku||!codeKey)return;
-   const sk=sku.toLowerCase();
-   if(!grouped.has(sk))grouped.set(sk,{sku,items:new Map()});
-   grouped.get(sk).items.set(codeKey,{code,codeKey});
- });
+ const addGroup=(sku,code='')=>{
+   const name=String(sku||'').trim();if(!name)return;
+   const sk=name.toLowerCase();
+   if(!grouped.has(sk))grouped.set(sk,{sku:name,items:new Map()});
+   const codeText=String(code||'').trim(),codeKey=mbqCodeKey(codeText);
+   if(codeKey)grouped.get(sk).items.set(codeKey,{code:codeText,codeKey});
+   else if(!grouped.get(sk).items.size)grouped.get(sk).items.set('__NO_CODE__',{code:'',codeKey:''});
+ };
+ rows.forEach(r=>addGroup(r.sku,r.code));
+ sourceRows.forEach(r=>addGroup(r[0],''));
+ indentLines.filter(x=>x.mode==='group').forEach(r=>addGroup(r.sku,r.code));
  grouped.forEach(group=>{
    const acceptedKey=String(group.sku||'').trim().toLowerCase();
    const salesHeadInd=mbqUploadedIndentForSku(group.sku);
-   const totalInd=Object.prototype.hasOwnProperty.call(mbqAcceptedSuggestionBySku,acceptedKey)?Number(mbqAcceptedSuggestionBySku[acceptedKey]):mbqUploadedIndentForSku(group.sku);
+   const totalInd=Object.prototype.hasOwnProperty.call(mbqAcceptedSuggestionBySku,acceptedKey)?Number(mbqAcceptedSuggestionBySku[acceptedKey]):salesHeadInd;
    if(totalInd===null||!Number.isFinite(Number(totalInd))||Number(totalInd)<0)return;
    const candidates=[];
    group.items.forEach(item=>{
      cfas.forEach(c=>{
        const sales=history.map(m=>gsvQty(item.code,c.key,m));
-       if(sales.some(v=>v===null||!Number.isFinite(Number(v))))return;
-       const prev=Number(sales[0]),last=Number(sales[1]),avg=(last+prev)/2;
-       if(!Number.isFinite(avg)||avg<0)return;
-       const stock=stockMap.get(c.key+'|'+item.codeKey);
-       candidates.push({cfa:c.name,cfaKey:c.key,sku:group.sku,code:item.code,last,prev,avg,soh:stock?Number(stock.stock)||0:0,incoming:Number(openToQtyFor(c.key,item.code)||0),raw:0,allocation:0,remainder:0,salesHeadInd:salesHeadInd===null?0:Number(salesHeadInd)});
+       const prev=sales[0]===null?0:Number(sales[0]),last=sales[1]===null?0:Number(sales[1]);
+       const avg=(last+prev)/2;
+       const stock=item.codeKey?stockMap.get(c.key+'|'+item.codeKey):null;
+       candidates.push({cfa:c.name,cfaKey:c.key,sku:group.sku,code:item.code||'NO ITEM CODE MAPPED',last,prev,avg,soh:stock?Number(stock.stock)||0:0,incoming:item.code?Number(openToQtyFor(c.key,item.code)||0):0,raw:0,allocation:0,remainder:0,salesHeadInd:salesHeadInd===null?0:Number(salesHeadInd),sourceDataMissing:sales.some(v=>v===null),manualAllocation:false});
      });
    });
-   const weight=candidates.reduce((sum,x)=>sum+x.avg,0);
-   if(!candidates.length||weight<=0)return;
-   let assigned=0;
-   candidates.forEach(x=>{x.raw=Number(totalInd)*x.avg/weight;x.allocation=Math.floor(x.raw);x.remainder=x.raw-x.allocation;assigned+=x.allocation;});
-   let remaining=Math.max(0,Math.round(Number(totalInd))-assigned);
-   [...candidates].sort((a,b)=>b.remainder-a.remainder).slice(0,remaining).forEach(x=>x.allocation++);
-   candidates.forEach(x=>allocationData.push({...x,target:0,net:x.allocation,priority:'Normal',manualAllocation:false}));
+   const weight=candidates.reduce((sum,x)=>sum+Math.max(0,x.avg),0);
+   if(weight>0){
+     let assigned=0;
+     candidates.forEach(x=>{x.raw=Number(totalInd)*Math.max(0,x.avg)/weight;x.allocation=Math.floor(x.raw);x.remainder=x.raw-x.allocation;assigned+=x.allocation;});
+     let remaining=Math.max(0,Math.round(Number(totalInd))-assigned);
+     [...candidates].sort((a,b)=>b.remainder-a.remainder).slice(0,remaining).forEach(x=>x.allocation++);
+   }
+   // Keep every Sales Head SKU group visible even when sales are zero or a source month is unavailable.
+   // Those rows remain editable; any unallocated IND stays visible as Balance IND.
+   candidates.forEach(x=>allocationData.push({...x,target:0,net:x.allocation,priority:x.sourceDataMissing?'Review':'Normal'}));
  });
 }
 function allocationSummary(){
