@@ -1052,9 +1052,23 @@ async function loadCloudProductionSettings(){
   const res=await fetch(MBQ_PRODUCTION_SETTINGS_API,{method:'GET',cache:'no-store'});
   const payload=await res.json();
   if(!res.ok||payload.success!==true||!payload.settings||typeof payload.settings!=='object')throw new Error(payload.error||payload.detail||('HTTP '+res.status));
-  localStorage.setItem('mbqProductionFrequencySettings',JSON.stringify(payload.settings));
+  // Merge cloud values over local values instead of replacing localStorage.
+  // An empty/new cloud response must never erase settings just imported in this browser.
+  let localSettings={};
+  try{localSettings=JSON.parse(localStorage.getItem('mbqProductionFrequencySettings')||'{}')||{};}catch(_){}
+  const merged={...localSettings};
+  Object.entries(payload.settings).forEach(([sku,cloudValue])=>{
+   const localValue=merged[sku]&&typeof merged[sku]==='object'?merged[sku]:{};
+   merged[sku]={...localValue,...(cloudValue&&typeof cloudValue==='object'?cloudValue:{})};
+  });
+  localStorage.setItem('mbqProductionFrequencySettings',JSON.stringify(merged));
   renderProductionFrequencySettings();renderMbqExcelView();
-  if(status)status.textContent='Cloud settings loaded for all browsers. '+Object.keys(payload.settings).length+' SKU Group records available.';
+  if(status){
+   const cloudCount=Object.keys(payload.settings).length,localCount=Object.keys(localSettings).length;
+   status.textContent=cloudCount
+    ?'Cloud settings loaded: '+cloudCount+' SKU Group records. Local-only settings preserved where cloud values are missing.'
+    :(localCount?'Cloud returned 0 settings; preserved '+localCount+' local SKU Group records. Click Save production settings and confirm the authorized write PIN to persist them across systems.':'Cloud settings loaded: no saved SKU Group settings found yet.');
+  }
  }catch(error){
   console.warn('MBQ cloud production settings unavailable:',error);
   if(status)status.textContent='Cloud settings unavailable; showing this browser’s saved settings. Save will report whether cloud sync succeeds.';
