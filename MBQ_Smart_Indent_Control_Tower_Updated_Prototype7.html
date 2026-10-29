@@ -992,7 +992,18 @@ function renderFlash(){
  const totalIndentText=totalIndent===null?'No Data Available':fmt(totalIndent)+' CBB';
  const totalBilledText=totalBilled===null?'No Data Available':fmt(totalBilled)+' CBB';
  const flash=document.getElementById('flashText');
- if(flash)flash.innerText='UNIBIC KERALA · DAILY INDENT FLASH\nReport date: '+d+' | CFA: '+c+'\nSales Head IND / CFA Indent: '+totalIndentText+'\nRunning-month billed ('+month.label+' '+month.year+'): '+totalBilledText+'\nBilled achievement: '+pct(totalAchievement)+'\nBalance to indent: '+(totalBalance===null?'No Data Available':fmt(totalBalance)+' CBB')+'\nNote: GSV is month-aggregated; selected-date billing is not available.';
+ const indentSourceReady=totalIndent!==null;
+ const billingSourceReady=totalBilled!==null;
+ let actionLines=[];
+ if(!indentSourceReady)actionLines.push(cfaKey==='DATA'?'Action: Confirm/upload Sales Head IND data.':'Action: Complete CFA Allocation for '+c+'.');
+ if(!billingSourceReady)actionLines.push('Action: Check GSV month billing data and SKU/CFA mapping.');
+ if(indentSourceReady&&billingSourceReady){
+  if(totalBalance!==null&&totalBalance<0)actionLines.push('Action: Review over-billing versus indent ('+fmt(Math.abs(totalBalance))+' CBB above indent).');
+  else if(totalBalance!==null&&totalBalance>0)actionLines.push('Action: Review remaining indent of '+fmt(totalBalance)+' CBB against CFA stock and pending loading before dispatch.');
+  else actionLines.push('Action: Indent and month-to-date billing are aligned; continue monitoring stock and pending loading.');
+ }
+ const dataStatus=indentSourceReady&&billingSourceReady?'Data status: Indent and month-to-date billing available.':(!indentSourceReady&&!billingSourceReady?'Data status: Indent and billing figures need verification.':(!indentSourceReady?'Data status: Billing available; indent source needs verification.':'Data status: Indent available; billing data/mapping needs verification.'));
+ if(flash)flash.innerText='UNIBIC KERALA · DAILY INDENT & SALES ACTION FLASH\nReport date: '+d+' | CFA: '+c+'\nSales Head IND / CFA Indent: '+totalIndentText+'\nRunning-month billed ('+month.label+' '+month.year+'): '+totalBilledText+'\nBilled achievement: '+pct(totalAchievement)+'\nBalance to indent: '+(totalBalance===null?'No Data Available':fmt(totalBalance)+' CBB')+'\n'+dataStatus+'\n'+actionLines.join('\n')+'\nNote: GSV is month-aggregated; selected-date billing is not available. Daily billing must not be inferred from monthly totals.';
  const summary=document.getElementById('flashGroupSummary');
  if(summary)summary.innerHTML=[['Total Indent (CBB)',totalIndentText],['Running-month Billed (CBB)',totalBilledText],['Overall Achievement',pct(totalAchievement)],['Balance %',pct(totalBalancePct)]].map(([label,value])=>'<div class="card kpi"><div class="label">'+label+'</div><div class="value" style="font-size:18px">'+value+'</div></div>').join('');
  const body=document.getElementById('flashGroupRows');
