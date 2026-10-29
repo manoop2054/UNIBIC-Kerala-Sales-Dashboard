@@ -913,7 +913,7 @@ function mbqRecalcContributionRows(sheet){
   const hasAnySales=items.some(x=>x.sales>0);
   if(hasAnySales){
     const total=items.reduce((sum,x)=>sum+Math.max(0,x.sales),0);
-    items.forEach(item=>{if(item.contribution===null&&total>0)item.contribution=Math.max(0,item.sales)/total;});
+    items.forEach(item=>{item.contribution=total>0?Math.max(0,item.sales)/total:null;});
   }
   const ranked=items.filter(x=>x.contribution!==null).sort((a,b)=>b.contribution-a.contribution||a.index-b.index);
   let cumulative=0;
@@ -958,7 +958,7 @@ function mbqToggleBgSelection(sku,opt,checked,control){
 function mbqRenderLoadedWorkbook(key,host,label){
   const sheet=mbqExcelSheets[key];if(!sheet)return false;const history=mbqSelectedMonthHistory();const original=sheet.headers.slice();const headers=original.slice();const monthIx=original.map((h,i)=>({h:String(h).trim().toUpperCase(),i})).filter(x=>['JUL','AUG','SEP','OCT','NOV','DEC','JAN','FEB','MAR','APR','MAY','JUN'].includes(x.h));
   if(monthIx.length>=3)monthIx.slice(0,3).forEach((x,j)=>headers[x.i]=history[j].label);
-  const q=mbqText(document.getElementById('mbqViewSearch')?.value).toLowerCase(),size=Number(document.getElementById('mbqViewPageSize')?.value)||250;const skuIndex=original.findIndex(h=>String(h).trim().toUpperCase()==='SKU GROUP');const calculatedRows=mbqRecalcContributionRows(sheet);const filtered=calculatedRows.filter(r=>!q||r.some(v=>mbqText(v).toLowerCase().includes(q)));const shown=filtered.slice(0,size);
+  const q=mbqText(document.getElementById('mbqViewSearch')?.value).toLowerCase(),size=Number(document.getElementById('mbqViewPageSize')?.value)||250;const skuIndex=original.findIndex(h=>String(h).trim().toUpperCase()==='SKU GROUP');const calculatedRows=mbqRecalcContributionRows(sheet);const rankIndex=original.findIndex(h=>String(h).trim().toUpperCase()==='RANK');calculatedRows.sort((a,b)=>{const ar=rankIndex>=0?Number(a[rankIndex]):NaN,br=rankIndex>=0?Number(b[rankIndex]):NaN;const av=Number.isFinite(ar)?ar:Infinity,bv=Number.isFinite(br)?br:Infinity;return av-bv;});const filtered=calculatedRows.filter(r=>!q||r.some(v=>mbqText(v).toLowerCase().includes(q)));const shown=filtered.slice(0,size);
   document.getElementById('mbqStatCfa').textContent=label;document.getElementById('mbqStatRows').textContent=filtered.length.toLocaleString('en-IN');document.getElementById('mbqStatCols').textContent=headers.length;document.getElementById('mbqStatSource').textContent='Workbook loaded';
   const trendKeys=['T.TREND','PO TREND','S.TREND'];const trendVals=trendKeys.map(k=>{const v=sheet.trendValues?.[k];const n=Number(v);return v!==undefined&&v!==''&&Number.isFinite(n)?(Math.abs(n)<=1?(n*100).toFixed(0)+'%':String(v)):'No Data Available';});
   const kpis='<div id="mbqTrendKpis" class="mbq-trend-kpis">'+trendKeys.map((n,i)=>'<div class="mbq-trend-kpi"><div class="k-label">'+n+'</div><div class="k-value">'+trendVals[i]+'</div><div class="k-foot">'+(trendVals[i]==='No Data Available'?'Waiting for workbook value':['Total Trend','PO Trend','Sales Trend'][i])+'</div></div>').join('')+'</div>';
