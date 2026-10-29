@@ -764,6 +764,7 @@ function mbqPlannerSalesQty(code,cfa,month){
 }
 let daysPlannerRows=[];
 function renderDaysPlanner(){
+ if(!Array.isArray(allocationData)||!allocationData.length){try{buildAllocationData();}catch(e){console.warn('CFA allocation source not ready for loading planner',e);}}
  const cfa=String(document.getElementById('daysPlanCfa')?.value||'PAY').toUpperCase();
  const periodSel=document.getElementById('daysPlanDays')?.value||'12';
  const customWrap=document.getElementById('daysPlanCustomWrap');
@@ -816,16 +817,26 @@ function aiFillDaysPlanBalance(){
  const capRaw=String(document.getElementById('daysPlanCapacity')?.value??'').trim();
  if(capRaw===''||!Number.isFinite(Number(capRaw))||Number(capRaw)<0){showToast('AI Fill Balance-ന് മുമ്പ് Available loading capacity നൽകുക.');return;}
  if(!daysPlannerRows.length)renderDaysPlanner();
- const cap=Number(capRaw),base=daysPlannerRows.reduce((sum,r)=>sum+(Number(r.required)||0),0);
- let remaining=Math.max(0,Math.min(cap,950)-base);
+ const cap=Number(capRaw),limit=Math.min(cap,950),base=daysPlannerRows.reduce((sum,r)=>sum+(Number(r.required)||0),0);
+ // Final loading must never exceed approved capacity or the 950 CBB hard cap.
+ let remaining=Math.max(0,limit-base);
+ if(base>limit){
+  let budget=limit;
+  const ordered=[...daysPlannerRows].filter(r=>r.required!==null).sort((a,b)=>(Number(b.demandNet)||0)-(Number(a.demandNet)||0));
+  ordered.forEach(r=>{const want=Math.max(0,Number(r.required)||0);r.final=Math.min(want,budget);budget-=r.final;});
+ }else daysPlannerRows.forEach(r=>{r.final=Math.max(0,Number(r.required)||0);});
  if(remaining<=0){showToast('Balance capacity ഇല്ല. Required loading capacity-യോട് തുല്യമോ കൂടുതലോ ആണ്.');renderDaysPlanner();return;}
  // Prioritize unmet period demand, then low usable stock; never alter Allocated Indent.
  const candidates=daysPlannerRows.filter(r=>r.demandNet!==null&&r.required!==null&&r.demandNet>r.required&&r.soh!==null&&r.to!==null)
   .sort((a,b)=>((b.demandNet-b.required)-(a.demandNet-a.required))-(Number(a.soh)-Number(b.soh)));
  candidates.forEach(r=>{if(remaining<=0)return;const need=Math.max(0,Math.floor(r.demandNet-r.required));const add=Math.min(need,remaining);r.addon+=add;r.final=(Number(r.required)||0)+r.addon;remaining-=add;});
+ // Add-ons can only use capacity left after the required loading that actually fits.
+ const usedBeforeAddons=daysPlannerRows.reduce((sum,r)=>sum+(Number(r.final)||0),0);
+ let addonRoom=Math.max(0,limit-usedBeforeAddons);
+ daysPlannerRows.forEach(r=>{if(r.addon>0){const allowed=Math.min(Number(r.addon)||0,addonRoom);r.addon=allowed;r.final=(Number(r.final)||0)+allowed;addonRoom-=allowed;}});
  const total=daysPlannerRows.reduce((sum,r)=>sum+(Number(r.final)||0),0);
  const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value;},fmt=v=>Number(v).toLocaleString('en-IN',{maximumFractionDigits:0});
- set('daysPlanLoad',fmt(total));set('daysPlanShortage',fmt(Math.max(0,Math.min(cap,950)-total)));
+ set('daysPlanLoad',fmt(total));set('daysPlanShortage',fmt(Math.max(0,limit-total)));
  set('daysPlanLoadSub','Required + AI Suggested Add-on · max '+fmt(Math.min(cap,950))+' CBB');
  const tbody=document.getElementById('daysPlanRows');
  if(tbody){const fake=daysPlannerRows.map(r=>'<tr><td>'+r.cfa+'</td><td class="sku">'+mbqEscape(r.sku)+'</td><td>'+mbqEscape(r.code)+'</td><td>'+(r.allocated===null?'No Data Available':fmt(r.allocated))+'</td><td>'+(r.avgDaily===null?'No Data Available':fmt(r.avgDaily))+'</td><td>'+(r.demand===null?'No Data Available':fmt(r.demand))+'</td><td>'+(r.soh===null?'No Data Available':fmt(r.soh))+'</td><td>'+(r.to===null?'Open TO Data Unavailable':fmt(r.to))+'</td><td><b>'+(r.required===null?'No Data Available':fmt(r.required))+'</b></td><td><b>'+fmt(r.addon)+'</b></td><td><b>'+fmt(r.final)+'</b></td><td>'+(r.addon>0?'<span class="pill blue">AI add-on</span>':r.complete?'<span class="pill green">Calculated</span>':'<span class="pill amber">Check source data</span>')+'</td></tr>').join('');tbody.innerHTML=fake||'<tr><td colspan="12" class="empty">No assortment items available.</td></tr>';}
