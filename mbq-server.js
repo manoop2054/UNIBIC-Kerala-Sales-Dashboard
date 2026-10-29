@@ -29,14 +29,22 @@ function gsvCellValue(value) {
   }
   return value;
 }
-function gsvDateMonth(value) {
+function gsvDateISO(value) {
   if (value == null || value === "") return "";
-  let d;
-  if (value instanceof Date) d = value;
-  else if (typeof value === "number" && value > 20000 && value < 80000) d = new Date(Date.UTC(1899, 11, 30) + value * 86400000);
-  else d = new Date(String(value));
-  return Number.isNaN(d.getTime()) ? "" : d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0");
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.getUTCFullYear() + "-" + String(value.getUTCMonth() + 1).padStart(2, "0") + "-" + String(value.getUTCDate()).padStart(2, "0");
+  if (typeof value === "number" && value > 20000 && value < 80000) {
+    const d = new Date(Date.UTC(1899, 11, 30) + Math.floor(value) * 86400000);
+    return d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0") + "-" + String(d.getUTCDate()).padStart(2, "0");
+  }
+  const raw = String(value).trim();
+  let m = raw.match(/^(\\d{4})[-/.](\\d{1,2})[-/.](\\d{1,2})/);
+  if (m) return m[1] + "-" + m[2].padStart(2, "0") + "-" + m[3].padStart(2, "0");
+  m = raw.match(/^(\\d{1,2})[-/.](\\d{1,2})[-/.](\\d{4})$/);
+  if (m) return m[3] + "-" + m[2].padStart(2, "0") + "-" + m[1].padStart(2, "0");
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? "" : d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0") + "-" + String(d.getUTCDate()).padStart(2, "0");
 }
+function gsvDateMonth(value) { return gsvDateISO(value).slice(0, 7); }
 function gsvCfa(value) {
   const v = String(value || "").toUpperCase();
   if (/\bALU\b/.test(v)) return "ALU";
@@ -54,6 +62,7 @@ async function buildMbqGsvAggregate() {
   const stats = { sourceBytes: (await fs.promises.stat(source)).size, sheet: GSV_SHEET };
   const aggregate = new Map();
   let headers = null, indexes = null, rowCount = 0, matchedRows = 0, sheetFound = false;
+  let minDate = "", maxDate = "";
   const reader = new ExcelJS.stream.xlsx.WorkbookReader(source, { sharedStrings: "cache", hyperlinks: "ignore", worksheets: "emit", styles: "ignore" });
   for await (const sheet of reader) {
     if (sheet.name !== GSV_SHEET) continue;
@@ -78,13 +87,16 @@ async function buildMbqGsvAggregate() {
       rowCount++;
       const get = i => i > 0 ? gsvCellValue(values[i]) : "";
       const item = String(get(indexes.item) ?? "").trim().toUpperCase().replace(/\s+/g, "");
-      const month = gsvDateMonth(get(indexes.date));
+      const date = gsvDateISO(get(indexes.date));
+      const month = date.slice(0, 7);
       const qty = Number(String(get(indexes.qty) ?? "").replace(/,/g, ""));
       const amountRaw = indexes.amount > 0 ? Number(String(get(indexes.amount) ?? "").replace(/,/g, "")) : NaN;
-      if (!item || !month || !Number.isFinite(qty)) continue;
+      if (!item || !date || !month || !Number.isFinite(qty)) continue;
       const cfa = indexes.cfa > 0 ? gsvCfa(get(indexes.cfa)) : "";
-      const key = item + "|" + month + "|" + (cfa || "ALL");
-      const old = aggregate.get(key) || { itemId: item, month, cfa: cfa || "ALL", quantity: 0, amount: 0, amountAvailable: false, rows: 0 };
+      const key = item + "|" + date + "|" + (cfa || "ALL");
+      const old = aggregate.get(key) || { itemId: item, date, month, cfa: cfa || "ALL", quantity: 0, amount: 0, amountAvailable: false, rows: 0 };
+      if (!minDate || date < minDate) minDate = date;
+      if (!maxDate || date > maxDate) maxDate = date;
       old.quantity += qty;
       if (Number.isFinite(amountRaw)) { old.amount += amountRaw; old.amountAvailable = true; }
       old.rows++;
@@ -96,7 +108,7 @@ async function buildMbqGsvAggregate() {
   }
   if (!sheetFound) throw new Error("GSV worksheet not found: " + GSV_SHEET);
   if (!indexes || !aggregate.size) throw new Error("GSV workbook contained no usable item/month/quantity records");
-  const payload = { success: true, data: Array.from(aggregate.values()), rows: rowCount, matchedRows, aggregateRows: aggregate.size, loadedAt: new Date().toISOString(), detected: stats.detected, headers: stats.headers, sourceBytes: stats.sourceBytes };
+  const payload = { success: true, data: Array.from(aggregate.values()), rows: rowCount, matchedRows, aggregateRows: aggregate.size, loadedAt: new Date().toISOString(), dateCoverage: { from: minDate, to: maxDate }, detected: stats.detected, headers: stats.headers, sourceBytes: stats.sourceBytes };
   await fs.promises.writeFile(tmp, JSON.stringify(payload), "utf8");
   await fs.promises.rename(tmp, cache);
   console.log("MBQ GSV ready:", JSON.stringify({ rows: rowCount, matchedRows, aggregateRows: aggregate.size, detected: stats.detected }));
