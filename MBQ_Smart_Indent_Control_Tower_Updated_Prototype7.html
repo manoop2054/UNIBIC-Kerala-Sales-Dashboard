@@ -776,46 +776,7 @@ function csvCell(v){return '"'+String(v==null?'':v).replaceAll('"','""')+'"'}
 function downloadCsvRows(name,rows){const csv=rows.map(r=>r.map(csvCell).join(',')).join('\\r\\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.download=name;a.click();URL.revokeObjectURL(a.href)}
 function exportToSummaryCsv(){const groups=groupedTos(getToRecords());if(!groups.length){showToast('TO data ഇല്ല.');return}downloadCsvRows('Open_TO_Summary.csv',[['TO Number','CFA','Total Items','Total CBB','Received CBB','Open TO CBB','Status'],...groups.map(g=>[g.toNo,g.cfa,g.items.length,g.total,g.received,g.open,g.isReceived?'Received / Closed':'Open TO'])])}
 function exportToCsv(){const items=getToRecords();if(!items.length){showToast('TO data ഇല്ല.');return}downloadCsvRows('Open_TO_Item_Details.csv',[['TO Number','Item Number','Product Name','CFA','Transfer Qty CBO','Received CBB','Open TO CBB','Status'],...items.map(r=>[r.toNo,r.code,r.product,r.cfa,r.qty,r.fullyReceived?r.qty:0,r.fullyReceived?0:r.qty,r.fullyReceived?'Received / Closed':'Open TO'])])}
-function printToReport(mode='details'){const items=getToRecords(),groups=groupedTos(items);if(!items.length){showToast('TO data ഇല്ല.');return}const summary=mode==='summary',rows=summary?groups.map(g=>'<tr><td>'+escapeToHtml(g.toNo)+'</td><td>'+escapeToHtml(g.cfa)+'</td><td>'+g.items.length+'</td><td>'+g.total+'</td><td>'+g.received+'</td><td>'+g.open+'</td><td>'+(g.isReceived?'Received / Closed':'Open TO')+'</td></tr>').join(''):items.map(r=>'<tr><td>'+escapeToHtml(r.toNo)+'</td><td>'+escapeToHtml(r.code)+'</td><td>'+escapeToHtml(r.product)+'</td><td>'+escapeToHtml(r.cfa)+'</td><td>'+r.qty+'</td><td>'+(r.fullyReceived?r.qty:0)+'</td><td>'+(r.fullyReceived?0:r.qty)+'</td><td>'+(r.fullyReceived?'Received / Closed':'Open TO')+'</td></tr>').join(''),heads=summary?'<th>TO Number</th><th>CFA</th><th>Total Items</th><th>Total CBB</th><th>Received CBB</th><th>Open CBB</th><th>Status</th>':'<th>TO Number</th><th>Item Number</th><th>Product Name</th><th>CFA</th><th>Transfer Qty CBO</th><th>Received CBB</th><th>Open TO CBB</th><th>Status</th>',w=window.open('','_blank');if(!w){showToast('Print popup അനുവദിക്കുക.');return}w.document.write('<html><head><title>Open TO Report</title><style>body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}.plant-stockout-row td{background:#fff0f0!important;color:#8f1d1d}.plant-stockout-cell{background:#fee2e2!important;color:#991b1b!important;font-weight:800}.mbq-short-cell{background:#fee2e2!important;color:#991b1b!important;font-weight:800}.mbq-excess-cell{background:#dcfce7!important;color:#166534!important;font-weight:800}.mbq-gap-high{background:#fff0f0!important;color:#991b1b!important;font-weight:700}.mbq-gap-low{background:#ecfdf5!important;color:#166534!important;font-weight:700}</style></head><body><h2>Open TO '+(summary?'Summary':'Item Details')+'</h2><table><tr>'+heads+'</tr>'+rows+'</table><script>window.onload=function(){window.print()}<\\/script><script>function escapeHtml(value){return String(value==null?"":value).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));}</script><script>
-(function(){
- const API='/api/mbq/drafts';
- function esc(v){return String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
- function toast(msg){if(typeof window.showToast==='function')window.showToast(msg);else alert(msg);}
- function b64(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]||'');r.onerror=()=>reject(new Error('Could not read Excel file'));r.readAsDataURL(file);});}
- async function install(input){
-   if(!input.id) input.id='mbq-upload-'+Math.random().toString(36).slice(2,9);
-   if(input.dataset.sharedDraftReady) return; input.dataset.sharedDraftReady='1';
-   const wrap=document.createElement('div');wrap.style.cssText='display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0';
-   const save=document.createElement('button');save.type='button';save.className='btn';save.textContent='Save Upload Draft';
-   const open=document.createElement('button');open.type='button';open.className='btn';open.textContent='Open Drafts';
-   const status=document.createElement('small');status.style.cssText='color:var(--muted,#64748b);font-size:12px';
-   input.insertAdjacentElement('afterend',wrap);wrap.append(save,open,status);
-   const type='upload:'+input.id;
-   save.addEventListener('click',async()=>{
-     const file=input.files&&input.files[0];if(!file){toast('ആദ്യം Excel file select ചെയ്യുക.');return;}
-     if(file.size>25*1024*1024){toast('Draft upload limit 25 MB ആണ്. വലിയ file നിലവിലെ upload വഴി ഉപയോഗിക്കുക.');return;}
-     const name=prompt('Draft name നൽകുക:',file.name.replace(/\.[^.]+$/,'')+' - Draft');if(name===null)return;
-     save.disabled=true;status.textContent='Saving shared draft…';
-     try{const payload={fileData:await b64(file)};const r=await mbqDraftFetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,name:name.trim()||file.name,fileName:file.name,contentType:file.type||'application/octet-stream',fileSize:file.size,payload})});const j=await r.json();if(!r.ok||!j.success)throw new Error(j.detail||j.error||'Save failed');status.textContent='Saved to shared drafts';toast('Excel Draft save ചെയ്തു. മറ്റൊരു system-ലും ലഭിക്കും.');}
-     catch(e){status.textContent='Draft save failed';toast('Draft save ആയില്ല: '+e.message);}finally{save.disabled=false;}
-   });
-   open.addEventListener('click',async()=>{
-     open.disabled=true;status.textContent='Loading drafts…';
-     try{const r=await mbqDraftFetch(API+'?type='+encodeURIComponent(type),{cache:'no-store'});const j=await r.json();if(!r.ok||!j.success)throw new Error(j.detail||j.error||'Load failed');if(!j.drafts.length){toast('ഈ upload-ന് shared draft ഒന്നുമില്ല.');status.textContent='No drafts';return;}
-       const list=j.drafts.map((d,i)=>(i+1)+'. '+d.draft_name+' — '+(d.file_name||'file')+' — '+new Date(d.updated_at).toLocaleString()).join('\n');
-       const choice=prompt('Open ചെയ്യേണ്ട Draft number നൽകുക:\n'+list);if(choice===null)return;const index=Number(choice)-1;if(!Number.isInteger(index)||index<0||index>=j.drafts.length){toast('Invalid draft number.');return;}
-       const selected=j.drafts[index];if(!confirm('“'+selected.draft_name+'” load ചെയ്ത് ഈ tab-ന്റെ existing upload handler run ചെയ്യട്ടേ? Current displayed data മാറാം.'))return;
-       const detail=await mbqDraftFetch(API+'/'+selected.id,{cache:'no-store'});const dj=await detail.json();if(!detail.ok||!dj.success)throw new Error(dj.detail||dj.error||'Draft open failed');
-       const data=atob(dj.draft.payload.fileData||'');const bytes=new Uint8Array(data.length);for(let i=0;i<data.length;i++)bytes[i]=data.charCodeAt(i);
-       const file=new File([bytes],dj.draft.file_name||'restored.xlsx',{type:dj.draft.content_type||'application/octet-stream'});const dt=new DataTransfer();dt.items.add(file);input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));status.textContent='Loaded: '+file.name;toast('Draft file load ചെയ്തു. Upload handler പ്രവർത്തിപ്പിച്ചു.');
-     }catch(e){status.textContent='Draft load failed';toast('Draft തുറക്കാനായില്ല: '+e.message);}finally{open.disabled=false;}
-   });
- }
- function scan(){document.querySelectorAll('input[type=file]').forEach(install);}
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',scan);else scan();
- new MutationObserver(scan).observe(document.documentElement,{childList:true,subtree:true});
-})();
-</script></body></html>');w.document.close()}
+function printToReport(mode='details'){const items=getToRecords(),groups=groupedTos(items);if(!items.length){showToast('TO data ഇല്ല.');return}const summary=mode==='summary',rows=summary?groups.map(g=>'<tr><td>'+escapeToHtml(g.toNo)+'</td><td>'+escapeToHtml(g.cfa)+'</td><td>'+g.items.length+'</td><td>'+g.total+'</td><td>'+g.received+'</td><td>'+g.open+'</td><td>'+(g.isReceived?'Received / Closed':'Open TO')+'</td></tr>').join(''):items.map(r=>'<tr><td>'+escapeToHtml(r.toNo)+'</td><td>'+escapeToHtml(r.code)+'</td><td>'+escapeToHtml(r.product)+'</td><td>'+escapeToHtml(r.cfa)+'</td><td>'+r.qty+'</td><td>'+(r.fullyReceived?r.qty:0)+'</td><td>'+(r.fullyReceived?0:r.qty)+'</td><td>'+(r.fullyReceived?'Received / Closed':'Open TO')+'</td></tr>').join(''),heads=summary?'<th>TO Number</th><th>CFA</th><th>Total Items</th><th>Total CBB</th><th>Received CBB</th><th>Open CBB</th><th>Status</th>':'<th>TO Number</th><th>Item Number</th><th>Product Name</th><th>CFA</th><th>Transfer Qty CBO</th><th>Received CBB</th><th>Open TO CBB</th><th>Status</th>',w=window.open('','_blank');if(!w){showToast('Print popup അനുവദിക്കുക.');return}w.document.write('<html><head><title>Open TO Report</title><style>body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}.plant-stockout-row td{background:#fff0f0!important;color:#8f1d1d}.plant-stockout-cell{background:#fee2e2!important;color:#991b1b!important;font-weight:800}.mbq-short-cell{background:#fee2e2!important;color:#991b1b!important;font-weight:800}.mbq-excess-cell{background:#dcfce7!important;color:#166534!important;font-weight:800}.mbq-gap-high{background:#fff0f0!important;color:#991b1b!important;font-weight:700}.mbq-gap-low{background:#ecfdf5!important;color:#166534!important;font-weight:700}</style></head><body><h2>Open TO '+(summary?'Summary':'Item Details')+'</h2><table><tr>'+heads+'</tr>'+rows+'</table><script>window.onload=function(){window.print()}<\\/script><script>function escapeHtml(value){return String(value==null?"":value).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));}</script></body></html>');w.document.close()}
 function showPreviousIndent(){document.getElementById('prevIndentPanel').innerHTML='<strong>Previous month balance review</strong> Example loaded.';showToast('Previous indent review opened.')}
 function renderFlash(){
  const d=document.getElementById('flashDate')?.value||'Selected date',c=document.getElementById('flashCfa')?.value||'All CFAs';
@@ -1266,5 +1227,46 @@ loadToRecords().then(()=>renderToTracker());document.getElementById('skuCount').
  const start=()=>{if(document.body)observer.observe(document.body,{subtree:true,childList:true,characterData:true});};
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
+
+<script>
+(function(){
+ const API='/api/mbq/drafts';
+ function esc(v){return String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+ function toast(msg){if(typeof window.showToast==='function')window.showToast(msg);else alert(msg);}
+ function b64(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]||'');r.onerror=()=>reject(new Error('Could not read Excel file'));r.readAsDataURL(file);});}
+ async function install(input){
+   if(!input.id) input.id='mbq-upload-'+Math.random().toString(36).slice(2,9);
+   if(input.dataset.sharedDraftReady) return; input.dataset.sharedDraftReady='1';
+   const wrap=document.createElement('div');wrap.style.cssText='display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0';
+   const save=document.createElement('button');save.type='button';save.className='btn';save.textContent='Save Upload Draft';
+   const open=document.createElement('button');open.type='button';open.className='btn';open.textContent='Open Drafts';
+   const status=document.createElement('small');status.style.cssText='color:var(--muted,#64748b);font-size:12px';
+   input.insertAdjacentElement('afterend',wrap);wrap.append(save,open,status);
+   const type='upload:'+input.id;
+   save.addEventListener('click',async()=>{
+     const file=input.files&&input.files[0];if(!file){toast('ആദ്യം Excel file select ചെയ്യുക.');return;}
+     if(file.size>25*1024*1024){toast('Draft upload limit 25 MB ആണ്. വലിയ file നിലവിലെ upload വഴി ഉപയോഗിക്കുക.');return;}
+     const name=prompt('Draft name നൽകുക:',file.name.replace(/\.[^.]+$/,'')+' - Draft');if(name===null)return;
+     save.disabled=true;status.textContent='Saving shared draft…';
+     try{const payload={fileData:await b64(file)};const r=await mbqDraftFetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,name:name.trim()||file.name,fileName:file.name,contentType:file.type||'application/octet-stream',fileSize:file.size,payload})});const j=await r.json();if(!r.ok||!j.success)throw new Error(j.detail||j.error||'Save failed');status.textContent='Saved to shared drafts';toast('Excel Draft save ചെയ്തു. മറ്റൊരു system-ലും ലഭിക്കും.');}
+     catch(e){status.textContent='Draft save failed';toast('Draft save ആയില്ല: '+e.message);}finally{save.disabled=false;}
+   });
+   open.addEventListener('click',async()=>{
+     open.disabled=true;status.textContent='Loading drafts…';
+     try{const r=await mbqDraftFetch(API+'?type='+encodeURIComponent(type),{cache:'no-store'});const j=await r.json();if(!r.ok||!j.success)throw new Error(j.detail||j.error||'Load failed');if(!j.drafts.length){toast('ഈ upload-ന് shared draft ഒന്നുമില്ല.');status.textContent='No drafts';return;}
+       const list=j.drafts.map((d,i)=>(i+1)+'. '+d.draft_name+' — '+(d.file_name||'file')+' — '+new Date(d.updated_at).toLocaleString()).join('\n');
+       const choice=prompt('Open ചെയ്യേണ്ട Draft number നൽകുക:\n'+list);if(choice===null)return;const index=Number(choice)-1;if(!Number.isInteger(index)||index<0||index>=j.drafts.length){toast('Invalid draft number.');return;}
+       const selected=j.drafts[index];if(!confirm('“'+selected.draft_name+'” load ചെയ്ത് ഈ tab-ന്റെ existing upload handler run ചെയ്യട്ടേ? Current displayed data മാറാം.'))return;
+       const detail=await mbqDraftFetch(API+'/'+selected.id,{cache:'no-store'});const dj=await detail.json();if(!detail.ok||!dj.success)throw new Error(dj.detail||dj.error||'Draft open failed');
+       const data=atob(dj.draft.payload.fileData||'');const bytes=new Uint8Array(data.length);for(let i=0;i<data.length;i++)bytes[i]=data.charCodeAt(i);
+       const file=new File([bytes],dj.draft.file_name||'restored.xlsx',{type:dj.draft.content_type||'application/octet-stream'});const dt=new DataTransfer();dt.items.add(file);input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));status.textContent='Loaded: '+file.name;toast('Draft file load ചെയ്തു. Upload handler പ്രവർത്തിപ്പിച്ചു.');
+     }catch(e){status.textContent='Draft load failed';toast('Draft തുറക്കാനായില്ല: '+e.message);}finally{open.disabled=false;}
+   });
+ }
+ function scan(){document.querySelectorAll('input[type=file]').forEach(install);}
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',scan);else scan();
+ new MutationObserver(scan).observe(document.documentElement,{childList:true,subtree:true});
+})();
+</script>
 </script>
 </body></html>
