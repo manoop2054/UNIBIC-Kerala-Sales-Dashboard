@@ -166,8 +166,8 @@ function mbqRefreshDashboardKpis(){
  const fmt=n=>Number(n).toLocaleString('en-IN',{maximumFractionDigits:0});
  const pv=sourceRows.map(r=>r[1]).filter(v=>v!==null&&v!==undefined&&String(v).trim()!==''&&Number.isFinite(Number(v)));
  const itemIndent=indentLines.filter(r=>r.mode!=='group'&&r.qty!==null&&r.qty!==undefined&&String(r.qty).trim()!=='').reduce((s,r)=>s+(Number(r.qty)||0),0);
- if(pv.length){mbqSetKpi('ovMonthlyPlan',fmt(pv.reduce((s,v)=>s+(Number(v)||0),0))+' CBO');mbqSetKpi('ovMonthlyPlanSub','From Sales Head / group indent values')}
- else if(itemIndent>0){mbqSetKpi('ovMonthlyPlan',fmt(itemIndent)+' CBO');mbqSetKpi('ovMonthlyPlanSub','From item-wise working indents')}
+ if(pv.length){mbqSetKpi('ovMonthlyPlan',fmt(pv.reduce((s,v)=>s+(Number(v)||0),0))+' CBB');mbqSetKpi('ovMonthlyPlanSub','From Sales Head / group indent values')}
+ else if(itemIndent>0){mbqSetKpi('ovMonthlyPlan',fmt(itemIndent)+' CBB');mbqSetKpi('ovMonthlyPlanSub','From item-wise working indents')}
  else{mbqSetKpi('ovMonthlyPlan','No Data Available');mbqSetKpi('ovMonthlyPlanSub','No Sales Head / working indent values found')}
  mbqRefreshPlanningKpis();
  mbqRefreshCfaReadinessCards();
