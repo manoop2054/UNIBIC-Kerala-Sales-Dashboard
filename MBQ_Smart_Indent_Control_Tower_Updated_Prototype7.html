@@ -939,7 +939,7 @@ function mbqBgParse(raw){const text=String(raw??'').trim().toUpperCase();return 
 function mbqBgCell(sku,raw){
  const key=String(sku??'').trim();if(!Object.prototype.hasOwnProperty.call(mbqBgSelections,key))mbqBgSelections[key]=mbqBgParse(raw);if(!Object.prototype.hasOwnProperty.call(mbqBgOriginals,key))mbqBgOriginals[key]=String(raw??'').trim();
  const selected=mbqBgSelections[key],label=selected.length?selected.join(' + '):(mbqBgOriginals[key]||'Select GT / ECOM / MT');
- return '<details class="mbq-bg-dropdown"><summary title="Choose one or more billing groups">'+mbqEscape(label)+'</summary><div class="mbq-bg-options">'+MBQ_BG_OPTIONS.map(opt=>'<label><input type="checkbox" '+(selected.includes(opt)?'checked':'')+' onchange="mbqToggleBgSelection('+JSON.stringify(key).replace(/</g,'\\u003c')+',\\''+opt+'\\',this.checked,this)"><span>'+opt+'</span></label>').join('')+'</div></details>';
+ return '<details class="mbq-bg-dropdown"><summary title="Choose one or more billing groups">'+mbqEscape(label)+'</summary><div class="mbq-bg-options">'+MBQ_BG_OPTIONS.map(opt=>'<label><input type="checkbox" value="'+opt+'" data-sku="'+encodeURIComponent(key)+'" '+(selected.includes(opt)?'checked':'')+' onchange="mbqToggleBgSelection(decodeURIComponent(this.dataset.sku),this.value,this.checked,this)"><span>'+opt+'</span></label>').join('')+'</div></details>';
 }
 function mbqToggleBgSelection(sku,opt,checked,control){
  const key=String(sku??'').trim();const current=Array.isArray(mbqBgSelections[key])?mbqBgSelections[key]:[];
