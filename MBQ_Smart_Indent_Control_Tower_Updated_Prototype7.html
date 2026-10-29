@@ -628,7 +628,7 @@ function buildAllocationData(){
  };
  rows.forEach(r=>addGroup(r.sku,r.code));
  sourceRows.forEach(r=>addGroup(r[0],''));
- indentLines.filter(x=>x.mode==='group').forEach(r=>addGroup(r.sku,r.code));
+ indentLines.forEach(r=>addGroup(r.sku,r.code));
  grouped.forEach(group=>{
    const acceptedKey=String(group.sku||'').trim().toLowerCase();
    const salesHeadInd=mbqUploadedIndentForSku(group.sku);
@@ -644,15 +644,47 @@ function buildAllocationData(){
        candidates.push({cfa:c.name,cfaKey:c.key,sku:group.sku,code:item.code||'NO ITEM CODE MAPPED',last,prev,avg,soh:stock?Number(stock.stock)||0:0,incoming:item.code?Number(openToQtyFor(c.key,item.code)||0):0,raw:0,allocation:0,remainder:0,salesHeadInd:salesHeadInd===null?0:Number(salesHeadInd),sourceDataMissing:sales.some(v=>v===null),manualAllocation:false});
      });
    });
-   const weight=candidates.reduce((sum,x)=>sum+Math.max(0,x.avg),0);
-   if(weight>0){
-     let assigned=0;
-     candidates.forEach(x=>{x.raw=Number(totalInd)*Math.max(0,x.avg)/weight;x.allocation=Math.floor(x.raw);x.remainder=x.raw-x.allocation;assigned+=x.allocation;});
-     let remaining=Math.max(0,Math.round(Number(totalInd))-assigned);
-     [...candidates].sort((a,b)=>b.remainder-a.remainder).slice(0,remaining).forEach(x=>x.allocation++);
+   const groupLine=[...indentLines].reverse().find(x=>x.mode==='group'&&String(x.sku||'').trim().toLowerCase()===acceptedKey);
+   const itemLines=indentLines.filter(x=>x.mode==='item'&&String(x.sku||'').trim().toLowerCase()===acceptedKey);
+   const findCandidate=line=>candidates.find(x=>mbqCodeKey(x.code)===mbqCodeKey(line.code)&&x.cfaKey===String(line.cfaKey||'TVD').toUpperCase());
+   const fixed=new Map();
+   itemLines.forEach(line=>{const target=findCandidate(line);if(target)fixed.set(target,Math.max(0,Number(line.qty)||0));});
+   const fixedTotal=[...fixed.values()].reduce((sum,n)=>sum+n,0);
+   if(groupLine){
+     // Group-wise manual indent is a group total; item-wise quantities inside it take priority.
+     const groupQty=Math.max(0,Number(groupLine.qty)||0);
+     candidates.forEach(x=>{x.allocation=0;x.manualAllocation=false;});
+     fixed.forEach((qty,row)=>{row.allocation=qty;row.manualAllocation=true;});
+     let remaining=Math.max(0,groupQty-fixedTotal);
+     const open=candidates.filter(x=>!fixed.has(x));
+     const weight=open.reduce((sum,x)=>sum+Math.max(0,x.avg),0);
+     if(remaining>0&&open.length){
+       if(weight>0)open.forEach(x=>{x.raw=remaining*Math.max(0,x.avg)/weight;});
+       else open.forEach((x,i)=>{x.raw=i===0?remaining:0;});
+       let assigned=0;open.forEach(x=>{x.allocation=Math.floor(x.raw);x.remainder=x.raw-x.allocation;assigned+=x.allocation;});
+       [...open].sort((a,b)=>b.remainder-a.remainder).slice(0,Math.max(0,Math.round(remaining)-assigned)).forEach(x=>x.allocation++);
+     }
+   }else if(fixed.size){
+     // Item-wise manual entries are fixed; distribute the remaining Sales Head IND only to untouched CFA-item rows.
+     fixed.forEach((qty,row)=>{row.allocation=qty;row.manualAllocation=true;});
+     const remaining=Math.max(0,Number(totalInd)-fixedTotal);
+     const open=candidates.filter(x=>!fixed.has(x));
+     const weight=open.reduce((sum,x)=>sum+Math.max(0,x.avg),0);
+     if(remaining>0&&open.length){
+       if(weight>0)open.forEach(x=>{x.raw=remaining*Math.max(0,x.avg)/weight;});
+       else open.forEach((x,i)=>{x.raw=i===0?remaining:0;});
+       let assigned=0;open.forEach(x=>{x.allocation+=Math.floor(x.raw);x.remainder=x.raw-Math.floor(x.raw);assigned+=Math.floor(x.raw);});
+       [...open].sort((a,b)=>b.remainder-a.remainder).slice(0,Math.max(0,Math.round(remaining)-assigned)).forEach(x=>x.allocation++);
+     }
+   }else{
+     const weight=candidates.reduce((sum,x)=>sum+Math.max(0,x.avg),0);
+     if(weight>0){
+       let assigned=0;
+       candidates.forEach(x=>{x.raw=Number(totalInd)*Math.max(0,x.avg)/weight;x.allocation=Math.floor(x.raw);x.remainder=x.raw-x.allocation;assigned+=x.allocation;});
+       let remaining=Math.max(0,Math.round(Number(totalInd))-assigned);
+       [...candidates].sort((a,b)=>b.remainder-a.remainder).slice(0,remaining).forEach(x=>x.allocation++);
+     }
    }
-   // Keep every Sales Head SKU group visible even when sales are zero or a source month is unavailable.
-   // Those rows remain editable; any unallocated IND stays visible as Balance IND.
    candidates.forEach(x=>allocationData.push({...x,target:0,net:x.allocation,priority:x.sourceDataMissing?'Review':'Normal'}));
  });
 }
