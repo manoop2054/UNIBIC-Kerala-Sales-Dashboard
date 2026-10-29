@@ -957,7 +957,7 @@ function mbqRecalcWorkbookFormulaCells(headers,vals){
  const num=n=>{const v=get(n);if(v===null||v===undefined||v===''||String(v)==='No Data Available')return null;const raw=String(v).replace(/,/g,'').trim(),x=Number(raw.replace(/%$/,''));return Number.isFinite(x)?(raw.endsWith('%')?x/100:x):null;};
  const set=(n,v)=>{if(ix[n]!==undefined)vals[ix[n]]=v===null||v===undefined||!Number.isFinite(Number(v))?'No Data Available':Number(v);};
  const ind=num('IND'),cl=num('CL PO'),op=num('OPEN PO'),sales=num('SALES'),over=num('SOH>60%'),prod=num('MBQ DAYS (BASED ON PROD FREQ)'),transit=num('TRANSIT DAYS');
- if(prod!==null&&transit!==null)set('MBQ DAYS',prod+transit);const days=num('MBQ DAYS');if(ind!==null&&days!==null)set('MBQ',(ind/30)*days);
+ if(prod!==null&&transit!==null)set('MBQ DAYS',prod+transit);const days=num('MBQ DAYS');set('MBQ',ind!==null&&days!==null?(ind/30)*days:0);
  if(ind!==null&&ind!==0&&cl!==null&&op!==null)set('FC%',(cl+op)/ind);if(sales!==null&&cl!==null&&op!==null&&(cl+op)!==0)set('FR',Math.min(sales/(cl+op),1));
  if(ind!==null&&ind!==0&&sales!==null)set('S. TREND',sales/ind);const mbq=num('MBQ');if(over!==null&&mbq!==null)set('SHRT/EXC',over-mbq);if(over!==null&&ind!==null&&ind!==0)set('DOS',over/(ind/30));if(sales!==null&&ix['NXT 10D']!==undefined)set('NXT 10D',sales/3);
 }
@@ -1136,7 +1136,7 @@ const body=shown.slice().sort((a,b)=>{const ar=formulaRows.get(a)?.rank,br=formu
  const under=mbqExcelGroupSoh(sku,key,true),over=mbqExcelGroupSoh(sku,key,false),plant=mbqExcelPlantSohForGroup(sku),cfg=mbqProductionSettings()[String(sku||'').trim()]||{};
  const freq=cfg.freq!==undefined&&cfg.freq!==''?cfg.freq:null,transit=cfg.transitDays!==undefined&&cfg.transitDays!==''?cfg.transitDays:null,prodDays=mbqProdDaysFromFreq(freq),mbqDays=prodDays!==null&&transit!==null?Number(prodDays)+Number(transit):null;
  const ind=mbqUploadedIndentForSku(sku),ranking=formulaRows.get(sku)||{},clPo=mbqExcelGroupPo(sku,key,'CLOSE'),openPo=mbqExcelGroupPo(sku,key,'OPEN');
- const mbq=ind!==null&&mbqDays!==null?(Number(ind)/30)*mbqDays:null,fc=ind!==null&&Number(ind)!==0&&clPo!==null&&openPo!==null?(Number(clPo)+Number(openPo))/Number(ind):null;
+ const mbq=ind!==null&&mbqDays!==null?(Number(ind)/30)*mbqDays:0,fc=ind!==null&&Number(ind)!==0&&clPo!==null&&openPo!==null?(Number(clPo)+Number(openPo))/Number(ind):null;
  const fr=clPo!==null&&openPo!==null&&(Number(clPo)+Number(openPo))!==0&&latest!==null?Math.min(Number(latest)/(Number(clPo)+Number(openPo)),1):null;
  const trend=ind!==null&&Number(ind)!==0&&latest!==null?Number(latest)/Number(ind):null,short=over!==null&&mbq!==null?Number(over)-mbq:null,dos=over!==null&&ind!==null&&Number(ind)!==0?Number(over)/(Number(ind)/30):null;
  const ctgDescription=String(sku??'').trim().toUpperCase();const ctg=ctgDescription.includes('CAKE')?'CAKE':ctgDescription.includes('WF')?'WAFER':'CORE';const vals={'SKU GROUP':sku,'CTG':ctg,'CAT':ranking.cat,'RANK':ranking.rank,'CONTRI%':ranking.con,'Cum CONTRI%':ranking.cum,'L3M AVG SALES':avg,'IND':ind,'CL PO':clPo,'OPEN PO':openPo,'SOH<60%':under,'SOH>60%':over,'PLANT SOH':plant,'SALES':latest,'PROD FREQ':freq,'MBQ DAYS (BASED on PROD FREQ)':prodDays,'TRANSIT DAYS':transit,'MBQ DAYS':mbqDays,'MBQ':mbq,'NXT 10D':latest!==null?Number(latest)/3:null,'FC%':fc,'FR':fr,'S. TREND':trend,'SHRT/EXC':short,'DOS':dos};
