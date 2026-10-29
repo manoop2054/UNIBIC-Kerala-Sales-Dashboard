@@ -517,23 +517,57 @@ function previewIndentUpload(input){
  if(/\.(xlsx|xls|xlsb)$/i.test(file.name)){reader.readAsArrayBuffer(file);}else reader.readAsText(file);
 }
 function parseCsv(text){const out=[];let row=[],v='',quoted=false;for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'&&quoted&&text[i+1]==='"'){v+='"';i++}else if(c==='"'){quoted=!quoted}else if(c===','&&!quoted){row.push(v);v=''}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&text[i+1]==='\n')i++;row.push(v);out.push(row);row=[];v=''}else v+=c}if(v.length||row.length){row.push(v);out.push(row)}return out}
-function applyIndentUpload(){
- const valid=pendingUpload.filter(x=>x.sku&&!x.errors.length&&x.anyQty);
- if(!valid.length){showToast('Apply ചെയ്യാൻ quantity നൽകിയ valid row ഇല്ല. Blank cells upload തടയില്ല.');return;}
- let applied=0;
- valid.forEach(x=>{
-  const normSku=v=>String(v??'').trim().replace(/\s+/g,' ').toLowerCase(),key=normSku(x.sku),r=rows.find(y=>normSku(y.sku)===key),sr=sourceRows.find(y=>normSku(y[0])===key);
+const MBQ_SALES_HEAD_UPLOAD_KEY='mbqSalesHeadIndentUploadPendingV1';
+function mbqApplySalesHeadRows(items){
+ const normSku=v=>String(v??'').trim().replace(/\s+/g,' ').toLowerCase();
+ let applied=0,unmatched=[];
+ (items||[]).forEach(x=>{
+  if(!x||!x.sku||x.errors?.length||!x.anyQty)return;
+  const key=normSku(x.sku),sr=sourceRows.find(y=>normSku(y[0])===key);
+  if(!sr){unmatched.push(x);return;}
   const allocs=[x.tvd,x.pay,x.alu],hasAlloc=allocs.some(v=>v!=='');
   const totalQty=x.total!==''?Number(x.total):(hasAlloc?allocs.reduce((sum,v)=>sum+(v===''?0:Number(v)),0):null);
   if(totalQty!==null&&Number.isFinite(totalQty)){
-   if(r){r.indent=totalQty;upsertIndentLine({mode:'group',sku:r.sku,code:r.code||'',qty:totalQty,note:'Uploaded Sales Head template',source:'Sales Head upload'});}
-   if(sr)sr[1]=totalQty;
+   sr[1]=totalQty;
+   rows.filter(y=>normSku(y.sku)===key).forEach(y=>y.indent=totalQty);
+   const first=rows.find(y=>normSku(y.sku)===key);
+   upsertIndentLine({mode:'group',sku:sr[0],code:first?.code||'',qty:totalQty,note:'Uploaded Sales Head template',source:'Sales Head upload'});
   }
-  if(sr){if(x.tvd!=='')sr[2]=Number(x.tvd);if(x.pay!=='')sr[3]=Number(x.pay);if(x.alu!=='')sr[4]=Number(x.alu);}
+  if(x.tvd!=='')sr[2]=Number(x.tvd);if(x.pay!=='')sr[3]=Number(x.pay);if(x.alu!=='')sr[4]=Number(x.alu);
   applied++;
  });
- renderIndent();renderIndentWorkspace();if(typeof renderMbqExcelView==='function')renderMbqExcelView();document.getElementById('uploadPreviewPanel').style.display='none';
- showToast(applied+' SKU Group row(s) applied. Blank cells were ignored.');
+ return {applied,unmatched};
+}
+function mbqApplyPendingSalesHeadUpload(){
+ let pending=[];try{pending=JSON.parse(localStorage.getItem(MBQ_SALES_HEAD_UPLOAD_KEY)||'[]');}catch(e){}
+ if(!Array.isArray(pending)||!pending.length)return;
+ const result=mbqApplySalesHeadRows(pending);
+ if(result.unmatched.length)localStorage.setItem(MBQ_SALES_HEAD_UPLOAD_KEY,JSON.stringify(result.unmatched));
+ else localStorage.removeItem(MBQ_SALES_HEAD_UPLOAD_KEY);
+ if(result.applied){renderIndent();renderIndentWorkspace();if(typeof renderMbqExcelView==='function')renderMbqExcelView();mbqRefreshDashboardKpis();showToast(result.applied+' uploaded Sales Head SKU Group row(s) loaded.');}
+ if(result.unmatched.length&&window.mbqAssortmentLoaded)showToast(result.unmatched.length+' upload row(s) could not match the assortment SKU Group. Check exact SKU Group names.');
+}
+function applyIndentUpload(){
+ const valid=pendingUpload.filter(x=>x.sku&&!x.errors.length&&x.anyQty);
+ if(!valid.length){showToast('Apply ചെയ്യാൻ quantity നൽകിയ valid row ഇല്ല. Blank cells upload തടയില്ല.');return;}
+ if(!sourceRows.length){
+  localStorage.setItem(MBQ_SALES_HEAD_UPLOAD_KEY,JSON.stringify(valid));
+  document.getElementById('uploadValidation').textContent='Upload saved temporarily. Assortment SKU Groups load ആയാൽ values automatically apply ചെയ്യും. Page refresh ചെയ്താലും ഈ pending upload നിലനിൽക്കും.';
+  showToast('Assortment data ഇനിയും load ആയിട്ടില്ല. Upload pending ആയി സൂക്ഷിച്ചു; master load ആയാൽ apply ചെയ്യും.');
+  return;
+ }
+ const result=mbqApplySalesHeadRows(valid);
+ if(result.unmatched.length){
+  localStorage.setItem(MBQ_SALES_HEAD_UPLOAD_KEY,JSON.stringify(result.unmatched));
+ }else localStorage.removeItem(MBQ_SALES_HEAD_UPLOAD_KEY);
+ if(!result.applied){
+  document.getElementById('uploadValidation').textContent='No matching SKU Groups found. Assortment master load/status പരിശോധിക്കുക; file values pending ആയി സൂക്ഷിച്ചിട്ടുണ്ട്.';
+  showToast('Indent upload apply ആയില്ല: uploaded SKU Group names assortment master-ൽ match ആയില്ല.');
+  return;
+ }
+ renderIndent();renderIndentWorkspace();if(typeof renderMbqExcelView==='function')renderMbqExcelView();mbqRefreshDashboardKpis();
+ document.getElementById('uploadPreviewPanel').style.display='none';
+ showToast(result.applied+' SKU Group row(s) loaded into Monthly Indent Entry.'+(result.unmatched.length?' '+result.unmatched.length+' unmatched row(s) pending.':''));
 }
 let allocationData=[];
 function buildAllocationData(){
@@ -901,7 +935,7 @@ async function loadLiveSoh(){
     renderStock();
   }
 }
-async function fetchGitHubAssortment(){try{const res=await fetch("https://raw.githubusercontent.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/feature/mbq-smart-indent-dashboard/KERALA%20ASSORTMENT%20FILE%20.csv");if(!res.ok)throw new Error("HTTP "+res.status);const text=await res.text();const parsed=parseCsv(text);if(parsed.length>1){const headers=parsed[0].map(h=>h.trim());const fgIdx=headers.findIndex(h=>h==="ItemId");const groupIdx=headers.findIndex(h=>h==="SKU_Group");const mrpIdx=headers.findIndex(h=>h==="MRP_Price");const descIdx=headers.findIndex(h=>h==="Description");sourceRows.length=0;rows.length=0;indentLines.length=0;const addedGroups=new Set();parsed.slice(1).forEach((r,i)=>{const fgCode=fgIdx>=0&&r[fgIdx]?r[fgIdx].trim():"";const skuGroup=groupIdx>=0&&r[groupIdx]?r[groupIdx].trim():"";const mrpVal=mrpIdx>=0&&r[mrpIdx]!==''&&!isNaN(parseFloat(r[mrpIdx]))?parseFloat(r[mrpIdx]):null;const desc=descIdx>=0&&r[descIdx]?r[descIdx].trim():"";if(skuGroup){if(!addedGroups.has(skuGroup)){addedGroups.add(skuGroup);sourceRows.push([skuGroup,null,null,null,"No data available","No data available"]);}rows.push({sku:skuGroup,indent:null,avg:null,suggest:null,risk:"No data available",cfa:"No data available",cover:null,open:null,stock:null,code:fgCode,shelfLife:null,mrp:mrpVal,salesDay:null,description:desc});}});const groupSelect=document.getElementById("entrySkuGroup");if(groupSelect){groupSelect.innerHTML="<option value=\"\">All (Ella SKU Groups-um)</option>"+Array.from(addedGroups).map(g=>`<option value="${g}">${g}</option>`).join("");}renderIndentWorkspace();renderIndent();renderWatch();renderSuggestions();renderStock();renderMbqExcelView();mbqRefreshDashboardKpis();if(mbqGsvRows.length)mbqApplyGsvSales();if(typeof renderDaysPlanner==='function')renderDaysPlanner();showToast("Exact GitHub Kerala Assortment Master loaded successfully!");}}catch(e){console.warn("Assortment load failed:",e);showToast("GitHub Assortment load cheyyan kazhinjilla!");mbqRefreshDashboardKpis();}}fetchGitHubAssortment();
+async function fetchGitHubAssortment(){try{const res=await fetch("https://raw.githubusercontent.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/feature/mbq-smart-indent-dashboard/KERALA%20ASSORTMENT%20FILE%20.csv");if(!res.ok)throw new Error("HTTP "+res.status);const text=await res.text();const parsed=parseCsv(text);if(parsed.length>1){const headers=parsed[0].map(h=>h.trim());const fgIdx=headers.findIndex(h=>h==="ItemId");const groupIdx=headers.findIndex(h=>h==="SKU_Group");const mrpIdx=headers.findIndex(h=>h==="MRP_Price");const descIdx=headers.findIndex(h=>h==="Description");const priorGroupValues=new Map(sourceRows.filter(r=>r&&r[0]).map(r=>[String(r[0]).trim().toLowerCase(),r[1]]));const priorIndentLines=indentLines.map(x=>({...x}));sourceRows.length=0;rows.length=0;const addedGroups=new Set();parsed.slice(1).forEach((r,i)=>{const fgCode=fgIdx>=0&&r[fgIdx]?r[fgIdx].trim():"";const skuGroup=groupIdx>=0&&r[groupIdx]?r[groupIdx].trim():"";const mrpVal=mrpIdx>=0&&r[mrpIdx]!==''&&!isNaN(parseFloat(r[mrpIdx]))?parseFloat(r[mrpIdx]):null;const desc=descIdx>=0&&r[descIdx]?r[descIdx].trim():"";if(skuGroup){if(!addedGroups.has(skuGroup)){addedGroups.add(skuGroup);sourceRows.push([skuGroup,null,null,null,"No data available","No data available"]);}rows.push({sku:skuGroup,indent:null,avg:null,suggest:null,risk:"No data available",cfa:"No data available",cover:null,open:null,stock:null,code:fgCode,shelfLife:null,mrp:mrpVal,salesDay:null,description:desc});}});sourceRows.forEach(sr=>{const key=String(sr[0]||'').trim().toLowerCase();const prior=priorGroupValues.get(key);const line=[...priorIndentLines].reverse().find(x=>x.mode==='group'&&String(x.sku||'').trim().toLowerCase()===key);const qty=(prior!==null&&prior!==undefined&&prior!==''&&Number.isFinite(Number(prior)))?Number(prior):(line&&line.qty!==''&&line.qty!==null&&line.qty!==undefined&&Number.isFinite(Number(line.qty))?Number(line.qty):null);if(qty!==null){sr[1]=qty;rows.filter(x=>String(x.sku||'').trim().toLowerCase()===key).forEach(x=>x.indent=qty);}});window.mbqAssortmentLoaded=true;mbqApplyPendingSalesHeadUpload();const groupSelect=document.getElementById("entrySkuGroup");if(groupSelect){groupSelect.innerHTML="<option value=\"\">All (Ella SKU Groups-um)</option>"+Array.from(addedGroups).map(g=>`<option value="${g}">${g}</option>`).join("");}renderIndentWorkspace();renderIndent();renderWatch();renderSuggestions();renderStock();renderMbqExcelView();mbqRefreshDashboardKpis();if(mbqGsvRows.length)mbqApplyGsvSales();if(typeof renderDaysPlanner==='function')renderDaysPlanner();showToast("Exact GitHub Kerala Assortment Master loaded successfully!");}}catch(e){console.warn("Assortment load failed:",e);showToast("GitHub Assortment load cheyyan kazhinjilla!");mbqRefreshDashboardKpis();}}fetchGitHubAssortment();
 /* MBQ Excel View: read only the official CFA sheets, retain the existing dashboard features. */
 let mbqExcelSheets = {};
 let mbqSalesRows = [];
