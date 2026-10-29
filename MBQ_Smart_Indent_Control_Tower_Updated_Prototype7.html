@@ -1243,8 +1243,10 @@ loadToRecords().then(()=>renderToTracker());document.getElementById('skuCount').
    const status=document.createElement('small');status.style.cssText='color:var(--muted,#64748b);font-size:12px';
    input.insertAdjacentElement('afterend',wrap);wrap.append(save,open,status);
    const type='upload:'+input.id;
+   // Keep the selected File object before an upload handler clears input.value.
+   input.addEventListener('change',()=>{if(input.files&&input.files[0])input._mbqDraftFile=input.files[0];},true);
    save.addEventListener('click',async()=>{
-     const file=input.files&&input.files[0];if(!file){toast('ആദ്യം Excel file select ചെയ്യുക.');return;}
+     const file=(input.files&&input.files[0])||input._mbqDraftFile;if(!file){toast('ഈ Tab-ൽ Excel file തിരഞ്ഞെടുക്കുകയോ വീണ്ടും select ചെയ്യുകയോ ചെയ്യുക.');return;}
      if(file.size>25*1024*1024){toast('Draft upload limit 25 MB ആണ്. വലിയ file നിലവിലെ upload വഴി ഉപയോഗിക്കുക.');return;}
      const name=prompt('Draft name നൽകുക:',file.name.replace(/\.[^.]+$/,'')+' - Draft');if(name===null)return;
      save.disabled=true;status.textContent='Saving shared draft…';
