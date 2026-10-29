@@ -37,9 +37,9 @@ function gsvDateISO(value) {
     return d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0") + "-" + String(d.getUTCDate()).padStart(2, "0");
   }
   const raw = String(value).trim();
-  let m = raw.match(/^(\\d{4})[-/.](\\d{1,2})[-/.](\\d{1,2})/);
+  let m = raw.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
   if (m) return m[1] + "-" + m[2].padStart(2, "0") + "-" + m[3].padStart(2, "0");
-  m = raw.match(/^(\\d{1,2})[-/.](\\d{1,2})[-/.](\\d{4})$/);
+  m = raw.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
   if (m) return m[3] + "-" + m[2].padStart(2, "0") + "-" + m[1].padStart(2, "0");
   const d = new Date(raw);
   return Number.isNaN(d.getTime()) ? "" : d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0") + "-" + String(d.getUTCDate()).padStart(2, "0");
@@ -121,7 +121,7 @@ async function readMbqGsvCache() {
     const stat = await fs.promises.stat(cache);
     if (Date.now() - stat.mtimeMs < 6 * 60 * 60 * 1000) {
       const cached = JSON.parse(await fs.promises.readFile(cache, "utf8"));
-      if (cached.schemaVersion === 2 && Array.isArray(cached.data) && cached.data.every(row => row && /^\\d{4}-\\d{2}-\\d{2}$/.test(String(row.date || "")))) return cached;
+      if (cached.schemaVersion === 2 && Array.isArray(cached.data) && cached.data.every(row => row && /^\d{4}-\d{2}-\d{2}$/.test(String(row.date || "")))) return cached;
       console.log("MBQ GSV cache schema outdated; rebuilding with posting dates");
     }
   } catch (_) {}
