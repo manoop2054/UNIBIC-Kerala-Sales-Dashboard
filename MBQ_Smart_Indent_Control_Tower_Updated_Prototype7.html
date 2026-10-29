@@ -152,7 +152,8 @@ let mbqHideEmptyIndents=false;
 function mbqFilterIndentedGroups(list,skuGetter){return mbqHideEmptyIndents?list.filter(item=>mbqGroupHasIndent(skuGetter(item))):list;}
 function toggleHideEmptyIndents(){mbqHideEmptyIndents=!mbqHideEmptyIndents;const label=mbqHideEmptyIndents?'Show All Groups':'Hide Empty Indents';['toggleHideEmptyIndentsBtn','toggleHideEmptyIndentsExcelBtn'].forEach(id=>{const b=document.getElementById(id);if(b)b.textContent=label;});renderIndentWorkspace();renderWatch();renderSuggestions();if(typeof renderMbqExcelView==='function')renderMbqExcelView();showToast(mbqHideEmptyIndents?'Indent ഇല്ലാത്ത SKU Groups മറച്ചു.':'എല്ലാ SKU Groups-ഉം തിരികെ കാണിക്കുന്നു.');}
 function renderWatch(){document.getElementById('watchlist').innerHTML=mbqFilterIndentedGroups(rows,r=>r.sku).slice(0,10).map(r=>`<tr><td class="sku">${r.sku}</td><td>${r.indent==null?'No data available':Number(r.indent).toLocaleString('en-IN')}</td><td>${r.avg==null?'No data available':Number(r.avg).toLocaleString('en-IN')}</td><td>${r.suggest==null?'No data available':Number(r.suggest).toLocaleString('en-IN')}</td><td>${riskPill(r.risk||'No data available')}</td><td><button class="btn" onclick="go('suggest')">Review</button></td></tr>`).join('')||'<tr><td colspan="6" class="empty">No data available.</td></tr>'}
-function acceptAISuggestion(sku,qty){const key=String(sku||'').trim().toLowerCase();if(!key||!Number.isFinite(Number(qty))||Number(qty)<0){showToast('Valid AI suggestion ലഭ്യമല്ല.');return;}const group=rows.find(x=>String(x.sku||'').trim().toLowerCase()===key);const source=sourceRows.find(x=>String(x[0]||'').trim().toLowerCase()===key);if(source)source[1]=Number(qty);rows.filter(x=>String(x.sku||'').trim().toLowerCase()===key).forEach(x=>x.indent=Number(qty));upsertIndentLine({mode:'group',sku:group?.sku||sku,code:group?.code||'',qty:Number(qty),note:'Accepted AI Suggested IND',source:'Accepted AI suggestion'});renderSuggestions();renderIndent();renderIndentWorkspace();if(typeof renderMbqExcelView==='function')renderMbqExcelView();allocationData=[];runCfaAllocation();showToast('AI suggestion accept ചെയ്തു. Sales Head IND updated to '+Number(qty).toLocaleString('en-IN')+' CBB.');}
+const mbqAcceptedSuggestionBySku=window.mbqAcceptedSuggestionBySku||(window.mbqAcceptedSuggestionBySku={});
+function acceptAISuggestion(sku,qty){const key=String(sku||'').trim().toLowerCase();if(!key||!Number.isFinite(Number(qty))||Number(qty)<0){showToast('Valid AI suggestion ലഭ്യമല്ല.');return;}mbqAcceptedSuggestionBySku[key]=Number(qty);allocationData=[];runCfaAllocation();renderSuggestions();showToast('AI suggestion accepted for allocation: '+Number(qty).toLocaleString('en-IN')+' CBB. Original Sales Head IND remains unchanged.');}
 function renderSuggestions(){
  const q=String(document.getElementById('suggestSearch')?.value||'').trim().toLowerCase();
  const rf=String(document.getElementById('riskFilter')?.value||'all').trim().toLowerCase();
@@ -554,7 +555,7 @@ function buildAllocationData(){
  rows.forEach(r=>{
    const code=String(r.code||'').trim(),sku=String(r.sku||'').trim(),codeKey=mbqCodeKey(code);
    if(!sku||!codeKey)return;
-   const totalInd=mbqUploadedIndentForSku(sku);
+   const acceptedKey=String(sku||'').trim().toLowerCase();const totalInd=Object.prototype.hasOwnProperty.call(mbqAcceptedSuggestionBySku,acceptedKey)?Number(mbqAcceptedSuggestionBySku[acceptedKey]):mbqUploadedIndentForSku(sku);
    if(totalInd===null||!Number.isFinite(Number(totalInd))||Number(totalInd)<0)return;
    const cfaSales=cfas.map(c=>{
      const sales=history.map(m=>gsvQty(code,c.key,m));
