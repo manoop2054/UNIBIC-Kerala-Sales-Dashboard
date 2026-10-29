@@ -779,7 +779,7 @@ function renderDaysPlanner(){
  set('daysPlanTableSub',cfaName+' · '+(validPeriod?days+' days':'Custom days not entered')+' · Running month plus previous two months');
  const history=mbqSelectedMonthHistory();
  const allRows=rows.filter(r=>String(r.sku||'').trim()&&String(r.code||'').trim());
- const toRecords=getToRecords(),toAvailable=Array.isArray(toRecords)&&toRecords.length>0;
+ const toRecords=getToRecords(),toAvailable=Array.isArray(toRecords); // No uploaded TO records means no pending TO; uploaded records are deducted item-wise.
  const matchingAlloc=Array.isArray(allocationData)?allocationData.filter(r=>normalCfa(r.cfaKey||r.cfa)===cfa):[];
  const allocAvailable=matchingAlloc.length>0;
  const output=[];
@@ -809,7 +809,7 @@ function renderDaysPlanner(){
  set('daysPlanLoadSub',hasCap?'Capacity '+fmt(cap)+' CBB · use AI Fill Balance for add-ons':'Enter available capacity, then select AI Fill Balance');
  set('daysPlanShortage',hasCap&&hasRequired?fmt(Math.max(0,cap-finalTotal)):'No Data Available');
  const status=document.getElementById('daysPlanStatus');
- if(status)status.textContent=!validPeriod?'SELECT VALID DAYS':!allocAvailable?'CFA ALLOCATION REQUIRED':!liveSohRows.length?'LIVE SOH UNAVAILABLE':!toAvailable?'OPEN TO DATA UNAVAILABLE':output.some(r=>!r.complete)?'PARTIAL SOURCE DATA':'SOURCE DATA CONNECTED';
+ if(status)status.textContent=!validPeriod?'SELECT VALID DAYS':!allocAvailable?'CFA ALLOCATION REQUIRED':!liveSohRows.length?'LIVE SOH UNAVAILABLE':output.some(r=>!r.complete)?'PARTIAL SOURCE DATA':'SOURCE DATA CONNECTED';
  const tbody=document.getElementById('daysPlanRows');
  if(tbody)tbody.innerHTML=output.map(r=>'<tr><td>'+r.cfa+'</td><td class="sku">'+mbqEscape(r.sku)+'</td><td>'+mbqEscape(r.code)+'</td><td>'+(r.allocated===null?'No Data Available':fmt(r.allocated))+'</td><td>'+(r.avgDaily===null?'No Data Available':fmt(r.avgDaily))+'</td><td>'+(r.demand===null?'No Data Available':fmt(r.demand))+'</td><td>'+(r.soh===null?'No Data Available':fmt(r.soh))+'</td><td>'+(r.to===null?'Open TO Data Unavailable':fmt(r.to))+'</td><td><b>'+(r.required===null?'No Data Available':fmt(r.required))+'</b></td><td>'+(fmt(r.addon))+'</td><td><b>'+(r.final===null?'No Data Available':fmt(r.final))+'</b></td><td>'+(r.complete?'<span class="pill green">Calculated</span>':'<span class="pill amber">Check source data</span>')+'</td></tr>').join('')||'<tr><td colspan="12" class="empty">No assortment items available.</td></tr>';
 }
