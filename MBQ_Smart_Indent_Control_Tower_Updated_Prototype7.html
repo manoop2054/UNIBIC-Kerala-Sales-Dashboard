@@ -562,6 +562,7 @@ function buildAllocationData(){
  });
  grouped.forEach(group=>{
    const acceptedKey=String(group.sku||'').trim().toLowerCase();
+   const salesHeadInd=mbqUploadedIndentForSku(group.sku);
    const totalInd=Object.prototype.hasOwnProperty.call(mbqAcceptedSuggestionBySku,acceptedKey)?Number(mbqAcceptedSuggestionBySku[acceptedKey]):mbqUploadedIndentForSku(group.sku);
    if(totalInd===null||!Number.isFinite(Number(totalInd))||Number(totalInd)<0)return;
    const candidates=[];
@@ -572,7 +573,7 @@ function buildAllocationData(){
        const prev=Number(sales[0]),last=Number(sales[1]),avg=(last+prev)/2;
        if(!Number.isFinite(avg)||avg<0)return;
        const stock=stockMap.get(c.key+'|'+item.codeKey);
-       candidates.push({cfa:c.name,cfaKey:c.key,sku:group.sku,code:item.code,last,prev,avg,soh:stock?Number(stock.stock)||0:0,incoming:Number(openToQtyFor(c.key,item.code)||0),raw:0,allocation:0,remainder:0,salesHeadInd:Number(totalInd)});
+       candidates.push({cfa:c.name,cfaKey:c.key,sku:group.sku,code:item.code,last,prev,avg,soh:stock?Number(stock.stock)||0:0,incoming:Number(openToQtyFor(c.key,item.code)||0),raw:0,allocation:0,remainder:0,salesHeadInd:salesHeadInd===null?0:Number(salesHeadInd)});
      });
    });
    const weight=candidates.reduce((sum,x)=>sum+x.avg,0);
@@ -714,7 +715,7 @@ function renderAlloc(){
  const body=document.getElementById('allocRows');
  if(body)body.innerHTML=data.map(r=>{
    const toStatus=mbqPlantToStatus(r.cfaKey,r.code),rowClass=toStatus==='out'?'plant-stockout-row':toStatus==='partial'?'plant-partial-row':'';
-   return '<tr class="'+rowClass+'"><td>'+r.cfa+'</td><td class="sku">'+mbqEscape(r.sku)+'</td><td>'+mbqEscape(r.code)+'</td><td>'+fmt(r.last)+'</td><td>'+fmt(r.prev)+'</td><td><b>'+fmt(r.avg)+'</b></td><td>'+fmt(r.soh)+'</td><td>'+fmt(r.incoming)+'</td><td><b>'+fmt(r.net)+'</b></td><td><input aria-label="Manual allocation for '+mbqEscape(r.cfa+' '+r.sku+' '+r.code)+'" type="number" min="0" step="1" value="'+fmt(r.allocation)+'" data-allocation-index="'+r._index+'" onchange="updateManualAllocation(this.dataset.allocationIndex,this.value)" style="width:105px;min-width:90px;padding:7px;border:1px solid #cbd5e1;border-radius:7px;background:'+(r.manualAllocation?'#fff7ed':'#fff')+';font-weight:700"></td><td>'+riskPill(r.priority==='Critical'?'High':r.priority==='High'?'Review':'Normal')+'</td></tr>';
+   return '<tr class="'+rowClass+'"><td>'+r.cfa+'</td><td class="sku">'+mbqEscape(r.sku)+'</td><td>'+mbqEscape(r.code)+'</td><td>'+fmt(r.last)+'</td><td>'+fmt(r.prev)+'</td><td><b>'+fmt(r.avg)+'</b></td><td>'+fmt(r.soh)+'</td><td>'+fmt(r.incoming)+'</td><td><b>'+fmt(r.net)+'</b></td><td><input aria-label="Manual allocation for '+mbqEscape(r.cfa+' '+r.sku+' '+r.code)+'" type="number" min="0" step="1" value="'+Number(r.allocation||0)+'" data-allocation-index="'+r._index+'" onchange="updateManualAllocation(this.dataset.allocationIndex,this.value)" style="width:105px;min-width:90px;padding:7px;border:1px solid #cbd5e1;border-radius:7px;background:'+(r.manualAllocation?'#fff7ed':'#fff')+';font-weight:700"></td><td>'+riskPill(r.priority==='Critical'?'High':r.priority==='High'?'Review':'Normal')+'</td></tr>';
  }).join('')||'<tr><td colspan="11" class="empty">NOT ALLOCATED — Please Allocate First. Click “Run CFA Allocation” after Sales Head IND and billing data are available.</td></tr>';
 }
 const TO_STORAGE_KEY='mbqOpenTORecordsV2';
