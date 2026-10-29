@@ -933,17 +933,18 @@ function mbqRecalcWorkbookFormulaCells(headers,vals){
  if(ind!==null&&ind!==0&&sales!==null)set('S. TREND',sales/ind);const mbq=num('MBQ');if(over!==null&&mbq!==null)set('SHRT/EXC',over-mbq);if(over!==null&&ind!==null&&ind!==0)set('DOS',over/(ind/30));if(sales!==null&&ix['NXT 10D']!==undefined)set('NXT 10D',sales/3);
 }
 const mbqBgSelections=window.mbqBgSelections||(window.mbqBgSelections={});
+const mbqBgOriginals=window.mbqBgOriginals||(window.mbqBgOriginals={});
 const MBQ_BG_OPTIONS=['GT','ECOM','MT'];
 function mbqBgParse(raw){const text=String(raw??'').trim().toUpperCase();return MBQ_BG_OPTIONS.filter(opt=>new RegExp('(^|[^A-Z])'+opt+'([^A-Z]|$)').test(text));}
 function mbqBgCell(sku,raw){
- const key=String(sku??'').trim();if(!Object.prototype.hasOwnProperty.call(mbqBgSelections,key))mbqBgSelections[key]=mbqBgParse(raw);
- const selected=mbqBgSelections[key],label=selected.length?selected.join(' + '):(String(raw??'').trim()||'Select GT / ECOM / MT');
- return '<details class="mbq-bg-dropdown"><summary title="Choose one or more billing groups">'+mbqEscape(label)+'</summary><div class="mbq-bg-options">'+MBQ_BG_OPTIONS.map(opt=>'<label><input type="checkbox" '+(selected.includes(opt)?'checked':'')+' onchange="mbqToggleBgSelection('+JSON.stringify(key).replace(/</g,'\\u003c')+',\''+opt+'\',this.checked)"><span>'+opt+'</span></label>').join('')+'</div></details>';
+ const key=String(sku??'').trim();if(!Object.prototype.hasOwnProperty.call(mbqBgSelections,key))mbqBgSelections[key]=mbqBgParse(raw);if(!Object.prototype.hasOwnProperty.call(mbqBgOriginals,key))mbqBgOriginals[key]=String(raw??'').trim();
+ const selected=mbqBgSelections[key],label=selected.length?selected.join(' + '):(mbqBgOriginals[key]||'Select GT / ECOM / MT');
+ return '<details class="mbq-bg-dropdown"><summary title="Choose one or more billing groups">'+mbqEscape(label)+'</summary><div class="mbq-bg-options">'+MBQ_BG_OPTIONS.map(opt=>'<label><input type="checkbox" '+(selected.includes(opt)?'checked':'')+' onchange="mbqToggleBgSelection('+JSON.stringify(key).replace(/</g,'\\u003c')+',\\''+opt+'\\',this.checked,this)"><span>'+opt+'</span></label>').join('')+'</div></details>';
 }
-function mbqToggleBgSelection(sku,opt,checked){
+function mbqToggleBgSelection(sku,opt,checked,control){
  const key=String(sku??'').trim();const current=Array.isArray(mbqBgSelections[key])?mbqBgSelections[key]:[];
  mbqBgSelections[key]=checked?[...new Set([...current,opt])]:current.filter(v=>v!==opt);
- renderMbqExcelView();
+ const summary=control?.closest('details')?.querySelector('summary');if(summary)summary.textContent=mbqBgSelections[key].length?mbqBgSelections[key].join(' + '):(mbqBgOriginals[key]||'Select GT / ECOM / MT');
 }
 function mbqRenderLoadedWorkbook(key,host,label){
   const sheet=mbqExcelSheets[key];if(!sheet)return false;const history=mbqSelectedMonthHistory();const original=sheet.headers.slice();const headers=original.slice();const monthIx=original.map((h,i)=>({h:String(h).trim().toUpperCase(),i})).filter(x=>['JUL','AUG','SEP','OCT','NOV','DEC','JAN','FEB','MAR','APR','MAY','JUN'].includes(x.h));
