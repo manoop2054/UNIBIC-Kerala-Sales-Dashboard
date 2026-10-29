@@ -194,7 +194,17 @@ async function ensureDraftTable() {
   )`);
 }
 let draftTableReady = null;
-function readyDrafts() { if (!draftTableReady) draftTableReady = ensureDraftTable(); return draftTableReady; }
+function readyDrafts() {
+  if (!draftTableReady) {
+    draftTableReady = ensureDraftTable().catch(error => {
+      // Do not cache a rejected initialization promise: transient PostgreSQL/Neon
+      // authentication timeouts must be recoverable on the next request.
+      draftTableReady = null;
+      throw error;
+    });
+  }
+  return draftTableReady;
+}
 const MBQ_DRAFTS_PIN = process.env.MBQ_DRAFTS_PIN || "";
 app.use("/api/mbq/drafts", (req, res, next) => {
   if (!MBQ_DRAFTS_PIN) return res.status(503).json({ success: false, error: "Shared draft access PIN is not configured" });
