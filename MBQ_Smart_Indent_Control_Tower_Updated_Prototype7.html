@@ -903,11 +903,18 @@ function mbqRecalcContributionRows(sheet){
   const headers=(sheet.headers||[]).map(h=>String(h).trim().toUpperCase());
   const ix={sku:headers.indexOf('SKU GROUP'),ctg:headers.indexOf('CTG'),cat:headers.indexOf('CAT'),rank:headers.indexOf('RANK'),con:headers.indexOf('CONTRI%'),cum:headers.indexOf('CUM CONTRI%')};
   const sourceRows=(sheet.rows||[]);
+  const monthCols=headers.map((h,i)=>({h,i})).filter(x=>['JUL','AUG','SEP','OCT','NOV','DEC','JAN','FEB','MAR','APR','MAY','JUN'].includes(x.h)).slice(-3);
   const classifyCtg=(skuGroup)=>{const description=String(skuGroup??'').trim().toUpperCase();if(description.includes('CAKE'))return 'CAKE';if(description.includes('WF'))return 'WAFER';return 'CORE';};
   const prepared=sourceRows.map(row=>{const copy=row.slice();if(ix.sku>=0&&ix.ctg>=0)copy[ix.ctg]=classifyCtg(copy[ix.sku]);return copy;});
   if(ix.con<0||ix.rank<0||ix.cum<0||ix.cat<0)return prepared;
-  const parsed=(v)=>{if(v===null||v===undefined||String(v).trim()==='')return null;const raw=String(v).trim();const hasPct=raw.endsWith('%');const n=Number(raw.replace(/%$/,'').replace(/,/g,''));if(!Number.isFinite(n))return null;return hasPct||n>1?n/100:n;};
-  const items=prepared.map((row,index)=>({row,index,contribution:parsed(row[ix.con])}));
+  const parsed=(v)=>{if(v===null||v===undefined||String(v).trim()===''||String(v).trim()==='No Data Available')return null;const raw=String(v).trim();const hasPct=raw.endsWith('%');const n=Number(raw.replace(/%$/,'').replace(/,/g,''));if(!Number.isFinite(n))return null;return hasPct||n>1?n/100:n;};
+  const num=(v)=>{if(v===null||v===undefined||String(v).trim()===''||String(v).trim()==='No Data Available')return null;const n=Number(String(v).replace(/,/g,'').trim());return Number.isFinite(n)?n:null;};
+  const items=prepared.map((row,index)=>({row,index,contribution:parsed(row[ix.con]),sales:monthCols.reduce((sum,col)=>sum+(num(row[col.i])||0),0)}));
+  const hasAnySales=items.some(x=>x.sales>0);
+  if(hasAnySales){
+    const total=items.reduce((sum,x)=>sum+Math.max(0,x.sales),0);
+    items.forEach(item=>{if(item.contribution===null&&total>0)item.contribution=Math.max(0,item.sales)/total;});
+  }
   const ranked=items.filter(x=>x.contribution!==null).sort((a,b)=>b.contribution-a.contribution||a.index-b.index);
   let cumulative=0;
   ranked.forEach((item,i)=>{
@@ -915,13 +922,15 @@ function mbqRecalcContributionRows(sheet){
     item.row[ix.rank]=i+1;
     item.row[ix.cum]=cumulative;
     item.row[ix.cat]=cumulative<=0.86?'A':cumulative<0.95?'B':'C';
+    if(ix.con>=0&&parsed(item.row[ix.con])===null)item.row[ix.con]=item.contribution;
   });
   items.filter(x=>x.contribution===null).forEach(item=>{
     item.row[ix.rank]='No Data Available';
     item.row[ix.cum]='No Data Available';
     item.row[ix.cat]='No Data Available';
+    if(ix.con>=0)item.row[ix.con]='No Data Available';
   });
-  return [...ranked,...items.filter(x=>x.contribution===null)].map(x=>x.row);
+  return prepared;
 }
 function mbqRecalcWorkbookFormulaCells(headers,vals){
  const ix={};headers.forEach((h,i)=>ix[String(h).trim().toUpperCase()]=i);const get=n=>ix[n]===undefined?null:vals[ix[n]];
@@ -1081,10 +1090,10 @@ function mbqExcelGroupPo(sku,cfa,status){
  return found?total:null;
 }
 function mbqExcelFormulaDisplayRows(skus,cfa){
- const base=skus.map(sku=>({sku,ind:mbqUploadedIndentForSku(sku)}));const totalInd=base.reduce((sum,r)=>sum+(Number.isFinite(Number(r.ind))?Number(r.ind):0),0);
- const ranked=base.filter(r=>r.ind!==null&&r.ind!==undefined&&Number.isFinite(Number(r.ind))).sort((a,b)=>Number(b.ind)-Number(a.ind));let cumulative=0;const result=new Map();
- ranked.forEach((r,i)=>{const con=totalInd>0?Number(r.ind)/totalInd:null;if(con!==null)cumulative+=con;result.set(r.sku,{con,cum:con===null?null:cumulative,rank:i+1,cat:con===null?'No Data Available':cumulative<=0.86?'A':cumulative<0.95?'B':'C'});});
- base.filter(r=>r.ind===null||r.ind===undefined||!Number.isFinite(Number(r.ind))).forEach(r=>result.set(r.sku,{con:null,cum:null,rank:null,cat:null}));return result;
+ const months=mbqExcelSourceMonths();const base=skus.map(sku=>({sku,sales:months.reduce((sum,m)=>{const v=mbqExcelGroupSales(sku,m.key,cfa);return sum+(v!==null&&Number.isFinite(Number(v))?Math.max(0,Number(v)):0);},0)}));
+ const total=base.reduce((sum,r)=>sum+r.sales,0);const ranked=base.filter(r=>total>0&&r.sales>=0).sort((a,b)=>b.sales-a.sales||a.sku.localeCompare(b.sku));let cumulative=0;const result=new Map();
+ ranked.forEach((r,i)=>{const con=total>0?r.sales/total:null;if(con!==null)cumulative+=con;result.set(r.sku,{con,cum:con===null?null:cumulative,rank:i+1,cat:con===null?'No Data Available':cumulative<=0.86?'A':cumulative<0.95?'B':'C'});});
+ base.filter(r=>total<=0).forEach(r=>result.set(r.sku,{con:null,cum:null,rank:null,cat:null}));return result;
 }
 function renderMbqExcelView(){const key=document.getElementById('mbqSheetSelect')?.value||'DATA',host=document.getElementById('mbqExcelTableHost');if(!host)return;const label=key==='DATA'?'All CFA':key+' CFA';if(mbqExcelSheets[key]&&mbqSalesRows.length){mbqRenderLoadedWorkbook(key,host,label);return;}document.getElementById('mbqStatCfa').textContent=label;const unique=[...new Set(rows.filter(r=>r&&r.sku).map(r=>r.sku))].sort((a,b)=>a.localeCompare(b));const q=mbqText(document.getElementById('mbqViewSearch')?.value).toLowerCase(),size=Number(document.getElementById('mbqViewPageSize')?.value)||250;const filtered=unique.filter(sku=>!q||sku.toLowerCase().includes(q)||rows.some(r=>r.sku===sku&&[r.code,r.description,r.mrp].some(v=>mbqText(v).toLowerCase().includes(q))));const shown=filtered.slice(0,size);document.getElementById('mbqStatRows').textContent=filtered.length.toLocaleString('en-IN');document.getElementById('mbqStatCols').textContent=MBQ_OFFICIAL_HEADERS.length;const hasAssortment=unique.length>0,hasSoh=liveSohRows.length>0,hasGsv=mbqGsvRows.length>0;document.getElementById('mbqStatSource').textContent=[hasAssortment?'Assortment':'',hasSoh?'LIVE SOH':'',hasGsv?'GSV':''].filter(Boolean).join(' + ')||'Source unavailable';const status=document.getElementById('mbqWorkbookStatus');if(status){status.classList.toggle('ready',hasAssortment&&(hasSoh||hasGsv));status.innerHTML='<span class="dot"></span><span>'+mbqEscape((hasAssortment?'Assortment '+unique.length+' SKU groups':'Assortment unavailable')+' · '+(hasSoh?'LIVE SOH '+liveSohRows.length+' rows':'LIVE SOH unavailable')+' · '+(hasGsv?'GSV '+mbqGsvRows.length+' item/month/CFA aggregates':'GSV unavailable')+' · '+(!Object.keys(mbqExcelSheets).length?'Official MBQ workbook not uploaded: CTG/GT/ECOM/MT/BG, PO and planning fields show No Data Available':'Official workbook available'))+'</span>';}if(!hasAssortment){host.innerHTML='<div class="excel-empty"><strong>Assortment source unavailable</strong>SKU Group headings remain ready, but rows will appear when the GitHub Kerala Assortment source loads.</div>';return;}const sourceMonths=mbqExcelSourceMonths(),headers=MBQ_OFFICIAL_HEADERS.map(h=>h);if(sourceMonths.length===3){headers[10]=sourceMonths[0].label;headers[11]=sourceMonths[1].label;headers[12]=sourceMonths[2].label;}const formulaRows=mbqExcelFormulaDisplayRows(unique,key);
 const body=shown.map(sku=>{
