@@ -535,10 +535,11 @@ let allocationData=[];
 function buildAllocationData(){
  const cfas=[{name:'ALU CFA',key:'ALU'},{name:'PAY CFA',key:'PAY'},{name:'TVD CFA',key:'TVD'}];
  allocationData=[];
- if(!Array.isArray(mbqGsvRows)||!mbqGsvRows.length||!Array.isArray(liveSohRows)||!liveSohRows.length)return;
+ if(!Array.isArray(mbqGsvRows)||!mbqGsvRows.length)return;
  const history=mbqSelectedMonthHistory().slice(-2);
  if(history.length!==2)return;
- const stockMap=mbqLiveStockMap();
+ let stockMap=new Map();
+ try{if(Array.isArray(liveSohRows)&&liveSohRows.length)stockMap=mbqLiveStockMap();}catch(e){}
  const gsvQty=(code,cfa,month)=>{
    const codeKey=mbqGsvNormCode(code),monthKey=String(month.year)+'-'+String(month.month).padStart(2,'0');
    if(!codeKey)return null;
@@ -547,45 +548,58 @@ function buildAllocationData(){
    const matches=monthRows.filter(x=>mbqGsvNormCode(x.itemId)===codeKey);
    return matches.reduce((sum,x)=>sum+(Number(x.quantity)||0),0);
  };
- rows.forEach(r=>cfas.forEach(c=>{
+ rows.forEach(r=>{
    const code=String(r.code||'').trim(),sku=String(r.sku||'').trim(),codeKey=mbqCodeKey(code);
    if(!sku||!codeKey)return;
-   const stockKey=c.key+'|'+codeKey;
-   if(!stockMap.has(stockKey))return;
-   const sales=history.map(m=>gsvQty(code,c.key,m));
-   if(sales.some(v=>v===null||!Number.isFinite(Number(v))))return;
-   const prev=Number(sales[0]),last=Number(sales[1]),avg=(last+prev)/2;
-   const soh=Number(stockMap.get(stockKey).stock),incoming=openToQtyFor(c.key,code);
-   const target=Math.ceil(avg*.25);
-   const net=Math.max(0,Math.ceil(avg+target-soh-Number(incoming||0)));
-   const priority=(soh+Number(incoming||0))<avg*.35?'Critical':(soh+Number(incoming||0))<avg*.65?'High':'Normal';
-   allocationData.push({cfa:c.name,cfaKey:c.key,sku,code,last,prev,avg,soh,incoming:Number(incoming||0),target,net,allocation:0,priority});
- }));
+   const totalInd=mbqUploadedIndentForSku(sku);
+   if(totalInd===null||!Number.isFinite(Number(totalInd))||Number(totalInd)<0)return;
+   const cfaSales=cfas.map(c=>{
+     const sales=history.map(m=>gsvQty(code,c.key,m));
+     if(sales.some(v=>v===null||!Number.isFinite(Number(v))))return {...c,last:null,prev:null,avg:null};
+     const prev=Number(sales[0]),last=Number(sales[1]);
+     return {...c,last,prev,avg:(last+prev)/2};
+   });
+   const valid=cfaSales.filter(x=>x.avg!==null&&Number.isFinite(x.avg)&&x.avg>=0);
+   const totalAvg=valid.reduce((sum,x)=>sum+x.avg,0);
+   if(!valid.length||totalAvg<=0)return;
+   // Sales Head IND is the fixed total. Allocate it only by each CFA's share of L2M average sales.
+   // Largest-remainder rounding guarantees CFA allocations add back to the exact Sales Head IND.
+   const raw=valid.map(x=>({...x,raw:Number(totalInd)*x.avg/totalAvg,allocation:0}));
+   let assigned=0;
+   raw.forEach(x=>{x.allocation=Math.floor(x.raw);x.remainder=x.raw-x.allocation;assigned+=x.allocation;});
+   let remaining=Math.max(0,Math.round(Number(totalInd))-assigned);
+   [...raw].sort((a,b)=>b.remainder-a.remainder).slice(0,remaining).forEach(x=>x.allocation++);
+   raw.forEach(x=>{
+     const stockKey=x.key+'|'+codeKey,stock=stockMap.get(stockKey);
+     const soh=stock?Number(stock.stock)||0:0;
+     const incoming=Number(openToQtyFor(x.key,code)||0);
+     allocationData.push({cfa:x.name,cfaKey:x.key,sku,code,last:x.last,prev:x.prev,avg:x.avg,soh,incoming,target:0,net:x.allocation,allocation:x.allocation,priority:'Normal',salesHeadInd:Number(totalInd)});
+   });
+ });
 }
 function runCfaAllocation(){
  const status=document.getElementById('allocRunStatus');
- if(status){status.style.borderLeftColor='#64748b';status.textContent='Calculating CFA-wise plant request…';}
- if(!allocationData.length)buildAllocationData();
+ if(status){status.style.borderLeftColor='#64748b';status.textContent='Sales Head IND അടിസ്ഥാനമാക്കി CFA allocation കണക്കാക്കുന്നു…';}
+ allocationData=[];buildAllocationData();
  const statusPill=document.querySelector('#page-allocation .card-head .pill');
- if(statusPill)statusPill.textContent=allocationData.length?'GSV + SOH + TO REVIEWED':(!mbqGsvRows.length?'GSV SOURCE UNAVAILABLE':(!liveSohRows.length?'LIVE SOH SOURCE UNAVAILABLE':'NO CFA / ITEM / MONTH MATCH'));
+ if(statusPill)statusPill.textContent=allocationData.length?'SALES HEAD IND + L2M SALES':'SOURCE / INDENT MATCH REQUIRED';
  if(!allocationData.length){
   ['allocLineCount','allocNetTotal','allocShortage'].forEach(id=>document.getElementById(id).textContent='No Data Available');
   renderAlloc();
-  const reason=!mbqGsvRows.length?'GSV billing data has not loaded.':(!liveSohRows.length?'LIVE SOH data has not loaded.':'Sources are present, but no CFA + item + selected-month rows matched. Check selected month, CFA/item mapping, and SOH item codes.');
+  const reason=!mbqGsvRows.length?'GSV billing data has not loaded.': 'Sales Head IND, selected two-month billing, or SKU/CFA mapping is missing; no allocation was generated.';
   if(status){status.style.borderLeftColor='#dc2626';status.textContent='NOT COMPLETED — '+reason;}
-  showToast('CFA-wise request not calculated: source data or matching rows unavailable.');
+  showToast('CFA allocation നടന്നില്ല: Sales Head IND അല്ലെങ്കിൽ matched billing data ലഭ്യമല്ല.');
   return;
  }
- allocationData.forEach(r=>{r.allocation=r.net;});
- const net=allocationData.reduce((a,r)=>a+r.net,0);
+ const totalAllocated=allocationData.reduce((a,r)=>a+(Number(r.allocation)||0),0);
+ const uniqueSkus=[...new Set(allocationData.map(r=>r.sku))];
  document.getElementById('allocLineCount').textContent=allocationData.length.toLocaleString('en-IN');
- document.getElementById('allocNetTotal').textContent=net.toLocaleString('en-IN');
- document.getElementById('allocShortage').textContent=net.toLocaleString('en-IN');
+ document.getElementById('allocNetTotal').textContent=totalAllocated.toLocaleString('en-IN');
+ document.getElementById('allocShortage').textContent=totalAllocated.toLocaleString('en-IN');
  renderAlloc();
- const hasTo=getToRecords().length>0;
- const toStatus=document.getElementById('allocToStatus');if(toStatus)toStatus.textContent=hasTo?'Uploaded':'Not uploaded';
- if(status){status.style.borderLeftColor='#059669';status.textContent='SUCCESS — '+allocationData.length.toLocaleString('en-IN')+' CFA-item rows calculated. CFA-wise plant request: '+net.toLocaleString('en-IN')+' CBB. '+(hasTo?'Uploaded Plant TO data is included in confirmed incoming supply and item-wise TO status.':'Plant TO Excel is not uploaded; request quantities are based on matched billing and LIVE SOH only.');}
- showToast('CFA-wise plant request calculated successfully.');
+ const toStatus=document.getElementById('allocToStatus');if(toStatus)toStatus.textContent='Not used in allocation';
+ if(status){status.style.borderLeftColor='#059669';status.textContent='SUCCESS — '+uniqueSkus.length.toLocaleString('en-IN')+' SKU Groups / '+allocationData.length.toLocaleString('en-IN')+' CFA-item rows. Allocation is based only on Sales Head IND distributed by each CFA’s L2M average sales. SOH, Open TO and Plant SOH do not change the allocation.';}
+ showToast('Sales Head IND അടിസ്ഥാനമാക്കി CFA allocation പൂർത്തിയായി.');
 }
 
 function mbqPlannerUsableSoh(cfa,code){
