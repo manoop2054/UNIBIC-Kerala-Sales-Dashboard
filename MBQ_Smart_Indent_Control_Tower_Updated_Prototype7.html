@@ -1227,7 +1227,7 @@ loadToRecords().then(()=>renderToTracker());document.getElementById('skuCount').
  const start=()=>{if(document.body)observer.observe(document.body,{subtree:true,childList:true,characterData:true});};
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
-
+</script>
 <script>
 (function(){
  const API='/api/mbq/drafts';
@@ -1267,6 +1267,5 @@ loadToRecords().then(()=>renderToTracker());document.getElementById('skuCount').
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',scan);else scan();
  new MutationObserver(scan).observe(document.documentElement,{childList:true,subtree:true});
 })();
-</script>
 </script>
 </body></html>
