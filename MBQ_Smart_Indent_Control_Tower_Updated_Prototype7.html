@@ -160,7 +160,11 @@ function renderSuggestions(){
  const cfRaw=String(document.getElementById('cfaFilter')?.value||'all').trim();
  const cf=cfRaw.toLowerCase()==='all'?'all':normalCfa(cfRaw);
  const base=Array.isArray(rows)&&rows.length?rows:sourceRows.map(r=>({sku:r[0],indent:r[1],avg:r[2],suggest:null,risk:'No data available',cfa:r[5],code:''}));
- let data=mbqFilterIndentedGroups(base,r=>r.sku);
+ const filteredBase=mbqFilterIndentedGroups(base,r=>r.sku);
+ // The source may contain one row per CFA/item for the same SKU Group. Show one review row per SKU Group; groupRows below retains all member rows for aggregation.
+ const uniqueGroups=new Map();
+ filteredBase.forEach(r=>{const key=String(r.sku||'').trim().toLowerCase();if(key&&!uniqueGroups.has(key))uniqueGroups.set(key,r);});
+ let data=[...uniqueGroups.values()];
  if(q)data=data.filter(r=>String(r.sku||'').toLowerCase().includes(q));
  const body=document.getElementById('suggestRows');if(!body)return;
  const stockMap=mbqLiveStockMap(),history=mbqSelectedMonthHistory().slice(-2),toRecords=getToRecords();
