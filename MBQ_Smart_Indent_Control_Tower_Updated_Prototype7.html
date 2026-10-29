@@ -974,8 +974,7 @@ function renderFlash(){
   const alloc=allocationRows.filter(x=>String(x.sku||'').trim().toLowerCase()===sku.toLowerCase()&&(cfaKey==='DATA'||normalCfa(x.cfaKey||x.cfa)===cfaKey));
   let indent=null;
   if(cfaKey==='DATA'){
-   const uploaded=typeof mbqUploadedIndentForSku==='function'?mbqUploadedIndentForSku(sku):null;
-   const raw=uploaded!==null&&uploaded!==undefined?uploaded:(sr?sr[1]:null);
+   const raw=sr&&sr[1]!==''&&sr[1]!==null&&sr[1]!==undefined?sr[1]:(typeof mbqUploadedIndentForSku==='function'?mbqUploadedIndentForSku(sku):null);
    if(raw!==null&&raw!==undefined&&raw!==''&&Number.isFinite(Number(raw)))indent=Number(raw);
   }else if(alloc.length){indent=alloc.reduce((sum,x)=>sum+(Number(x.allocation)||0),0);}
   const billed=mbqGsvRows.length?mbqGsvGroupMonth(sku,cfaKey,monthKey):null;
