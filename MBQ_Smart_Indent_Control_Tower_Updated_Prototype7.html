@@ -1007,6 +1007,7 @@ function renderProductionFrequencySettings(){
 
 let mbqPendingProductionUpload=null;
 function mbqProductionHeaderKey(value){return String(value??'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');}
+function mbqProductionSkuKey(value){return String(value??'').normalize('NFKC').replace(/\uFFFD/g,' ').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/\s+/g,' ').trim().toUpperCase();}
 function downloadProductionTemplate(){
  const headers=['SKU GROUP','PROD FREQ / MONTH','MBQ DAYS BASED ON PROD FREQ','TRANSIT DAYS'];
  const saved=mbqProductionSettings();
@@ -1031,21 +1032,21 @@ function previewProductionSettingsUpload(input){
    const ix={sku:find(['SKUGROUP']),freq:find(['PRODFREQ','PRODFREQMONTH','PRODUCTIONFREQUENCY']),days:find(['MBQDAYSBASEDONPRODFREQ','MBQDAYS']),transit:find(['TRANSITDAYS'])};
    const missing=[['SKU GROUP',ix.sku],['PROD FREQ / MONTH',ix.freq],['MBQ DAYS BASED ON PROD FREQ',ix.days],['TRANSIT DAYS',ix.transit]].filter(x=>x[1]<0).map(x=>x[0]);
    if(missing.length)throw new Error('Missing required columns: '+missing.join(', '));
-   const existing=new Set(mbqProductionRows().map(r=>r.sku.toLowerCase())),seen=new Set(),parsed=[],issues=[];
-   const numeric=(v,label,row,required=false)=>{if(v===null||v===undefined||String(v).trim()==='')return '';const n=Number(String(v).replace(/,/g,'').trim());if(!Number.isFinite(n)||n<0){issues.push('Row '+row+': invalid '+label);return '';}return n;};
+   const existing=new Set(mbqProductionRows().map(r=>mbqProductionSkuKey(r.sku))),seen=new Set(),parsed=[],issues=[];
+   const numeric=(v,label,row,rowIssues)=>{if(v===null||v===undefined||String(v).trim()==='')return '';const n=Number(String(v).replace(/,/g,'').trim());if(!Number.isFinite(n)||n<0){const msg='Row '+row+': invalid '+label+' (must be zero or a positive number)';issues.push(msg);rowIssues.push(msg);return '';}return n;};
    matrix.slice(1).forEach((row,index)=>{
-    const rowNum=index+2,sku=String(row[ix.sku]??'').trim();if(!sku)return;
-    const key=sku.toLowerCase();let valid=true;
-    if(seen.has(key)){issues.push('Row '+rowNum+': duplicate SKU GROUP '+sku);valid=false;}seen.add(key);
-    if(existing.size&&!existing.has(key)){issues.push('Row '+rowNum+': SKU GROUP not found in loaded master — '+sku);valid=false;}
-    const freq=numeric(row[ix.freq],'PROD FREQ / MONTH',rowNum),days=numeric(row[ix.days],'MBQ DAYS',rowNum),transit=numeric(row[ix.transit],'TRANSIT DAYS',rowNum);
-    if(freq!==''&&(!Number.isInteger(freq)||freq<=0)){issues.push('Row '+rowNum+': PROD FREQ must be a positive whole number');valid=false;}
-    if([freq,days,transit].every(v=>v==='')){issues.push('Row '+rowNum+': no settings supplied');valid=false;}
-    parsed.push({sku,freq,prodDays:days,transitDays:transit,valid});
+    const rowNum=index+2,sku=String(row[ix.sku]??'').replace(/\uFFFD/g,' ').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/\s+/g,' ').trim();if(!sku)return;
+    const key=mbqProductionSkuKey(sku),rowIssues=[];
+    if(seen.has(key)){const msg='Row '+rowNum+': duplicate SKU GROUP '+sku;issues.push(msg);rowIssues.push(msg);}seen.add(key);
+    if(existing.size&&!existing.has(key)){const msg='Row '+rowNum+': SKU GROUP not found in loaded master — '+sku;issues.push(msg);rowIssues.push(msg);}
+    const freq=numeric(row[ix.freq],'PROD FREQ / MONTH',rowNum,rowIssues),days=numeric(row[ix.days],'MBQ DAYS',rowNum,rowIssues),transit=numeric(row[ix.transit],'TRANSIT DAYS',rowNum,rowIssues);
+    if(freq!==''&&(!Number.isInteger(freq)||freq<0)){const msg='Row '+rowNum+': PROD FREQ must be a non-negative whole number';issues.push(msg);rowIssues.push(msg);}
+    if([freq,days,transit].every(v=>v==='')){const msg='Row '+rowNum+': no settings supplied';issues.push(msg);rowIssues.push(msg);}
+    parsed.push({sku,freq,prodDays:days,transitDays:transit,valid:rowIssues.length===0,validation:rowIssues.join('; ')});
    });
    if(!parsed.length)throw new Error('No SKU Group rows found under the header');
    mbqPendingProductionUpload={rows:parsed,issues};
-   if(host)host.innerHTML=parsed.map(r=>'<tr><td>'+mbqEscape(r.sku)+'</td><td>'+mbqEscape(r.freq===''?'No Data Available':r.freq)+'</td><td>'+mbqEscape(r.prodDays===''?'No Data Available':r.prodDays)+'</td><td>'+mbqEscape(r.transitDays===''?'No Data Available':r.transitDays)+'</td><td>'+(r.valid?'<span class="pill green">Valid row</span>':'<span class="pill amber">Review required</span>')+'</td></tr>').join('');
+   if(host)host.innerHTML=parsed.map(r=>'<tr><td>'+mbqEscape(r.sku)+'</td><td>'+mbqEscape(r.freq===''?'No Data Available':r.freq)+'</td><td>'+mbqEscape(r.prodDays===''?'No Data Available':r.prodDays)+'</td><td>'+mbqEscape(r.transitDays===''?'No Data Available':r.transitDays)+'</td><td>'+(r.valid?'<span class="pill green">Valid row</span>':'<span class="pill amber" title="'+mbqEscape(r.validation)+'">'+mbqEscape(r.validation||'Review required')+'</span>')+'</td></tr>').join('');
    if(wrap)wrap.style.display='block';
    const validCount=parsed.filter(r=>r.valid).length;
    if(status)status.textContent=validCount+' valid rows · '+issues.length+' validation issue(s). '+(issues.length?'Fix Excel issues and upload again.':'Preview looks good; apply to merge settings.');
