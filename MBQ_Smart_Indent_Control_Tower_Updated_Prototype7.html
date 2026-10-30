@@ -1594,10 +1594,26 @@ function renderMbqPoPreview(){
   host.innerHTML=filtered.length?'<div class="excel-status ready" style="margin:0 0 8px"><span class="dot"></span><span>Showing '+Math.min(filtered.length,250)+' of '+filtered.length+' lines · '+mbqEscape(mbqPoFileName)+'</span></div><div class="excel-table-wrap"><table class="excel-table"><thead><tr>'+headers.map(h=>'<th>'+mbqEscape(h)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div>':'<div class="excel-empty"><strong>No matching PO lines</strong>Try another CFA or search term.</div>';
 }
 async function restoreMbqLocalData(){
-  const book=await mbqCacheGet('mbqExcelCache');if(book&&book.sheets){mbqExcelSheets=book.sheets;mbqSalesRows=book.salesRows||[];mbqIndentRows=book.indentRows||[];mbqWorkbookName=book.name||'';const status=document.getElementById('mbqWorkbookStatus');status.classList.add('ready');status.innerHTML='<span class="dot"></span><span>Restored '+mbqEscape(mbqWorkbookName)+' from this browser</span>';renderMbqExcelView();}
+  const status=document.getElementById('mbqWorkbookStatus');let sharedLoaded=false;
+  try{
+    const response=await fetch('/api/mbq/master-workbook',{cache:'no-store'});const result=await response.json();
+    if(!response.ok||!result.success)throw new Error(result.error||'Shared master unavailable');
+    const master=result.workbook;
+    if(master&&master.payload&&master.payload.sheets){
+      mbqExcelSheets=master.payload.sheets;mbqSalesRows=master.payload.salesRows||[];mbqIndentRows=master.payload.indentRows||[];mbqWorkbookName=master.fileName||'Shared MBQ Master.xlsx';
+      await mbqCacheSet('mbqExcelCache',{...master.payload,name:mbqWorkbookName,loadedAt:master.uploadedAt,shared:true});
+      if(status){status.classList.add('ready');status.innerHTML='<span class="dot"></span><span>Shared master loaded: '+mbqEscape(mbqWorkbookName)+' · available to all users</span>';}
+      renderMbqExcelView();sharedLoaded=true;
+    }else if(status){status.classList.remove('ready');status.innerHTML='<span class="dot"></span><span>No shared Master Excel uploaded yet. Admin can upload once for all users.</span>';}
+  }catch(e){console.warn('MBQ shared master load failed:',e.message);if(status){status.classList.remove('ready');status.innerHTML='<span class="dot"></span><span>Shared master connection unavailable; checking this browser’s saved copy.</span>';}}
+  if(!sharedLoaded){
+    const book=await mbqCacheGet('mbqExcelCache');
+    if(book&&book.sheets){mbqExcelSheets=book.sheets;mbqSalesRows=book.salesRows||[];mbqIndentRows=book.indentRows||[];mbqWorkbookName=book.name||'';if(status){status.classList.add('ready');status.innerHTML='<span class="dot"></span><span>Local copy only: '+mbqEscape(mbqWorkbookName)+' · not shared across devices</span>';}renderMbqExcelView();}
+  }
   const po=await mbqCacheGet('mbqPoCache');if(po&&po.rows){mbqPoRecords=po.rows;mbqPoHeaders=po.headers||[];mbqPoFileName=po.name||'';renderMbqPoPreview();}
 }
 
+restoreMbqLocalData();
 applyPlanningRulesToForm();
 loadCloudProductionSettings();
 loadLiveSoh();
