@@ -280,7 +280,7 @@ function renderSuggestions(){
  let data=[...uniqueGroups.values()];
  if(q)data=data.filter(r=>String(r.sku||'').toLowerCase().includes(q));
  const body=document.getElementById('suggestRows');if(!body)return;
- const stockMap=mbqLiveStockMap(),history=mbqSelectedMonthHistory().slice(-2),toRecords=getToRecords();
+ const stockMap=mbqLiveStockMap(),history=mbqLastCompletedMonths(2),toRecords=getToRecords();
  const cfas=cf==='all'?['ALU','PAY','TVD']:[cf];
  const fmt=v=>Number(v).toLocaleString('en-IN',{maximumFractionDigits:0});
  const allocatedRows=Array.isArray(allocationData)?allocationData.filter(x=>cf==='all'||normalCfa(x.cfaKey||x.cfa)===cf):[];
@@ -348,7 +348,7 @@ function mbqGsvGroupMonth(sku,cfa,month){
 }
 function mbqApplyGsvSales(){
   if(!mbqGsvRows.length)return;
-  const history=mbqSelectedMonthHistory();
+  const history=mbqLastCompletedMonths(3);
   rows.forEach(r=>{
     const itemMonths=history.map(m=>mbqGsvItemMonth(r.code,m.year+"-"+String(m.month).padStart(2,"0"),"DATA"));
     const found=itemMonths.filter(v=>v!==null);
@@ -492,7 +492,7 @@ function renderIndentWorkspace(){
  }
  let data=getIndentFilteredRows();document.getElementById('indentWorkspaceCount').textContent=`${data.length} item rows · LIVE SOH${liveSohRows.length?' connected':' loading'}`;
  const hideMrp=!!(document.getElementById('entrySkuGroup')?.value);const freezeWrap=document.getElementById('indentWorkspaceWrap');if(freezeWrap){freezeWrap.classList.add('item-freeze');freezeWrap.classList.toggle('mrp-hidden',hideMrp)}head.innerHTML='<tr><th>SKU Group / Item</th><th>FG Code</th>'+(hideMrp?'':'<th>MRP</th>')+'<th>CFA</th><th>Last Month Billing CBB</th><th>Previous Month Billing CBB</th><th>Last 2 Months Avg CBB</th><th>Current SOH</th><th>Shelf Life %</th><th>Indent vs 2M Avg Sales Gap (%)</th><th>Manual Indent Qty</th><th>Action</th></tr>';
- const billingHistory=mbqSelectedMonthHistory().slice(0,2); // Last completed month and the month before it; do not use the selected/current future month as 'Last Month'.
+ const billingHistory=mbqLastCompletedMonths(2); // Two most recently completed calendar months.
  body.innerHTML=data.map(r=>{let prev=billingHistory.length===2?mbqGsvItemMonth(r.code,billingHistory[0].year+'-'+String(billingHistory[0].month).padStart(2,'0'),r.cfaKey):null,last=billingHistory.length===2?mbqGsvItemMonth(r.code,billingHistory[1].year+'-'+String(billingHistory[1].month).padStart(2,'0'),r.cfaKey):null,avg=prev!==null&&last!==null?(Number(prev)+Number(last))/2:null,existing=indentLines.find(x=>x.mode==='item'&&x.sku===r.sku&&x.code===r.code&&(x.cfaKey||'TVD')===r.cfaKey),qty=existing?existing.qty:'',liveStock=mbqLiveStockForCode(r.code,r.cfaKey),rowId=r.code+'-'+r.cfaKey;return `<tr><td class="sku">${r.sku}</td><td>${r.code}</td>${hideMrp?'':`<td>₹${Number(r.mrp).toLocaleString('en-IN')}</td>`}<td>${r.cfa} CFA</td><td>${last==null?'No data available':last.toLocaleString('en-IN')}</td><td>${prev==null?'No data available':prev.toLocaleString('en-IN')}</td><td><b>${avg==null?'No data available':avg.toLocaleString('en-IN')}</b></td><td>${liveStock.toLocaleString('en-IN')}</td><td>${riskPill(r.shelfLife>60?'Normal':'Review')} ${r.shelfLife}%</td><td id="itemgap-${rowId}">${gapText(qty,avg)}</td><td><input id="itemqty-${rowId}" data-sku="${r.sku}" data-code="${r.code}" data-cfa="${r.cfaKey}" data-avg="${avg}" oninput="updateItemGap(this)" type="number" min="0" value="${qty}" placeholder="CBB" style="width:100px;padding:7px;border:1px solid var(--line);border-radius:7px"></td><td><button class="btn" onclick="addItemIndent('${r.sku.replace(/'/g, "\'")}','${r.code}','${r.cfaKey}')">Add Item</button></td></tr>`}).join('')||'<tr><td colspan="12" class="empty">ഈ filter-ൽ items ഇല്ല.</td></tr>';
 }
 function markGroupIndentChanged(el){el.style.borderColor='#0ea5a4';el.style.background='#f0fdfa';const i=Number(el.dataset.groupIndex),avg=Number(sourceRows[i]?.[2])||0,gap=document.getElementById('groupgap-'+i);if(gap)gap.textContent=gapText(el.value,avg)}
@@ -542,7 +542,7 @@ function downloadSalesHeadTemplate(){
   if(!window.XLSX)throw new Error('Excel library not loaded. Refresh the dashboard and try again.');
   const groups=[...new Set([...sourceRows.map(r=>String(r[0]||'').trim()),...rows.map(r=>String(r.sku||'').trim()),...mbqSalesRows.map(r=>String(r.SKU_Group??r.SKU_GROUP??r['SKU Group']??'').trim())].filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   const headers=['SKU GROUP','AVG SALE LAST 2 MONTH - TVD','AVG SALE LAST 2 MONTH - PAY','AVG SALE LAST 2 MONTH - ALU','SUM AVG SALE LAST 2 MONTH','RATIO','Total Indent BY RBM/Sales Head','CFA WISE ALLOCATION - TVD','CFA WISE ALLOCATION - PAY','CFA WISE ALLOCATION - ALU'];
-  const history=mbqSelectedMonthHistory().slice(-2);
+  const history=mbqLastCompletedMonths(2);
   const data=[headers,...groups.map(g=>{
     const avgs=['TVD','PAY','ALU'].map(cfa=>{
       if(!Array.isArray(mbqSalesRows)||!mbqSalesRows.length||history.length!==2)return '';
@@ -718,7 +718,7 @@ let allocationData=[];
 function buildAllocationData(){
  const cfas=[{name:'ALU CFA',key:'ALU'},{name:'PAY CFA',key:'PAY'},{name:'TVD CFA',key:'TVD'}];
  allocationData=[];
- const history=mbqSelectedMonthHistory().slice(-2);
+ const history=mbqLastCompletedMonths(2);
  if(history.length!==2)return;
  let stockMap=new Map();
  try{if(Array.isArray(liveSohRows)&&liveSohRows.length)stockMap=mbqLiveStockMap();}catch(e){}
@@ -1290,8 +1290,15 @@ function mbqExcelGroupSoh(sku,cfa,under60){const codes=[...new Set(rows.filter(r
 function mbqUploadedIndentForSku(sku){const key=String(sku||'').trim().toLowerCase();if(!key)return null;const line=[...indentLines].reverse().find(x=>x.mode==='group'&&String(x.sku||'').trim().toLowerCase()===key);if(line&&line.qty!==''&&line.qty!==null&&line.qty!==undefined&&Number.isFinite(Number(line.qty)))return Number(line.qty);const sr=sourceRows.find(r=>String(r[0]||'').trim().toLowerCase()===key);if(sr&&sr[1]!==''&&sr[1]!==null&&sr[1]!==undefined&&Number.isFinite(Number(sr[1])))return Number(sr[1]);return null;}
 function mbqCfaAllocatedIndentForSku(sku,cfaKey){if(!cfaKey||cfaKey==='DATA')return mbqUploadedIndentForSku(sku);if(!Array.isArray(allocationData)||!allocationData.length)return 'ALLOCATION NOT DONE';const key=String(sku||'').trim().toLowerCase();const matches=allocationData.filter(r=>String(r.sku||'').trim().toLowerCase()===key&&String(r.cfaKey||'').toUpperCase()===String(cfaKey).toUpperCase());if(!matches.length)return 'ALLOCATION NOT DONE';return matches.reduce((sum,r)=>sum+(Number(r.allocation)||0),0);}
 function mbqExcelFmt(v){if(v===null||v===undefined||v==='')return 'No Data Available';if(typeof v==='number')return v.toLocaleString('en-IN',{maximumFractionDigits:0});return String(v);}
+function mbqLastCompletedMonths(count=3){
+  const now=new Date(),months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return Array.from({length:Math.max(0,Number(count)||0)},(_,i)=>{
+    const d=new Date(now.getFullYear(),now.getMonth()-(Math.max(0,Number(count)||0)-i),1);
+    return {month:d.getMonth()+1,label:months[d.getMonth()].slice(0,3).toUpperCase(),year:d.getFullYear()};
+  });
+}
 function mbqSelectedMonthHistory(){
-  // Loading plan is always based on the real running month, not the unrelated dashboard month filter.
+  // Running month plus the previous two months; retained for the daily loading planner.
   const now=new Date();const months=['January','February','March','April','May','June','July','August','September','October','November','December'];const base=now.getMonth();const year=now.getFullYear();
   return [2,1,0].map(back=>{let ix=base-back,y=year;while(ix<0){ix+=12;y--;}return {month:ix+1,label:months[ix].slice(0,3).toUpperCase(),year:y};});
 }
@@ -1497,7 +1504,7 @@ async function saveProductionFrequency(){
   showToast('Cloud save failed; settings are local only.');
  }
 }
-function mbqExcelSourceMonths(){const months=[...new Set(mbqGsvRows.map(r=>String(r.month||'')).filter(m=>m.length===7&&m[4]==='-'&&Number(m.slice(0,4))>0&&Number(m.slice(5,7))>=1&&Number(m.slice(5,7))<=12))].sort();return months.slice(-3).map(m=>({key:m,month:Number(m.slice(5,7)),label:['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][Number(m.slice(5,7))-1]+' '+m.slice(0,4)}));}
+function mbqExcelSourceMonths(){return mbqLastCompletedMonths(3).map(m=>({key:m.year+'-'+String(m.month).padStart(2,'0'),month:m.month,label:m.label+' '+m.year}));}
 function mbqExcelGroupSales(sku,month,cfa){if(!mbqGsvRows.length)return null;return mbqGsvGroupMonth(sku,cfa,month);}
 function mbqExcelSourceStatus(key){const missing=[];if(!mbqGsvRows.length)missing.push('GSV billing not loaded');if(!liveSohRows.length)missing.push('LIVE SOH not loaded');if(!Object.keys(mbqExcelSheets).length)missing.push('Official MBQ workbook not uploaded (CTG/GT/ECOM/MT/BG, PO and planning fields unavailable)');return missing.length?missing.join(' · '):'GSV + LIVE SOH + official workbook available';}
 function mbqExcelGroupPo(sku,cfa,status){
