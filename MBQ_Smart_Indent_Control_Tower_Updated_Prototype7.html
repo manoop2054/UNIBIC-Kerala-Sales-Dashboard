@@ -190,6 +190,13 @@ function savePlanningRules(){
  showToast('Planning rules saved in this browser.'); 
 }
 function mbqSetKpi(id,value){const el=document.getElementById(id);if(el)el.textContent=value}
+function mbqOverviewCfaIndentLines(cfa){
+ const entered=indentLines.filter(x=>x.mode==='item'&&x.code&&normalCfa(x.cfaKey||x.cfa||'')===cfa&&Number.isFinite(Number(x.qty))&&Number(x.qty)>0);
+ if(entered.length)return entered.map(x=>({code:x.code,qty:Number(x.qty)}));
+ const allocated=(Array.isArray(allocationData)?allocationData:[]).filter(x=>normalCfa(x.cfaKey||x.cfa||'')===cfa&&Number(x.allocation)>0);
+ if(!allocated.length||allocated.some(x=>x.sourceDataMissing||!x.code||x.code==='NO ITEM CODE MAPPED'))return [];
+ return allocated.map(x=>({code:x.code,qty:Number(x.allocation)}));
+}
 function mbqRefreshCfaReadinessCards(){
  const fmt=n=>Number(n).toLocaleString('en-IN',{maximumFractionDigits:0});
  const configs=[['ALU','ALU'],['PAY','PAY'],['TVD','TVD']];
@@ -199,8 +206,8 @@ function mbqRefreshCfaReadinessCards(){
   const ring=document.getElementById('ovReadinessRing'+id);
   if(liveSohError){value.textContent='No Data Available';sub.textContent='LIVE SOH load failed';if(ring)ring.style.setProperty('--readiness','0');return;}
   if(!liveSohRows.length){value.textContent='No Data Available';sub.textContent='Waiting for LIVE SOH';if(ring)ring.style.setProperty('--readiness','0');return;}
-  const lines=indentLines.filter(x=>x.mode==='item'&&x.code&&(normalCfa(x.cfaKey||x.cfa||'')===cfa)&&Number.isFinite(Number(x.qty))&&Number(x.qty)>0);
-  if(!lines.length){value.textContent='No Data Available';sub.textContent='Item-wise '+cfa+' CFA indent required';if(ring)ring.style.setProperty('--readiness','0');return;}
+  const lines=mbqOverviewCfaIndentLines(cfa);
+  if(!lines.length){value.textContent='No Data Available';sub.textContent='Run CFA Allocation with matched item billing';if(ring)ring.style.setProperty('--readiness','0');return;}
   const sm=mbqLiveStockMap();let demand=0,usable=0,covered=0;
   lines.forEach(line=>{
    const qty=Math.max(0,Number(line.qty)||0),stock=Math.max(0,Number(sm.get(cfa+'|'+mbqCodeKey(line.code))?.eligibleStock)||0);
@@ -222,7 +229,7 @@ function mbqRefreshDashboardKpis(){
  mbqRefreshPlanningKpis();
  mbqRefreshCfaReadinessCards();
  if(liveSohError){mbqSetKpi('ovStockReadiness','No Data Available');mbqSetKpi('ovStockReadinessSub','LIVE SOH load failed')}
- else if(liveSohRows.length){const lines=indentLines.filter(x=>x.mode==='item'&&x.code&&Number.isFinite(Number(x.qty))&&Number(x.qty)>0);if(lines.length){const sm=mbqLiveStockMap();let demand=0,covered=0;lines.forEach(line=>{const cfa=normalCfa(line.cfaKey||line.cfa||''),qty=Number(line.qty)||0,stock=Number(sm.get(cfa+'|'+mbqCodeKey(line.code))?.eligibleStock)||0;if(['ALU','PAY','TVD'].includes(cfa)){demand+=qty;covered+=Math.min(qty,stock)}});mbqSetKpi('ovStockReadiness',demand>0?Math.round(covered/demand*100)+'%':'No Data Available');mbqSetKpi('ovStockReadinessSub',demand>0?'Eligible stock coverage · '+fmt(covered)+' / '+fmt(demand)+' CBB':'Positive item-wise CFA indent required')}else{mbqSetKpi('ovStockReadiness','No Data Available');mbqSetKpi('ovStockReadinessSub','Item-wise CFA indent required')}}
+ else if(liveSohRows.length){const lines=['ALU','PAY','TVD'].flatMap(c=>mbqOverviewCfaIndentLines(c).map(line=>({...line,cfa:c})));if(lines.length){const sm=mbqLiveStockMap();let demand=0,covered=0;lines.forEach(line=>{const qty=Number(line.qty)||0,stock=Number(sm.get(line.cfa+'|'+mbqCodeKey(line.code))?.eligibleStock)||0;demand+=qty;covered+=Math.min(qty,stock)});mbqSetKpi('ovStockReadiness',demand>0?Math.round(covered/demand*100)+'%':'No Data Available');mbqSetKpi('ovStockReadinessSub',demand>0?'Eligible stock coverage · '+fmt(covered)+' / '+fmt(demand)+' CBB':'Positive CFA allocation required')}else{mbqSetKpi('ovStockReadiness','No Data Available');mbqSetKpi('ovStockReadinessSub','Run CFA Allocation with matched item billing')}}
  else{mbqSetKpi('ovStockReadiness','Loading…');mbqSetKpi('ovStockReadinessSub','Waiting for LIVE SOH')}
  const trend=document.getElementById('overviewDemandTrend');
  if(trend){if(mbqGsvRows.length){const sums=new Map();mbqGsvRows.forEach(r=>{const m=String(r.month||'');if(/^\d{4}-\d{2}$/.test(m))sums.set(m,(sums.get(m)||0)+(Number(r.quantity)||0))});const months=[...sums.keys()].sort().slice(-5),max=Math.max(0,...months.map(m=>sums.get(m)||0));trend.innerHTML=months.length?months.map(m=>{const v=sums.get(m)||0,h=max?Math.max(5,v/max*90):5;return '<div class="bar-group"><b>'+fmt(v)+'</b><div class="bar" style="height:'+h+'%"></div><small>'+m+'</small></div>'}).join(''):'<div class="empty">No Data Available — GSV month field not matched.</div>';mbqSetKpi('overviewDemandStatus',months.length?'Live GSV · monthly CBB':'GSV month field not matched')}else{trend.innerHTML='<div class="empty">'+(mbqGsvLoading?'Loading live GSV billing…':'No Data Available — live GSV billing not loaded.')+'</div>';mbqSetKpi('overviewDemandStatus',mbqGsvLoading?'Loading…':'GSV unavailable')}}
@@ -819,7 +826,7 @@ function updateManualAllocation(index,value){
  const raw=String(value??'').trim(),qty=raw===''?0:Number(raw);
  if(!Number.isFinite(qty)||qty<0){showToast('Manual Allocation Qty zero അല്ലെങ്കിൽ positive number ആയിരിക്കണം.');renderAlloc();return;}
  row.allocation=Math.round(qty);row.manualAllocation=true;
- allocationSummary();renderAlloc();
+ allocationSummary();renderAlloc();mbqRefreshDashboardKpis();
 }
 function runCfaAllocation(){
  const status=document.getElementById('allocRunStatus');
@@ -841,6 +848,7 @@ function runCfaAllocation(){
  const uniqueSkus=[...new Set(allocationData.map(r=>r.sku))];
  if(status&&allocationData.length)status.textContent=uniqueSkus.length.toLocaleString('en-IN')+' SKU Groups / '+allocationData.length.toLocaleString('en-IN')+' CFA-item rows. Edit Manual Allocation quantities below; Balance IND and over-allocation warning update automatically.';
  showToast('CFA allocation തയ്യാറായി. Manual Allocation, Balance IND, warning എന്നിവ update ചെയ്യും.');
+ mbqRefreshDashboardKpis();
 }
 function mbqPlannerUsableSoh(cfa,code){
  const key=mbqCodeKey(code);if(!key||!liveSohRows.length)return null;
