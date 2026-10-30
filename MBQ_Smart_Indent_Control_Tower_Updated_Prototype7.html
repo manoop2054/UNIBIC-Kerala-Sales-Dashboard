@@ -1600,27 +1600,42 @@ const body=shown.slice().sort((a,b)=>{const ar=formulaRows.get(a)?.rank,br=formu
 }).join('');const mbqTotalRow='<tr class="mbq-total-row">'+headers.map((h,i)=>{const hu=String(h).trim().toUpperCase();let display='';if(i===0)display='TOTAL';else if(mbqTotalSumHeaders.has(h)&&mbqTotalCounts[h])display=mbqExcelFmt(mbqTotals[h]);else if(hu==='CONTRI%'||hu==='CUM CONTRI%')display='100%';return '<th style="position:sticky;top:0;z-index:4;background:#0f766e;color:#fff;font-weight:800;padding:11px 12px;border-right:1px solid #ffffff35;border-bottom:3px solid #99f6e4;text-align:left;'+(i===0?'left:0;z-index:5;':'')+'">'+mbqEscape(display)+'</th>';}).join('')+'</tr>';const head='<thead>'+mbqTotalRow+'<tr>'+headers.map(h=>'<th>'+mbqEscape(h)+'</th>').join('')+'</tr></thead>';const trendVals=[null,null,null];const trendNames=['T.TREND','PO TREND','S.TREND'];const trendNotes=['DAY(TODAY())*3/100','PO Trend','Total Sales TBB / INDENT'];trendVals[0]=new Date().getDate()*3/100;if(sourceMonths.length===3){const all=sourceMonths.map(m=>mbqGsvRows.filter(r=>r.month===m.key&&(key==='DATA'||normalCfa(r.cfa)===key)).reduce((sum,r)=>sum+(Number(r.quantity)||0),0));const indentValues=unique.map(sku=>mbqUploadedIndentForSku(sku));const totalIndent=indentValues.length&&indentValues.every(v=>v!==null&&Number.isFinite(Number(v)))?indentValues.reduce((sum,v)=>sum+Number(v),0):null;const totalSales=all[2];trendVals[2]=totalIndent!==null&&totalIndent>0&&totalSales!==undefined&&Number.isFinite(Number(totalSales))?Number(totalSales)/totalIndent:null;}const kpis='<div id="mbqTrendKpis" class="mbq-trend-kpis">'+trendNames.map((n,i)=>{const v=trendVals[i];return '<div class="mbq-trend-kpi"><div class="k-label">'+n+'</div><div class="k-value">'+(v===null?'No Data Available':(v*100).toLocaleString('en-IN',{maximumFractionDigits:0})+'%')+'</div><div class="k-foot">'+(v===null?'Source data unavailable or comparison month has zero sales':trendNotes[i])+'</div></div>';}).join('')+'</div>';host.innerHTML=kpis+'<div class="excel-status ready" style="margin:0 0 8px"><span class="dot"></span><span>Showing '+shown.length.toLocaleString('en-IN')+' of '+filtered.length.toLocaleString('en-IN')+' SKU groups · '+mbqEscape(label)+' · '+mbqEscape(mbqExcelSourceStatus(key))+' · unsupported fields marked No Data Available</span></div><div class="excel-table-wrap"><table class="excel-table">'+head+'<tbody>'+(body||'<tr><td colspan="'+headers.length+'" class="empty">No matching SKU groups.</td></tr>')+'</tbody></table></div>';}
 function exportMbqView(){const key=document.getElementById('mbqSheetSelect')?.value||'DATA';const table=document.querySelector('#mbqExcelTableHost table');if(!table){showToast('No source-backed rows available to export.');return;}const wb=XLSX.utils.book_new(),ws=XLSX.utils.table_to_sheet(table);XLSX.utils.book_append_sheet(wb,ws,key);XLSX.writeFile(wb,'MBQ_'+key+'_Source_View.xlsx');showToast('Source-backed MBQ view exported.');}
 function mbqPoCanonicalHeader(value){
-  const raw=mbqText(value).toUpperCase().trim();
+  const raw=mbqText(value).replace(/\\u00a0/g,' ').trim().toUpperCase();
   const key=raw.replace(/[^A-Z0-9]+/g,'_').replace(/^_+|_+$/g,'');
   const aliases={
     PO_OPEN_CLOSE:'PO_OPEN_CLOSE',PO_QTY:'PO_QTY',INVOICE_QTY:'INVOICE_QTY',DIFF_QTY:'DIFF_QTY',
-    PUSHED_TEMPLATE_ID:'CFA',CFA_NAME:'CFA',CFA:'CFA',
-    SKU_GROUP:'SKU_GROUP',PO_NUMBER:'PO_NUMBER',PO_DATE:'PO_DATE',
-    ARTICLE_CODE:'ARTICLE_CODE',FG_CODE:'FG_CODE',FG_DESCRIPTION:'FG_DESCRIPTION'
+    PERC:'PERC',PERC_PERCENT:'PERC',PERCENT:'PERC',
+    PUSHED_TEMPLATE_ID:'CFA',PUSHED_TEMPLATEID:'CFA',CFA_NAME:'CFA',CFA:'CFA',
+    SKU_GROUP:'SKU_GROUP',SKUGROUP:'SKU_GROUP',
+    PO_NUMBER:'PO_NUMBER',PONUMBER:'PO_NUMBER',O_NUMBER:'PO_NUMBER',
+    PO_DATE:'PO_DATE',PODATE:'PO_DATE',
+    ARTICLE_CODE:'ARTICLE_CODE',FG_CODE:'FG_CODE',FG_DESCRIPTION:'FG_DESCRIPTION',
+    BILL_TO_CODE:'BILL_TO_CODE',BILL_TO_NAME:'BILL_TO_NAME',SHIP_TO_CODE:'SHIP_TO_CODE'
   };
   return aliases[key]||key;
 }
 function mbqFindPoTable(wb){
+  const required=['PO_OPEN_CLOSE','PO_QTY','DIFF_QTY'];
   for(const name of wb.SheetNames){
     const matrix=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:'',raw:false,blankrows:false});
-    const normalized=matrix.map(row=>row.map(mbqPoCanonicalHeader));
-    const idx=normalized.findIndex(row=>row.includes('PO_OPEN_CLOSE')&&row.includes('PO_QTY')&&row.includes('DIFF_QTY'));
-    if(idx>=0){
-      const headers=normalized[idx].map((h,i)=>h||('COLUMN_'+(i+1)));
-      const rows=matrix.slice(idx+1).filter(row=>row.some(v=>mbqText(v))).map(row=>{
-        const out={};headers.forEach((h,i)=>out[h]=row[i]===undefined?'':row[i]);return out;
-      });
-      return {headers,rows,sheetName:name};
+    for(let ri=0;ri<matrix.length;ri++){
+      const sourceHeaders=matrix[ri]||[];
+      const normalized=sourceHeaders.map(v=>mbqPoCanonicalHeader(v));
+      const hasRequired=required.every(h=>normalized.includes(h));
+      const hasIdentity=normalized.includes('PO_NUMBER')||normalized.includes('CFA')||normalized.includes('PUSHED_TEMPLATE_ID');
+      if(!hasRequired||!hasIdentity)continue;
+      const headers=normalized.map((h,i)=>h||('COLUMN_'+(i+1)));
+      const rows=[];
+      for(let r=ri+1;r<matrix.length;r++){
+        const values=matrix[r]||[];
+        if(!values.some(v=>mbqText(v)))continue;
+        const out={};
+        headers.forEach((h,i)=>{if(h&&!/^COLUMN_/.test(h))out[h]=values[i]===undefined?'':values[i];});
+        // CFA is sourced from Pushed_Template_Id; preserve the original PO number independently.
+        if(!out.CFA&&out.PUSHED_TEMPLATE_ID)out.CFA=out.PUSHED_TEMPLATE_ID;
+        rows.push(out);
+      }
+      if(rows.length)return {headers:[...new Set(headers.filter(h=>!/^COLUMN_/.test(h)))],rows,sheetName:name,headerRow:ri+1};
     }
   }
   return null;
@@ -1631,28 +1646,29 @@ async function loadMbqPoReport(event){
     let parsed;
     if(file.name.toLowerCase().endsWith('.csv')){const text=await file.text();const wb=XLSX.read(text,{type:'string'});parsed=mbqFindPoTable(wb);}
     else{const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});parsed=mbqFindPoTable(wb);}
-    if(!parsed)throw new Error('Could not find a header row containing PO_Open_Close, PO_Qty and Diff_Qty.');
+    if(!parsed)throw new Error('Required columns not detected. Expected PO Open/Close, PO Qty, Diff. Qty and PO/CFA identifiers.');
     mbqPoRecords=parsed.rows;mbqPoHeaders=parsed.headers;mbqPoFileName=file.name;
     await mbqCacheSet('mbqPoCache',{rows:mbqPoRecords,headers:mbqPoHeaders,name:file.name,loadedAt:new Date().toISOString()});
     try{await mbqSaveSharedUpload('open-po-report',file.name,file.size,{rows:mbqPoRecords,headers:mbqPoHeaders});}catch(e){showToast('Shared Open PO save failed: '+e.message);}
     renderMbqPoPreview();showToast('Daily Open & Close PO report loaded.');
   }catch(e){showToast('PO upload failed: '+(e.message||'Check the report format.'));}
 }
-function mbqPoVal(row, names){const k=Object.keys(row).find(x=>names.includes(x.trim().toUpperCase()));return k?row[k]:'';}
+function mbqPoVal(row,names){for(const name of names){const key=mbqPoCanonicalHeader(name);if(Object.prototype.hasOwnProperty.call(row,key))return row[key];}return '';}
 function renderMbqPoPreview(){
   const host=document.getElementById('mbqPoTableHost');if(!host)return;
   const cfaSel=document.getElementById('mbqPoCfaSelect'),search=mbqText(document.getElementById('mbqPoSearch')?.value).toLowerCase();
   if(!mbqPoRecords.length){host.innerHTML='<div class="excel-empty"><strong>No PO report loaded</strong>Upload the daily Open & Close PO Excel to preview and validate it.</div>';return;}
-  const cfas=[...new Set(mbqPoRecords.map(r=>mbqText(mbqPoVal(r,['CFA'])).toUpperCase()).filter(Boolean))].sort();
+  const cfas=[...new Set(mbqPoRecords.map(r=>mbqText(mbqPoVal(r,['CFA','Pushed_Template_Id'])).toUpperCase()).filter(Boolean))].sort();
   const current=cfaSel.value||'ALL';cfaSel.innerHTML='<option value="ALL">All CFA</option>'+cfas.map(c=>'<option value="'+mbqEscape(c)+'">'+mbqEscape(c)+'</option>').join('');cfaSel.value=cfas.includes(current)?current:'ALL';
   const status=r=>mbqText(mbqPoVal(r,['PO_OPEN_CLOSE'])).toLowerCase();
   const openCount=mbqPoRecords.filter(r=>status(r)==='open').length,closeCount=mbqPoRecords.filter(r=>status(r)==='close').length;
   document.getElementById('mbqPoTotal').textContent=mbqPoRecords.length.toLocaleString('en-IN');document.getElementById('mbqPoOpen').textContent=openCount.toLocaleString('en-IN');document.getElementById('mbqPoClose').textContent=closeCount.toLocaleString('en-IN');document.getElementById('mbqPoCfas').textContent=cfas.length;
-  const filtered=mbqPoRecords.filter(r=>(cfaSel.value==='ALL'||mbqText(mbqPoVal(r,['COLUMN1','CFA NAME','CFA'])).toUpperCase()===cfaSel.value)&&(!search||Object.values(r).some(v=>mbqText(v).toLowerCase().includes(search))));
-  const wanted=['CFA','PO_NUMBER','PO_OPEN_CLOSE','PO_DATE','ARTICLE_CODE','FG_CODE','FG_DESCRIPTION','SKU_GROUP','PO_QTY','INVOICE_QTY','DIFF_QTY'];
-  const headers=wanted.map(w=>mbqPoHeaders.find(h=>h.toUpperCase()===w)).filter(Boolean);
-  const body=filtered.slice(0,250).map(r=>'<tr>'+headers.map(h=>{const val=mbqText(r[h]);if(h.toUpperCase()==='PO_OPEN_CLOSE')return '<td><span class="excel-po-status '+(val.toLowerCase()==='open'?'open':'close')+'">'+mbqEscape(val)+'</span></td>';return '<td>'+mbqEscape(val)+'</td>';}).join('')+'</tr>').join('');
-  host.innerHTML=filtered.length?'<div class="excel-status ready" style="margin:0 0 8px"><span class="dot"></span><span>Showing '+Math.min(filtered.length,250)+' of '+filtered.length+' lines · '+mbqEscape(mbqPoFileName)+'</span></div><div class="excel-table-wrap"><table class="excel-table"><thead><tr>'+headers.map(h=>'<th>'+mbqEscape(h)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div>':'<div class="excel-empty"><strong>No matching PO lines</strong>Try another CFA or search term.</div>';
+  const filtered=mbqPoRecords.filter(r=>(cfaSel.value==='ALL'||mbqText(mbqPoVal(r,['CFA','Pushed_Template_Id'])).toUpperCase()===cfaSel.value)&&(!search||Object.values(r).some(v=>mbqText(v).toLowerCase().includes(search))));
+  const wanted=['CFA','PO_NUMBER','PO_OPEN_CLOSE','PO_DATE','ARTICLE_CODE','FG_CODE','FG_DESCRIPTION','SKU_GROUP','PO_QTY','INVOICE_QTY','DIFF_QTY','PERC'];
+  const headers=wanted.filter(w=>mbqPoHeaders.includes(w));
+  const body=filtered.slice(0,250).map(r=>'<tr>'+headers.map(h=>{const val=mbqText(r[h]);if(h==='PO_OPEN_CLOSE')return '<td><span class="excel-po-status '+(val.toLowerCase()==='open'?'open':'close')+'">'+mbqEscape(val)+'</span></td>';return '<td>'+mbqEscape(val)+'</td>';}).join('')+'</tr>').join('');
+  const labels={CFA:'CFA',PO_NUMBER:'PO Number',PO_OPEN_CLOSE:'PO Open/Close',PO_DATE:'PO Date',ARTICLE_CODE:'Article Code',FG_CODE:'FG Code',FG_DESCRIPTION:'FG Description',SKU_GROUP:'SKU Group',PO_QTY:'PO Qty',INVOICE_QTY:'Invoice Qty',DIFF_QTY:'Diff. Qty',PERC:'Perc (%)'};
+  host.innerHTML=filtered.length?'<div class="excel-status ready" style="margin:0 0 8px"><span class="dot"></span><span>Showing '+Math.min(filtered.length,250)+' of '+filtered.length+' lines · '+mbqEscape(mbqPoFileName)+'</span></div><div class="excel-table-wrap"><table class="excel-table"><thead><tr>'+headers.map(h=>'<th>'+mbqEscape(labels[h]||h)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div>':'<div class="excel-empty"><strong>No matching PO lines</strong>Try another CFA or search term.</div>';
 }
 async function restoreMbqLocalData(){
   const status=document.getElementById('mbqWorkbookStatus');let sharedLoaded=false;
