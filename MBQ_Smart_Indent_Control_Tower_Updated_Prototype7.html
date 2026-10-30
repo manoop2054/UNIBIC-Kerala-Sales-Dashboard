@@ -62,6 +62,27 @@
 
 
 .mbq-fillrate-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.mbq-fr-foot{display:block;color:var(--muted);font-size:10px;margin-top:4px}.mbq-fr-filters{padding:0 18px 14px}.mbq-fr-filters .field{min-width:150px;flex:1}.mbq-fr-section-title{padding:16px 18px 8px;font-size:12px;font-weight:800;color:var(--ink)}.mbq-fr-section-title small{display:block;font-size:10px;font-weight:400;color:var(--muted);margin-top:3px}.mbq-fr-table{overflow:auto;border-top:1px solid var(--line)}.mbq-fr-table table{min-width:850px}.mbq-fr-table th{background:#f2f6fb}.mbq-fr-table td,.mbq-fr-table th{padding:10px 12px}.mbq-fr-rate{font-weight:800;color:var(--blue)}.mbq-fr-balance.negative{color:var(--red)}@media(max-width:700px){.mbq-fillrate-kpis{grid-template-columns:1fr}.mbq-fr-filters .field{min-width:130px}}
+/* Fill Rate section compact layout only — preserve calculations and other tabs. */
+#mbqFillRateCard>.card-head{padding:12px 15px 8px}
+#mbqFillRateCard .excel-upload{padding:10px 12px;border-radius:10px}
+#mbqFillRateCard .excel-upload p{font-size:11px}
+#mbqFillRateCard .excel-stat-grid{gap:8px!important}
+#mbqFillRateCard .excel-stat{padding:9px 12px;border-radius:10px}
+#mbqFillRateCard .excel-stat strong{font-size:18px;margin-top:3px}
+#mbqFillRateCard .mbq-fr-filters{gap:7px;padding:0 12px 8px}
+#mbqFillRateCard .mbq-fr-filters .field{min-width:130px}
+#mbqFillRateCard .mbq-fr-filters .field label{margin-bottom:3px;font-size:10px}
+#mbqFillRateCard .mbq-fr-filters input,#mbqFillRateCard .mbq-fr-filters select{padding:6px 8px;font-size:10.5px;min-height:32px}
+#mbqFillRateCard .mbq-fr-section-title{padding:10px 14px 5px}
+#mbqFillRateCard .mbq-fr-section-title small{margin-top:1px}
+#mbqFillRateCard .mbq-fr-table{max-height:245px;overflow:auto}
+#mbqFillRateCard .mbq-fr-table table{min-width:760px}
+#mbqFillRateCard .mbq-fr-table th,#mbqFillRateCard .mbq-fr-table td{padding:6px 9px;font-size:10.5px}
+#mbqFillRateCard .mbq-fr-table th{position:sticky;top:0;z-index:2}
+#mbqFillRateCard #mbqPoTableHost .excel-table-wrap{max-height:260px}
+#mbqFillRateCard #mbqPoTableHost .excel-table th,#mbqFillRateCard #mbqPoTableHost .excel-table td{padding:6px 9px;font-size:10.5px}
+#mbqFillRateCard .notice{margin-top:8px!important;padding:8px 10px;font-size:10.5px}
+@media(max-width:700px){#mbqFillRateCard .mbq-fr-table{max-height:220px}#mbqFillRateCard .mbq-fr-filters .field{min-width:calc(50% - 7px)}}
 </style></head>
 <body><div class="app"><aside class="sidebar"><div class="brand"><div class="logo">MB</div><div><strong>SMART INDENT</strong><small>Kerala · CFA Replenishment</small></div></div><div class="nav-label">WORKSPACE</div><nav class="nav" id="nav"><button class="active" data-page="overview"><span>◫</span>Overview Dashboard</button><button data-page="indent"><span>＋</span>Monthly Indent Entry</button><button data-page="suggest"><span>✦</span>AI Suggested Indent</button><button data-page="stock"><span>▦</span>CFA-wise Stock</button><button data-page="totracker"><span>⇄</span>Open TO Tracker</button><button data-page="advanced"><span>✦</span>Advanced Controls</button><button data-page="allocation"><span>⇄</span>CFA Allocation</button><button data-page="peak"><span>◷</span>Peak Billing Planner</button><button data-page="loading"><span>▤</span>CFA Loading Plan</button><button data-page="flash"><span>◉</span>Daily WhatsApp Flash</button><button data-page="reports"><span>⇩</span>Reports & Export</button><button data-page="excelview"><span>▤</span>MBQ Excel View</button><button data-page="settings"><span>⚙</span>Master Data & Settings</button></nav><div class="sidebar-foot"><span class="dot"></span>MBQ workspace<br><br>Data will appear after the relevant source is connected.</div></aside>
 <main class="main"><header class="topbar"><div class="crumb">Workspace / <b id="crumb">Overview Dashboard</b></div><div class="top-right"><div id="gsvConnectionStatus" class="gsv-connection loading" role="status" aria-live="polite"><span class="gsv-dot"></span><span id="gsvConnectionLabel">GSV Loading</span></div><select class="select" id="month" onchange="renderMbqExcelView()"><option>November 2026</option><option>October 2026</option><option>December 2026</option></select><select class="select" id="cfa"><option>All CFAs</option><option>TVD CFA</option><option>PAY CFA</option><option>ALU CFA</option></select><div class="user">MB</div></div></header><div class="content">
@@ -1181,27 +1202,6 @@ function downloadCsvRows(name,rows){const csv=rows.map(r=>r.map(csvCell).join(',
 function exportToSummaryCsv(){const groups=groupedTos(getToRecords());if(!groups.length){showToast('TO data ഇല്ല.');return}downloadCsvRows('Open_TO_Summary.csv',[['TO Number','CFA','Total Items','Total CBB','Received CBB','Open TO CBB','Status'],...groups.map(g=>[g.toNo,g.cfa,g.items.length,g.total,g.received,g.open,g.isReceived?'Received / Closed':'Open TO'])])}
 function exportToCsv(){const items=getToRecords();if(!items.length){showToast('TO data ഇല്ല.');return}downloadCsvRows('Open_TO_Item_Details.csv',[['TO Number','Item Number','Product Name','CFA','Transfer Qty CBO','Received CBB','Open TO CBB','Status'],...items.map(r=>[r.toNo,r.code,r.product,r.cfa,r.qty,r.fullyReceived?r.qty:0,r.fullyReceived?0:r.qty,r.fullyReceived?'Received / Closed':'Open TO'])])}
 function printToReport(mode='details'){const items=getToRecords(),groups=groupedTos(items);if(!items.length){showToast('TO data ഇല്ല.');return}const summary=mode==='summary',rows=summary?groups.map(g=>'<tr><td>'+escapeToHtml(g.toNo)+'</td><td>'+escapeToHtml(g.cfa)+'</td><td>'+g.items.length+'</td><td>'+g.total+'</td><td>'+g.received+'</td><td>'+g.open+'</td><td>'+(g.isReceived?'Received / Closed':'Open TO')+'</td></tr>').join(''):items.map(r=>'<tr><td>'+escapeToHtml(r.toNo)+'</td><td>'+escapeToHtml(r.code)+'</td><td>'+escapeToHtml(r.product)+'</td><td>'+escapeToHtml(r.cfa)+'</td><td>'+r.qty+'</td><td>'+(r.fullyReceived?r.qty:0)+'</td><td>'+(r.fullyReceived?0:r.qty)+'</td><td>'+(r.fullyReceived?'Received / Closed':'Open TO')+'</td></tr>').join(''),heads=summary?'<th>TO Number</th><th>CFA</th><th>Total Items</th><th>Total CBB</th><th>Received CBB</th><th>Open CBB</th><th>Status</th>':'<th>TO Number</th><th>Item Number</th><th>Product Name</th><th>CFA</th><th>Transfer Qty CBO</th><th>Received CBB</th><th>Open TO CBB</th><th>Status</th>',w=window.open('','_blank');if(!w){showToast('Print popup അനുവദിക്കുക.');return}w.document.write('<html><head><title>Open TO Report</title><style>body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}.plant-stockout-row td{background:#fff0f0!important;color:#8f1d1d}.plant-stockout-cell{background:#fee2e2!important;color:#991b1b!important;font-weight:800}.mbq-short-cell{background:#fee2e2!important;color:#991b1b!important;font-weight:800}.mbq-excess-cell{background:#dcfce7!important;color:#166534!important;font-weight:800}.mbq-gap-high{background:#fff0f0!important;color:#991b1b!important;font-weight:700}.mbq-gap-low{background:#ecfdf5!important;color:#166534!important;font-weight:700}
-/* Fill Rate section compact layout only — preserve calculations and other tabs. */
-#mbqFillRateCard>.card-head{padding:12px 15px 8px}
-#mbqFillRateCard .excel-upload{padding:10px 12px;border-radius:10px}
-#mbqFillRateCard .excel-upload p{font-size:11px}
-#mbqFillRateCard .excel-stat-grid{gap:8px!important}
-#mbqFillRateCard .excel-stat{padding:9px 12px;border-radius:10px}
-#mbqFillRateCard .excel-stat strong{font-size:18px;margin-top:3px}
-#mbqFillRateCard .mbq-fr-filters{gap:7px;padding:0 12px 8px}
-#mbqFillRateCard .mbq-fr-filters .field{min-width:130px}
-#mbqFillRateCard .mbq-fr-filters .field label{margin-bottom:3px;font-size:10px}
-#mbqFillRateCard .mbq-fr-filters input,#mbqFillRateCard .mbq-fr-filters select{padding:6px 8px;font-size:10.5px;min-height:32px}
-#mbqFillRateCard .mbq-fr-section-title{padding:10px 14px 5px}
-#mbqFillRateCard .mbq-fr-section-title small{margin-top:1px}
-#mbqFillRateCard .mbq-fr-table{max-height:245px;overflow:auto}
-#mbqFillRateCard .mbq-fr-table table{min-width:760px}
-#mbqFillRateCard .mbq-fr-table th,#mbqFillRateCard .mbq-fr-table td{padding:6px 9px;font-size:10.5px}
-#mbqFillRateCard .mbq-fr-table th{position:sticky;top:0;z-index:2}
-#mbqFillRateCard #mbqPoTableHost .excel-table-wrap{max-height:260px}
-#mbqFillRateCard #mbqPoTableHost .excel-table th,#mbqFillRateCard #mbqPoTableHost .excel-table td{padding:6px 9px;font-size:10.5px}
-#mbqFillRateCard .notice{margin-top:8px!important;padding:8px 10px;font-size:10.5px}
-@media(max-width:700px){#mbqFillRateCard .mbq-fr-table{max-height:220px}#mbqFillRateCard .mbq-fr-filters .field{min-width:calc(50% - 7px)}}
 </style></head><body onload="window.print()"><h2>Open TO '+(summary?'Summary':'Item Details')+'</h2><table><tr>'+heads+'</tr>'+rows+'</table></body></html>');w.document.close()}
 function showPreviousIndent(){document.getElementById('prevIndentPanel').innerHTML='<strong>Previous month balance review</strong> Example loaded.';showToast('Previous indent review opened.')}
 function renderFlash(){
