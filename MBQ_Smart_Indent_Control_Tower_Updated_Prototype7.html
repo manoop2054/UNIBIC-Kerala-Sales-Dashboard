@@ -902,10 +902,10 @@ function aiFillDaysPlanBalance(){
   if(weightTotal>0){
    const shares=weighted.map(r=>{const exact=remaining*r.weight/weightTotal;return {r,add:Math.floor(exact),fraction:exact-Math.floor(exact)};});
    let assigned=shares.reduce((sum,x)=>sum+x.add,0);
-   shares.forEach(x=>{x.r.addon=x.add;x.r.final=(Number(x.r.required)||0)+x.add;if(x.add>0)x.r.aiStatus='AI add-on · High movement';});
+   shares.forEach(x=>{x.r.addon=x.add;x.r.final=(Number(x.r.required)||0)+(Number(x.r.allocationBalance)||0)+x.add;if(x.add>0)x.r.aiStatus='AI add-on · High movement';});
    shares.sort((a,b)=>b.fraction-a.fraction||Number(b.r.avgDaily)-Number(a.r.avgDaily));
    for(let i=0;assigned<remaining&&i<shares.length;i++,assigned++){
-    const r=shares[i].r;r.addon+=1;r.final=(Number(r.required)||0)+r.addon;r.aiStatus='AI add-on · High movement';
+    const r=shares[i].r;r.addon+=1;r.final=(Number(r.required)||0)+(Number(r.allocationBalance)||0)+r.addon;r.aiStatus='AI add-on · High movement';
    }
   }
  }
