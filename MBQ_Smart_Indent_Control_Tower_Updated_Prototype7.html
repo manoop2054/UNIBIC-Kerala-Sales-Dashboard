@@ -1504,52 +1504,49 @@ async function applyProductionSettingsUpload(){
 const MBQ_PRODUCTION_SETTINGS_API='https://unibic-shared-api.manumulanthuruthy.workers.dev/api/mbq/production-settings';
 async function loadCloudProductionSettings(){
  const status=document.getElementById('productionFrequencyStatus');
+ let localSettings={};
+ try{localSettings=JSON.parse(localStorage.getItem('mbqProductionFrequencySettings')||'{}')||{};}catch(_){}
+ const merged={...localSettings};
  try{
-  const res=await fetch(MBQ_PRODUCTION_SETTINGS_API,{method:'GET',cache:'no-store'});
-  const payload=await res.json();
-  if(!res.ok||payload.success!==true||!payload.settings||typeof payload.settings!=='object')throw new Error(payload.error||payload.detail||('HTTP '+res.status));
-  // Merge cloud values over local values instead of replacing localStorage.
-  // An empty/new cloud response must never erase settings just imported in this browser.
-  let localSettings={};
-  try{localSettings=JSON.parse(localStorage.getItem('mbqProductionFrequencySettings')||'{}')||{};}catch(_){}
-  const merged={...localSettings};
-  Object.entries(payload.settings).forEach(([sku,cloudValue])=>{
-   const localValue=merged[sku]&&typeof merged[sku]==='object'?merged[sku]:{};
-   merged[sku]={...localValue,...(cloudValue&&typeof cloudValue==='object'?cloudValue:{})};
-  });
-  try{const sharedSettings=await mbqGetSharedUpload('production-settings');if(sharedSettings&&sharedSettings.payload&&typeof sharedSettings.payload==='object'){Object.entries(sharedSettings.payload).forEach(([sku,value])=>{merged[sku]={...(merged[sku]||{}),...(value&&typeof value==='object'?value:{})};});}}catch(e){console.warn('Shared production settings upload unavailable:',e.message);}
+  const sharedSettings=await mbqGetSharedUpload('production-settings');
+  if(sharedSettings&&sharedSettings.payload&&typeof sharedSettings.payload==='object'){
+   Object.entries(sharedSettings.payload).forEach(([sku,value])=>{merged[sku]={...(merged[sku]||{}),...(value&&typeof value==='object'?value:{})};});
+  }
   localStorage.setItem('mbqProductionFrequencySettings',JSON.stringify(merged));
   renderProductionFrequencySettings();renderMbqExcelView();
-  if(status){
-   const cloudCount=Object.keys(payload.settings).length,localCount=Object.keys(localSettings).length;
-   status.textContent=cloudCount
-    ?'Cloud settings loaded: '+cloudCount+' SKU Group records. Local-only settings preserved where cloud values are missing.'
-    :(localCount?'Cloud returned 0 settings; preserved '+localCount+' local SKU Group records. Click Save production settings and confirm the authorized write PIN to persist them across systems.':'Cloud settings loaded: no saved SKU Group settings found yet.');
-  }
+  if(status)status.textContent=sharedSettings
+   ?'Shared settings loaded: '+Object.keys(sharedSettings.payload||{}).length+' SKU Group records. Available across browsers.'
+   :(Object.keys(localSettings).length?'No shared settings saved yet; preserved '+Object.keys(localSettings).length+' settings from this browser. Upload/save to share them.':'No shared Production Frequency settings uploaded yet.');
  }catch(error){
-  console.warn('MBQ cloud production settings unavailable:',error);
-  if(status)status.textContent='Cloud settings unavailable; showing this browser’s saved settings. Save will report whether cloud sync succeeds.';
+  console.warn('MBQ shared production settings unavailable:',error);
+  localStorage.setItem('mbqProductionFrequencySettings',JSON.stringify(merged));
+  renderProductionFrequencySettings();renderMbqExcelView();
+  if(status)status.textContent='Shared settings could not be loaded ('+(error.message||'request error')+'). This browser’s saved settings are preserved.';
  }
 }
 async function saveProductionFrequency(){
- const values=mbqProductionSettings();document.querySelectorAll('[data-prod-sku][data-prod-field]').forEach(el=>{const sku=el.getAttribute('data-prod-sku'),field=el.getAttribute('data-prod-field');if(!values[sku])values[sku]={};values[sku][field]=el.value.trim()===''?'':Number(el.value);});
- Object.keys(values).forEach(sku=>{if(values[sku].prodDays===''||values[sku].prodDays===undefined||values[sku].prodDays===null){const mapped=mbqProdDaysFromFreq(values[sku].freq);if(mapped!==null)values[sku].prodDays=mapped;}});
+ const values=mbqProductionSettings();
+ document.querySelectorAll('[data-prod-sku][data-prod-field]').forEach(el=>{
+  const sku=el.getAttribute('data-prod-sku'),field=el.getAttribute('data-prod-field');
+  if(!values[sku])values[sku]={};
+  values[sku][field]=el.value.trim()===''?'':Number(el.value);
+ });
+ Object.keys(values).forEach(sku=>{
+  if(values[sku].prodDays===''||values[sku].prodDays===undefined||values[sku].prodDays===null){
+   const mapped=mbqProdDaysFromFreq(values[sku].freq);if(mapped!==null)values[sku].prodDays=mapped;
+  }
+ });
  localStorage.setItem('mbqProductionFrequencySettings',JSON.stringify(values));
  const status=document.getElementById('productionFrequencyStatus');
- const pin=prompt('Enter the authorized MBQ settings write PIN to save these settings for all browsers:');
- if(pin===null){if(status)status.textContent='Cloud save cancelled. Changes remain only in this browser.';return;}
- if(!pin.trim()){if(status)status.textContent='Cloud save not completed: write PIN is required. Changes remain only in this browser.';return;}
- if(status)status.textContent='Saving production settings to shared cloud storage…';
+ if(status)status.textContent='Saving Production Frequency settings to the shared MBQ database…';
  try{
-  const res=await fetch(MBQ_PRODUCTION_SETTINGS_API,{method:'POST',headers:{'Content-Type':'application/json','X-Upload-Pin':pin.trim()},body:JSON.stringify({settings:values})});
-  let payload={};try{payload=await res.json()}catch(e){}
-  if(!res.ok||payload.success!==true)throw new Error(payload.error||payload.detail||('HTTP '+res.status));
-  if(status)status.textContent='Cloud saved successfully: '+Object.keys(values).length+' SKU Group settings are now shared across browsers and systems. MBQ Excel View updated.';
-  renderMbqExcelView();showToast('Production settings saved to shared cloud.');
+  await mbqSaveSharedUpload('production-settings','Production Frequency Settings',0,values);
+  if(status)status.textContent='Shared save successful: '+Object.keys(values).length+' SKU Group settings are available across browsers and systems.';
+  renderProductionFrequencySettings();renderMbqExcelView();showToast('Production settings saved to shared MBQ storage.');
  }catch(error){
-  console.error('MBQ cloud production settings save failed:',error);
-  if(status)status.textContent='Cloud save FAILED ('+(error.message||'request error')+'). Changes remain only in this browser; verify Worker table/PIN/CORS and try again.';
-  showToast('Cloud save failed; settings are local only.');
+  console.error('MBQ shared production settings save failed:',error);
+  if(status)status.textContent='Shared save FAILED ('+(error.message||'request error')+'). Local settings are preserved; retry the shared save.';
+  showToast('Shared production settings save failed.');
  }
 }
 function mbqExcelSourceMonths(){return mbqLastCompletedMonths(3).map(m=>({key:m.year+'-'+String(m.month).padStart(2,'0'),month:m.month,label:m.label+' '+m.year}));}
