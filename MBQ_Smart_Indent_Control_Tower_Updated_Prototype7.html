@@ -1287,6 +1287,9 @@ async function loadMbqWorkbook(event){
   const file=event.target.files&&event.target.files[0];if(!file)return;
   const status=document.getElementById('mbqWorkbookStatus');status.classList.remove('ready');status.innerHTML='<span class="dot"></span><span>Reading official workbook…</span>';
   try{
+    if(file.size>25*1024*1024)throw new Error('Master Excel file limit is 25 MB.');
+    const pin=prompt('Shared Master Excel upload PIN (4 digits):');if(pin===null)return;
+    if(!/^\\d{4}$/.test(String(pin).trim()))throw new Error('Enter the 4-digit upload PIN.');
     const bytes=await file.arrayBuffer();const wb=XLSX.read(bytes,{type:'array',cellDates:true});
     const next={};['DATA','ALU','PAY','TVD'].forEach(k=>{const d=mbqSheetData(wb,k);if(d)next[k]=d;});
     if(!next.DATA)throw new Error('Required DATA sheet (All CFA) was not found or has no SKU GROUP header.');
@@ -1295,12 +1298,16 @@ async function loadMbqWorkbook(event){
     const salesRaw=salesName?XLSX.utils.sheet_to_json(wb.Sheets[salesName],{defval:'',raw:true}):[];
     const indentRaw=indentName?XLSX.utils.sheet_to_json(wb.Sheets[indentName],{defval:'',raw:true,range:1}):[];
     if(!salesRaw.length)throw new Error('SALES sheet missing or empty; please choose the official MBQ workbook.');
+    const payload={sheets:next,salesRows:salesRaw,indentRows:indentRaw};
+    status.innerHTML='<span class="dot"></span><span>Saving shared master for all users…</span>';
+    const response=await fetch('/api/mbq/master-workbook',{method:'POST',headers:{'Content-Type':'application/json','X-MBQ-Master-Pin':String(pin).trim()},body:JSON.stringify({fileName:file.name,fileSize:file.size,payload}),cache:'no-store'});
+    const result=await response.json();if(!response.ok||!result.success)throw new Error(result.error||'Shared master upload failed.');
     mbqExcelSheets=next;mbqSalesRows=salesRaw;mbqIndentRows=indentRaw;mbqWorkbookName=file.name;
-    await mbqCacheSet('mbqExcelCache',{sheets:next,salesRows:salesRaw,indentRows:indentRaw,name:file.name,loadedAt:new Date().toISOString()});
-    renderMbqExcelView();
-    status.classList.add('ready');status.innerHTML='<span class="dot"></span><span>Loaded '+mbqEscape(file.name)+' · '+Object.keys(next).join(', ')+' · SALES '+salesRaw.length.toLocaleString('en-IN')+' rows · INDENT '+indentRaw.length.toLocaleString('en-IN')+' rows · saved in this browser</span>';
-    document.getElementById('mbqStatSource').textContent='Workbook loaded';showToast('November Sales / Indent workbook loaded.');
-  }catch(e){status.classList.remove('ready');status.innerHTML='<span class="dot"></span><span>Workbook load failed: '+mbqEscape(e.message||'Unable to read file')+'</span>';showToast('Workbook could not be loaded. Check sheet names and format.');}
+    await mbqCacheSet('mbqExcelCache',{...payload,name:file.name,loadedAt:result.workbook.uploadedAt||new Date().toISOString(),shared:true});
+    renderMbqExcelView();status.classList.add('ready');
+    status.innerHTML='<span class="dot"></span><span>Shared master loaded: '+mbqEscape(file.name)+' · available to all dashboard users</span>';
+    document.getElementById('mbqStatSource').textContent='Shared master workbook';showToast('Master Excel എല്ലാവർക്കുമായി save ചെയ്തു.');
+  }catch(e){status.classList.remove('ready');status.innerHTML='<span class="dot"></span><span>Workbook upload failed: '+mbqEscape(e.message||'Unable to read file')+'</span>';showToast('Master Excel upload failed: '+(e.message||'Check the workbook and try again.'));}
 }
 const MBQ_OFFICIAL_HEADERS=['SKU GROUP','CTG','GT','ECOM','MT','BG','CAT','RANK','CONTRI%','Cum CONTRI%','JUL','AUG','SEP','L3M AVG SALES','IND','G/DG','CL PO','OPEN PO','SOH<60%','SOH>60%','PLANT SOH','SALES','PROD FREQ','MBQ DAYS (BASED on PROD FREQ)','TRANSIT DAYS','MBQ DAYS','MBQ','NXT 10D','FC%','FR','S. TREND','SHRT/EXC','DOS'];
 function mbqExcelPlantSohForGroup(sku){const codes=[...new Set(rows.filter(r=>r.sku===sku&&r.code).map(r=>mbqCodeKey(r.code)))];if(!codes.length||!liveSohRows.length)return null;let total=0,found=false;liveSohRows.forEach(raw=>{const code=mbqCodeKey(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']));const wh=String(keyValue(raw,['WAREHOUSE','Warehouse','Location','Location Name','LocationCode','Location Code'])||'').trim().toUpperCase();const rawShelf=keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%']);const shelf=Number(String(rawShelf??'').replace('%','').replace(/,/g,''));if(!codes.includes(code)||!wh.includes('HYD PLANT1')||!Number.isFinite(shelf)||shelf<70)return;const q=Number(String(keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity'])??'').replace(/,/g,''));if(!Number.isFinite(q))return;total+=q;found=true;});return found?total:null;}
