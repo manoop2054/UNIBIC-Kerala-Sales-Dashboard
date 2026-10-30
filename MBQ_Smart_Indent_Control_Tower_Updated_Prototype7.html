@@ -60,6 +60,8 @@
 @media(max-width:1050px){.command-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.overview-middle{grid-template-columns:1fr}.overview-bottom{grid-template-columns:1fr 1fr}.overview-watchlist{grid-column:1/-1}}
 @media(max-width:620px){.command-kpis{grid-template-columns:1fr 1fr}.overview-bottom{grid-template-columns:1fr}.overview-watchlist{grid-column:auto}.cfa-readiness-grid{gap:6px}.cfa-readiness-card{padding:10px 5px}.readiness-ring{width:68px;height:68px}.overview-peak-list{grid-template-columns:1fr}.overview-kpi .value{font-size:21px}}
 
+
+.mbq-fillrate-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.mbq-fr-foot{display:block;color:var(--muted);font-size:10px;margin-top:4px}.mbq-fr-filters{padding:0 18px 14px}.mbq-fr-filters .field{min-width:150px;flex:1}.mbq-fr-section-title{padding:16px 18px 8px;font-size:12px;font-weight:800;color:var(--ink)}.mbq-fr-section-title small{display:block;font-size:10px;font-weight:400;color:var(--muted);margin-top:3px}.mbq-fr-table{overflow:auto;border-top:1px solid var(--line)}.mbq-fr-table table{min-width:850px}.mbq-fr-table th{background:#f2f6fb}.mbq-fr-table td,.mbq-fr-table th{padding:10px 12px}.mbq-fr-rate{font-weight:800;color:var(--blue)}.mbq-fr-balance.negative{color:var(--red)}@media(max-width:700px){.mbq-fillrate-kpis{grid-template-columns:1fr}.mbq-fr-filters .field{min-width:130px}}
 </style></head>
 <body><div class="app"><aside class="sidebar"><div class="brand"><div class="logo">MB</div><div><strong>SMART INDENT</strong><small>Kerala · CFA Replenishment</small></div></div><div class="nav-label">WORKSPACE</div><nav class="nav" id="nav"><button class="active" data-page="overview"><span>◫</span>Overview Dashboard</button><button data-page="indent"><span>＋</span>Monthly Indent Entry</button><button data-page="suggest"><span>✦</span>AI Suggested Indent</button><button data-page="stock"><span>▦</span>CFA-wise Stock</button><button data-page="totracker"><span>⇄</span>Open TO Tracker</button><button data-page="advanced"><span>✦</span>Advanced Controls</button><button data-page="allocation"><span>⇄</span>CFA Allocation</button><button data-page="peak"><span>◷</span>Peak Billing Planner</button><button data-page="loading"><span>▤</span>CFA Loading Plan</button><button data-page="flash"><span>◉</span>Daily WhatsApp Flash</button><button data-page="reports"><span>⇩</span>Reports & Export</button><button data-page="excelview"><span>▤</span>MBQ Excel View</button><button data-page="settings"><span>⚙</span>Master Data & Settings</button></nav><div class="sidebar-foot"><span class="dot"></span>MBQ workspace<br><br>Data will appear after the relevant source is connected.</div></aside>
 <main class="main"><header class="topbar"><div class="crumb">Workspace / <b id="crumb">Overview Dashboard</b></div><div class="top-right"><div id="gsvConnectionStatus" class="gsv-connection loading" role="status" aria-live="polite"><span class="gsv-dot"></span><span id="gsvConnectionLabel">GSV Loading</span></div><select class="select" id="month" onchange="renderMbqExcelView()"><option>November 2026</option><option>October 2026</option><option>December 2026</option></select><select class="select" id="cfa"><option>All CFAs</option><option>TVD CFA</option><option>PAY CFA</option><option>ALU CFA</option></select><div class="user">MB</div></div></header><div class="content">
@@ -129,17 +131,30 @@
       <div class="notice" style="margin-top:12px">This view uses the workbook's saved calculated values. The Excel formulas themselves are not required to be retained. No sample/demo rows are added.</div>
     </div>
     <div class="card">
-      <div class="card-head"><div><h3>Daily Open & Close PO Upload</h3><small>Upload the same daily report file containing PO_Open_Close, PO_Qty, Invoice_Qty, Diff_Qty and CFA information.</small></div><span class="excel-pill">Daily refresh</span></div>
-      <div class="excel-upload"><div><strong>Choose daily Open / Close PO report</strong><p>File is parsed and saved in this browser; latest upload replaces the previous report here.</p></div><input id="mbqPoWorkbookFile" type="file" accept=".xlsb,.xlsx,.xls,.csv" onchange="loadMbqPoReport(event)"></div>
-      <div class="excel-stat-grid" style="margin-top:14px">
-        <div class="excel-stat"><small>PO lines</small><strong id="mbqPoTotal">—</strong></div>
-        <div class="excel-stat"><small>Open PO lines</small><strong id="mbqPoOpen">—</strong></div>
-        <div class="excel-stat"><small>Close PO lines</small><strong id="mbqPoClose">—</strong></div>
-        <div class="excel-stat"><small>PO CFA count</small><strong id="mbqPoCfas">—</strong></div>
+      <div class="card-head"><div><h3>Fill Rate Report Upload</h3><small>Upload the same daily report containing PO_Open_Close, PO_Qty, Invoice_Qty and Diff_Qty.</small></div><span class="excel-pill">Daily refresh</span></div>
+      <div class="excel-upload"><div><strong>Choose Fill Rate Report Excel</strong><p>Daily report · CFA, Ship To Code, SKU Group and PO quantities are read from this file.</p></div><input id="mbqPoWorkbookFile" type="file" accept=".xlsb,.xlsx,.xls,.csv" onchange="loadMbqPoReport(event)"></div>
+      <div class="excel-stat-grid mbq-fillrate-kpis" style="margin-top:14px">
+        <div class="excel-stat"><small>Open PO CBB</small><strong id="mbqPoOpenCbb">—</strong><span class="mbq-fr-foot">Open PO quantity</span></div>
+        <div class="excel-stat"><small>Closed PO CBB</small><strong id="mbqPoCloseCbb">—</strong><span class="mbq-fr-foot">Closed PO quantity</span></div>
+        <div class="excel-stat"><small>Overall Fill Rate</small><strong id="mbqPoFillRate">—</strong><span class="mbq-fr-foot">Invoice CBB ÷ PO CBB</span></div>
       </div>
-      <div class="excel-toolbar" style="margin-top:14px"><div class="field"><label for="mbqPoCfaSelect">PO CFA filter</label><select id="mbqPoCfaSelect" onchange="renderMbqPoPreview()"><option value="ALL">All CFA</option></select></div><div class="field"><label for="mbqPoSearch">Search PO / SKU</label><input id="mbqPoSearch" type="search" placeholder="PO number, FG code, SKU group…" oninput="renderMbqPoPreview()"></div></div>
-      <div id="mbqPoTableHost" style="margin-top:12px"><div class="excel-empty"><strong>No PO report loaded</strong>Upload the daily Open & Close PO Excel to preview and validate it.</div></div>
-      <div class="notice" style="margin-top:12px">PO quantities will not silently overwrite MBQ values until SKU/CFA matching and the required balance rule are validated. Diff_Qty follows your rule: PO_Qty − Invoice_Qty.</div>
+      <div class="card-head" style="padding:18px 18px 10px"><div><h3>DBR-wise Fill Rate</h3><small>DBR Code is taken from Ship To Code in the Fill Rate Report.</small></div></div>
+      <div class="excel-toolbar mbq-fr-filters">
+        <div class="field"><label for="mbqPoCfaSelect">CFA</label><select id="mbqPoCfaSelect" onchange="renderMbqPoPreview()"><option value="ALL">All CFA</option></select></div>
+        <div class="field"><label for="mbqFrDbrCode">DBR Code · Ship To Code</label><select id="mbqFrDbrCode" onchange="renderMbqPoPreview()"><option value="ALL">All DBRs</option></select></div>
+        <div class="field"><label for="mbqFrDbrName">DBR Name</label><select id="mbqFrDbrName" onchange="renderMbqPoPreview()"><option value="ALL">All DBR Names</option></select></div>
+        <div class="field"><label for="mbqFrSkuGroup">SKU Group</label><select id="mbqFrSkuGroup" onchange="renderMbqPoPreview()"><option value="ALL">All SKU Groups</option></select></div>
+        <div class="field"><label for="mbqPoSearch">Search PO / Item</label><input id="mbqPoSearch" type="search" placeholder="PO number, FG code, SKU group…" oninput="renderMbqPoPreview()"></div>
+      </div>
+      <div class="mbq-fr-section-title">DBR Summary <small>Quantity Fill Rate and Item Fill Rate are calculated separately.</small></div>
+      <div id="mbqDbrFillRateHost"><div class="excel-empty"><strong>No Fill Rate report loaded</strong>Upload the daily Fill Rate Report to calculate DBR performance.</div></div>
+      <div class="mbq-fr-section-title">SKU Group-wise Fill Rate <small>DBR and item-level PO vs invoice comparison.</small></div>
+      <div id="mbqSkuFillRateHost"><div class="excel-empty">Waiting for Fill Rate Report data.</div></div>
+      <div class="mbq-fr-section-title">GSV Billing Performance <small>GSV is shown separately from PO Fill Rate.</small></div>
+      <div id="mbqGsvDbrHost"><div class="excel-empty">GSV customer-wise data will appear when the GSV source includes the same Ship To / DBR code.</div></div>
+      <div class="mbq-fr-section-title">Uploaded Report Lines <small>Source report preview · negative Diff Qty is retained.</small></div>
+      <div id="mbqPoTableHost" style="margin-top:12px"><div class="excel-empty"><strong>No Fill Rate report loaded</strong>Upload the daily Fill Rate Excel to preview and validate it.</div></div>
+      <div class="notice" style="margin-top:12px">Open/Closed PO CBB, Invoice CBB and Fill Rate are calculated from this uploaded report using its PO Qty and Invoice Qty values. GSV billing remains a separate sales measure; it is never added to PO invoice quantities.</div>
     </div>
   </div>
 </section>
@@ -1622,7 +1637,7 @@ function mbqPoCanonicalHeader(value){
     PO_NUMBER:'PO_NUMBER',PONUMBER:'PO_NUMBER',O_NUMBER:'PO_NUMBER',
     PO_DATE:'PO_DATE',PODATE:'PO_DATE',
     ARTICLE_CODE:'ARTICLE_CODE',FG_CODE:'FG_CODE',FG_DESCRIPTION:'FG_DESCRIPTION',
-    BILL_TO_CODE:'BILL_TO_CODE',BILL_TO_NAME:'BILL_TO_NAME',SHIP_TO_CODE:'SHIP_TO_CODE'
+    BILL_TO_CODE:'BILL_TO_CODE',BILL_TO_NAME:'BILL_TO_NAME',SHIP_TO_CODE:'SHIP_TO_CODE',SHIP_TO_NAME:'SHIP_TO_NAME'
   };
   return aliases[key]||key;
 }
@@ -1668,26 +1683,52 @@ async function loadMbqPoReport(event){
     if(!parsed)throw new Error('Required columns not detected. Expected PO Open/Close, PO Qty, Diff. Qty and PO/CFA identifiers.');
     mbqPoRecords=parsed.rows;mbqPoHeaders=parsed.headers;mbqPoFileName=file.name;
     await mbqCacheSet('mbqPoCache',{rows:mbqPoRecords,headers:mbqPoHeaders,name:file.name,loadedAt:new Date().toISOString()});
-    try{await mbqSaveSharedUpload('open-po-report',file.name,file.size,{rows:mbqPoRecords,headers:mbqPoHeaders});}catch(e){showToast('Shared Open PO save failed: '+e.message);}
-    renderMbqPoPreview();showToast('Daily Open & Close PO report loaded.');
+    try{await mbqSaveSharedUpload('open-po-report',file.name,file.size,{rows:mbqPoRecords,headers:mbqPoHeaders});}catch(e){showToast('Shared Fill Rate Report save failed: '+e.message);}
+    renderMbqPoPreview();showToast('Fill Rate Report loaded.');
   }catch(e){showToast('PO upload failed: '+(e.message||'Check the report format.'));}
 }
 function mbqPoVal(row,names){for(const name of names){const key=mbqPoCanonicalHeader(name);if(Object.prototype.hasOwnProperty.call(row,key))return row[key];}return '';}
+function mbqFrNum(v){const n=Number(String(v??'').replace(/,/g,'').trim());return Number.isFinite(n)?n:0;}
+function mbqFrFmt(v){return Number(v||0).toLocaleString('en-IN',{maximumFractionDigits:2});}
+function mbqFrRate(inv,po){return po>0?inv/po*100:null;}
+function mbqFrDbr(r){return mbqText(mbqPoVal(r,['SHIP_TO_CODE']));}
+function mbqFrName(r){return mbqText(mbqPoVal(r,['SHIP_TO_NAME','BILL_TO_NAME']));}
+function mbqFrStatus(r){return mbqText(mbqPoVal(r,['PO_OPEN_CLOSE'])).toUpperCase();}
+function mbqFrFilteredRows(){
+ const cfa=document.getElementById('mbqPoCfaSelect')?.value||'ALL',code=document.getElementById('mbqFrDbrCode')?.value||'ALL',name=document.getElementById('mbqFrDbrName')?.value||'ALL',sku=document.getElementById('mbqFrSkuGroup')?.value||'ALL',search=mbqText(document.getElementById('mbqPoSearch')?.value).toLowerCase();
+ return mbqPoRecords.filter(r=>(cfa==='ALL'||normalCfa(mbqPoVal(r,['CFA']))===normalCfa(cfa))&&(code==='ALL'||mbqFrDbr(r)===code)&&(name==='ALL'||mbqFrName(r)===name)&&(sku==='ALL'||mbqText(mbqPoVal(r,['SKU_GROUP'])).toUpperCase()===sku)&&(!search||Object.values(r).some(v=>mbqText(v).toLowerCase().includes(search))));
+}
+function mbqFrAggregate(rowsIn,keyFn){
+ const map=new Map();rowsIn.forEach(r=>{const key=keyFn(r);if(!key)return;let a=map.get(key);if(!a){a={key,po:0,invoice:0,open:0,closed:0,items:new Map(),rows:0,name:''};map.set(key,a);}const po=mbqFrNum(mbqPoVal(r,['PO_QTY'])),inv=mbqFrNum(mbqPoVal(r,['INVOICE_QTY'])),status=mbqFrStatus(r),sku=mbqText(mbqPoVal(r,['SKU_GROUP']));a.po+=po;a.invoice+=inv;a.rows++;if(status==='OPEN')a.open+=po;if(status==='CLOSE'||status==='CLOSED')a.closed+=po;if(!a.name)a.name=mbqFrName(r);if(sku){let it=a.items.get(sku);if(!it){it={sku,po:0,invoice:0,rows:0};a.items.set(sku,it);}it.po+=po;it.invoice+=inv;it.rows++;}});return [...map.values()];
+}
+function mbqRenderFrTable(hostId,headers,rowsHtml,emptyText){const host=document.getElementById(hostId);if(!host)return;host.innerHTML=rowsHtml?'<div class="mbq-fr-table"><table><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rowsHtml+'</tbody></table></div>':'<div class="excel-empty">'+emptyText+'</div>';}
+function renderMbqFillRateAnalysis(){
+ const all=mbqPoRecords,fmt=mbqFrFmt;
+ const open=all.filter(r=>mbqFrStatus(r)==='OPEN').reduce((s,r)=>s+mbqFrNum(mbqPoVal(r,['PO_QTY'])),0);
+ const closed=all.filter(r=>['CLOSE','CLOSED'].includes(mbqFrStatus(r))).reduce((s,r)=>s+mbqFrNum(mbqPoVal(r,['PO_QTY'])),0);
+ const totalPo=all.reduce((s,r)=>s+mbqFrNum(mbqPoVal(r,['PO_QTY'])),0),totalInv=all.reduce((s,r)=>s+mbqFrNum(mbqPoVal(r,['INVOICE_QTY'])),0),rate=mbqFrRate(totalInv,totalPo);
+ const put=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+ put('mbqPoOpenCbb',mbqPoRecords.length?fmt(open)+' CBB':'—');put('mbqPoCloseCbb',mbqPoRecords.length?fmt(closed)+' CBB':'—');put('mbqPoFillRate',rate===null?'—':rate.toFixed(1)+'%');
+ const populate=(id,label,values)=>{const el=document.getElementById(id);if(!el)return;const old=el.value||'ALL';el.innerHTML='<option value="ALL">'+label+'</option>'+values.map(v=>'<option value="'+mbqEscape(v)+'">'+mbqEscape(v)+'</option>').join('');el.value=values.includes(old)?old:'ALL';};
+ const cfas=[...new Set(all.map(r=>mbqText(mbqPoVal(r,['CFA']))).filter(Boolean))].sort(),codes=[...new Set(all.map(mbqFrDbr).filter(Boolean))].sort(),names=[...new Set(all.map(mbqFrName).filter(Boolean))].sort(),skus=[...new Set(all.map(r=>mbqText(mbqPoVal(r,['SKU_GROUP'])).trim()).filter(Boolean))].sort();
+ populate('mbqPoCfaSelect','All CFAs',cfas);populate('mbqFrDbrCode','All DBRs',codes);populate('mbqFrDbrName','All DBR Names',names);populate('mbqFrSkuGroup','All SKU Groups',skus);
+ const filtered=mbqFrFilteredRows(),dbrs=mbqFrAggregate(filtered,mbqFrDbr),dbrHtml=dbrs.sort((a,b)=>a.key.localeCompare(b.key)).map(a=>{const qty=mbqFrRate(a.invoice,a.po),itemList=[...a.items.values()],itemDone=itemList.filter(x=>x.po>0&&x.invoice>=x.po).length,itemRate=itemList.length?itemDone/itemList.length*100:null,balance=a.po-a.invoice;return '<tr><td>'+mbqEscape(a.key)+'</td><td>'+mbqEscape(a.name||'—')+'</td><td>'+fmt(a.po)+'</td><td>'+fmt(a.invoice)+'</td><td class="mbq-fr-balance '+(balance<0?'negative':'')+'">'+fmt(balance)+'</td><td class="mbq-fr-rate">'+(qty===null?'—':qty.toFixed(1)+'%')+'</td><td>'+(itemRate===null?'—':itemRate.toFixed(1)+'%')+'</td></tr>';}).join('');
+ mbqRenderFrTable('mbqDbrFillRateHost',['DBR Code','DBR Name','PO CBB','Invoice CBB','Balance CBB','Qty Fill Rate','Item Fill Rate'],dbrHtml,'No DBR rows match the selected filters.');
+ const skuGroups=mbqFrAggregate(filtered,r=>mbqText(mbqPoVal(r,['SKU_GROUP']))),skuHtml=skuGroups.sort((a,b)=>a.key.localeCompare(b.key)).map(a=>{const q=mbqFrRate(a.invoice,a.po),balance=a.po-a.invoice;return '<tr><td>'+mbqEscape(a.key)+'</td><td>'+fmt(a.po)+'</td><td>'+fmt(a.invoice)+'</td><td class="mbq-fr-balance '+(balance<0?'negative':'')+'">'+fmt(balance)+'</td><td class="mbq-fr-rate">'+(q===null?'—':q.toFixed(1)+'%')+'</td><td>'+a.rows+'</td></tr>';}).join('');
+ mbqRenderFrTable('mbqSkuFillRateHost',['SKU Group','PO CBB','Invoice CBB','Balance CBB','Fill Rate %','PO Lines'],skuHtml,'No SKU Group rows match the selected filters.');
+ const gsvHost=document.getElementById('mbqGsvDbrHost'),gsvCodeFields=['shipToCode','ship_to_code','dbrCode','dbr_code','customerCode','customer_code','customerId','customer_id'];
+ const hasDbrGsv=mbqGsvRows.length&&mbqGsvRows.some(x=>gsvCodeFields.some(k=>mbqText(x[k])));
+ if(gsvHost){if(hasDbrGsv){const gmap=new Map();mbqGsvRows.forEach(x=>{const code=gsvCodeFields.map(k=>mbqText(x[k])).find(Boolean);if(!code)return;gmap.set(code,(gmap.get(code)||0)+Number(x.quantity||0));});const gh=dbrs.map(a=>'<tr><td>'+mbqEscape(a.key)+'</td><td>'+fmt(gmap.get(a.key)||0)+'</td><td>'+(gmap.has(a.key)?'GSV connected':'No matching GSV rows')+'</td></tr>').join('');mbqRenderFrTable('mbqGsvDbrHost',['DBR Code','GSV Billing Qty','Source'],gh,'No GSV customer rows found.');}else gsvHost.innerHTML='<div class="excel-empty"><strong>DBR-wise GSV mapping not available in current feed</strong>Current MBQ GSV feed contains item / month / CFA aggregates, not Ship To Code. PO Fill Rate is available now; DBR-wise GSV billing requires customer-level GSV rows keyed by Ship To Code.</div>';}
+}
 function renderMbqPoPreview(){
-  const host=document.getElementById('mbqPoTableHost');if(!host)return;
-  const cfaSel=document.getElementById('mbqPoCfaSelect'),search=mbqText(document.getElementById('mbqPoSearch')?.value).toLowerCase();
-  if(!mbqPoRecords.length){host.innerHTML='<div class="excel-empty"><strong>No PO report loaded</strong>Upload the daily Open & Close PO Excel to preview and validate it.</div>';return;}
-  const cfas=[...new Set(mbqPoRecords.map(r=>mbqText(mbqPoVal(r,['CFA','Pushed_Template_Id'])).toUpperCase()).filter(Boolean))].sort();
-  const current=cfaSel.value||'ALL';cfaSel.innerHTML='<option value="ALL">All CFA</option>'+cfas.map(c=>'<option value="'+mbqEscape(c)+'">'+mbqEscape(c)+'</option>').join('');cfaSel.value=cfas.includes(current)?current:'ALL';
-  const status=r=>mbqText(mbqPoVal(r,['PO_OPEN_CLOSE'])).toLowerCase();
-  const openCount=mbqPoRecords.filter(r=>status(r)==='open').length,closeCount=mbqPoRecords.filter(r=>status(r)==='close').length;
-  document.getElementById('mbqPoTotal').textContent=mbqPoRecords.length.toLocaleString('en-IN');document.getElementById('mbqPoOpen').textContent=openCount.toLocaleString('en-IN');document.getElementById('mbqPoClose').textContent=closeCount.toLocaleString('en-IN');document.getElementById('mbqPoCfas').textContent=cfas.length;
-  const filtered=mbqPoRecords.filter(r=>(cfaSel.value==='ALL'||mbqText(mbqPoVal(r,['CFA','Pushed_Template_Id'])).toUpperCase()===cfaSel.value)&&(!search||Object.values(r).some(v=>mbqText(v).toLowerCase().includes(search))));
-  const wanted=['CFA','PO_NUMBER','PO_OPEN_CLOSE','PO_DATE','ARTICLE_CODE','FG_CODE','FG_DESCRIPTION','SKU_GROUP','PO_QTY','INVOICE_QTY','DIFF_QTY','PERC'];
-  const headers=wanted.filter(w=>mbqPoHeaders.includes(w));
-  const body=filtered.slice(0,250).map(r=>'<tr>'+headers.map(h=>{const val=mbqText(r[h]);if(h==='PO_OPEN_CLOSE')return '<td><span class="excel-po-status '+(val.toLowerCase()==='open'?'open':'close')+'">'+mbqEscape(val)+'</span></td>';return '<td>'+mbqEscape(val)+'</td>';}).join('')+'</tr>').join('');
-  const labels={CFA:'CFA',PO_NUMBER:'PO Number',PO_OPEN_CLOSE:'PO Open/Close',PO_DATE:'PO Date',ARTICLE_CODE:'Article Code',FG_CODE:'FG Code',FG_DESCRIPTION:'FG Description',SKU_GROUP:'SKU Group',PO_QTY:'PO Qty',INVOICE_QTY:'Invoice Qty',DIFF_QTY:'Diff. Qty',PERC:'Perc (%)'};
-  host.innerHTML=filtered.length?'<div class="excel-status ready" style="margin:0 0 8px"><span class="dot"></span><span>Showing '+Math.min(filtered.length,250)+' of '+filtered.length+' lines · '+mbqEscape(mbqPoFileName)+'</span></div><div class="excel-table-wrap"><table class="excel-table"><thead><tr>'+headers.map(h=>'<th>'+mbqEscape(labels[h]||h)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div>':'<div class="excel-empty"><strong>No matching PO lines</strong>Try another CFA or search term.</div>';
+ const host=document.getElementById('mbqPoTableHost');if(!host)return;
+ if(!mbqPoRecords.length){host.innerHTML='<div class="excel-empty"><strong>No Fill Rate report loaded</strong>Upload the daily Fill Rate Excel to preview and validate it.</div>';renderMbqFillRateAnalysis();return;}
+ const cfaSel=document.getElementById('mbqPoCfaSelect'),search=mbqText(document.getElementById('mbqPoSearch')?.value).toLowerCase();
+ const filtered=mbqFrFilteredRows(),wanted=['CFA','SHIP_TO_CODE','BILL_TO_NAME','PO_NUMBER','PO_OPEN_CLOSE','PO_DATE','ARTICLE_CODE','FG_CODE','FG_DESCRIPTION','SKU_GROUP','PO_QTY','INVOICE_QTY','DIFF_QTY','PERC'],headers=wanted.filter(w=>mbqPoHeaders.includes(w));
+ const body=filtered.slice(0,250).map(r=>'<tr>'+headers.map(h=>{const val=mbqText(r[h]);if(h==='PO_OPEN_CLOSE')return '<td><span class="excel-po-status '+(val.toLowerCase()==='open'?'open':'close')+'">'+mbqEscape(val)+'</span></td>';return '<td>'+mbqEscape(val)+'</td>';}).join('')+'</tr>').join('');
+ const labels={CFA:'CFA',SHIP_TO_CODE:'DBR Code · Ship To Code',BILL_TO_NAME:'DBR / Bill To Name',PO_NUMBER:'PO Number',PO_OPEN_CLOSE:'PO Open/Close',PO_DATE:'PO Date',ARTICLE_CODE:'Article Code',FG_CODE:'FG Code',FG_DESCRIPTION:'FG Description',SKU_GROUP:'SKU Group',PO_QTY:'PO CBB',INVOICE_QTY:'Invoice CBB',DIFF_QTY:'Diff. Qty',PERC:'Fill Rate %'};
+ host.innerHTML=filtered.length?'<div class="excel-status ready" style="margin:0 0 8px"><span class="dot"></span><span>Showing '+Math.min(filtered.length,250)+' of '+filtered.length+' lines · '+mbqEscape(mbqPoFileName)+'</span></div><div class="excel-table-wrap"><table class="excel-table"><thead><tr>'+headers.map(h=>'<th>'+mbqEscape(labels[h]||h)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div>':'<div class="excel-empty"><strong>No matching Fill Rate rows</strong>Try another filter or search term.</div>';
+ renderMbqFillRateAnalysis();
 }
 async function restoreMbqLocalData(){
   const status=document.getElementById('mbqWorkbookStatus');let sharedLoaded=false;
@@ -1706,7 +1747,7 @@ async function restoreMbqLocalData(){
     const book=await mbqCacheGet('mbqExcelCache');
     if(book&&book.sheets){mbqExcelSheets=book.sheets;mbqSalesRows=book.salesRows||[];mbqIndentRows=book.indentRows||[];mbqWorkbookName=book.name||'';if(status){status.classList.add('ready');status.innerHTML='<span class="dot"></span><span>Local copy only: '+mbqEscape(mbqWorkbookName)+' · not shared across devices</span>';}renderMbqExcelView();}
   }
-  const po=await mbqCacheGet('mbqPoCache');if(po&&po.rows){mbqPoRecords=po.rows;mbqPoHeaders=po.headers||[];mbqPoFileName=po.name||'';renderMbqPoPreview();}try{const sharedPo=await mbqGetSharedUpload('open-po-report');if(sharedPo&&sharedPo.payload&&Array.isArray(sharedPo.payload.rows)){mbqPoRecords=sharedPo.payload.rows;mbqPoHeaders=sharedPo.payload.headers||[];mbqPoFileName=sharedPo.fileName||'';await mbqCacheSet('mbqPoCache',{rows:mbqPoRecords,headers:mbqPoHeaders,name:mbqPoFileName,loadedAt:sharedPo.uploadedAt,shared:true});renderMbqPoPreview();}}catch(e){console.warn('Shared Open PO restore unavailable:',e.message);}
+  const po=await mbqCacheGet('mbqPoCache');if(po&&po.rows){mbqPoRecords=po.rows;mbqPoHeaders=po.headers||[];mbqPoFileName=po.name||'';renderMbqPoPreview();}try{const sharedPo=await mbqGetSharedUpload('open-po-report');if(sharedPo&&sharedPo.payload&&Array.isArray(sharedPo.payload.rows)){mbqPoRecords=sharedPo.payload.rows;mbqPoHeaders=sharedPo.payload.headers||[];mbqPoFileName=sharedPo.fileName||'';await mbqCacheSet('mbqPoCache',{rows:mbqPoRecords,headers:mbqPoHeaders,name:mbqPoFileName,loadedAt:sharedPo.uploadedAt,shared:true});renderMbqPoPreview();}}catch(e){console.warn('Shared Fill Rate Report restore unavailable:',e.message);}
 }
 
 restoreMbqLocalData();
