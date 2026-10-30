@@ -352,20 +352,22 @@ function mbqApplyGsvSales(){
   rows.forEach(r=>{
     const itemMonths=history.map(m=>mbqGsvItemMonth(r.code,m.year+"-"+String(m.month).padStart(2,"0"),"DATA"));
     const found=itemMonths.filter(v=>v!==null);
-    if(found.length){
-      r.avg=found.reduce((s,v)=>s+Number(v||0),0)/found.length;
+    if(found.length===3){
+      r.avg=found.reduce((s,v)=>s+Number(v||0),0)/3;
       r.salesDay=Number(r.avg)/30;
       r.salesSourceVerified=Number(r.avg)>0;
       r.suggest=Number(r.avg)>0?Math.max(0,Math.round(Number(r.avg)*1.08)):null;
       r.risk=Number(r.stock||0)<Number(r.avg)*0.35?"High":Number(r.stock||0)<Number(r.avg)*0.65?"Review":"Normal";
-      r.gsvMonthsMatched=found.length;
+      r.gsvMonthsMatched=3;
+    }else{
+      r.avg=null;r.salesDay=null;r.salesSourceVerified=false;r.suggest=null;r.risk="No data available";r.gsvMonthsMatched=found.length;
     }
   });
   sourceRows.forEach(sr=>{
     const group=String(sr[0]||"").trim();
     const vals=history.map(m=>mbqGsvGroupMonth(group,"DATA",m.year+"-"+String(m.month).padStart(2,"0")));
     const found=vals.filter(v=>v!==null);
-    if(found.length)sr[2]=found.reduce((s,v)=>s+Number(v||0),0)/found.length;
+    sr[2]=found.length===3?found.reduce((s,v)=>s+Number(v||0),0)/3:null;
   });
   renderWatch();renderSuggestions();renderStock();renderIndentWorkspace();renderIndent();mbqRefreshDashboardKpis();
   allocationData=[];buildAllocationData();runCfaAllocation();renderDaysPlanner();renderFlash();
