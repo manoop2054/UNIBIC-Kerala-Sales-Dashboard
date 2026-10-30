@@ -332,11 +332,59 @@ app.delete("/api/mbq/drafts/:id", async (req, res) => {
   } catch (error) { res.status(500).json({ success: false, error: "Could not delete draft", detail: error.message }); }
 });
 
-const TO_STATE_FILE = path.join(CACHE_DIR, "open-to-state.json");
-let toStateWrite = Promise.resolve();
-async function readToState() { try { return JSON.parse(await fs.promises.readFile(TO_STATE_FILE, "utf8")); } catch (e) { if (e.code === "ENOENT") return []; throw e; } }
-app.get("/api/mbq/open-to", async (req, res) => { try { await fs.promises.mkdir(CACHE_DIR, { recursive: true }); res.setHeader("Cache-Control", "no-store"); res.json({ success: true, data: await readToState() }); } catch (error) { res.status(500).json({ success: false, error: "Could not read Open TO state", detail: error.message }); } });
-app.put("/api/mbq/open-to", express.json({ limit: "5mb" }), async (req, res) => { try { if (!Array.isArray(req.body && req.body.data)) return res.status(400).json({ success: false, error: "data must be an array" }); await fs.promises.mkdir(CACHE_DIR, { recursive: true }); const data = req.body.data; toStateWrite = toStateWrite.then(() => fs.promises.writeFile(TO_STATE_FILE, JSON.stringify(data), "utf8")); await toStateWrite; res.json({ success: true, count: data.length, savedAt: new Date().toISOString() }); } catch (error) { res.status(500).json({ success: false, error: "Could not save Open TO state", detail: error.message }); } });
+// Shared MBQ uploads and Open TO records are stored only in the dedicated MBQ database.
+app.get("/api/mbq/shared-upload/:category", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  if (!masterPool) return res.status(503).json({ success: false, error: "Shared MBQ storage is not configured" });
+  const category = String(req.params.category || "");
+  if (!["monthly-indent", "open-po-report", "production-settings"].includes(category)) return res.status(400).json({ success: false, error: "Unsupported upload category" });
+  try {
+    const result = await masterPool.query("SELECT file_name,payload,source_file_size,uploaded_at,uploaded_by FROM public.mbq_shared_uploads WHERE category=$1", [category]);
+    if (!result.rowCount) return res.json({ success: true, upload: null });
+    const row = result.rows[0];
+    res.json({ success: true, upload: { fileName: row.file_name, payload: row.payload, sourceFileSize: Number(row.source_file_size || 0), uploadedAt: row.uploaded_at, uploadedBy: row.uploaded_by } });
+  } catch (error) {
+    console.error("MBQ shared upload read failed:", error.message);
+    res.status(500).json({ success: false, error: "Could not load shared MBQ upload" });
+  }
+});
+app.put("/api/mbq/shared-upload/:category", express.json({ limit: "90mb" }), async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  if (!masterPool) return res.status(503).json({ success: false, error: "Shared MBQ storage is not configured" });
+  if (!MBQ_MASTER_UPLOAD_PIN || String(req.get("X-MBQ-Master-Pin") || "") !== MBQ_MASTER_UPLOAD_PIN) return res.status(401).json({ success: false, error: "Upload PIN is missing or incorrect" });
+  const category = String(req.params.category || "");
+  if (!["monthly-indent", "open-po-report", "production-settings"].includes(category)) return res.status(400).json({ success: false, error: "Unsupported upload category" });
+  try {
+    const b = req.body || {}, fileName = String(b.fileName || "").trim().slice(0,255), size = Number(b.fileSize || 0), payload = b.payload;
+    if (!fileName || payload == null || !Number.isFinite(size) || size < 0) return res.status(400).json({ success: false, error: "A valid file name, size and parsed payload are required" });
+    const json = JSON.stringify(payload);
+    if (Buffer.byteLength(json, "utf8") > 90 * 1024 * 1024) return res.status(413).json({ success: false, error: "Parsed upload exceeds the 90 MB storage limit" });
+    const result = await masterPool.query("INSERT INTO public.mbq_shared_uploads(category,file_name,payload,source_file_size,uploaded_at) VALUES($1,$2,$3::jsonb,$4,NOW()) ON CONFLICT(category) DO UPDATE SET file_name=EXCLUDED.file_name,payload=EXCLUDED.payload,source_file_size=EXCLUDED.source_file_size,uploaded_at=NOW() RETURNING file_name,source_file_size,uploaded_at", [category,fileName,json,size]);
+    res.json({ success: true, upload: { fileName: result.rows[0].file_name, sourceFileSize: Number(result.rows[0].source_file_size || 0), uploadedAt: result.rows[0].uploaded_at } });
+  } catch (error) {
+    console.error("MBQ shared upload save failed:", error.message);
+    res.status(500).json({ success: false, error: "Could not save shared MBQ upload" });
+  }
+});
+app.get("/api/mbq/open-to", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  if (!masterPool) return res.status(503).json({ success: false, error: "Shared MBQ storage is not configured" });
+  try {
+    const result = await masterPool.query("SELECT payload FROM public.mbq_shared_uploads WHERE category='open-to-state'");
+    res.json({ success: true, data: result.rowCount && Array.isArray(result.rows[0].payload) ? result.rows[0].payload : [] });
+  } catch (error) { res.status(500).json({ success: false, error: "Could not read shared Open TO state", detail: error.message }); }
+});
+app.put("/api/mbq/open-to", express.json({ limit: "20mb" }), async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  if (!masterPool) return res.status(503).json({ success: false, error: "Shared MBQ storage is not configured" });
+  if (!Array.isArray(req.body && req.body.data)) return res.status(400).json({ success: false, error: "data must be an array" });
+  try {
+    const json = JSON.stringify(req.body.data);
+    if (Buffer.byteLength(json, "utf8") > 20 * 1024 * 1024) return res.status(413).json({ success: false, error: "Open TO data exceeds the 20 MB limit" });
+    await masterPool.query("INSERT INTO public.mbq_shared_uploads(category,file_name,payload,source_file_size,uploaded_at) VALUES('open-to-state','Open TO records',$1::jsonb,$2,NOW()) ON CONFLICT(category) DO UPDATE SET payload=EXCLUDED.payload,source_file_size=EXCLUDED.source_file_size,uploaded_at=NOW()", [json, Buffer.byteLength(json, "utf8")]);
+    res.json({ success: true, count: req.body.data.length, savedAt: new Date().toISOString() });
+  } catch (error) { res.status(500).json({ success: false, error: "Could not save shared Open TO state", detail: error.message }); }
+});
 app.get("/api/mbq/status", (req, res) => res.json({ service: "MBQ Smart Indent Dashboard", liveSohEndpoint: "/api/mbq/soh" }));
 
 app.get("/health", (req, res) => {
