@@ -193,8 +193,11 @@ function mbqSetKpi(id,value){const el=document.getElementById(id);if(el)el.textC
 function mbqOverviewCfaIndentLines(cfa){
  const entered=indentLines.filter(x=>x.mode==='item'&&x.code&&normalCfa(x.cfaKey||x.cfa||'')===cfa&&Number.isFinite(Number(x.qty))&&Number(x.qty)>0);
  if(entered.length)return entered.map(x=>({code:x.code,qty:Number(x.qty)}));
- const allocated=(Array.isArray(allocationData)?allocationData:[]).filter(x=>normalCfa(x.cfaKey||x.cfa||'')===cfa&&Number(x.allocation)>0);
- if(!allocated.length||allocated.some(x=>x.sourceDataMissing||!x.code||x.code==='NO ITEM CODE MAPPED'))return [];
+ // Keep valid CFA-item allocations; one unmapped or billing-incomplete row must not hide every matched row.
+ const allocated=(Array.isArray(allocationData)?allocationData:[]).filter(x=>
+  normalCfa(x.cfaKey||x.cfa||'')===cfa&&Number(x.allocation)>0&&
+  !x.sourceDataMissing&&x.code&&x.code!=='NO ITEM CODE MAPPED'
+ );
  return allocated.map(x=>({code:x.code,qty:Number(x.allocation)}));
 }
 function mbqRefreshCfaReadinessCards(){
