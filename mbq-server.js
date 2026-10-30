@@ -7,6 +7,8 @@ const XLSX = require("xlsx");
 const ExcelJS = require("exceljs");
 const { Pool } = require("pg");
 const draftPool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 5 }) : null;
+const masterPool = process.env.MBQ_MASTER_DATABASE_URL ? new Pool({ connectionString: process.env.MBQ_MASTER_DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 3 }) : null;
+const MBQ_MASTER_UPLOAD_PIN = process.env.MBQ_MASTER_UPLOAD_PIN || "";
 
 const SOH_URL = process.env.SOH_SHARE_URL || "https://github.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/releases/download/v1.0/LIVE.STOCK.xlsb";
 const SOH_SHEET = process.env.SOH_SHEET_NAME || "LIVE STOCK REPORT";
@@ -196,6 +198,52 @@ app.get("/api/mbq/soh", async (req, res) => {
   } catch (error) {
     console.error("MBQ LIVE SOH load failed:", error.stack || error.message);
     res.status(500).json({ success: false, error: "LIVE SOH load failed", detail: error.message });
+  }
+});
+
+// Shared official MBQ master workbook. Read access is open to dashboard viewers;
+// only replacing the single shared workbook requires the dedicated upload PIN.
+app.get("/api/mbq/master-workbook", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  if (!masterPool) return res.status(503).json({ success: false, error: "Shared MBQ master storage is not configured" });
+  try {
+    const result = await masterPool.query("SELECT file_name, payload, source_file_size, uploaded_at FROM public.mbq_master_workbook WHERE id=1");
+    if (!result.rowCount) return res.json({ success: true, workbook: null });
+    const row = result.rows[0];
+    res.json({ success: true, workbook: { fileName: row.file_name, payload: row.payload, sourceFileSize: Number(row.source_file_size || 0), uploadedAt: row.uploaded_at } });
+  } catch (error) {
+    console.error("MBQ shared master read failed:", error.message);
+    res.status(500).json({ success: false, error: "Could not load shared MBQ master workbook" });
+  }
+});
+app.post("/api/mbq/master-workbook", express.json({ limit: "100mb" }), async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  if (!masterPool) return res.status(503).json({ success: false, error: "Shared MBQ master storage is not configured" });
+  if (!MBQ_MASTER_UPLOAD_PIN) return res.status(503).json({ success: false, error: "MBQ master upload PIN is not configured" });
+  if (String(req.get("X-MBQ-Master-Pin") || "") !== MBQ_MASTER_UPLOAD_PIN)
+    return res.status(401).json({ success: false, error: "Upload PIN is missing or incorrect" });
+  try {
+    const b = req.body || {};
+    const fileName = String(b.fileName || "").trim().slice(0, 255);
+    const size = Number(b.fileSize || 0);
+    const payload = b.payload;
+    if (!fileName || !payload || typeof payload !== "object" || Array.isArray(payload) ||
+        !payload.sheets || typeof payload.sheets !== "object" || !Array.isArray(payload.salesRows))
+      return res.status(400).json({ success: false, error: "A valid parsed MBQ workbook is required" });
+    if (!Number.isFinite(size) || size <= 0 || size > 25 * 1024 * 1024)
+      return res.status(413).json({ success: false, error: "Master Excel file limit is 25 MB" });
+    const json = JSON.stringify(payload);
+    if (Buffer.byteLength(json, "utf8") > 90 * 1024 * 1024)
+      return res.status(413).json({ success: false, error: "Parsed workbook data exceeds the 90 MB storage limit" });
+    const result = await masterPool.query(
+      "INSERT INTO public.mbq_master_workbook(id,file_name,payload,source_file_size,uploaded_at) VALUES(1,$1,$2::jsonb,$3,NOW()) ON CONFLICT(id) DO UPDATE SET file_name=EXCLUDED.file_name,payload=EXCLUDED.payload,source_file_size=EXCLUDED.source_file_size,uploaded_at=NOW() RETURNING file_name,source_file_size,uploaded_at",
+      [fileName, json, size]
+    );
+    const row = result.rows[0];
+    res.status(200).json({ success: true, workbook: { fileName: row.file_name, sourceFileSize: Number(row.source_file_size || 0), uploadedAt: row.uploaded_at } });
+  } catch (error) {
+    console.error("MBQ shared master upload failed:", error.message);
+    res.status(500).json({ success: false, error: "Could not save shared MBQ master workbook" });
   }
 });
 
