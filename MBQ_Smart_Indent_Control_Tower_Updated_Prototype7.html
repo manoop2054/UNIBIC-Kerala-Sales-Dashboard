@@ -1599,11 +1599,31 @@ const body=shown.slice().sort((a,b)=>{const ar=formulaRows.get(a)?.rank,br=formu
  const groupToStatus=mbqGroupPlantToStatus(sku,key);return '<tr class="'+(groupToStatus==='out'?'plant-stockout-row':'')+'">'+headers.map(h=>{const v=Object.prototype.hasOwnProperty.call(vals,h)?vals[h]:null;const hu=String(h).trim().toUpperCase();if(hu==='BG')return '<td>'+mbqBgCell(sku,v)+'</td>';let display=mbqExcelFmt(v);if(['S. TREND','FC%','FR','CONTRI%','Cum CONTRI%'].includes(String(h).trim())&&v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v)))display=(Number(v)*100).toLocaleString('en-IN',{maximumFractionDigits:0})+'%';return '<td class="'+(hu==='SHRT/EXC'?mbqShortCellClass(v):'')+'">'+mbqEscape(display)+'</td>';}).join('')+'</tr>';
 }).join('');const mbqTotalRow='<tr class="mbq-total-row">'+headers.map((h,i)=>{const hu=String(h).trim().toUpperCase();let display='';if(i===0)display='TOTAL';else if(mbqTotalSumHeaders.has(h)&&mbqTotalCounts[h])display=mbqExcelFmt(mbqTotals[h]);else if(hu==='CONTRI%'||hu==='CUM CONTRI%')display='100%';return '<th style="position:sticky;top:0;z-index:4;background:#0f766e;color:#fff;font-weight:800;padding:11px 12px;border-right:1px solid #ffffff35;border-bottom:3px solid #99f6e4;text-align:left;'+(i===0?'left:0;z-index:5;':'')+'">'+mbqEscape(display)+'</th>';}).join('')+'</tr>';const head='<thead>'+mbqTotalRow+'<tr>'+headers.map(h=>'<th>'+mbqEscape(h)+'</th>').join('')+'</tr></thead>';const trendVals=[null,null,null];const trendNames=['T.TREND','PO TREND','S.TREND'];const trendNotes=['DAY(TODAY())*3/100','PO Trend','Total Sales TBB / INDENT'];trendVals[0]=new Date().getDate()*3/100;if(sourceMonths.length===3){const all=sourceMonths.map(m=>mbqGsvRows.filter(r=>r.month===m.key&&(key==='DATA'||normalCfa(r.cfa)===key)).reduce((sum,r)=>sum+(Number(r.quantity)||0),0));const indentValues=unique.map(sku=>mbqUploadedIndentForSku(sku));const totalIndent=indentValues.length&&indentValues.every(v=>v!==null&&Number.isFinite(Number(v)))?indentValues.reduce((sum,v)=>sum+Number(v),0):null;const totalSales=all[2];trendVals[2]=totalIndent!==null&&totalIndent>0&&totalSales!==undefined&&Number.isFinite(Number(totalSales))?Number(totalSales)/totalIndent:null;}const kpis='<div id="mbqTrendKpis" class="mbq-trend-kpis">'+trendNames.map((n,i)=>{const v=trendVals[i];return '<div class="mbq-trend-kpi"><div class="k-label">'+n+'</div><div class="k-value">'+(v===null?'No Data Available':(v*100).toLocaleString('en-IN',{maximumFractionDigits:0})+'%')+'</div><div class="k-foot">'+(v===null?'Source data unavailable or comparison month has zero sales':trendNotes[i])+'</div></div>';}).join('')+'</div>';host.innerHTML=kpis+'<div class="excel-status ready" style="margin:0 0 8px"><span class="dot"></span><span>Showing '+shown.length.toLocaleString('en-IN')+' of '+filtered.length.toLocaleString('en-IN')+' SKU groups · '+mbqEscape(label)+' · '+mbqEscape(mbqExcelSourceStatus(key))+' · unsupported fields marked No Data Available</span></div><div class="excel-table-wrap"><table class="excel-table">'+head+'<tbody>'+(body||'<tr><td colspan="'+headers.length+'" class="empty">No matching SKU groups.</td></tr>')+'</tbody></table></div>';}
 function exportMbqView(){const key=document.getElementById('mbqSheetSelect')?.value||'DATA';const table=document.querySelector('#mbqExcelTableHost table');if(!table){showToast('No source-backed rows available to export.');return;}const wb=XLSX.utils.book_new(),ws=XLSX.utils.table_to_sheet(table);XLSX.utils.book_append_sheet(wb,ws,key);XLSX.writeFile(wb,'MBQ_'+key+'_Source_View.xlsx');showToast('Source-backed MBQ view exported.');}
+function mbqPoCanonicalHeader(value){
+  const raw=mbqText(value).toUpperCase().trim();
+  const key=raw.replace(/[^A-Z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+  const aliases={
+    PO_OPEN_CLOSE:'PO_OPEN_CLOSE',PO_QTY:'PO_QTY',INVOICE_QTY:'INVOICE_QTY',DIFF_QTY:'DIFF_QTY',
+    PUSHED_TEMPLATE_ID:'CFA',CFA_NAME:'CFA',CFA:'CFA',
+    SKU_GROUP:'SKU_GROUP',PO_NUMBER:'PO_NUMBER',PO_DATE:'PO_DATE',
+    ARTICLE_CODE:'ARTICLE_CODE',FG_CODE:'FG_CODE',FG_DESCRIPTION:'FG_DESCRIPTION'
+  };
+  return aliases[key]||key;
+}
 function mbqFindPoTable(wb){
-  for(const name of wb.SheetNames){const matrix=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:'',raw:false,blankrows:false});
-    const idx=matrix.findIndex(r=>r.some(v=>mbqText(v).toUpperCase()==='PO_OPEN_CLOSE')&&r.some(v=>mbqText(v).toUpperCase()==='PO_QTY')&&r.some(v=>mbqText(v).toUpperCase()==='DIFF_QTY'));
-    if(idx>=0){const headers=matrix[idx].map((v,i)=>mbqText(v)||('Column '+(i+1)));const rows=matrix.slice(idx+1).filter(r=>r.some(v=>mbqText(v))).map(r=>{const o={};headers.forEach((h,i)=>o[h]=r[i]===undefined?'':r[i]);return o;});return {headers,rows,sheetName:name};}
-  }return null;
+  for(const name of wb.SheetNames){
+    const matrix=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:'',raw:false,blankrows:false});
+    const normalized=matrix.map(row=>row.map(mbqPoCanonicalHeader));
+    const idx=normalized.findIndex(row=>row.includes('PO_OPEN_CLOSE')&&row.includes('PO_QTY')&&row.includes('DIFF_QTY'));
+    if(idx>=0){
+      const headers=normalized[idx].map((h,i)=>h||('COLUMN_'+(i+1)));
+      const rows=matrix.slice(idx+1).filter(row=>row.some(v=>mbqText(v))).map(row=>{
+        const out={};headers.forEach((h,i)=>out[h]=row[i]===undefined?'':row[i]);return out;
+      });
+      return {headers,rows,sheetName:name};
+    }
+  }
+  return null;
 }
 async function loadMbqPoReport(event){
   const file=event.target.files&&event.target.files[0];if(!file)return;
@@ -1623,13 +1643,13 @@ function renderMbqPoPreview(){
   const host=document.getElementById('mbqPoTableHost');if(!host)return;
   const cfaSel=document.getElementById('mbqPoCfaSelect'),search=mbqText(document.getElementById('mbqPoSearch')?.value).toLowerCase();
   if(!mbqPoRecords.length){host.innerHTML='<div class="excel-empty"><strong>No PO report loaded</strong>Upload the daily Open & Close PO Excel to preview and validate it.</div>';return;}
-  const cfas=[...new Set(mbqPoRecords.map(r=>mbqText(mbqPoVal(r,['COLUMN1','CFA NAME','CFA'])).toUpperCase()).filter(Boolean))].sort();
+  const cfas=[...new Set(mbqPoRecords.map(r=>mbqText(mbqPoVal(r,['CFA'])).toUpperCase()).filter(Boolean))].sort();
   const current=cfaSel.value||'ALL';cfaSel.innerHTML='<option value="ALL">All CFA</option>'+cfas.map(c=>'<option value="'+mbqEscape(c)+'">'+mbqEscape(c)+'</option>').join('');cfaSel.value=cfas.includes(current)?current:'ALL';
   const status=r=>mbqText(mbqPoVal(r,['PO_OPEN_CLOSE'])).toLowerCase();
   const openCount=mbqPoRecords.filter(r=>status(r)==='open').length,closeCount=mbqPoRecords.filter(r=>status(r)==='close').length;
   document.getElementById('mbqPoTotal').textContent=mbqPoRecords.length.toLocaleString('en-IN');document.getElementById('mbqPoOpen').textContent=openCount.toLocaleString('en-IN');document.getElementById('mbqPoClose').textContent=closeCount.toLocaleString('en-IN');document.getElementById('mbqPoCfas').textContent=cfas.length;
   const filtered=mbqPoRecords.filter(r=>(cfaSel.value==='ALL'||mbqText(mbqPoVal(r,['COLUMN1','CFA NAME','CFA'])).toUpperCase()===cfaSel.value)&&(!search||Object.values(r).some(v=>mbqText(v).toLowerCase().includes(search))));
-  const wanted=['COLUMN1','PO_NUMBER','PO_OPEN_CLOSE','PO_DATE','ARTICLE_CODE','FG_CODE','FG_DESCRIPTION','SKU_GROUP','PO_QTY','INVOICE_QTY','DIFF_QTY'];
+  const wanted=['CFA','PO_NUMBER','PO_OPEN_CLOSE','PO_DATE','ARTICLE_CODE','FG_CODE','FG_DESCRIPTION','SKU_GROUP','PO_QTY','INVOICE_QTY','DIFF_QTY'];
   const headers=wanted.map(w=>mbqPoHeaders.find(h=>h.toUpperCase()===w)).filter(Boolean);
   const body=filtered.slice(0,250).map(r=>'<tr>'+headers.map(h=>{const val=mbqText(r[h]);if(h.toUpperCase()==='PO_OPEN_CLOSE')return '<td><span class="excel-po-status '+(val.toLowerCase()==='open'?'open':'close')+'">'+mbqEscape(val)+'</span></td>';return '<td>'+mbqEscape(val)+'</td>';}).join('')+'</tr>').join('');
   host.innerHTML=filtered.length?'<div class="excel-status ready" style="margin:0 0 8px"><span class="dot"></span><span>Showing '+Math.min(filtered.length,250)+' of '+filtered.length+' lines · '+mbqEscape(mbqPoFileName)+'</span></div><div class="excel-table-wrap"><table class="excel-table"><thead><tr>'+headers.map(h=>'<th>'+mbqEscape(h)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div>':'<div class="excel-empty"><strong>No matching PO lines</strong>Try another CFA or search term.</div>';
