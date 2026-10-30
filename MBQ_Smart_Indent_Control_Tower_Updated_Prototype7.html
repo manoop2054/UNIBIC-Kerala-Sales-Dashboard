@@ -296,7 +296,7 @@ function renderSuggestions(){
  let data=[...uniqueGroups.values()];
  if(q)data=data.filter(r=>String(r.sku||'').toLowerCase().includes(q));
  const body=document.getElementById('suggestRows');if(!body)return;
- const stockMap=mbqLiveStockMap(),history=mbqLastCompletedMonths(2),toRecords=getToRecords();
+ const stockMap=mbqLiveStockMap(),history=mbqLastCompletedMonths(2),toRecords=getActiveToRecords();
  const cfas=cf==='all'?['ALU','PAY','TVD']:[cf];
  const fmt=v=>Number(v).toLocaleString('en-IN',{maximumFractionDigits:0});
  const allocatedRows=Array.isArray(allocationData)?allocationData.filter(x=>cf==='all'||normalCfa(x.cfaKey||x.cfa)===cf):[];
@@ -928,7 +928,7 @@ function renderDaysPlanner(){
  set('daysPlanTableSub',cfaName+' · '+(validPeriod?days+' days':'Custom days not entered')+' · Running month plus previous two months');
  const history=mbqSelectedMonthHistory();
  const allRows=rows.filter(r=>String(r.sku||'').trim()&&String(r.code||'').trim());
- const toRecords=getToRecords(),toAvailable=Array.isArray(toRecords); // No uploaded TO records means no pending TO; uploaded records are deducted item-wise.
+ const toRecords=getActiveToRecords(),toAvailable=Array.isArray(toRecords); // No uploaded TO records means no pending TO; uploaded records are deducted item-wise.
  const matchingAlloc=Array.isArray(allocationData)?allocationData.filter(r=>normalCfa(r.cfaKey||r.cfa)===cfa):[];
  const allocAvailable=matchingAlloc.length>0;
  const output=[];
@@ -1495,7 +1495,7 @@ async function applyProductionSettingsUpload(){
  try{await mbqSaveSharedUpload('production-settings','Production Settings Excel',0,values);}catch(e){showToast('Shared production settings upload failed: '+e.message);}
  mbqPendingProductionUpload=null;
  const btn=document.getElementById('applyProductionUploadBtn');if(btn)btn.disabled=true;
- if(status)status.textContent='Imported '+pending.rows.length+' SKU Group rows. Review and click Save production settings to commit them in this browser.';
+ if(status)status.textContent='Imported '+pending.rows.length+' SKU Group rows. Excel upload is shared across browsers; click Save production settings to commit and recalculate values.';
  renderProductionFrequencySettings();
  const statusLine=document.getElementById('productionFrequencyStatus');if(statusLine)statusLine.textContent='Excel settings staged in this browser. Click Save production settings to save and recalculate.';
  showToast('Excel production settings imported.');
