@@ -85,7 +85,7 @@
 </div>
 <div class="grid overview-bottom">
 <div class="card"><div class="card-head"><div><h3>Demand Trend</h3><small>Monthly sales index · actual GSV billing CBB</small></div><span class="pill blue">Live GSV</span></div><div class="card-body"><div id="overviewDemandTrend" class="chart"><div class="empty">Loading live GSV billing…</div></div><div class="legend"><span><i></i>Actual monthly billing CBB</span><span id="overviewDemandStatus">GSV loading / unavailable</span></div></div></div>
-<div class="card"><div class="card-head"><div><h3>Priority Alerts</h3><small>Operational checks based on source readiness</small></div><span class="pill amber">Review</span></div><div class="card-body overview-alerts"><p><b>🔴 Peak window risk</b><small>Set approved mid-month and month-end billing targets.</small></p><p><b>🟠 Open TO dependency</b><small>Confirm expected arrival against configured lead time.</small></p><p><b>🔵 Shelf-life review</b><small>Use eligible stock only when calculating CFA readiness.</small></p></div></div>
+<div class="card"><div class="card-head"><div><h3>Priority Alerts</h3><small>Operational checks based on source readiness</small></div><span class="pill amber">Review</span></div><div class="card-body overview-alerts"><p id="peakRiskAlert"><b>🔴 Peak window risk</b><small>Set approved mid-month and month-end billing targets.</small></p><p><b>🟠 Open TO dependency</b><small>Confirm expected arrival against configured lead time.</small></p><p><b>🔵 Shelf-life review</b><small>Use eligible stock only when calculating CFA readiness.</small></p></div></div>
 <div class="card table-card overview-watchlist"><div class="card-head"><div><h3>SKU Watchlist</h3><small>Connected SKU groups · indent, billing and suggested quantities</small></div><button class="btn" onclick="go('suggest')">Review suggested indent →</button></div><div class="table-wrap"><table><thead><tr><th>SKU Group</th><th>Sales Head Indent</th><th>L2M Avg</th><th>Suggested Indent</th><th>Risk</th><th>Action</th></tr></thead><tbody id="watchlist"></tbody></table></div><div class="small-note">Suggestions are shown only when matched source billing is verified.</div></div>
 </div>
 <div class="footer">MBQ Smart Indent Planning · Live source-linked dashboard · Missing source values are not replaced with demo data</div>
@@ -179,6 +179,19 @@ function mbqRefreshPlanningKpis(){
  if(endSub)endSub.textContent=r.endTarget===null?'Approved month-end target not configured':'Approved target configured';
  const mp=document.getElementById('ovMidPeakProgress'),ep=document.getElementById('ovEndPeakProgress');
  if(mp)mp.style.width=r.midTarget===null?'0%':'100%';if(ep)ep.style.width=r.endTarget===null?'0%':'100%';
+ const peakAlert=document.getElementById('peakRiskAlert');
+ if(peakAlert){
+  const missing=[];
+  if(r.midTarget===null)missing.push('mid-month');
+  if(r.endTarget===null)missing.push('month-end');
+  if(missing.length){
+   peakAlert.innerHTML='<b>🔴 Peak window risk</b><small>Set approved '+missing.join(' and ')+' billing target'+(missing.length>1?'s':'')+'.</small>';
+   peakAlert.style.background='#fff5f5';peakAlert.style.borderColor='#ffe0e0';
+  }else{
+   peakAlert.innerHTML='<b>🟢 Peak targets configured</b><small>Mid-month '+fmt(r.midTarget)+' CBB · Month-end '+fmt(r.endTarget)+' CBB. Approved targets are available.</small>';
+   peakAlert.style.background='#f0fdf4';peakAlert.style.borderColor='#bbf7d0';
+  }
+ }
 }
 function savePlanningRules(){
  const lead=Number(document.getElementById('planningLeadTime')?.value||4),midRaw=document.getElementById('planningMidTarget')?.value.trim()??'',endRaw=document.getElementById('planningEndTarget')?.value.trim()??'';
