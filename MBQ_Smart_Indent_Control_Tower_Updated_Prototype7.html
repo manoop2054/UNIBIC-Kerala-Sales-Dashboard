@@ -1411,10 +1411,38 @@ function mbqLoadedSalesValue(sku,cfa,month){
   return found?total:(monthAvailable?0:null);
 }
 function mbqRecalcContributionRows(sheet){
-  // Preserve the official workbook's CAT, RANK, CONTRI% and Cum CONTRI% values.
-  // These are business classifications supplied by the approved MBQ workbook;
-  // the dashboard must not recalculate or overwrite them from rolling sales.
-  return (sheet.rows||[]).map(row=>row.slice());
+  // ABC classification is based only on IND (indent), never GSV or rolling sales.
+  // Preserve CONTRI% and Cum CONTRI% exactly as supplied by the workbook/formula.
+  const headers=sheet.headers||[];
+  const norm=v=>String(v??'').trim().toUpperCase();
+  const skuIx=headers.findIndex(h=>norm(h)==='SKU GROUP');
+  let indIx=headers.findIndex(h=>norm(h)==='IND');
+  if(indIx<0)indIx=headers.findIndex(h=>norm(h)==='INDENT');
+  const catIx=headers.findIndex(h=>norm(h)==='CAT');
+  const rankIx=headers.findIndex(h=>norm(h)==='RANK');
+  const rows=(sheet.rows||[]).map((row,index)=>({row:row.slice(),index}));
+  if(skuIx<0||indIx<0||catIx<0||rankIx<0)return rows.map(x=>x.row);
+  const numeric=v=>{
+    if(v===null||v===undefined||String(v).trim()===''||String(v).trim()==='No Data Available')return null;
+    const n=Number(String(v).replace(/,/g,'').replace(/CBB/ig,'').trim());
+    return Number.isFinite(n)?n:null;
+  };
+  const isTotal=x=>/^(TOTAL|GRAND TOTAL|OVERALL TOTAL)$/i.test(String(x.row[skuIx]??'').trim());
+  const skuRows=rows.filter(x=>String(x.row[skuIx]??'').trim()&&!isTotal(x));
+  const otherRows=rows.filter(x=>!String(x.row[skuIx]??'').trim()||isTotal(x));
+  skuRows.sort((a,b)=>{
+    const av=numeric(a.row[indIx]),bv=numeric(b.row[indIx]);
+    if(av===null&&bv===null)return a.index-b.index;
+    if(av===null)return 1;
+    if(bv===null)return -1;
+    return bv-av||a.index-b.index;
+  });
+  skuRows.forEach((item,i)=>{
+    const rank=i+1;
+    item.row[rankIx]=rank;
+    item.row[catIx]=rank<=25?'A':rank<=31?'B':'C';
+  });
+  return skuRows.concat(otherRows).map(x=>x.row);
 }
 function mbqRecalcWorkbookFormulaCells(headers,vals){
  const ix={};headers.forEach((h,i)=>ix[String(h).trim().toUpperCase()]=i);const get=n=>ix[n]===undefined?null:vals[ix[n]];
