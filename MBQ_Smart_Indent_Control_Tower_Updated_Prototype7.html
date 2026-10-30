@@ -531,12 +531,12 @@ function clearAllMonthlyIndents(){
 }
 function saveGroupIndents(){document.querySelectorAll('.group-indent-input').forEach(el=>{let i=Number(el.dataset.groupIndex),qty=Math.max(0,Number(el.value)||0);sourceRows[i][1]=qty;rows[i].indent=qty;let line=indentLines.find(x=>x.mode==='group'&&x.sku===sourceRows[i][0]);if(line)line.qty=qty;else indentLines.push({mode:'group',sku:sourceRows[i][0],code:rows[i].code,qty,note:'',source:'Manual group entry'});el.style.borderColor='var(--line)';el.style.background='#fff'});renderIndent();renderWatch();renderSuggestions();if(typeof renderMbqExcelView==='function')renderMbqExcelView();showToast('SKU Group indent quantities working list-ൽ save ചെയ്തു.')}
 function resetGroupIndents(){sourceRows.forEach(r=>{const original=referenceIndentValues[r[0]];if(original!==undefined)r[1]=original});renderIndentWorkspace();showToast('Reference indent quantities restored.')}const referenceIndentValues=Object.fromEntries(sourceRows.map(r=>[r[0],r[1]]));
-function toQtyForIndentLine(line){if(line.mode!=='item'||!line.code)return 0;return getToRecords().filter(t=>String(t.code).trim().toUpperCase()===String(line.code).trim().toUpperCase()&&(!line.cfaKey||normalCfa(t.cfa)===normalCfa(line.cfaKey))).reduce((s,t)=>s+Number(t.qty||0),0)}
-function mbqPlantToStatus(cfa,code){const records=getToRecords();if(!records.length)return 'unknown';const ck=String(code||'').trim().toUpperCase().replace(/\s+/g,'');if(!ck)return 'unknown';const matches=records.filter(t=>String(t.code||'').trim().toUpperCase().replace(/\s+/g,'')===ck&&normalCfa(t.cfa)===normalCfa(cfa));return matches.reduce((sum,t)=>sum+toNum(t.qty),0)>0?'available':'out';}
-function mbqGroupPlantToStatus(sku,cfa='DATA'){const records=getToRecords();if(!records.length)return 'unknown';const codes=[...new Set(rows.filter(r=>String(r.sku||'').trim().toLowerCase()===String(sku||'').trim().toLowerCase()).map(r=>String(r.code||'').trim()).filter(Boolean))];if(!codes.length)return 'unknown';const cfas=cfa==='DATA'?['ALU','PAY','TVD']:[normalCfa(cfa)];let total=0,out=0;codes.forEach(code=>cfas.forEach(k=>{total++;if(mbqPlantToStatus(k,code)==='out')out++;}));return out===total?'out':out>0?'partial':'available';}
+function toQtyForIndentLine(line){if(line.mode!=='item'||!line.code)return 0;return getActiveToRecords().filter(t=>String(t.code).trim().toUpperCase()===String(line.code).trim().toUpperCase()&&(!line.cfaKey||normalCfa(t.cfa)===normalCfa(line.cfaKey))).reduce((s,t)=>s+Number(t.qty||0),0)}
+function mbqPlantToStatus(cfa,code){const records=getActiveToRecords();if(!records.length)return 'unknown';const ck=String(code||'').trim().toUpperCase().replace(/\s+/g,'');if(!ck)return 'unknown';const matches=records.filter(t=>String(t.code||'').trim().toUpperCase().replace(/\s+/g,'')===ck&&normalCfa(t.cfa)===normalCfa(cfa));return matches.reduce((sum,t)=>sum+toNum(t.qty),0)>0?'available':'out';}
+function mbqGroupPlantToStatus(sku,cfa='DATA'){const records=getActiveToRecords();if(!records.length)return 'unknown';const codes=[...new Set(rows.filter(r=>String(r.sku||'').trim().toLowerCase()===String(sku||'').trim().toLowerCase()).map(r=>String(r.code||'').trim()).filter(Boolean))];if(!codes.length)return 'unknown';const cfas=cfa==='DATA'?['ALU','PAY','TVD']:[normalCfa(cfa)];let total=0,out=0;codes.forEach(code=>cfas.forEach(k=>{total++;if(mbqPlantToStatus(k,code)==='out')out++;}));return out===total?'out':out>0?'partial':'available';}
 function mbqShortCellClass(v){if(v===null||v===undefined||v===''||!Number.isFinite(Number(v)))return '';return Number(v)<0?'mbq-short-cell':Number(v)>0?'mbq-excess-cell':'';}
-function openToQtyFor(cfa,code){const ck=String(code||'').trim().toUpperCase().replace(/\s+/g,'');return getToRecords().filter(t=>!t.fullyReceived&&String(t.code||'').trim().toUpperCase().replace(/\s+/g,'')===ck&&normalCfa(t.cfa)===normalCfa(cfa)).reduce((sum,t)=>sum+toNum(t.qty),0)}
-function committedToQtyFor(cfa,code){const ck=String(code||'').trim().toUpperCase().replace(/\s+/g,'');return getToRecords().filter(t=>String(t.code||'').trim().toUpperCase().replace(/\s+/g,'')===ck&&normalCfa(t.cfa)===normalCfa(cfa)).reduce((sum,t)=>sum+toNum(t.qty),0)}
+function openToQtyFor(cfa,code){const ck=String(code||'').trim().toUpperCase().replace(/\s+/g,'');return getActiveToRecords().filter(t=>!t.fullyReceived&&String(t.code||'').trim().toUpperCase().replace(/\s+/g,'')===ck&&normalCfa(t.cfa)===normalCfa(cfa)).reduce((sum,t)=>sum+toNum(t.qty),0)}
+function committedToQtyFor(cfa,code){const ck=String(code||'').trim().toUpperCase().replace(/\s+/g,'');return getActiveToRecords().filter(t=>String(t.code||'').trim().toUpperCase().replace(/\s+/g,'')===ck&&normalCfa(t.cfa)===normalCfa(cfa)).reduce((sum,t)=>sum+toNum(t.qty),0)}
 function renderIndent(){let q=(document.getElementById('indentSearch')?.value||'').toLowerCase();document.getElementById('indentRows').innerHTML=indentLines.filter(r=>(r.sku+' '+(r.code||'')).toLowerCase().includes(q)).map((r)=>{const toQty=toQtyForIndentLine(r),remaining=Math.max(0,Number(r.qty||0)-toQty);const qtyDisplay=r.mode==='item'?Number(r.qty).toLocaleString('en-IN')+' − '+toQty.toLocaleString('en-IN')+' TO = '+remaining.toLocaleString('en-IN')+' remaining':Number(r.qty).toLocaleString('en-IN');return `<tr class="${r.mode==='item'&&r.cfaKey&&mbqPlantToStatus(r.cfaKey,r.code)==='out'?'plant-stockout-row':''}"><td>${r.mode==='item'?'Item-wise':'SKU Group-wise'}</td><td class="sku">${r.sku}</td><td>${r.code||'—'}</td><td>${qtyDisplay}</td><td>${r.note||'—'}</td><td><span class="pill blue">${r.source.includes('Pasted')?'Reference':'Working Draft'}</span></td><td><button class="btn" onclick="editIndentLine(${indentLines.indexOf(r)})">Edit</button> <button class="btn" onclick="removeIndent(${indentLines.indexOf(r)})">Remove</button></td></tr>`}).join('')||'<tr><td colspan="7" class="empty">No indent lines yet.</td></tr>'}
 function upsertIndentLine(line){const i=indentLines.findIndex(x=>x.mode===line.mode&&x.sku===line.sku&&x.code===line.code&&(x.cfaKey||'')===(line.cfaKey||''));if(i>=0)indentLines[i]={...indentLines[i],...line};else indentLines.unshift(line)}
 function addGroupIndent(){let sku=document.getElementById('entrySkuGroup').value,qty=Number(document.getElementById('groupIndentQty').value),note=document.getElementById('groupIndentNote').value;if(!sku){showToast('ആദ്യം SKU Group select ചെയ്യുക.');return}if(!Number.isFinite(qty)||qty<0||document.getElementById('groupIndentQty').value===''){showToast('ശരിയായ group indent quantity നൽകുക.');return}let r=rows.find(x=>x.sku===sku);upsertIndentLine({mode:'group',sku,code:r?.code||'',qty,note,source:'Manual group entry'});document.getElementById('groupIndentQty').value='';document.getElementById('groupIndentNote').value='';renderIndent();renderIndentWorkspace();showToast('SKU Group indent ചേർത്തു / നിലവിലെ line update ചെയ്തു.')}
@@ -619,7 +619,7 @@ function ensureXlsxLoaded(){
  });
 }
 function previewIndentUpload(input){
- const file=input.files&&input.files[0];if(!file)return;
+ const file=input.files&&input.files[0];if(!file)return;pendingUploadFileName=file.name;
  const panel=document.getElementById('uploadPreviewPanel'),note=document.getElementById('uploadValidation');
  if(panel)panel.style.display='block';if(note)note.textContent='File selected: '+file.name+' — reading file…';
  input.value=''; // Allow selecting the same file again to retry an upload.
@@ -674,6 +674,21 @@ function previewIndentUpload(input){
 }
 function parseCsv(text){const out=[];let row=[],v='',quoted=false;for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'&&quoted&&text[i+1]==='"'){v+='"';i++}else if(c==='"'){quoted=!quoted}else if(c===','&&!quoted){row.push(v);v=''}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&text[i+1]==='\n')i++;row.push(v);out.push(row);row=[];v=''}else v+=c}if(v.length||row.length){row.push(v);out.push(row)}return out}
 const MBQ_SALES_HEAD_UPLOAD_KEY='mbqSalesHeadIndentUploadPendingV1';
+let pendingUploadFileName='Monthly Indent Upload';
+async function mbqSaveSharedUpload(category,fileName,fileSize,payload){
+ const pin=prompt('MBQ shared Excel upload PIN (4 digits):');if(pin===null)return false;
+ if(!/^\d{4}$/.test(String(pin).trim()))throw new Error('Enter the 4-digit MBQ upload PIN.');
+ const res=await fetch('/api/mbq/shared-upload/'+encodeURIComponent(category),{method:'PUT',headers:{'Content-Type':'application/json','X-MBQ-Master-Pin':String(pin).trim()},body:JSON.stringify({fileName,fileSize:Number(fileSize||0),payload}),cache:'no-store'});
+ const data=await res.json().catch(()=>({}));if(!res.ok||!data.success)throw new Error(data.error||'Shared upload failed.');return true;
+}
+async function mbqGetSharedUpload(category){
+ const res=await fetch('/api/mbq/shared-upload/'+encodeURIComponent(category),{cache:'no-store'});const data=await res.json();
+ if(!res.ok||!data.success)throw new Error(data.error||'Shared upload could not be loaded.');return data.upload||null;
+}
+async function mbqRestoreSharedSalesHeadUpload(){
+ try{const upload=await mbqGetSharedUpload('monthly-indent');if(upload&&Array.isArray(upload.payload)){localStorage.setItem(MBQ_SALES_HEAD_UPLOAD_KEY,JSON.stringify(upload.payload));pendingUploadFileName=upload.fileName||'Shared Monthly Indent Upload';}}
+ catch(e){console.warn('Shared Monthly Indent upload unavailable:',e.message);}
+}
 function mbqApplySalesHeadRows(items){
  const normSku=v=>String(v??'').trim().replace(/\s+/g,' ').toLowerCase();
  let applied=0,unmatched=[];
@@ -710,16 +725,18 @@ function mbqApplyPendingSalesHeadUpload(){
  if(result.applied){renderIndent();renderIndentWorkspace();if(typeof renderMbqExcelView==='function')renderMbqExcelView();mbqRefreshDashboardKpis();showToast(result.applied+' uploaded Sales Head SKU Group row(s) loaded.');}
  if(result.unmatched.length&&window.mbqAssortmentLoaded)showToast(result.unmatched.length+' upload row(s) could not match the assortment SKU Group. Check exact SKU Group names.');
 }
-function applyIndentUpload(){
+async function applyIndentUpload(){
  const valid=pendingUpload.filter(x=>x.sku&&!x.errors.length&&x.anyQty);
  if(!valid.length){showToast('Apply ചെയ്യാൻ quantity നൽകിയ valid row ഇല്ല. Blank cells upload തടയില്ല.');return;}
  if(!sourceRows.length){
   localStorage.setItem(MBQ_SALES_HEAD_UPLOAD_KEY,JSON.stringify(valid));
+  try{await mbqSaveSharedUpload('monthly-indent',pendingUploadFileName,0,valid);}catch(e){showToast('Shared Monthly Indent save failed: '+e.message);}
   document.getElementById('uploadValidation').textContent='Upload saved temporarily. Assortment SKU Groups load ആയാൽ values automatically apply ചെയ്യും. Page refresh ചെയ്താലും ഈ pending upload നിലനിൽക്കും.';
   showToast('Assortment data ഇനിയും load ആയിട്ടില്ല. Upload pending ആയി സൂക്ഷിച്ചു; master load ആയാൽ apply ചെയ്യും.');
   return;
  }
  const result=mbqApplySalesHeadRows(valid);
+ try{await mbqSaveSharedUpload('monthly-indent',pendingUploadFileName,0,valid);}catch(e){showToast('Shared Monthly Indent save failed: '+e.message);}
  if(result.unmatched.length){
   localStorage.setItem(MBQ_SALES_HEAD_UPLOAD_KEY,JSON.stringify(result.unmatched));
  }else localStorage.removeItem(MBQ_SALES_HEAD_UPLOAD_KEY);
@@ -1019,6 +1036,8 @@ function renderAlloc(){
 const TO_STORAGE_KEY='mbqOpenTORecordsV2';
 let toSelected=new Set(),toExpanded=new Set();
 function getToRecords(){try{return JSON.parse(localStorage.getItem(TO_STORAGE_KEY)||'[]')}catch(e){return []}}
+function mbqActiveToMonthKey(){const v=String(document.getElementById('entryMonth')?.value||'').trim();const d=new Date(v+' 1');return Number.isNaN(d.getTime())?'':d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')}
+function getActiveToRecords(){const month=mbqActiveToMonthKey();return getToRecords().filter(r=>month&&r.monthKey===month)}
 async function loadToRecords(){const local=getToRecords();try{const r=await fetch('/api/mbq/open-to',{cache:'no-store'});if(r.ok){const j=await r.json();if(j.success&&Array.isArray(j.data)){if(j.data.length){localStorage.setItem(TO_STORAGE_KEY,JSON.stringify(j.data));return j.data}if(local.length){console.warn('Open TO server state is empty; preserving this browser\'s saved TO records and restoring them to server');try{await fetch('/api/mbq/open-to',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:local})})}catch(e){console.warn('Open TO restore failed',e)}return local}localStorage.setItem(TO_STORAGE_KEY,'[]');return []}}}catch(e){console.warn('Shared TO API unavailable',e)}return local}
 async function persistToRecords(items){localStorage.setItem(TO_STORAGE_KEY,JSON.stringify(items));try{const r=await fetch('/api/mbq/open-to',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:items})});const j=await r.json().catch(()=>({}));if(!r.ok||!j.success)showToast('Server save failed; changes are in this browser only.')}catch(e){showToast('Server unavailable; changes are in this browser only.')}renderToTracker();if(typeof renderStock==='function')renderStock();if(typeof renderIndent==='function')renderIndent();if(typeof renderIndentWorkspace==='function')renderIndentWorkspace();if(typeof renderSuggestions==='function')renderSuggestions();if(typeof renderDaysPlanner==='function')renderDaysPlanner();if(typeof buildAllocationData==='function'&&typeof runCfaAllocation==='function'){allocationData=[];buildAllocationData();runCfaAllocation()}}
 function toNorm(v){return String(v==null?'':v).trim().toLowerCase().replace(/[ _-]+/g,'')}
@@ -1084,6 +1103,9 @@ function poFileSelected(input){
   const filenameMatch=file.name.match(/TRANSNO[ _-]*\d+/i);
   const promptNo=filenameMatch?filenameMatch[0].replace(/[ _]+/g,'-').toUpperCase():null;
   const previous=await loadToRecords(),imported=[];
+  const monthText=String(document.getElementById('entryMonth')?.value||'').trim();
+  const monthDate=new Date(monthText+' 1');
+  const monthKey=Number.isNaN(monthDate.getTime())?'':monthDate.getFullYear()+'-'+String(monthDate.getMonth()+1).padStart(2,'0');
   let fallbackTo=promptNo;
   const hasCfaColumn=records.some(row=>Object.keys(row||{}).some(k=>headerMatches(k,aliases.cfa)));
   let fallbackCfa='';
@@ -1096,17 +1118,17 @@ function poFileSelected(input){
    if(!code||!cfa||!String(val(row,'qty')??'').trim()||qty<0)continue;
    const toNo=String(val(row,'toNo')||fallbackTo||'').trim().toUpperCase();
    if(!toNo)continue;
-   const id=toNo+'|'+code+'|'+cfa.toUpperCase();
+   const id=(monthKey||'UNASSIGNED')+'|'+toNo+'|'+code+'|'+cfa.toUpperCase();
    const old=previous.find(x=>x.id===id);
-   imported.push({id,toNo,code,product:String(val(row,'product')||''),cfa,qty,fullyReceived:!!(old&&old.fullyReceived),received:old&&old.fullyReceived?qty:0});
+   imported.push({id,toNo,monthKey,code,product:String(val(row,'product')||''),cfa,qty,fullyReceived:!!(old&&old.fullyReceived),received:old&&old.fullyReceived?qty:0});
   }
   if(!imported.length){
    const toNo=promptNo||String(prompt('TO Number നൽകുക (ഉദാ: TRANSNO-000091085):','')||'').toUpperCase().trim();
    if(!toNo){if(status)status.textContent='TO number നൽകാത്തതിനാൽ import ചെയ്തിട്ടില്ല.';return}
    throw new Error('ഒരു valid item row പോലും കണ്ടെത്തിയില്ല. Item Number, Transfer Qty CBO, CFA NAME columns പരിശോധിക്കുക.');
   }
-  const touched=new Set(imported.map(x=>x.toNo));
-  const kept=previous.filter(x=>!touched.has(x.toNo));
+  const touched=new Set(imported.map(x=>[x.monthKey,x.toNo,String(x.cfa||'').toUpperCase()].join('|')));
+  const kept=previous.filter(x=>!touched.has([x.monthKey||'',x.toNo,String(x.cfa||'').toUpperCase()].join('|')));
   await persistToRecords(kept.concat(imported));
   if(status)status.textContent='Imported '+[...touched].join(', ')+' · '+imported.length+' item lines. Duplicate upload replaces the same TO.';
   input.value='';
@@ -1244,7 +1266,7 @@ async function loadLiveSoh(){
     renderStock();
   }
 }
-async function fetchGitHubAssortment(){try{const res=await fetch("https://raw.githubusercontent.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/feature/mbq-smart-indent-dashboard/KERALA%20ASSORTMENT%20FILE%20.csv");if(!res.ok)throw new Error("HTTP "+res.status);const text=await res.text();const parsed=parseCsv(text);if(parsed.length>1){const headers=parsed[0].map(h=>h.trim());const fgIdx=headers.findIndex(h=>h==="ItemId");const groupIdx=headers.findIndex(h=>h==="SKU_Group");const mrpIdx=headers.findIndex(h=>h==="MRP_Price");const descIdx=headers.findIndex(h=>h==="Description");const priorGroupValues=new Map(sourceRows.filter(r=>r&&r[0]).map(r=>[String(r[0]).trim().toLowerCase(),r[1]]));const priorIndentLines=indentLines.map(x=>({...x}));sourceRows.length=0;rows.length=0;const addedGroups=new Set();parsed.slice(1).forEach((r,i)=>{const fgCode=fgIdx>=0&&r[fgIdx]?r[fgIdx].trim():"";const skuGroup=groupIdx>=0&&r[groupIdx]?r[groupIdx].trim():"";const mrpVal=mrpIdx>=0&&r[mrpIdx]!==''&&!isNaN(parseFloat(r[mrpIdx]))?parseFloat(r[mrpIdx]):null;const desc=descIdx>=0&&r[descIdx]?r[descIdx].trim():"";if(skuGroup){if(!addedGroups.has(skuGroup)){addedGroups.add(skuGroup);sourceRows.push([skuGroup,null,null,null,"No data available","No data available"]);}rows.push({sku:skuGroup,indent:null,avg:null,suggest:null,risk:"No data available",cfa:"No data available",cover:null,open:null,stock:null,code:fgCode,shelfLife:null,mrp:mrpVal,salesDay:null,description:desc});}});sourceRows.forEach(sr=>{const key=String(sr[0]||'').trim().toLowerCase();const prior=priorGroupValues.get(key);const line=[...priorIndentLines].reverse().find(x=>x.mode==='group'&&String(x.sku||'').trim().toLowerCase()===key);const qty=(prior!==null&&prior!==undefined&&prior!==''&&Number.isFinite(Number(prior)))?Number(prior):(line&&line.qty!==''&&line.qty!==null&&line.qty!==undefined&&Number.isFinite(Number(line.qty))?Number(line.qty):null);if(qty!==null){sr[1]=qty;rows.filter(x=>String(x.sku||'').trim().toLowerCase()===key).forEach(x=>x.indent=qty);}});window.mbqAssortmentLoaded=true;mbqApplyPendingSalesHeadUpload();const groupSelect=document.getElementById("entrySkuGroup");if(groupSelect){groupSelect.innerHTML="<option value=\"\">All (Ella SKU Groups-um)</option>"+Array.from(addedGroups).map(g=>`<option value="${g}">${g}</option>`).join("");}renderIndentWorkspace();renderIndent();renderWatch();renderSuggestions();renderStock();renderMbqExcelView();mbqRefreshDashboardKpis();if(mbqGsvRows.length)mbqApplyGsvSales();if(typeof renderDaysPlanner==='function')renderDaysPlanner();showToast("Exact GitHub Kerala Assortment Master loaded successfully!");}}catch(e){console.warn("Assortment load failed:",e);showToast("GitHub Assortment load cheyyan kazhinjilla!");mbqRefreshDashboardKpis();}}fetchGitHubAssortment();
+async function fetchGitHubAssortment(){try{const res=await fetch("https://raw.githubusercontent.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/feature/mbq-smart-indent-dashboard/KERALA%20ASSORTMENT%20FILE%20.csv");if(!res.ok)throw new Error("HTTP "+res.status);const text=await res.text();const parsed=parseCsv(text);if(parsed.length>1){const headers=parsed[0].map(h=>h.trim());const fgIdx=headers.findIndex(h=>h==="ItemId");const groupIdx=headers.findIndex(h=>h==="SKU_Group");const mrpIdx=headers.findIndex(h=>h==="MRP_Price");const descIdx=headers.findIndex(h=>h==="Description");const priorGroupValues=new Map(sourceRows.filter(r=>r&&r[0]).map(r=>[String(r[0]).trim().toLowerCase(),r[1]]));const priorIndentLines=indentLines.map(x=>({...x}));sourceRows.length=0;rows.length=0;const addedGroups=new Set();parsed.slice(1).forEach((r,i)=>{const fgCode=fgIdx>=0&&r[fgIdx]?r[fgIdx].trim():"";const skuGroup=groupIdx>=0&&r[groupIdx]?r[groupIdx].trim():"";const mrpVal=mrpIdx>=0&&r[mrpIdx]!==''&&!isNaN(parseFloat(r[mrpIdx]))?parseFloat(r[mrpIdx]):null;const desc=descIdx>=0&&r[descIdx]?r[descIdx].trim():"";if(skuGroup){if(!addedGroups.has(skuGroup)){addedGroups.add(skuGroup);sourceRows.push([skuGroup,null,null,null,"No data available","No data available"]);}rows.push({sku:skuGroup,indent:null,avg:null,suggest:null,risk:"No data available",cfa:"No data available",cover:null,open:null,stock:null,code:fgCode,shelfLife:null,mrp:mrpVal,salesDay:null,description:desc});}});sourceRows.forEach(sr=>{const key=String(sr[0]||'').trim().toLowerCase();const prior=priorGroupValues.get(key);const line=[...priorIndentLines].reverse().find(x=>x.mode==='group'&&String(x.sku||'').trim().toLowerCase()===key);const qty=(prior!==null&&prior!==undefined&&prior!==''&&Number.isFinite(Number(prior)))?Number(prior):(line&&line.qty!==''&&line.qty!==null&&line.qty!==undefined&&Number.isFinite(Number(line.qty))?Number(line.qty):null);if(qty!==null){sr[1]=qty;rows.filter(x=>String(x.sku||'').trim().toLowerCase()===key).forEach(x=>x.indent=qty);}});window.mbqAssortmentLoaded=true;mbqRestoreSharedSalesHeadUpload().then(()=>mbqApplyPendingSalesHeadUpload());const groupSelect=document.getElementById("entrySkuGroup");if(groupSelect){groupSelect.innerHTML="<option value=\"\">All (Ella SKU Groups-um)</option>"+Array.from(addedGroups).map(g=>`<option value="${g}">${g}</option>`).join("");}renderIndentWorkspace();renderIndent();renderWatch();renderSuggestions();renderStock();renderMbqExcelView();mbqRefreshDashboardKpis();if(mbqGsvRows.length)mbqApplyGsvSales();if(typeof renderDaysPlanner==='function')renderDaysPlanner();showToast("Exact GitHub Kerala Assortment Master loaded successfully!");}}catch(e){console.warn("Assortment load failed:",e);showToast("GitHub Assortment load cheyyan kazhinjilla!");mbqRefreshDashboardKpis();}}fetchGitHubAssortment();
 /* MBQ Excel View: read only the official CFA sheets, retain the existing dashboard features. */
 let mbqExcelSheets = {};
 let mbqSalesRows = [];
@@ -1465,12 +1487,13 @@ function previewProductionSettingsUpload(input){
  reader.onerror=()=>{if(status)status.textContent='Unable to read this file. Please try the Excel template.';};
  reader.readAsArrayBuffer(file);
 }
-function applyProductionSettingsUpload(){
+async function applyProductionSettingsUpload(){
  const pending=mbqPendingProductionUpload,status=document.getElementById('productionUploadStatus');
  if(!pending||pending.issues.length||!pending.rows.length){if(status)status.textContent='No validated upload to apply.';return;}
  const values=mbqProductionSettings();
  pending.rows.forEach(r=>{if(!r.valid)return;const prior=values[r.sku]||{};values[r.sku]={freq:r.freq===''?(prior.freq??''):r.freq,prodDays:r.prodDays===''?(prior.prodDays??''):r.prodDays,transitDays:r.transitDays===''?(prior.transitDays??''):r.transitDays};});
  localStorage.setItem('mbqProductionFrequencySettings',JSON.stringify(values));
+ try{await mbqSaveSharedUpload('production-settings','Production Settings Excel',0,values);}catch(e){showToast('Shared production settings upload failed: '+e.message);}
  mbqPendingProductionUpload=null;
  const btn=document.getElementById('applyProductionUploadBtn');if(btn)btn.disabled=true;
  if(status)status.textContent='Imported '+pending.rows.length+' SKU Group rows. Review and click Save production settings to commit them in this browser.';
@@ -1574,6 +1597,7 @@ async function loadMbqPoReport(event){
     if(!parsed)throw new Error('Could not find a header row containing PO_Open_Close, PO_Qty and Diff_Qty.');
     mbqPoRecords=parsed.rows;mbqPoHeaders=parsed.headers;mbqPoFileName=file.name;
     await mbqCacheSet('mbqPoCache',{rows:mbqPoRecords,headers:mbqPoHeaders,name:file.name,loadedAt:new Date().toISOString()});
+    try{await mbqSaveSharedUpload('open-po-report',file.name,file.size,{rows:mbqPoRecords,headers:mbqPoHeaders});}catch(e){showToast('Shared Open PO save failed: '+e.message);}
     renderMbqPoPreview();showToast('Daily Open & Close PO report loaded.');
   }catch(e){showToast('PO upload failed: '+(e.message||'Check the report format.'));}
 }
