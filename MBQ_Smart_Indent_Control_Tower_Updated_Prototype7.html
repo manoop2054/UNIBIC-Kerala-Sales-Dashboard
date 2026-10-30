@@ -1518,6 +1518,7 @@ async function loadCloudProductionSettings(){
    const localValue=merged[sku]&&typeof merged[sku]==='object'?merged[sku]:{};
    merged[sku]={...localValue,...(cloudValue&&typeof cloudValue==='object'?cloudValue:{})};
   });
+  try{const sharedSettings=await mbqGetSharedUpload('production-settings');if(sharedSettings&&sharedSettings.payload&&typeof sharedSettings.payload==='object'){Object.entries(sharedSettings.payload).forEach(([sku,value])=>{merged[sku]={...(merged[sku]||{}),...(value&&typeof value==='object'?value:{})};});}}catch(e){console.warn('Shared production settings upload unavailable:',e.message);}
   localStorage.setItem('mbqProductionFrequencySettings',JSON.stringify(merged));
   renderProductionFrequencySettings();renderMbqExcelView();
   if(status){
@@ -1634,7 +1635,7 @@ async function restoreMbqLocalData(){
     const book=await mbqCacheGet('mbqExcelCache');
     if(book&&book.sheets){mbqExcelSheets=book.sheets;mbqSalesRows=book.salesRows||[];mbqIndentRows=book.indentRows||[];mbqWorkbookName=book.name||'';if(status){status.classList.add('ready');status.innerHTML='<span class="dot"></span><span>Local copy only: '+mbqEscape(mbqWorkbookName)+' · not shared across devices</span>';}renderMbqExcelView();}
   }
-  const po=await mbqCacheGet('mbqPoCache');if(po&&po.rows){mbqPoRecords=po.rows;mbqPoHeaders=po.headers||[];mbqPoFileName=po.name||'';renderMbqPoPreview();}
+  const po=await mbqCacheGet('mbqPoCache');if(po&&po.rows){mbqPoRecords=po.rows;mbqPoHeaders=po.headers||[];mbqPoFileName=po.name||'';renderMbqPoPreview();}try{const sharedPo=await mbqGetSharedUpload('open-po-report');if(sharedPo&&sharedPo.payload&&Array.isArray(sharedPo.payload.rows)){mbqPoRecords=sharedPo.payload.rows;mbqPoHeaders=sharedPo.payload.headers||[];mbqPoFileName=sharedPo.fileName||'';await mbqCacheSet('mbqPoCache',{rows:mbqPoRecords,headers:mbqPoHeaders,name:mbqPoFileName,loadedAt:sharedPo.uploadedAt,shared:true});renderMbqPoPreview();}}catch(e){console.warn('Shared Open PO restore unavailable:',e.message);}
 }
 
 restoreMbqLocalData();
