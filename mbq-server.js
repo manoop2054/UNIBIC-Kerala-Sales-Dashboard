@@ -6,8 +6,14 @@ const https = require("https");
 const XLSX = require("xlsx");
 const ExcelJS = require("exceljs");
 const { Pool } = require("pg");
-const draftPool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 5 }) : null;
-const masterPool = process.env.MBQ_MASTER_DATABASE_URL ? new Pool({ connectionString: process.env.MBQ_MASTER_DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 3 }) : null;
+// Use explicit libpq-compatible secure SSL semantics for both isolated MBQ databases.
+function mbqVerifiedDatabaseUrl(value) {
+  const parsed = new URL(value);
+  parsed.searchParams.set("sslmode", "verify-full");
+  return parsed.toString();
+}
+const draftPool = process.env.DATABASE_URL ? new Pool({ connectionString: mbqVerifiedDatabaseUrl(process.env.DATABASE_URL), ssl: { rejectUnauthorized: true }, max: 5 }) : null;
+const masterPool = process.env.MBQ_MASTER_DATABASE_URL ? new Pool({ connectionString: mbqVerifiedDatabaseUrl(process.env.MBQ_MASTER_DATABASE_URL), ssl: { rejectUnauthorized: true }, max: 3 }) : null;
 const MBQ_MASTER_UPLOAD_PIN = process.env.MBQ_MASTER_UPLOAD_PIN || "";
 
 const SOH_URL = process.env.SOH_SHARE_URL || "https://github.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/releases/download/v1.0/LIVE.STOCK.xlsb";
