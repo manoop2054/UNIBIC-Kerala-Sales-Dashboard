@@ -1459,7 +1459,7 @@ function mbqRecalcWorkbookFormulaCells(headers,vals){
  const ind=num(ix['IND']!==undefined?'IND':'INDENT'),cl=num('CL PO'),op=num('OPEN PO'),sales=num('SALES'),over=num('SOH>60%'),prod=num('MBQ DAYS (BASED ON PROD FREQ)'),transit=num('TRANSIT DAYS');
  set('MBQ DAYS',(prod??0)+(transit??0));const days=num('MBQ DAYS');set('MBQ',ind!==null&&days!==null?(ind/30)*days:0);
  set('FC%',ind!==null&&ind!==0&&cl!==null&&op!==null?(cl+op)/ind:0);set('FR',sales!==null&&cl!==null&&op!==null&&(cl+op)!==0?Math.min(sales/(cl+op),1):0);
- set('S. TREND',ind!==null&&ind!==0&&sales!==null?sales/ind:0);const mbq=num('MBQ');set('SHRT/EXC',over!==null&&mbq!==null?over-mbq:0);set('DOS',over!==null&&ind!==null&&ind!==0?over/(ind/30):0);set('NXT 10D',sales!==null?sales/3:0);
+ set('S. TREND',ind!==null&&ind!==0&&sales!==null?sales/ind:0);const mbq=num('MBQ');set('SHRT/EXC',over!==null&&mbq!==null?over-mbq:0);set('DOS',over!==null&&ind!==null&&ind!==0?over/(ind/30):0); // NXT 10D: preserve the existing next-10-days average CBB value; do not recalculate.
 }
 const mbqBgSelections=window.mbqBgSelections||(window.mbqBgSelections={});
 const mbqBgOriginals=window.mbqBgOriginals||(window.mbqBgOriginals={});
