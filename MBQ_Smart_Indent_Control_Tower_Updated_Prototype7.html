@@ -695,15 +695,19 @@ function previewIndentUpload(input){
       const hs=candidate[ri].map(norm);
       const hasSku=hs.some(h=>h==='sku group'||h==='sku groups'||h==='sku group name');
       const hasQty=hs.some(h=>['total indent by rbm sales head','total indent by rbm','total indent','qty cbb','qty cbo','sales head ind','sales head indent','cfa wise allocation tvd','tvd allocation','cfa wise allocation pay','pay allocation','cfa wise allocation alu','alu allocation'].some(n=>h===norm(n)||h.includes(norm(n))));
-      if(hasSku&&hasQty){chosen={records:candidate,headerIndex:ri};break;}
+      if(hasSku&&hasQty){
+       const nextHeaders=(candidate[ri+1]||[]).map(norm);
+       const hasCfaSubheaders=hs.some(h=>h.includes('cfa wise allocation'))&&nextHeaders.some(h=>['tvd','pay','alu'].includes(h));
+       chosen={records:candidate,headerIndex:ri,headerDepth:hasCfaSubheaders?2:1};break;
+      }
      }
      if(chosen)break;
     }
     if(!chosen)throw new Error('SKU GROUP and Total Indent/CFA Allocation headings were not found together in the first 40 rows of any sheet.');
-    records=chosen.records;var headerIndex=chosen.headerIndex;
-   }else{records=parseCsv(String(reader.result||'').replace(/^\uFEFF/,''));var headerIndex=records.findIndex(r=>{const hs=r.map(norm);return hs.some(h=>h==='sku group'||h==='sku groups'||h==='sku group name')&&hs.some(h=>['total indent by rbm sales head','total indent by rbm','total indent','qty cbb','qty cbo','sales head ind','sales head indent','cfa wise allocation tvd','tvd allocation','cfa wise allocation pay','pay allocation','cfa wise allocation alu','alu allocation'].some(n=>h===norm(n)||h.includes(norm(n))))});}
+    records=chosen.records;var headerIndex=chosen.headerIndex;var headerDepth=chosen.headerDepth||1;
+   }else{records=parseCsv(String(reader.result||'').replace(/^\uFEFF/,''));var headerIndex=records.findIndex(r=>{const hs=r.map(norm);return hs.some(h=>h==='sku group'||h==='sku groups'||h==='sku group name')&&hs.some(h=>['total indent by rbm sales head','total indent by rbm','total indent','qty cbb','qty cbo','sales head ind','sales head indent','cfa wise allocation tvd','tvd allocation','cfa wise allocation pay','pay allocation','cfa wise allocation alu','alu allocation'].some(n=>h===norm(n)||h.includes(norm(n))))});var headerDepth=1;}
    if(!records||records.length<2||headerIndex<0)throw new Error('Could not find a valid header row and data rows.');
-   const headers=records[headerIndex].map(norm);
+   const headers=records[headerIndex].map((v,i)=>norm(String(v??'')+' '+(headerDepth===2?String(records[headerIndex+1]?.[i]??''):'')));
    const col=names=>headers.findIndex(h=>names.some(n=>h===norm(n)||h.includes(norm(n))));
    const gi=col(['sku group','sku groups','sku group name']);
    const ti=col(['total indent by rbm sales head','total indent by rbm','total indent','qty cbb','qty cbo','sales head ind','sales head indent']);
@@ -713,7 +717,7 @@ function previewIndentUpload(input){
    if(gi<0)throw new Error('SKU GROUP heading not found.');
    if(ti<0&&vi<0&&pi<0&&ai<0)throw new Error('No supported indent column found. Include Total Indent or at least one CFA allocation heading.');
    const known=new Set([...sourceRows.map(r=>String(r[0]||'').trim().toLowerCase()),...rows.map(r=>String(r.sku||'').trim().toLowerCase()),...mbqSalesRows.map(r=>String(r.SKU_Group??r.SKU_GROUP??r['SKU Group']??'').trim().toLowerCase())].filter(Boolean));
-   pendingUpload=records.slice(headerIndex+1).filter(r=>r.some(v=>String(v??'').trim())).map(r=>{
+   pendingUpload=records.slice(headerIndex+headerDepth).filter(r=>r.some(v=>String(v??'').trim())).map(r=>{
     const sku=String(r[gi]??'').trim(),total=ti<0?'':String(r[ti]??'').trim(),tvd=vi<0?'':String(r[vi]??'').trim(),pay=pi<0?'':String(r[pi]??'').trim(),alu=ai<0?'':String(r[ai]??'').trim();
     const errors=[],warnings=[];if(!sku)errors.push('SKU Group missing');else if(known.size&&!known.has(sku.toLowerCase()))warnings.push('Not in assortment master — will be listed for manual CFA allocation; item code/SOH mapping unavailable');
     const values=[['Total Indent',total],['TVD allocation',tvd],['PAY allocation',pay],['ALU allocation',alu]];
