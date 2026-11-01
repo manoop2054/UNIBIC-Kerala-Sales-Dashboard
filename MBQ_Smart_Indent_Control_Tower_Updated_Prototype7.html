@@ -844,8 +844,9 @@ function buildAllocationData(){
  grouped.forEach(group=>{
    const acceptedKey=String(group.sku||'').trim().toLowerCase();
    const salesHeadInd=mbqUploadedIndentForSku(group.sku);
-   const totalInd=Object.prototype.hasOwnProperty.call(mbqAcceptedSuggestionBySku,acceptedKey)?Number(mbqAcceptedSuggestionBySku[acceptedKey]):salesHeadInd;
    const salesHeadSource=sourceRows.find(r=>String(r[0]||'').trim().toLowerCase()===acceptedKey);
+   const hasUploadedTotal=!!salesHeadSource&&salesHeadSource[1]!==''&&salesHeadSource[1]!==null&&salesHeadSource[1]!==undefined&&Number.isFinite(Number(salesHeadSource[1]));
+   const totalInd=hasUploadedTotal?salesHeadInd:(Object.prototype.hasOwnProperty.call(mbqAcceptedSuggestionBySku,acceptedKey)?Number(mbqAcceptedSuggestionBySku[acceptedKey]):salesHeadInd);
    const cfaValues=salesHeadSource?{TVD:salesHeadSource[2],PAY:salesHeadSource[3],ALU:salesHeadSource[4]}:null;
    const hasUploadedCfa=!!cfaValues&&Object.values(cfaValues).some(v=>v!==''&&v!==null&&v!==undefined);
    if(totalInd===null||!Number.isFinite(Number(totalInd))||Number(totalInd)<0)return;
