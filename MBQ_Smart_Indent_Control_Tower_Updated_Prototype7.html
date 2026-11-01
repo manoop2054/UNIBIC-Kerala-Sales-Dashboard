@@ -602,6 +602,7 @@ const SALES_HEAD_XLSX_B64='UEsDBBQAAAAIACQ2Wl1Gx01IlQAAAM0AAAAQAAAAZG9jUHJvcHMvY
 function downloadSalesHeadTemplate(){
  try{
   if(!window.XLSX)throw new Error('Excel library not loaded. Refresh the dashboard and try again.');
+  if(mbqGsvLoading||!Array.isArray(mbqGsvRows)||!mbqGsvRows.length)throw new Error('Live GSV billing data is not ready. Wait until GSV Connected, then download again.');
   const groups=[...new Set([...sourceRows.map(r=>String(r[0]||'').trim()),...rows.map(r=>String(r.sku||'').trim()),...mbqSalesRows.map(r=>String(r.SKU_Group??r.SKU_GROUP??r['SKU Group']??'').trim())].filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   const history=mbqSelectedMonthHistory();
   const monthTitle=m=>{const names=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];return names[(Number(m.month)||1)-1]+' '+m.year;};
@@ -611,7 +612,13 @@ function downloadSalesHeadTemplate(){
    ['', 'TVD','PAY','ALU','SUM','TVD','PAY','ALU','SUM','TVD','PAY','ALU','SUM','TVD','PAY','ALU','SUM','TVD RATIO %','PAY RATIO %','ALU RATIO %','','TVD','PAY','ALU'],
    ...groups.map(g=>{
     const monthValues=history.map(m=>{
-     const vals=cfas.map(cfa=>mbqLoadedSalesValue(g,cfa,m.month));
+     const monthKey=String(m.year)+'-'+String(m.month).padStart(2,'0');
+     const vals=cfas.map(cfa=>{
+      const monthAvailable=mbqGsvRows.some(x=>String(x.month||'')===monthKey&&normalCfa(x.cfa)===cfa);
+      if(!monthAvailable)return null;
+      const value=mbqGsvGroupMonth(g,cfa,monthKey);
+      return value===null?0:Number(value);
+     });
      const sum=vals.every(v=>v!==null&&Number.isFinite(Number(v)))?vals.reduce((a,b)=>a+Number(b),0):'';
      return [...vals,sum];
     });
