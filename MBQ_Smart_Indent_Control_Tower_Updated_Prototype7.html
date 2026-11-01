@@ -1408,13 +1408,13 @@ async function fetchGitHubAssortment(){
    parsed.slice(1).forEach(r=>{
     const fgCode=fgIdx>=0&&r[fgIdx]?r[fgIdx].trim():"";
     const rawGroup=groupIdx>=0&&r[groupIdx]?r[groupIdx]:"";
-    const skuGroup=cleanGroup(rawGroup),groupKey=mbqSkuGroupKey(skuGroup);
+    const skuGroup=cleanGroup(rawGroup),displayGroup=(fgCode==="FGUNIB1610"||fgCode==="FGUNIB2048")?rawGroup:skuGroup,groupKey=mbqSkuGroupKey(displayGroup);
     const mrpVal=mrpIdx>=0&&r[mrpIdx]!==''&&!isNaN(parseFloat(r[mrpIdx]))?parseFloat(r[mrpIdx]):null;
     const desc=descIdx>=0&&r[descIdx]?r[descIdx].trim():"";
-    if(skuGroup){
+    if(displayGroup){
      if(!addedGroups.has(groupKey)){
-      addedGroups.set(groupKey,skuGroup);
-      sourceRows.push([skuGroup,null,null,null,"No data available","No data available"]);
+      addedGroups.set(groupKey,displayGroup);
+      sourceRows.push([displayGroup,null,null,null,"No data available","No data available"]);
      }
      rows.push({sku:addedGroups.get(groupKey),indent:null,avg:null,suggest:null,risk:"No data available",cfa:"No data available",cover:null,open:null,stock:null,code:fgCode,shelfLife:null,mrp:mrpVal,salesDay:null,description:desc});
     }
