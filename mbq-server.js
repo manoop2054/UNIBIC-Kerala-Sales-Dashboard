@@ -6,6 +6,7 @@ const https = require("https");
 const XLSX = require("xlsx");
 const ExcelJS = require("exceljs");
 const { Pool } = require("pg");
+const { getAccessControlPool } = require("./employee-access-control/postgres-db");
 // Use explicit libpq-compatible secure SSL semantics for both isolated MBQ databases.
 function mbqVerifiedDatabaseUrl(value) {
   const parsed = new URL(value);
@@ -461,6 +462,19 @@ app.put("/api/mbq/cfa-allocation", express.json({ limit: "10mb" }), async (req, 
 });
 
 app.get("/api/mbq/status", (req, res) => res.json({ service: "MBQ Smart Indent Dashboard", liveSohEndpoint: "/api/mbq/soh" }));
+
+app.get("/api/mbq/employee-db-check", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const employeeDb = getAccessControlPool();
+  if (!employeeDb) return res.status(503).json({ configured: false, connected: false, message: "Employee database connection is not configured" });
+  try {
+    await employeeDb.query("SELECT 1");
+    return res.json({ configured: true, connected: true, check: "SELECT 1", message: "Employee database connection successful" });
+  } catch (error) {
+    console.error("MBQ employee database connectivity check failed:", error.message);
+    return res.status(503).json({ configured: true, connected: false, message: "Employee database connection failed; check Render environment configuration" });
+  }
+});
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok", app: "MBQ Smart Indent Dashboard" });
