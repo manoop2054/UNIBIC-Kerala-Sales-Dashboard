@@ -1063,8 +1063,8 @@ function renderDaysPlanner(){
  const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value;};
  const fmt=v=>Number(v).toLocaleString('en-IN',{maximumFractionDigits:0});
  const validPeriod=Number.isFinite(days)&&days>0&&Number.isInteger(days);
- set('daysPlanTableSub',cfaName+' · '+(validPeriod?days+' days':'Custom days not entered')+' · Latest 3 completed months: '+history.map(m=>m.label+' '+m.year).join(', '));
  const history=mbqLastCompletedMonths(3);
+ set('daysPlanTableSub',cfaName+' · '+(validPeriod?days+' days':'Custom days not entered')+' · Latest 3 completed months: '+history.map(m=>m.label+' '+m.year).join(', '));
  const historyDays=history.reduce((sum,m)=>sum+new Date(m.year,m.month,0).getDate(),0);
  const allRows=rows.filter(r=>String(r.sku||'').trim()&&String(r.code||'').trim());
  const toRecords=getActiveToRecords(),toAvailable=Array.isArray(toRecords); // No uploaded TO records means no pending TO; uploaded records are deducted item-wise.
