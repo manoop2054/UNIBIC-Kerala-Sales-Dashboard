@@ -1157,29 +1157,8 @@ function openUnallocatedIndReport(){
  document.addEventListener('keydown',function escClose(e){if(e.key==='Escape'&&document.getElementById('mbqUnallocatedIndModal')){close();document.removeEventListener('keydown',escClose);}});
 }
 function mbqAllocationRowKey(r){return [String(r.cfaKey||'').toUpperCase(),String(r.sku||'').trim().toLowerCase(),mbqCodeKey(r.code)].join('|');}
-let mbqSharedAllocationState={};
-let mbqAllocationRestorePromise=null;
-async function mbqLoadSharedAllocationState(){
- try{const r=await fetch('/api/mbq/cfa-allocation',{cache:'no-store'});if(!r.ok)throw new Error('Shared allocation load failed');const j=await r.json();if(j.success&&j.data&&typeof j.data==='object')mbqSharedAllocationState=j.data;return mbqSharedAllocationState;}
- catch(e){console.warn('Shared CFA allocation unavailable',e);return mbqSharedAllocationState;}
-}
-async function mbqSaveSharedAllocationState(){
- const data={};allocationData.forEach(r=>{if(r.manualAllocation)data[mbqAllocationRowKey(r)]=Number(r.allocation)||0;});
- mbqSharedAllocationState=data;
- try{const r=await fetch('/api/mbq/cfa-allocation',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data}),cache:'no-store'});const j=await r.json().catch(()=>({}));if(!r.ok||!j.success)throw new Error(j.error||'Shared save failed');}
- catch(e){showToast('CFA Allocation shared save failed. ഈ browser-ൽ മാത്രം മാറ്റം ഉണ്ടായേക്കാം.');console.error(e);}
-}
-function mbqApplySharedAllocationState(){
- let changed=false;allocationData.forEach(r=>{
-  // Preserve the calculated, full-share allocation so the drill-down can identify
-  // the exact CFA/item rows reduced by a saved manual allocation.
-  r.suggestedAllocation=Number(r.allocation)||0;
-  // Uploaded CFA-wise Sales Head quantities take precedence over older saved manual edits.
-  if(r.sourceCfaAllocation)return;
-  const key=mbqAllocationRowKey(r);
-  if(Object.prototype.hasOwnProperty.call(mbqSharedAllocationState,key)){r.allocation=Number(mbqSharedAllocationState[key])||0;r.manualAllocation=true;changed=true;}
- });
- return changed;
+function mbqSetSuggestedAllocationSnapshot(){
+ allocationData.forEach(r=>{r.suggestedAllocation=Number(r.allocation)||0;});
 }
 function updateManualAllocation(index,value){
  const row=allocationData[Number(index)];
@@ -1193,15 +1172,13 @@ function updateManualAllocation(index,value){
   if(!Number.isFinite(qty)||qty<0){showToast('Manual Allocation Qty zero അല്ലെങ്കിൽ positive number ആയിരിക്കണം.');renderAlloc();return;}
   row.allocation=Math.round(qty);row.manualAllocation=true;
  }
- allocationSummary();renderAlloc();mbqRefreshDashboardKpis();mbqSaveSharedAllocationState();
+ allocationSummary();renderAlloc();mbqRefreshDashboardKpis();
 }
 async function runCfaAllocation(){
  const status=document.getElementById('allocRunStatus');
  if(status){status.style.borderLeftColor='#64748b';status.textContent='Sales Head IND അടിസ്ഥാനമാക്കി CFA allocation കണക്കാക്കുന്നു…';}
  allocationData=[];buildAllocationData();
- if(!mbqAllocationRestorePromise)mbqAllocationRestorePromise=mbqLoadSharedAllocationState();
- await mbqAllocationRestorePromise;
- mbqApplySharedAllocationState();
+ mbqSetSuggestedAllocationSnapshot();
  const statusPill=document.querySelector('#page-allocation .card-head .pill');
  if(statusPill)statusPill.textContent=allocationData.length?'SALES HEAD IND + MANUAL ALLOCATION':'SOURCE / INDENT MATCH REQUIRED';
  if(!allocationData.length){
