@@ -2263,4 +2263,65 @@ loadToRecords().then(()=>{renderToTracker();if(typeof renderDaysPlanner==='funct
  new MutationObserver(scan).observe(document.documentElement,{childList:true,subtree:true});
 })();
 </script>
+
+<!-- MBQ AUTH HANDLER: active page-level login binding -->
+<script>
+(function(){
+  'use strict';
+  const gate=document.getElementById('mbqLoginGate');
+  const form=document.getElementById('mbqLoginForm');
+  const msg=document.getElementById('mbqLoginMessage');
+  const formWrap=document.getElementById('mbqLoginFormWrap');
+  const pending=document.getElementById('mbqAccessPending');
+  if(!gate||!form||!msg){console.error('MBQ login form elements not found');return;}
+  async function request(url,options){
+    const response=await fetch(url,{credentials:'same-origin',cache:'no-store',...options});
+    let data={};try{data=await response.json();}catch(_){}
+    return {response,data};
+  }
+  function showDashboard(user){
+    document.body.classList.add('mbq-authenticated');
+    gate.hidden=true;
+    if(typeof window.mbqApplyUserAccess==='function')window.mbqApplyUserAccess(user);
+    const id=document.getElementById('mbqEmployeeIdDisplay');
+    if(id)id.textContent=(user.employeeName||'Employee')+' · '+(user.maskedEmployeeId||'');
+  }
+  function showPending(user){
+    formWrap.style.display='none';pending.style.display='block';
+    const target=document.getElementById('mbqPendingMessage');
+    if(target)target.textContent=(user.employeeName||'Your account')+' ('+(user.maskedEmployeeId||'')+'): MBQ tab access has not yet been assigned by Super Admin.';
+  }
+  async function logout(){
+    try{await request('/api/mbq/auth/logout',{method:'POST'});}catch(_){}
+    document.body.classList.remove('mbq-authenticated');
+    gate.hidden=false;formWrap.style.display='block';pending.style.display='none';form.reset();msg.textContent='';
+  }
+  document.getElementById('mbqPendingLogout')?.addEventListener('click',logout);
+  document.getElementById('mbqLogoutButton')?.addEventListener('click',logout);
+  form.addEventListener('submit',async function(event){
+    event.preventDefault();
+    const employeeId=document.getElementById('mbqEmployeeId');
+    const password=document.getElementById('mbqEmployeePassword');
+    const button=document.getElementById('mbqLoginButton');
+    const employee_id=(employeeId?.value||'').trim();
+    const passwordValue=password?.value||'';
+    if(!employee_id||!passwordValue){msg.textContent='Employee ID and password are required.';return;}
+    msg.textContent='Signing in…';if(button)button.disabled=true;
+    try{
+      const {response,data}=await request('/api/mbq/auth/login',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({employee_id,password:passwordValue})
+      });
+      if(!response.ok||!data.success)throw new Error(data.error||'Login failed. Please try again.');
+      if(!data.user||!Array.isArray(data.user.allowedTabs)||!data.user.allowedTabs.length){showPending(data.user||{});return;}
+      showDashboard(data.user);
+    }catch(error){msg.textContent=error.message||'Unable to sign in. Please try again.';}
+    finally{if(button)button.disabled=false;}
+  });
+  request('/api/mbq/auth/me').then(({response,data})=>{
+    if(response.ok&&data.authenticated&&data.user&&Array.isArray(data.user.allowedTabs)&&data.user.allowedTabs.length)showDashboard(data.user);
+    else if(response.status===403&&data.accessPending)showPending(data.user||{});
+  }).catch(error=>console.warn('MBQ session check failed:',error));
+})();
+</script>
 </body></html>
