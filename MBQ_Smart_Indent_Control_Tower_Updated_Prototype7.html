@@ -741,6 +741,12 @@ async function mbqSaveSharedUpload(category,fileName,fileSize,payload){
  const res=await fetch('/api/mbq/shared-upload/'+encodeURIComponent(category),{method:'PUT',headers:{'Content-Type':'application/json','X-MBQ-Master-Pin':String(pin).trim()},body:JSON.stringify({fileName,fileSize:Number(fileSize||0),payload}),cache:'no-store'});
  const data=await res.json().catch(()=>({}));if(!res.ok||!data.success)throw new Error(data.error||'Shared upload failed.');return true;
 }
+async function mbqDeleteSharedUpload(category){
+ const pin=prompt('MBQ shared Excel upload PIN (4 digits):');if(pin===null)return false;
+ if(!/^\\d{4}$/.test(String(pin).trim()))throw new Error('Enter the 4-digit MBQ upload PIN.');
+ const res=await fetch('/api/mbq/shared-upload/'+encodeURIComponent(category),{method:'DELETE',headers:{'X-MBQ-Master-Pin':String(pin).trim()},cache:'no-store'});
+ const data=await res.json().catch(()=>({}));if(!res.ok||!data.success)throw new Error(data.error||'Shared upload removal failed.');return true;
+}
 async function mbqGetSharedUpload(category){
  const res=await fetch('/api/mbq/shared-upload/'+encodeURIComponent(category),{cache:'no-store'});const data=await res.json();
  if(!res.ok||!data.success)throw new Error(data.error||'Shared upload could not be loaded.');return data.upload||null;
@@ -1789,7 +1795,7 @@ async function clearMbqPoReport(){
  if(!confirm("Remove the uploaded Fill Rate Report from this dashboard for all users?"))return;
  const btn=document.getElementById("mbqClearPoReportBtn");if(btn){btn.disabled=true;btn.textContent="Removing…";}
  try{
-  const saved=await mbqSaveSharedUpload("open-po-report","",0,{rows:[],headers:[]});
+  const saved=await mbqDeleteSharedUpload("open-po-report");
   if(!saved){if(btn){btn.disabled=false;btn.textContent="Remove uploaded report";}return;}
   mbqPoRecords=[];mbqPoHeaders=[];mbqPoFileName="";
   await mbqCacheSet("mbqPoCache",{rows:[],headers:[],name:"",clearedAt:new Date().toISOString()});
