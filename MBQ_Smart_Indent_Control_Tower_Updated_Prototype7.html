@@ -634,20 +634,28 @@ function renderIndentWorkspace(){
  body.innerHTML=data.map(r=>{let prev=billingHistory.length===2?mbqGsvItemMonth(r.code,billingHistory[0].year+'-'+String(billingHistory[0].month).padStart(2,'0'),r.cfaKey):null,last=billingHistory.length===2?mbqGsvItemMonth(r.code,billingHistory[1].year+'-'+String(billingHistory[1].month).padStart(2,'0'),r.cfaKey):null,avg=prev!==null&&last!==null?(Number(prev)+Number(last))/2:null,existing=indentLines.find(x=>x.mode==='item'&&x.sku===r.sku&&x.code===r.code&&(x.cfaKey||'TVD')===r.cfaKey),qty=existing?existing.qty:'',liveStock=mbqLiveStockForCode(r.code,r.cfaKey),shelf=mbqMinShelfForCode(r.code,r.cfaKey),rowId=r.code+'-'+r.cfaKey;return `<tr><td class="sku">${r.sku}</td><td>${r.code}</td>${hideMrp?'':`<td>₹${Number(r.mrp).toLocaleString('en-IN')}</td>`}<td>${r.cfa} CFA</td><td>${last==null?'No data available':last.toLocaleString('en-IN')}</td><td>${prev==null?'No data available':prev.toLocaleString('en-IN')}</td><td><b>${avg==null?'No data available':avg.toLocaleString('en-IN')}</b></td><td>${liveStock.toLocaleString('en-IN')} ${mbqBatchViewButton(r.code,r.cfaKey)}</td><td>${shelf===null?'No data available':mbqShelfLabel(shelf)} ${mbqBatchViewButton(r.code,r.cfaKey)}</td><td id="itemgap-${rowId}">${gapText(qty,avg)}</td><td><input id="itemqty-${rowId}" data-sku="${r.sku}" data-code="${r.code}" data-cfa="${r.cfaKey}" data-avg="${avg}" oninput="updateItemGap(this)" type="number" min="0" value="${qty}" placeholder="CBB" style="width:100px;padding:7px;border:1px solid var(--line);border-radius:7px"></td><td><button class="btn" onclick="addItemIndent('${r.sku.replace(/'/g, "\'")}','${r.code}','${r.cfaKey}')">Add Item</button></td></tr>`}).join('')||'<tr><td colspan="12" class="empty">ഈ filter-ൽ items ഇല്ല.</td></tr>';
 }
 function markGroupIndentChanged(el){el.style.borderColor='#0ea5a4';el.style.background='#f0fdfa';const i=Number(el.dataset.groupIndex),avg=Number(sourceRows[i]?.[2])||0,gap=document.getElementById('groupgap-'+i);if(gap)gap.textContent=gapText(el.value,avg)}
-function clearAllMonthlyIndents(){
-  if(!confirm("Ella Monthly Indent values-um clear cheyyan theerchayano?"))return;
-  sourceRows.forEach(r=>r[1]=0);
-  rows.forEach(r=>r.indent=0);
-  for(let i=indentLines.length-1;i>=0;i--){
-    if(indentLines[i].mode==="group"){
-      indentLines.splice(i,1);
-    }
-  }
-  renderIndentWorkspace();
-  renderIndent();
-  renderWatch();
-  renderSuggestions();
-  showToast("Ella Monthly Indent values-um Clear cheythu!");
+async function clearAllMonthlyIndents(){
+  if(!confirm("Uploaded Monthly Indent data, all manual indent values, and ALL saved Indent Drafts permanently delete cheyyano? This cannot be undone."))return;
+  const btn=document.querySelector('button[onclick="clearAllMonthlyIndents()"]');
+  if(btn){btn.disabled=true;btn.textContent='Clearing…';}
+  try{
+    await mbqDeleteSharedUpload('monthly-indent');
+    const dr=await mbqDraftFetch('/api/mbq/drafts?type=indent',{method:'DELETE',cache:'no-store'});
+    const dj=await dr.json().catch(()=>({}));
+    if(!dr.ok||!dj.success)throw new Error(dj.detail||dj.error||'Saved indent drafts could not be deleted.');
+    localStorage.removeItem(MBQ_SALES_HEAD_UPLOAD_KEY);
+    pendingUpload=[];pendingUploadFileName='';
+    sourceRows.forEach(r=>{r[1]=0;r[2]='';r[3]='';r[4]='';});
+    rows.forEach(r=>r.indent=0);
+    indentLines.splice(0,indentLines.length);
+    const preview=document.getElementById('uploadPreviewPanel');if(preview)preview.style.display='none';
+    renderIndentWorkspace();renderIndent();renderWatch();renderSuggestions();
+    if(typeof renderMbqExcelView==='function')renderMbqExcelView();
+    if(typeof mbqRefreshDashboardKpis==='function')mbqRefreshDashboardKpis();
+    await renderDrafts();
+    showToast('Monthly Indent upload, manual values and all saved Indent Drafts permanently cleared.');
+  }catch(e){showToast('Clear All complete ആയില്ല: '+e.message);}
+  finally{if(btn){btn.disabled=false;btn.textContent='Clear All Indents';}}
 }
 function saveGroupIndents(){document.querySelectorAll('.group-indent-input').forEach(el=>{let i=Number(el.dataset.groupIndex),qty=Math.max(0,Number(el.value)||0);sourceRows[i][1]=qty;rows[i].indent=qty;let line=indentLines.find(x=>x.mode==='group'&&x.sku===sourceRows[i][0]);if(line)line.qty=qty;else indentLines.push({mode:'group',sku:sourceRows[i][0],code:rows[i].code,qty,note:'',source:'Manual group entry'});el.style.borderColor='var(--line)';el.style.background='#fff'});renderIndent();renderWatch();renderSuggestions();if(typeof renderMbqExcelView==='function')renderMbqExcelView();showToast('SKU Group indent quantities working list-ൽ save ചെയ്തു.')}
 function resetGroupIndents(){sourceRows.forEach(r=>{const original=referenceIndentValues[r[0]];if(original!==undefined)r[1]=original});renderIndentWorkspace();showToast('Reference indent quantities restored.')}const referenceIndentValues=Object.fromEntries(sourceRows.map(r=>[r[0],r[1]]));
