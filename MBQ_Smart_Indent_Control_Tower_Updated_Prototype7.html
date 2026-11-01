@@ -1736,7 +1736,7 @@ function mbqFindPoTable(wb){
   }
   return null;
 }
-async async function clearMbqPoReport(){
+async function clearMbqPoReport(){
  if(!confirm("Remove the uploaded Fill Rate Report from this dashboard for all users?"))return;
  const btn=document.getElementById("mbqClearPoReportBtn");if(btn){btn.disabled=true;btn.textContent="Removing…";}
  try{
@@ -1749,7 +1749,7 @@ async async function clearMbqPoReport(){
  }catch(e){showToast("Could not remove Fill Rate Report: "+(e.message||"Please try again."));}
  finally{if(btn){btn.disabled=false;btn.textContent="Remove uploaded report";}}
 }
-function loadMbqPoReport(event){
+async function loadMbqPoReport(event){
   const file=event.target.files&&event.target.files[0];if(!file)return;
   try{
     let parsed;
