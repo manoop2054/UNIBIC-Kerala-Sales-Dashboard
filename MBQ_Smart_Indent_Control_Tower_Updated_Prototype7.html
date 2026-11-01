@@ -388,6 +388,7 @@ let mbqGsvRows = [];
 let mbqGsvMeta = null;
 let mbqGsvLoading = false;
 let mbqGsvTimer = null;
+function mbqSkuGroupKey(v){return String(v??"").normalize("NFKC").replace(/[\u00A0\u2007\u202F\uFFFD]/g," ").replace(/[\u200B-\u200D\uFEFF]/g,"").replace(/\s+/g," ").trim().toUpperCase();}
 function mbqGsvNormCode(v){return String(v??"").trim().toUpperCase().replace(/\s+/g,"");}
 function mbqGsvItemMonth(code, month, cfa="DATA") {
   const key=mbqGsvNormCode(code), mo=String(month||"").trim();
@@ -400,7 +401,7 @@ function mbqGsvItemMonth(code, month, cfa="DATA") {
   return chosen.reduce((s,x)=>s+(Number(x.quantity)||0),0);
 }
 function mbqGsvGroupMonth(sku,cfa,month){
-  const codes=[...new Set(rows.filter(r=>String(r.sku||"").trim().toLowerCase()===String(sku||"").trim().toLowerCase()).map(r=>mbqGsvNormCode(r.code)).filter(Boolean))];
+  const skuKey=mbqSkuGroupKey(sku);const codes=[...new Set(rows.filter(r=>mbqSkuGroupKey(r.sku)===skuKey).map(r=>mbqGsvNormCode(r.code)).filter(Boolean))];
   if(!codes.length)return null;
   const vals=codes.map(code=>mbqGsvItemMonth(code,month,cfa));
   if(vals.every(v=>v===null))return null;
@@ -603,7 +604,7 @@ function downloadSalesHeadTemplate(){
  try{
   if(!window.XLSX)throw new Error('Excel library not loaded. Refresh the dashboard and try again.');
   if(mbqGsvLoading||!Array.isArray(mbqGsvRows)||!mbqGsvRows.length)throw new Error('Live GSV billing data is not ready. Wait until GSV Connected, then download again.');
-  const groups=[...new Set([...sourceRows.map(r=>String(r[0]||'').trim()),...rows.map(r=>String(r.sku||'').trim()),...mbqSalesRows.map(r=>String(r.SKU_Group??r.SKU_GROUP??r['SKU Group']??'').trim())].filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const groupMap=new Map();[...sourceRows.map(r=>r[0]),...rows.map(r=>r.sku),...mbqSalesRows.map(r=>r.SKU_Group??r.SKU_GROUP??r['SKU Group'])].forEach(value=>{const key=mbqSkuGroupKey(value);if(key&&!groupMap.has(key))groupMap.set(key,String(value??'').normalize("NFKC").replace(/[\u00A0\u2007\u202F\uFFFD]/g," ").replace(/\s+/g," ").trim());});const groups=[...groupMap.values()].sort((a,b)=>a.localeCompare(b));
   const history=mbqSelectedMonthHistory();
   const monthTitle=m=>{const names=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];return names[(Number(m.month)||1)-1]+' '+m.year;};
   const cfas=['TVD','PAY','ALU'];
