@@ -1,7 +1,7 @@
 'use strict';
 
 // Isolated PostgreSQL connector for Employee Access Control.
-// No connection is attempted unless DATABASE_URL is configured.
+// Employee Access Control uses its own connection variable; MBQ's DATABASE_URL and MBQ_MASTER_DATABASE_URL remain untouched.
 // Initialization failures must not take down the existing sales dashboard.
 const fs = require('fs');
 const path = require('path');
@@ -10,16 +10,16 @@ const { Pool } = require('pg');
 let pool = null;
 let initialization = null;
 const state = {
-  configured: Boolean(process.env.DATABASE_URL),
+  configured: Boolean(process.env.EMPLOYEE_ACCESS_DATABASE_URL),
   ready: false,
   lastError: null
 };
 
 function getAccessControlPool() {
-  if (!process.env.DATABASE_URL) return null;
+  if (!process.env.EMPLOYEE_ACCESS_DATABASE_URL) return null;
   if (!pool) {
     pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString: process.env.EMPLOYEE_ACCESS_DATABASE_URL,
       max: 2,
       connectionTimeoutMillis: 5000,
       idleTimeoutMillis: 10000
@@ -33,7 +33,7 @@ function getAccessControlPool() {
 }
 
 async function initializeAccessControlDatabase() {
-  if (!process.env.DATABASE_URL) {
+  if (!process.env.EMPLOYEE_ACCESS_DATABASE_URL) {
     state.configured = false;
     state.ready = false;
     return { configured: false, ready: false };
@@ -63,7 +63,7 @@ async function initializeAccessControlDatabase() {
 
 function getAccessControlDatabaseStatus() {
   return {
-    configured: Boolean(process.env.DATABASE_URL),
+    configured: Boolean(process.env.EMPLOYEE_ACCESS_DATABASE_URL),
     ready: state.ready,
     lastError: state.lastError
   };
