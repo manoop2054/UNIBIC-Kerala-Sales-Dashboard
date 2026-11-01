@@ -2353,6 +2353,7 @@ loadToRecords().then(()=>{renderToTracker();if(typeof renderDaysPlanner==='funct
  async function loadEmployees(){
   const select=document.getElementById('mbqAccessEmployee');
   if(!select)return;
+  const selected=select.value;
   if(status())status().textContent='Loading active employees…';
   try{
    const data=await api('/api/mbq/admin/employee-access');
