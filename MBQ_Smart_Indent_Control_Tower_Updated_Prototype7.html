@@ -1184,9 +1184,15 @@ function mbqApplySharedAllocationState(){
 function updateManualAllocation(index,value){
  const row=allocationData[Number(index)];
  if(!row)return;
- const raw=String(value??'').trim(),qty=raw===''?0:Number(raw);
- if(!Number.isFinite(qty)||qty<0){showToast('Manual Allocation Qty zero അല്ലെങ്കിൽ positive number ആയിരിക്കണം.');renderAlloc();return;}
- row.allocation=Math.round(qty);row.manualAllocation=true;
+ const raw=String(value??'').trim();
+ if(raw===''){
+  // Clearing the input removes the manual override and restores the calculated CFA share.
+  row.allocation=Number(row.suggestedAllocation)||0;row.manualAllocation=false;
+ }else{
+  const qty=Number(raw);
+  if(!Number.isFinite(qty)||qty<0){showToast('Manual Allocation Qty zero അല്ലെങ്കിൽ positive number ആയിരിക്കണം.');renderAlloc();return;}
+  row.allocation=Math.round(qty);row.manualAllocation=true;
+ }
  allocationSummary();renderAlloc();mbqRefreshDashboardKpis();mbqSaveSharedAllocationState();
 }
 async function runCfaAllocation(){
