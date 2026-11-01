@@ -92,7 +92,7 @@
 #mbqFillRateCard .notice{margin-top:8px!important;padding:8px 10px;font-size:10.5px}
 @media(max-width:700px){#mbqFillRateCard .mbq-fr-table{max-height:220px}#mbqFillRateCard .mbq-fr-filters .field{min-width:calc(50% - 7px)}}
 .excel-table td.mbq-cat-a{background:#dcfce7!important;color:#166534!important;font-weight:700}.excel-table td.mbq-cat-b{background:#fef3c7!important;color:#92400e!important;font-weight:700}.excel-table td.mbq-cat-c{background:#fee2e2!important;color:#991b1b!important;font-weight:700}.excel-table td.mbq-soh-pair{background:#dbeafe!important;color:#1e40af!important;font-weight:700}.excel-table td.mbq-plant-soh{background:#ede9fe!important;color:#5b21b6!important;font-weight:700}.excel-table td.mbq-scale-low{background:#fee2e2!important;color:#991b1b!important;font-weight:700}.excel-table td.mbq-scale-mid{background:#fef3c7!important;color:#92400e!important;font-weight:700}.excel-table td.mbq-scale-high{background:#dcfce7!important;color:#166534!important;font-weight:700}
-.mbq-view-btn{display:inline-flex;align-items:center;justify-content:center;margin-left:5px;padding:1px 6px;border:0;border-radius:4px;background:#2563eb;color:#fff;font-size:10px;font-weight:700;line-height:1.5;cursor:pointer;vertical-align:middle}.mbq-view-btn:hover{background:#1d4ed8}.mbq-batch-overlay{position:fixed;inset:0;z-index:10050;background:rgba(9,22,42,.58);display:none;align-items:center;justify-content:center;padding:16px}.mbq-batch-dialog{width:min(760px,96vw);max-height:85vh;overflow:auto;background:#fff;border-radius:12px;box-shadow:0 22px 70px rgba(0,0,0,.28);padding:16px}.mbq-batch-dialog h3{margin:0;font-size:15px}.mbq-batch-dialog .table-wrap{max-height:52vh;border:1px solid var(--line);border-radius:8px}.mbq-batch-dialog table{min-width:560px}.mbq-batch-dialog .batch-summary{display:flex;gap:14px;flex-wrap:wrap;margin:12px 0;color:var(--muted);font-size:12px}.mbq-batch-dialog .batch-summary b{color:var(--ink)}@media(max-width:600px){.mbq-batch-overlay{padding:7px}.mbq-batch-dialog{padding:11px}}
+.mbq-view-btn{display:inline;padding:0;margin-left:5px;border:0;border-radius:0;background:transparent;color:#2563eb;font:inherit;font-size:10px;font-weight:700;line-height:1.4;text-decoration:none;cursor:pointer;vertical-align:baseline}.mbq-view-btn:hover{background:transparent;color:#1d4ed8;text-decoration:underline}.mbq-batch-overlay{position:fixed;inset:0;z-index:10050;background:rgba(9,22,42,.58);display:none;align-items:center;justify-content:center;padding:16px}.mbq-batch-dialog{width:min(760px,96vw);max-height:85vh;overflow:auto;background:#fff;border-radius:12px;box-shadow:0 22px 70px rgba(0,0,0,.28);padding:16px}.mbq-batch-dialog h3{margin:0;font-size:15px}.mbq-batch-dialog .table-wrap{max-height:52vh;border:1px solid var(--line);border-radius:8px}.mbq-batch-dialog table{min-width:560px}.mbq-batch-dialog .batch-summary{display:flex;gap:14px;flex-wrap:wrap;margin:12px 0;color:var(--muted);font-size:12px}.mbq-batch-dialog .batch-summary b{color:var(--ink)}@media(max-width:600px){.mbq-batch-overlay{padding:7px}.mbq-batch-dialog{padding:11px}}
 </style></head>
 <body><div class="app"><aside class="sidebar"><div class="brand"><div class="logo">MB</div><div><strong>SMART INDENT</strong><small>Kerala · CFA Replenishment</small></div></div><div class="nav-label">WORKSPACE</div><nav class="nav" id="nav"><button class="active" data-page="overview"><span>◫</span>Overview Dashboard</button><button data-page="indent"><span>＋</span>Monthly Indent Entry</button><button data-page="suggest"><span>✦</span>AI Suggested Indent</button><button data-page="stock"><span>▦</span>CFA-wise Stock</button><button data-page="totracker"><span>⇄</span>Open TO Tracker</button><button data-page="advanced"><span>✦</span>Advanced Controls</button><button data-page="allocation"><span>⇄</span>CFA Allocation</button><button data-page="peak"><span>◷</span>Peak Billing Planner</button><button data-page="loading"><span>▤</span>CFA Loading Plan</button><button data-page="flash"><span>◉</span>Daily WhatsApp Flash</button><button data-page="reports"><span>⇩</span>Reports & Export</button><button data-page="excelview"><span>▤</span>MBQ Excel View</button><button data-page="settings"><span>⚙</span>Master Data & Settings</button></nav><div class="sidebar-foot"><span class="dot"></span>MBQ workspace<br><br>Data will appear after the relevant source is connected.</div></aside>
 <main class="main"><header class="topbar"><div class="crumb">Workspace / <b id="crumb">Overview Dashboard</b></div><div class="top-right"><div id="gsvConnectionStatus" class="gsv-connection loading" role="status" aria-live="polite"><span class="gsv-dot"></span><span id="gsvConnectionLabel">GSV Loading</span></div><select class="select" id="month" onchange="renderMbqExcelView()"><option>November 2026</option><option>October 2026</option><option>December 2026</option></select><select class="select" id="cfa"><option>All CFAs</option><option>TVD CFA</option><option>PAY CFA</option><option>ALU CFA</option></select><div class="user">MB</div></div></header><div class="content">
@@ -488,10 +488,11 @@ function mbqLiveStockMap(){
   const cfa=normalCfa(keyValue(raw,['WAREHOUSE','Warehouse','CFA','LocationCode','Location Code','Location_Code','Location Name','Location','Branch','Site','Store']));
   if(!code||!['ALU','PAY','TVD'].includes(cfa))return;
   const qty=Number(String(keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity','Available Quantity','Inventory','Stock Quantity'])??0).replace(/,/g,''))||0;
-  const k=cfa+'|'+code,old=map.get(k)||{stock:0,eligibleStock:0,shelf:null};old.stock+=qty;
   const sh=keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%']);
   const sn=Number(String(sh??'').replace('%','').replace(/,/g,''));
-  if(sh!==''&&Number.isFinite(sn)){old.shelf=old.shelf===null?sn:Math.min(old.shelf,sn);if(sn>60)old.eligibleStock+=qty}
+  if(sh===''||!Number.isFinite(sn)||sn<59)return;
+  const k=cfa+'|'+code,old=map.get(k)||{stock:0,eligibleStock:0,shelf:null};
+  old.stock+=qty;old.eligibleStock+=qty;old.shelf=old.shelf===null?sn:Math.min(old.shelf,sn);
   map.set(k,old);
  });return map;
 }
@@ -512,12 +513,13 @@ function renderStock(){
    const cfa=normalCfa(keyValue(raw,['WAREHOUSE','Warehouse','CFA','LocationCode','Location Code','Location_Code','Location Name','Location','Branch','Site','Store']));
    if(!code||!allowedCfas.includes(cfa))return;
    const qty=Number(String(keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity','Available Quantity','Inventory','Stock Quantity'])??0).replace(/,/g,''))||0;
+   const shelfRaw=keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%']);
+   const shelfNum=Number(String(shelfRaw??'').replace('%','').replace(/,/g,''));
+   if(shelfRaw===''||!Number.isFinite(shelfNum)||shelfNum<59)return;
    const k=cfa+'|'+code;
    const prev=stockMap.get(k)||{stock:0,shelf:null,description:''};
    prev.stock+=qty;
-   const shelfRaw=keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%']);
-   const shelfNum=Number(String(shelfRaw??'').replace('%','').replace(/,/g,''));
-   if(Number.isFinite(shelfNum)&&shelfRaw!=='')prev.shelf=prev.shelf===null?shelfNum:Math.min(prev.shelf,shelfNum);
+   prev.shelf=prev.shelf===null?shelfNum:Math.min(prev.shelf,shelfNum);
    if(!prev.description)prev.description=String(keyValue(raw,['DESCRIPTION','Description','Item Description','Product Name','Item Name'])||'').trim();
    stockMap.set(k,prev);
  });
