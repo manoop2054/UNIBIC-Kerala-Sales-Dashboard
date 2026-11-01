@@ -155,7 +155,7 @@
 </section>
 <section class="section" id="page-indent"><div class="page-head"><div><div class="eyebrow">Sales planning</div><h1>Monthly Indent Entry</h1><p>ആദ്യം SKU Group അടിസ്ഥാനത്തിൽ indent നൽകാം; ആവശ്യമെങ്കിൽ Item-wise ആയി മാറാം.</p></div><div class="actions"><button class="btn" onclick="downloadSalesHeadTemplate()">↓ Download Excel Format</button><button class="btn" onclick="document.getElementById('indentUpload').click()">↑ Upload Filled Template</button><input id="indentUpload" type="file" accept=".xlsx,.xls,.xlsb,.csv,.txt" style="display:none" onchange="previewIndentUpload(this)"><button class="btn" onclick="toggleDraftPanel()">Saved Drafts</button><button class="btn primary" onclick="saveIndentDraft()">Save Draft</button></div></div><div class="notice">FG Code, Current SOH, Shelf Life എന്നിവ ബന്ധപ്പെട്ട source files-ൽ നിന്ന് ലഭ്യമായാൽ മാത്രമേ കാണിക്കൂ.</div><div class="callout" style="margin-bottom:14px"><strong>Primary indent prediction basis: Last 2 Months Avg CBB</strong>Monthly Indent Entry-യിൽ 3M average ഉപയോഗിക്കില്ല. CFA allocation-ൽ ഓരോ CFA + Item-ന്റെ രണ്ട് മാസത്തെ actual billing വേർതിരിച്ച് average ചെയ്യും. Gap (%) = ((Indent CBB − Last 2 Months Avg CBB) ÷ Indent CBB) × 100; Indent = 0 ആണെങ്കിൽ —.</div><div class="card"><div class="card-head"><h3>Manual Indent Entry</h3><small>Month · SKU Group / Item-wise</small></div><div class="form-grid"><div class="field"><label>Planning Month</label><select id="entryMonth" onchange="renderIndentReport()"><option>November 2026</option><option>December 2026</option></select></div><div class="field"><label>Entry Mode</label><select id="indentMode" onchange="changeIndentMode()"><option value="group">SKU Group-wise</option><option value="item">Item-wise</option></select></div><div class="field"><label>CFA Filter</label><select id="entryCfa" onchange="renderIndentWorkspace()"><option value="all">All CFAs</option><option value="TVD">TVD</option><option value="PAY">PAY</option><option value="ALU">ALU</option></select></div><div class="field"><label>Stock Shelf Life Filter</label><select id="shelfFilter" onchange="renderIndentWorkspace()"><option value="all">All shelf-life values</option><option value="above60">Only above 60%</option><option value="below60">60% and below</option></select></div><div class="field" id="groupEntryPanel"><label>SKU Group Filter / Search</label><select id="entrySkuGroup" onchange="renderIndentWorkspace()"><option value="">All (എല്ലാ SKU Groups-ഉം ഒരുമിച്ച് കാണിക്കുക)</option></select></div><div class="field" id="mrpFilterPanel" style="display:none"><label>MRP Filter</label><select id="entryMrp" onchange="renderIndentWorkspace()"><option value="all">All MRP</option></select></div><div class="field" id="groupQtyPanel" style="display:none"><label>Manual Indent Qty (CBO) — SKU Group total</label><input id="groupIndentQty" type="number" min="0" placeholder="Enter group quantity"></div><div class="field" id="groupNotePanel" style="display:none"><label>Reason / Notes</label><input id="groupIndentNote" placeholder="Optional note"></div><div class="field full" id="groupAddPanel" style="display:none"><button class="btn primary" onclick="addGroupIndent()">＋ Add SKU Group indent</button></div><div class="field full" id="itemSearchPanel" style="display:none"><label>Item search (optional)</label><input id="itemIndentSearch" placeholder="Search FG code or item description…" oninput="renderIndentWorkspace()"></div></div></div><div class="card table-card" style="margin-top:16px"><div class="card-head"><div><h3 id="indentWorkspaceTitle">SKU Group-wise Monthly Indent — All CFAs</h3><small id="indentWorkspaceCount">Source data loaded</small></div><div class="actions"><button class="btn red" onclick="clearAllMonthlyIndents()" style="background:#c2414b;border-color:#c2414b;color:#fff;margin-left:6px;">Clear All Indents</button><button class="btn" id="toggleHideEmptyIndentsBtn" onclick="toggleHideEmptyIndents()">Hide Empty Indents</button><button class="btn" onclick="addCompleteIndent()" id="addCompleteIndentBtn" style="display:none">＋ Add Complete Indent</button><button class="btn primary" onclick="saveGroupIndents()" id="saveAllGroupBtn">Save All Group Indents</button></div></div><div class="small-note" id="indentWorkspaceNote">All തിരഞ്ഞെടുക്കുമ്പോൾ എല്ലാ SKU Groups-ഉം ഒരുമിച്ച് കാണിക്കും. ഒരു SKU Group തിരഞ്ഞെടുക്കുമ്പോൾ അതുമായി ബന്ധിപ്പിച്ച Items-ഉം SOH-ഉം MRP-യും താഴെ കാണിക്കും.</div><div class="table-wrap" id="indentWorkspaceWrap"><table><thead id="indentWorkspaceHead"><tr><th>SKU Group</th><th>FG Code</th><th>CFA</th><th>Current SOH</th><th>Shelf Life %</th><th>Group Indent</th></tr></thead><tbody id="indentWorkspaceRows"></tbody></table></div><div id="linkedItemsPanel" class="card-body" style="display:none;border-top:1px solid var(--line)"></div></div><div class="card table-card" style="margin-top:16px"><div class="card-head"><h3>Working indent lines</h3><input class="search" id="indentSearch" placeholder="Search saved indent lines…" oninput="renderIndent()"></div><div class="table-wrap"><table><thead><tr><th>Mode</th><th>SKU Group / Item</th><th>FG Code</th><th>Indent Qty (CBO)</th><th>Notes</th><th>Source</th><th>Action</th></tr></thead><tbody id="indentRows"></tbody></table></div></div><div class="card mbq-indent-report" id="mbqIndentBillingReport">
 <div class="report-banner"><div><h3>MONTHLY INDENT AGAINST BILLED REPORT</h3><small>Sales Head total / CFA allocation · Invoice billing less Credit Notes · CBB</small></div><span class="pill" style="background:#ffffff22;color:#fff;border:1px solid #ffffff55" id="mbqIndentReportMonth">Selected month</span></div>
-<div class="report-toolbar"><button class="btn primary" type="button" onclick="renderIndentReport()">↻ Refresh Report</button><button class="btn" type="button" onclick="exportIndentBillingReport()">⇩ Download Colour Excel</button><span class="small-note" id="mbqIndentReportStatus">Waiting for GSV billing and indent data…</span></div>
+<div class="report-toolbar"><button class="btn primary" type="button" onclick="refreshIndentBillingReport()">↻ Refresh Report</button><button class="btn" type="button" onclick="exportIndentBillingReport()">⇩ Download Colour Excel</button><span class="small-note" id="mbqIndentReportStatus">Waiting for GSV billing and indent data…</span></div>
 <div class="report-scroll" id="mbqIndentReportHost"><div class="empty-report">Report will appear when Monthly Indent and GSV billing data are available.</div></div>
 <div class="report-foot">Net Billed CBB = Invoice Billed CBB − Credit Note CBB. Credit Notes are deducted as negative quantities. CFA-wise indent uses uploaded Sales Head CFA values when supplied; otherwise it uses the latest CFA Allocation quantities.</div>
 </div>
@@ -1461,7 +1461,104 @@ function csvCell(v){return '"'+String(v==null?'':v).replaceAll('"','""')+'"'}
 function downloadCsvRows(name,rows){const csv=rows.map(r=>r.map(csvCell).join(',')).join('\\r\\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.download=name;a.click();URL.revokeObjectURL(a.href)}
 function exportToSummaryCsv(){const groups=groupedTos(getToRecords());if(!groups.length){showToast('TO data ഇല്ല.');return}downloadCsvRows('Open_TO_Summary.csv',[['TO Number','CFA','Total Items','Total CBB','Received CBB','Open TO CBB','Status'],...groups.map(g=>[g.toNo,g.cfa,g.items.length,g.total,g.received,g.open,g.isReceived?'Received / Closed':'Open TO'])])}
 function exportToCsv(){const items=getToRecords();if(!items.length){showToast('TO data ഇല്ല.');return}downloadCsvRows('Open_TO_Item_Details.csv',[['TO Number','Item Number','Product Name','CFA','Transfer Qty CBO','Received CBB','Open TO CBB','Status'],...items.map(r=>[r.toNo,r.code,r.product,r.cfa,r.qty,r.fullyReceived?r.qty:0,r.fullyReceived?0:r.qty,r.fullyReceived?'Received / Closed':'Open TO'])])}
-function printToReport(mode='details'){const items=getToRecords(),groups=groupedTos(items);if(!items.length){showToast('TO data ഇല്ല.');return}const summary=mode==='summary',rows=summary?groups.map(g=>'<tr><td>'+escapeToHtml(g.toNo)+'</td><td>'+escapeToHtml(g.cfa)+'</td><td>'+g.items.length+'</td><td>'+g.total+'</td><td>'+g.received+'</td><td>'+g.open+'</td><td>'+(g.isReceived?'Received / Closed':'Open TO')+'</td></tr>').join(''):items.map(r=>'<tr><td>'+escapeToHtml(r.toNo)+'</td><td>'+escapeToHtml(r.code)+'</td><td>'+escapeToHtml(r.product)+'</td><td>'+escapeToHtml(r.cfa)+'</td><td>'+r.qty+'</td><td>'+(r.fullyReceived?r.qty:0)+'</td><td>'+(r.fullyReceived?0:r.qty)+'</td><td>'+(r.fullyReceived?'Received / Closed':'Open TO')+'</td></tr>').join(''),heads=summary?'<th>TO Number</th><th>CFA</th><th>Total Items</th><th>Total CBB</th><th>Received CBB</th><th>Open CBB</th><th>Status</th>':'<th>TO Number</th><th>Item Number</th><th>Product Name</th><th>CFA</th><th>Transfer Qty CBO</th><th>Received CBB</th><th>Open TO CBB</th><th>Status</th>',w=window.open('','_blank');if(!w){showToast('Print popup അനുവദിക്കുക.');return}w.document.write('<html><head><title>Open TO Report</title><style>body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}.plant-stockout-row td{background:#fff0f0!important;color:#8f1d1d}.plant-stockout-cell{background:#fee2e2!important;color:#991b1b!important;font-weight:800}.mbq-short-cell{background:#fee2e2!important;color:#991b1b!important;font-weight:800}.mbq-excess-cell{background:#dcfce7!important;color:#166534!important;font-weight:800}.mbq-gap-high{background:#fff0f0!important;color:#991b1b!important;font-weight:700}.mbq-gap-low{background:#ecfdf5!important;color:#166534!important;font-weight:700}<style>.mbq-view-btn{display:inline-flex;align-items:center;justify-content:center;margin-left:6px;padding:3px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#f8fafc;color:#24518a;font-size:10px;font-weight:750;cursor:pointer;line-height:1.35}.mbq-view-btn:hover{background:#eaf2ff;border-color:#8fb2e8}.mbq-batch-overlay{position:fixed;inset:0;z-index:10050;background:rgba(9,22,42,.55);display:none;align-items:center;justify-content:center;padding:18px}.mbq-batch-dialog{width:min(760px,96vw);max-height:85vh;overflow:auto;background:#fff;border-radius:14px;box-shadow:0 22px 70px rgba(0,0,0,.28);padding:18px}.mbq-batch-dialog h3{margin:0;font-size:16px}.mbq-batch-dialog .table-wrap{max-height:52vh;border:1px solid var(--line);border-radius:9px}.mbq-batch-dialog table{min-width:560px}.mbq-batch-dialog .batch-summary{display:flex;gap:18px;flex-wrap:wrap;margin:12px 0;color:var(--muted);font-size:12px}.mbq-batch-dialog .batch-summary b{color:var(--ink)}@media(max-width:600px){.mbq-batch-overlay{padding:8px}.mbq-batch-dialog{padding:12px}}</style></style></head><body onload="window.print()"><h2>Open TO '+(summary?'Summary':'Item Details')+'</h2><table><tr>'+heads+'</tr>'+rows+'</table></body></html>');w.document.close()}
+function printToReport(mode='details'){const items=getToRecords(),groups=groupedTos(items);if(!items.length){showToast('TO data ഇല്ല.');return}const summary=mode==='summary',rows=summary?groups.map(g=>'<tr><td>'+escapeToHtml(g.toNo)+'</td><td>'+escapeToHtml(g.cfa)+'</td><td>'+g.items.length+'</td><td>'+g.total+'</td><td>'+g.received+'</td><td>'+g.open+'</td><td>'+(g.isReceived?'Received / Closed':'Open TO')+'</td></tr>').join(''):items.map(r=>'<tr><td>'+escapeToHtml(r.toNo)+'</td><td>'+escapeToHtml(r.code)+'</td><td>'+escapeToHtml(r.product)+'</td><td>'+escapeToHtml(r.cfa)+'</td><td>'+r.qty+'</td><td>'+(r.fullyReceived?r.qty:0)+'</td><td>'+(r.fullyReceived?0:r.qty)+'</td><td>'+(r.fullyReceived?'Received / Closed':'Open TO')+'</td></tr>').join(''),heads=summary?'<th>TO Number</th><th>CFA</th><th>Total Items</th><th>Total CBB</th><th>Received CBB</th><th>Open CBB</th><th>Status</th>':'<th>TO Number</th><th>Item Number</th><th>Product Name</th><th>CFA</th><th>Transfer Qty CBO</th><th>Received CBB</th><th>Open TO CBB</th><th>Status</th>',w=window.open('','_blank');if(!w){showToast('Print popup അനുവദിക്കുക.');return}w.document.write('<html><head><title>Open TO Report</title><style>body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}.plant-stockout-row td{background:#fff0f0!important;color:#8f1d1d}.plant-stockout-cell{background:#fee2e2!important;color:#991b1b!important;font-weight:800}.mbq-short-cell{background:#fee2e2!important;color:#991b1b!important;font-weight:800}.mbq-excess-cell{background:#dcfce7!important;color:#166534!important;font-weight:800}.mbq-gap-high{background:#fff0f0!important;color:#991b1b!important;font-weight:700}.mbq-gap-low{background:#ecfdf5!important;color:#166534!important;font-weight:700}<style>.mbq-view-btn{display:inline-flex;align-items:center;justify-content:center;margin-left:6px;padding:3px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#f8fafc;color:#24518a;font-size:10px;font-weight:750;cursor:pointer;line-height:1.35}.mbq-view-btn:hover{background:#eaf2ff;border-color:#8fb2e8}.mbq-batch-overlay{position:fixed;inset:0;z-index:10050;background:rgba(9,22,42,.55);display:none;align-items:center;justify-content:center;padding:18px}.mbq-batch-dialog{width:min(760px,96vw);max-height:85vh;overflow:auto;background:#fff;border-radius:14px;box-shadow:0 22px 70px rgba(0,0,0,.28);padding:18px}.mbq-batch-dialog h3{margin:0;font-size:16px}.mbq-batch-dialog .table-wrap{max-height:52vh;border:1px solid var(--line);border-radius:9px}.mbq-batch-dialog table{min-width:560px}.mbq-batch-dialog .batch-summary{display:flex;gap:18px;flex-wrap:wrap;margin:12px 0;color:var(--muted);font-size:12px}.mbq-batch-dialog .batch-summary b{color:var(--ink)}@media(max-width:600px){.mbq-batch-overlay{padding:8px}.mbq-batch-dialog{padding:12px}}</style></style></head><body onload="window.print()"><h2>Open TO '+(summary?'Summary':'Item Details')+'</h2><table><tr>'+heads+'</tr>'+rows+'</table>
+<style>
+/* Compact Monthly Indent vs Billed report */
+.mbq-indent-report .report-scroll{overflow:auto;max-height:calc(100vh - 300px)}
+.mbq-indent-report table{min-width:0!important;width:100%;table-layout:fixed;font-size:10px}
+.mbq-indent-report th,.mbq-indent-report td{padding:5px 6px;font-size:10px}
+.mbq-indent-report th:first-child,.mbq-indent-report td:first-child{width:190px;min-width:160px}
+.mbq-indent-report .report-toolbar{padding:8px 12px;align-items:center}
+.mbq-indent-report .report-foot{padding:7px 12px;font-size:9.5px}
+@media(max-width:1050px){.mbq-indent-report table{min-width:850px!important}}
+@media print{.mbq-indent-report .report-scroll{max-height:none;overflow:visible}.mbq-indent-report table{min-width:0!important}}
+</style>
+<script>
+/* Compact report: total + CFA allocation; invoice billed only. No Credit Note / Net Billed columns. */
+function refreshIndentBillingReport(){
+ const status=document.getElementById('mbqIndentReportStatus');
+ const btn=document.querySelector('#mbqIndentBillingReport .report-toolbar button');
+ try{
+  if(btn){btn.disabled=true;btn.textContent='Refreshing…';}
+  if(typeof buildAllocationData==='function')buildAllocationData();
+  if(typeof runCfaAllocation==='function')runCfaAllocation();
+  renderIndentReport();
+ }catch(e){
+  console.error('Indent report refresh failed',e);
+  if(status)status.textContent='Refresh failed: '+(e.message||'Please retry');
+  showToast('Report refresh failed: '+(e.message||'Unknown error'));
+ }finally{
+  if(btn){btn.disabled=false;btn.textContent='↻ Refresh Report';}
+ }
+}
+function renderIndentReport(){
+ const host=document.getElementById('mbqIndentReportHost');if(!host)return;
+ const month=document.getElementById('entryMonth')?.value||'Selected month';
+ const monthKey=mbqIndentReportMonthKey();
+ const tag=document.getElementById('mbqIndentReportMonth'),status=document.getElementById('mbqIndentReportStatus');
+ if(tag)tag.textContent=month;
+ const groups=mbqIndentReportRows();
+ if(!groups.length){host.innerHTML='<div class="empty-report">Sales Head indent / CFA allocation rows ഇല്ല.</div>';if(status)status.textContent='No indent rows available';return;}
+ const data=mbqIndentReportData(),n=mbqIndentReportFmt;
+ const bal=(indent,billed)=>indent===null||!billed.available?null:indent-billed.invoice;
+ const heads='<tr><th rowspan="2">SKU GROUP</th><th colspan="3" class="total-head">TOTAL INDENT AGAINST BILLED</th><th colspan="3" class="tvd-head">TVD CFA</th><th colspan="3" class="pay-head">PAY CFA</th><th colspan="3" class="alu-head">ALU CFA</th></tr>';
+ const labels=['INDENT','INVOICE BILLED','BALANCE'];
+ const sub='<tr>'+Array.from({length:4},()=>labels.map(x=>'<th>'+x+'</th>').join('')).join('')+'</tr>';
+ const td=(v,cls)=>'<td class="'+(cls||'')+'">'+n(v)+'</td>';
+ let totalIndent=0,totalAllocated=0,totalInvoice=0,allKnown=true;
+ const body=data.map(r=>{
+  const totalBal=bal(r.totalIndent,r.totalBilling);
+  if(r.totalIndent===null)allKnown=false;else totalIndent+=r.totalIndent;
+  if(r.totalBilling.available)totalInvoice+=r.totalBilling.invoice;
+  const alloc=['TVD','PAY','ALU'].reduce((sum,c)=>sum+(r.cfas[c].indent===null?0:r.cfas[c].indent),0);
+  totalAllocated+=alloc;
+  let html='<tr><td>'+mbqEscape(r.sku)+'</td>'+td(r.totalIndent,'indent-cell')+td(r.totalBilling.available?r.totalBilling.invoice:null,'billed-cell')+td(totalBal,totalBal===null?'balance-cell':totalBal<0?'balance-cell negative-balance':'balance-cell positive-balance');
+  ['TVD','PAY','ALU'].forEach(c=>{
+   const x=r.cfas[c],b=x.billing,v=bal(x.indent,b);
+   html+=td(x.indent,'indent-cell')+td(b.available?b.invoice:null,'billed-cell')+td(v,v===null?'balance-cell':v<0?'balance-cell negative-balance':'balance-cell positive-balance');
+  });
+  return html+'</tr>';
+ }).join('');
+ host.innerHTML='<table><thead>'+heads+sub+'</thead><tbody>'+body+'</tbody></table>';
+ const gap=allKnown?totalIndent-totalAllocated:null;
+ if(status)status.textContent=data.length+' SKU Groups · '+(monthKey||'Select a valid month')+' · Sales Head IND '+(allKnown?n(totalIndent):'—')+' · CFA Allocated '+n(totalAllocated)+' · Allocation Gap '+(gap===null?'—':n(gap))+' · Invoice billed '+n(totalInvoice);
+}
+function exportIndentBillingReport(){
+ if(!window.XLSX){showToast('Excel library loading. Refresh ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.');return;}
+ if(typeof buildAllocationData==='function')buildAllocationData();
+ if(typeof runCfaAllocation==='function')runCfaAllocation();
+ const data=mbqIndentReportData();if(!data.length){showToast('Report export ചെയ്യാൻ indent rows ലഭ്യമല്ല.');return;}
+ const rowsOut=[['SKU GROUP','TOTAL INDENT AGAINST BILLED','','','TVD CFA','','','PAY CFA','','','ALU CFA','',''],['','INDENT','INVOICE BILLED','BALANCE','INDENT','INVOICE BILLED','BALANCE','INDENT','INVOICE BILLED','BALANCE','INDENT','INVOICE BILLED','BALANCE']];
+ data.forEach(r=>{
+  const bal=(i,b)=>i===null||!b.available?'':i-b.invoice;
+  const vals=[r.totalIndent,r.totalBilling.available?r.totalBilling.invoice:'',bal(r.totalIndent,r.totalBilling)];
+  ['TVD','PAY','ALU'].forEach(c=>{const x=r.cfas[c],b=x.billing;vals.push(x.indent===null?'':x.indent,b.available?b.invoice:'',bal(x.indent,b));});
+  rowsOut.push([r.sku,...vals]);
+ });
+ const ws=XLSX.utils.aoa_to_sheet(rowsOut);
+ ws['!merges']=[{s:{r:0,c:0},e:{r:1,c:0}},{s:{r:0,c:1},e:{r:0,c:3}},{s:{r:0,c:4},e:{r:0,c:6}},{s:{r:0,c:7},e:{r:0,c:9}},{s:{r:0,c:10},e:{r:0,c:12}}];
+ ws['!cols']=[{wch:27},...Array.from({length:12},()=>({wch:13}))];
+ ws['!freeze']={xSplit:1,ySplit:2};ws['!autofilter']={ref:'A2:M'+Math.max(2,rowsOut.length)};
+ const border={top:{style:'thin',color:{rgb:'CBD5E1'}},bottom:{style:'thin',color:{rgb:'CBD5E1'}},left:{style:'thin',color:{rgb:'CBD5E1'}},right:{style:'thin',color:{rgb:'CBD5E1'}}};
+ for(let r=0;r<rowsOut.length;r++)for(let c=0;c<13;c++){
+  const cell=ws[XLSX.utils.encode_cell({r,c})];if(!cell)continue;
+  cell.s={border,font:{name:'Aptos',sz:9,color:{rgb:'24364B'}},alignment:{vertical:'center',horizontal:c===0?'left':'right'},fill:{fgColor:{rgb:r%2?'F8FAFD':'FFFFFF'}}};
+  if(r===0){const color=c===0?'102A49':c<=3?'0F766E':c<=6?'1D4ED8':c<=9?'7C3AED':'0F766E';cell.s={...cell.s,fill:{fgColor:{rgb:color}},font:{name:'Aptos',bold:true,color:{rgb:'FFFFFF'},sz:9},alignment:{horizontal:'center',vertical:'center',wrapText:true}};}
+  else if(r===1){cell.s={...cell.s,fill:{fgColor:{rgb:c===0?'17365D':c<=3?'DDF4EF':c<=6?'E5EDFF':c<=9?'F0E8FF':'DDF4EF'}},font:{name:'Aptos',bold:true,color:{rgb:'24364B'},sz:8},alignment:{horizontal:'center',vertical:'center',wrapText:true}};}
+  else if(c>0){cell.s={...cell.s,numFmt:'#,##0;[Red](#,##0);-'};}
+ }
+ ws['!rows']=[{hpt:23},{hpt:24},...data.map(()=>({hpt:17}))];
+ ws['!sheetViews']=[{showGridLines:false}];
+ ws['!pageSetup']={orientation:'landscape',fitToWidth:1,fitToHeight:0,paperSize:9};
+ ws['!printOptions']={horizontalCentered:true};
+ const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Indent vs Billed');
+ const month=(document.getElementById('entryMonth')?.value||'Monthly').replace(/[^A-Za-z0-9]+/g,'_');
+ XLSX.writeFile(wb,'Monthly_Indent_Against_Billed_'+month+'.xlsx',{compression:true});
+ showToast('Compact Indent vs Billed Excel downloaded.');
+}
+</script>
+
+</body></html>');w.document.close()}
 function showPreviousIndent(){document.getElementById('prevIndentPanel').innerHTML='<strong>Previous month balance review</strong> Example loaded.';showToast('Previous indent review opened.')}
 function renderFlash(){
  const today=new Date();
