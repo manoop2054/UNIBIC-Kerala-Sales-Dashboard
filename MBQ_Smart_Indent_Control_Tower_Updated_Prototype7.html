@@ -1482,8 +1482,8 @@ function mbqLoadedSalesValue(sku,cfa,month){
   return found?total:(monthAvailable?0:null);
 }
 function mbqRecalcContributionRows(sheet){
-  // ABC classification is based only on IND (indent), never GSV or rolling sales.
-  // CONTRI% remains the source's unrounded contribution; Cum CONTRI% is its full-precision running sum.
+  // Merge duplicate master rows by normalized SKU GROUP before ranking or displaying.
+  // Month sales and additive stock/order/indent measures are combined; ratios and ranks are recalculated below.
   const headers=sheet.headers||[];
   const norm=v=>String(v??'').trim().toUpperCase();
   const skuIx=headers.findIndex(h=>norm(h)==='SKU GROUP');
@@ -1493,35 +1493,47 @@ function mbqRecalcContributionRows(sheet){
   const rankIx=headers.findIndex(h=>norm(h)==='RANK');
   const conIx=headers.findIndex(h=>norm(h)==='CONTRI%');
   const cumIx=headers.findIndex(h=>norm(h)==='CUM CONTRI%');
-  const rows=(sheet.rows||[]).map((row,index)=>({row:row.slice(),index}));
-  if(skuIx<0||indIx<0||catIx<0||rankIx<0)return rows.map(x=>x.row);
   const numeric=v=>{
     if(v===null||v===undefined||String(v).trim()===''||String(v).trim()==='No Data Available')return null;
     const raw=String(v).trim(),isPercent=raw.endsWith('%');
     const n=Number(raw.replace(/,/g,'').replace(/CBB/ig,'').replace(/%/g,'').trim());
     return Number.isFinite(n)?(isPercent?n/100:n):null;
   };
-  const isTotal=x=>/^(TOTAL|GRAND TOTAL|OVERALL TOTAL)$/i.test(String(x.row[skuIx]??'').trim());
-  const skuRows=rows.filter(x=>String(x.row[skuIx]??'').trim()&&!isTotal(x));
-  const otherRows=rows.filter(x=>!String(x.row[skuIx]??'').trim()||isTotal(x));
-  skuRows.sort((a,b)=>{
-    const av=numeric(a.row[indIx]),bv=numeric(b.row[indIx]);
-    if(av===null&&bv===null)return a.index-b.index;
+  const isTotal=row=>/^(TOTAL|GRAND TOTAL|OVERALL TOTAL)$/i.test(String(skuIx>=0?row[skuIx]??'':'').trim());
+  const source=(sheet.rows||[]).filter(row=>skuIx<0||!isTotal(row));
+  const merged=new Map(),other=[];
+  const additive=new Set(['IND','INDENT','CL PO','OPEN PO','SOH<60%','SOH>60%','PLANT SOH','SALES','NXT 10D']);
+  headers.forEach((h,i)=>{if(/^(JUL|AUG|SEP|OCT|NOV|DEC|JAN|FEB|MAR|APR|MAY|JUN)(\\s+\\d{4})?$/.test(norm(h)))additive.add(norm(h));});
+  source.forEach(raw=>{
+    const row=raw.slice(),sku=skuIx>=0?String(row[skuIx]??'').trim():'';
+    if(!sku){other.push(row);return;}
+    const key=typeof mbqSkuGroupKey==='function'?mbqSkuGroupKey(sku):sku.toUpperCase().replace(/[\\u00A0\\u2007\\u202F\\uFFFD]/g,' ').replace(/\\s+/g,' ').trim();
+    if(!key){other.push(row);return;}
+    if(!merged.has(key)){row[skuIx]=sku.normalize('NFKC').replace(/[\\u00A0\\u2007\\u202F\\uFFFD]/g,' ').replace(/\\s+/g,' ').trim();merged.set(key,row);return;}
+    const target=merged.get(key);
+    headers.forEach((h,i)=>{
+      const name=norm(h),a=numeric(target[i]),b=numeric(row[i]);
+      if(additive.has(name)){if(a!==null||b!==null)target[i]=(a||0)+(b||0);}
+      else if((target[i]===null||target[i]===undefined||String(target[i]).trim()===''||String(target[i]).trim()==='No Data Available')&&row[i]!==null&&row[i]!==undefined&&String(row[i]).trim()!=='')target[i]=row[i];
+    });
+  });
+  const rows=[...merged.values()];
+  if(skuIx<0||indIx<0||catIx<0||rankIx<0)return rows.concat(other);
+  rows.sort((a,b)=>{
+    const av=numeric(a[indIx]),bv=numeric(b[indIx]);
+    if(av===null&&bv===null)return String(a[skuIx]||'').localeCompare(String(b[skuIx]||''));
     if(av===null)return 1;
     if(bv===null)return -1;
-    return bv-av||a.index-b.index;
+    return bv-av;
   });
   let cumulative=0;
-  let hasContribution=false;
-  skuRows.forEach((item,i)=>{
-    const rank=i+1;
-    item.row[rankIx]=rank;
-    item.row[catIx]=rank<=25?'A':rank<=31?'B':'C';
-    const contribution=conIx>=0?numeric(item.row[conIx]):null;
-    if(contribution!==null){cumulative+=contribution;hasContribution=true;}
-    if(cumIx>=0)item.row[cumIx]=contribution===null?null:cumulative;
+  rows.forEach((row,i)=>{
+    const rank=i+1;row[rankIx]=rank;row[catIx]=rank<=25?'A':rank<=31?'B':'C';
+    const contribution=conIx>=0?numeric(row[conIx]):null;
+    if(contribution!==null)cumulative+=contribution;
+    if(cumIx>=0)row[cumIx]=contribution===null?null:cumulative;
   });
-  return skuRows.concat(otherRows).map(x=>x.row);
+  return rows.concat(other);
 }
 function mbqRecalcWorkbookFormulaCells(headers,vals){
  const ix={};headers.forEach((h,i)=>ix[String(h).trim().toUpperCase()]=i);const get=n=>ix[n]===undefined?null:vals[ix[n]];
