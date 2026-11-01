@@ -679,20 +679,18 @@ function mbqIndentReportData(){
  const monthKey=mbqIndentReportMonthKey(),out=[];
  mbqIndentReportRows().forEach(g=>{
   const src=g.source,sourceTotal=src?mbqIndentReportQty(src[1]):null;
-  const uploadedCfa=!!src&&[src[2],src[3],src[4]].some(v=>v!==''&&v!==null&&v!==undefined);
   const cfas={};
-  ['TVD','PAY','ALU'].forEach((c,i)=>{
-   let indent=null;
-   if(uploadedCfa)indent=mbqIndentReportQty(src[['TVD','PAY','ALU'].indexOf(c)+2]);
-   else {
-    const allocations=allocationData.filter(x=>mbqSkuGroupKey(x.sku)===mbqSkuGroupKey(g.sku)&&normalCfa(x.cfaKey||x.cfa)===c);
-    if(allocations.length)indent=allocations.reduce((s,x)=>s+(Number(x.allocation)||0),0);
-   }
+  ['TVD','PAY','ALU'].forEach(c=>{
+   // CFA report values must come from the actual CFA allocation engine.
+   // sourceRows[2] is overwritten with L2M average sales, not a CFA allocation.
+   const allocations=allocationData.filter(x=>mbqSkuGroupKey(x.sku)===mbqSkuGroupKey(g.sku)&&normalCfa(x.cfaKey||x.cfa)===c);
+   const indent=allocations.length?allocations.reduce((sum,x)=>sum+(Number(x.allocation)||0),0):null;
    cfas[c]={indent,billing:mbqIndentReportBilling(g.sku,c,monthKey)};
   });
-  const totalIndent=sourceTotal!==null?sourceTotal:(uploadedCfa?['TVD','PAY','ALU'].reduce((s,c)=>s+(cfas[c].indent||0),0):(['TVD','PAY','ALU'].some(c=>cfas[c].indent!==null)?['TVD','PAY','ALU'].reduce((s,c)=>s+(cfas[c].indent||0),0):null));
+  const hasCfaAllocation=['TVD','PAY','ALU'].some(c=>cfas[c].indent!==null);
+  const totalIndent=sourceTotal!==null?sourceTotal:(hasCfaAllocation?['TVD','PAY','ALU'].reduce((sum,c)=>sum+(cfas[c].indent||0),0):null);
   const totalBilling=mbqIndentReportBilling(g.sku,'ALL',monthKey);
-  out.push({sku:g.sku,totalIndent,totalBilling,cfas,uploadedCfa});
+  out.push({sku:g.sku,totalIndent,totalBilling,cfas,uploadedCfa:hasCfaAllocation});
  });
  return out;
 }
