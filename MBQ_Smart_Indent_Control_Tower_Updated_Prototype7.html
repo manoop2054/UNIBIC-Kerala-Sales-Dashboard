@@ -490,11 +490,11 @@ function mbqApplyGsvSales(){
       r.avg=null;r.salesDay=null;r.salesSourceVerified=false;r.suggest=null;r.risk="No data available";r.gsvMonthsMatched=found.length;
     }
   });
+  const indentAvgHistory=mbqLastCompletedMonths(2);
   sourceRows.forEach(sr=>{
     const group=String(sr[0]||"").trim();
-    const vals=history.map(m=>mbqGsvGroupMonth(group,"DATA",m.year+"-"+String(m.month).padStart(2,"0")));
-    const found=vals.filter(v=>v!==null);
-    sr[2]=found.length===3?found.reduce((s,v)=>s+Number(v||0),0)/3:null;
+    const vals=indentAvgHistory.map(m=>mbqGsvGroupMonth(group,"DATA",m.year+"-"+String(m.month).padStart(2,"0")));
+    sr[2]=vals.length===2&&vals.every(v=>v!==null)?vals.reduce((s,v)=>s+Number(v||0),0)/2:null;
   });
   renderWatch();renderSuggestions();renderStock();renderIndentWorkspace();renderIndent();mbqRefreshDashboardKpis();
   allocationData=[];buildAllocationData();runCfaAllocation();renderDaysPlanner();renderFlash();
@@ -766,18 +766,22 @@ function downloadSalesHeadTemplate(){
   if(!window.XLSX)throw new Error('Excel library not loaded. Refresh the dashboard and try again.');
   if(mbqGsvLoading||!Array.isArray(mbqGsvRows)||!mbqGsvRows.length)throw new Error('Live GSV billing data is not ready. Wait until GSV Connected, then download again.');
   const groupMap=new Map();[...sourceRows.map(r=>r[0]),...rows.map(r=>r.sku),...mbqSalesRows.map(r=>r.SKU_Group??r.SKU_GROUP??r['SKU Group'])].forEach(value=>{const key=mbqSkuGroupKey(value);if(key&&!groupMap.has(key))groupMap.set(key,String(value??'').normalize("NFKC").replace(/[\u00A0\u2007\u202F\uFFFD]/g," ").replace(/\s+/g," ").trim());});const groups=[...groupMap.values()].sort((a,b)=>a.localeCompare(b));
-  const history=mbqSelectedMonthHistory();
+  const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const selectedMonthText=document.getElementById('month')?.value||'November 2026';
+  const selectedParts=selectedMonthText.trim().split(/\s+/);
+  const selectedMonthIndex=monthNames.findIndex(m=>m.toLowerCase()===String(selectedParts[0]||'').toLowerCase());
+  const selectedYear=Number(selectedParts[1])||new Date().getFullYear();
+  const selectedMonthDate=new Date(selectedYear,selectedMonthIndex>=0?selectedMonthIndex:new Date().getMonth(),1);
+  const history=[2,1,0].map(back=>{const d=new Date(selectedMonthDate.getFullYear(),selectedMonthDate.getMonth()-back,1);return {month:d.getMonth()+1,year:d.getFullYear()};});
   const monthTitle=m=>{const names=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];return names[(Number(m.month)||1)-1]+' '+m.year;};
   const cfas=['TVD','PAY','ALU'];
   const data=[
-   ['SKU GROUP',monthTitle(history[0])+' SALES','','','',monthTitle(history[1])+' SALES','','','',monthTitle(history[2])+' SALES','','','', '3-MONTH AVERAGE','','','','RATIO ON 3-MONTH AVG','','','Total Indent BY RBM/Sales Head','CFA WISE ALLOCATION','',''],
+   ['SKU GROUP',monthTitle(history[0])+' SALES','','','',monthTitle(history[1])+' SALES','','','',monthTitle(history[2])+' SALES','','','', '2-MONTH AVERAGE','','','','RATIO ON 2-MONTH AVG','','','Total Indent BY RBM/Sales Head','CFA WISE ALLOCATION','',''],
    ['', 'TVD','PAY','ALU','SUM','TVD','PAY','ALU','SUM','TVD','PAY','ALU','SUM','TVD','PAY','ALU','SUM','TVD RATIO %','PAY RATIO %','ALU RATIO %','','TVD','PAY','ALU'],
    ...groups.map(g=>{
     const monthValues=history.map(m=>{
      const monthKey=String(m.year)+'-'+String(m.month).padStart(2,'0');
      const vals=cfas.map(cfa=>{
-      const monthAvailable=mbqGsvRows.some(x=>String(x.month||'')===monthKey&&normalCfa(x.cfa)===cfa);
-      if(!monthAvailable)return null;
       const value=mbqGsvGroupMonth(g,cfa,monthKey);
       return value===null?0:Number(value);
      });
@@ -785,8 +789,8 @@ function downloadSalesHeadTemplate(){
      return [...vals,sum];
     });
     const averages=cfas.map((cfa,i)=>{
-     const vals=monthValues.map(m=>m[i]);
-     return vals.every(v=>v!==''&&Number.isFinite(Number(v)))?vals.reduce((a,b)=>a+Number(b),0)/3:'';
+     const vals=monthValues.slice(0,2).map(m=>m[i]);
+     return vals.length===2&&vals.every(v=>v!==''&&Number.isFinite(Number(v)))?vals.reduce((a,b)=>a+Number(b),0)/2:'';
     });
     const averageSum=averages.every(v=>v!=='')?averages.reduce((a,b)=>a+Number(b),0):'';
     const ratios=averageSum!==''&&Number(averageSum)>0?averages.map(v=>v===''?'':Number(v)/Number(averageSum)):[ '', '', '' ];
