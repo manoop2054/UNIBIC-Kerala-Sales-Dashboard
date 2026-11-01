@@ -66,7 +66,7 @@ async function buildMbqGsvAggregate() {
   const cache = path.join(CACHE_DIR, "gsv-aggregate.json");
   const tmp = cache + ".tmp";
   console.log("MBQ GSV: downloading source workbook");
-  await downloadToFile(GSV_URL, source);
+  await downloadToFileWithRetry(GSV_URL, source, 3);
   const stats = { sourceBytes: (await fs.promises.stat(source)).size, sheet: GSV_SHEET };
   const aggregate = new Map();
   let headers = null, indexes = null, rowCount = 0, matchedRows = 0, sheetFound = false;
@@ -137,8 +137,8 @@ async function readMbqGsvCache() {
       console.log("MBQ GSV cache schema outdated; rebuilding with posting dates");
     }
   } catch (_) {}
-  if (gsvLoadError && !gsvLoadPromise) throw new Error(gsvLoadError);
   if (!gsvLoadPromise) {
+    gsvLoadError = null;
     gsvLoadPromise = buildMbqGsvAggregate().catch(error => {
       gsvLoadError = error.message || String(error);
       console.error("MBQ GSV load failed:", error.stack || error.message);
@@ -162,6 +162,25 @@ function downloadToFile(url, dest, redirects = 0) {
     }).on("error", reject);
   });
 }
+async function downloadToFileWithRetry(url, dest, maxAttempts = 3) {
+  let lastError;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await fs.promises.rm(dest, { force: true });
+      await downloadToFile(url, dest);
+      const stat = await fs.promises.stat(dest);
+      if (!stat.size) throw new Error("Downloaded GSV workbook is empty");
+      return;
+    } catch (error) {
+      lastError = error;
+      console.error("MBQ GSV download attempt " + attempt + "/" + maxAttempts + " failed:", error.message || error);
+      await fs.promises.rm(dest, { force: true }).catch(() => {});
+      if (attempt < maxAttempts) await new Promise(resolve => setTimeout(resolve, 5000 * attempt));
+    }
+  }
+  throw lastError || new Error("GSV workbook download failed");
+}
+
 async function loadSohRows() {
   await fs.promises.mkdir(CACHE_DIR, { recursive: true });
   const cache = path.join(CACHE_DIR, "soh.json");
