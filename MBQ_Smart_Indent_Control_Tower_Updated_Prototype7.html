@@ -756,18 +756,22 @@ function mbqApplySalesHeadRows(items){
   const totalQty=x.total!==''?Number(x.total):(hasAlloc?allocs.reduce((sum,v)=>sum+(v===''?0:Number(v)),0):null);
   if(!sr){
    if(totalQty===null||!Number.isFinite(totalQty)){unmatched.push(x);return;}
-   sr=[String(x.sku).trim(),totalQty,x.tvd===''?'':Number(x.tvd),x.pay===''?'':Number(x.pay),x.alu===''?'':Number(x.alu)];
+   sr=[String(x.sku).trim(),totalQty,'','',''];
    sourceRows.push(sr);
   }
+  // Replace all three CFA cells on every upload. Blank CFA cells mean "not supplied",
+  // so an older CFA-wise upload can never leak into a later Total-Indent-only upload.
+  sr[2]=x.tvd===''?'':Number(x.tvd);
+  sr[3]=x.pay===''?'':Number(x.pay);
+  sr[4]=x.alu===''?'':Number(x.alu);
   if(totalQty!==null&&Number.isFinite(totalQty)){
    sr[1]=totalQty;
    let matches=rows.filter(y=>normSku(y.sku)===key);
-   if(!matches.length){const sourceItem=rows.find(y=>normSku(y.sku)===key);rows.push({sku:sr[0],indent:totalQty,avg:null,suggest:null,risk:'Review',cfa:'',code:'',description:'Item code not mapped — manual allocation only'});}
+   if(!matches.length){rows.push({sku:sr[0],indent:totalQty,avg:null,suggest:null,risk:'Review',cfa:'',code:'',description:'Item code not mapped — manual allocation only'});}
    else matches.forEach(y=>y.indent=totalQty);
    const first=rows.find(y=>normSku(y.sku)===key);
    upsertIndentLine({mode:'group',sku:sr[0],code:first?.code||'',qty:totalQty,note:'Uploaded Sales Head template',source:'Sales Head upload'});
   }
-  if(x.tvd!=='')sr[2]=Number(x.tvd);if(x.pay!=='')sr[3]=Number(x.pay);if(x.alu!=='')sr[4]=Number(x.alu);
   applied++;
  });
  return {applied,unmatched};
@@ -837,6 +841,9 @@ function buildAllocationData(){
    const acceptedKey=String(group.sku||'').trim().toLowerCase();
    const salesHeadInd=mbqUploadedIndentForSku(group.sku);
    const totalInd=Object.prototype.hasOwnProperty.call(mbqAcceptedSuggestionBySku,acceptedKey)?Number(mbqAcceptedSuggestionBySku[acceptedKey]):salesHeadInd;
+   const salesHeadSource=sourceRows.find(r=>String(r[0]||'').trim().toLowerCase()===acceptedKey);
+   const cfaValues=salesHeadSource?{TVD:salesHeadSource[2],PAY:salesHeadSource[3],ALU:salesHeadSource[4]}:null;
+   const hasUploadedCfa=!!cfaValues&&Object.values(cfaValues).some(v=>v!==''&&v!==null&&v!==undefined);
    if(totalInd===null||!Number.isFinite(Number(totalInd))||Number(totalInd)<0)return;
    const candidates=[];
    group.items.forEach(item=>{
@@ -854,7 +861,27 @@ function buildAllocationData(){
    const fixed=new Map();
    itemLines.forEach(line=>{const target=findCandidate(line);if(target)fixed.set(target,Math.max(0,Number(line.qty)||0));});
    const fixedTotal=[...fixed.values()].reduce((sum,n)=>sum+n,0);
-   if(groupLine){
+   if(hasUploadedCfa){
+     // CFA-wise Sales Head values are authoritative. Distribute each CFA's exact
+     // group quantity across that CFA's item codes using two-month average sales.
+     // A blank CFA cell is zero whenever at least one CFA cell was supplied.
+     cfas.forEach(c=>{
+       const rawQty=cfaValues[c.key]===''||cfaValues[c.key]===null||cfaValues[c.key]===undefined?0:Number(cfaValues[c.key]);
+       const targetQty=Math.max(0,Math.round(Number.isFinite(rawQty)?rawQty:0));
+       const own=candidates.filter(x=>x.cfaKey===c.key);
+       const weight=own.reduce((sum,x)=>sum+Math.max(0,x.avg),0);
+       let assigned=0;
+       own.forEach(x=>{
+         x.raw=weight>0?targetQty*Math.max(0,x.avg)/weight:(x===own[0]?targetQty:0);
+         x.allocation=Math.floor(x.raw);
+         x.remainder=x.raw-x.allocation;
+         x.manualAllocation=true;
+         x.sourceCfaAllocation=true;
+         assigned+=x.allocation;
+       });
+       [...own].sort((a,b)=>b.remainder-a.remainder).slice(0,Math.max(0,targetQty-assigned)).forEach(x=>x.allocation++);
+     });
+   }else if(groupLine){
      // Group-wise manual indent is a group total; item-wise quantities inside it take priority.
      const groupQty=Math.max(0,Number(groupLine.qty)||0);
      candidates.forEach(x=>{x.allocation=0;x.manualAllocation=false;});
@@ -925,7 +952,12 @@ async function mbqSaveSharedAllocationState(){
  catch(e){showToast('CFA Allocation shared save failed. ഈ browser-ൽ മാത്രം മാറ്റം ഉണ്ടായേക്കാം.');console.error(e);}
 }
 function mbqApplySharedAllocationState(){
- let changed=false;allocationData.forEach(r=>{const key=mbqAllocationRowKey(r);if(Object.prototype.hasOwnProperty.call(mbqSharedAllocationState,key)){r.allocation=Number(mbqSharedAllocationState[key])||0;r.manualAllocation=true;changed=true;}});
+ let changed=false;allocationData.forEach(r=>{
+  // Uploaded CFA-wise Sales Head quantities take precedence over older saved manual edits.
+  if(r.sourceCfaAllocation)return;
+  const key=mbqAllocationRowKey(r);
+  if(Object.prototype.hasOwnProperty.call(mbqSharedAllocationState,key)){r.allocation=Number(mbqSharedAllocationState[key])||0;r.manualAllocation=true;changed=true;}
+ });
  return changed;
 }
 function updateManualAllocation(index,value){
