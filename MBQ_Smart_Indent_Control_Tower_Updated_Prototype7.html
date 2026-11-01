@@ -695,9 +695,9 @@ function previewIndentUpload(input){
       const hs=candidate[ri].map(norm);
       const hasSku=hs.some(h=>h==='sku group'||h==='sku groups'||h==='sku group name');
       const hasQty=hs.some(h=>['total indent by rbm sales head','total indent by rbm','total indent','qty cbb','qty cbo','sales head ind','sales head indent','cfa wise allocation tvd','tvd allocation','cfa wise allocation pay','pay allocation','cfa wise allocation alu','alu allocation'].some(n=>h===norm(n)||h.includes(norm(n))));
-      if(hasSku&&hasQty){
-       const nextHeaders=(candidate[ri+1]||[]).map(norm);
-       const hasCfaSubheaders=hs.some(h=>h.includes('cfa wise allocation'))&&nextHeaders.some(h=>['tvd','pay','alu'].includes(h));
+      const nextHeaders=(candidate[ri+1]||[]).map(norm);
+      const hasCfaSubheaders=hs.some(h=>h.includes('cfa wise allocation'))&&nextHeaders.some(h=>['tvd','pay','alu'].includes(h));
+      if(hasSku&&(hasQty||hasCfaSubheaders)){
        chosen={records:candidate,headerIndex:ri,headerDepth:hasCfaSubheaders?2:1};break;
       }
      }
