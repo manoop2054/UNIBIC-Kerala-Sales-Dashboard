@@ -376,6 +376,23 @@ app.put("/api/mbq/shared-upload/:category", express.json({ limit: "90mb" }), asy
     res.status(500).json({ success: false, error: "Could not save shared MBQ upload" });
   }
 });
+// Explicit shared-upload removal: separate from upload validation so an empty
+// file name/size can never be mistaken for a new workbook upload.
+app.delete("/api/mbq/shared-upload/:category", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  if (!masterPool) return res.status(503).json({ success: false, error: "Shared MBQ storage is not configured" });
+  if (!MBQ_MASTER_UPLOAD_PIN || String(req.get("X-MBQ-Master-Pin") || "") !== MBQ_MASTER_UPLOAD_PIN) return res.status(401).json({ success: false, error: "Upload PIN is missing or incorrect" });
+  const category = String(req.params.category || "");
+  if (category !== "open-po-report") return res.status(400).json({ success: false, error: "Removal is not enabled for this upload category" });
+  try {
+    await masterPool.query("DELETE FROM public.mbq_shared_uploads WHERE category=$1", [category]);
+    res.json({ success: true, removed: true, category });
+  } catch (error) {
+    console.error("MBQ shared upload removal failed:", error.message);
+    res.status(500).json({ success: false, error: "Could not remove shared Fill Rate Report" });
+  }
+});
+
 app.get("/api/mbq/open-to", async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
   if (!masterPool) return res.status(503).json({ success: false, error: "Shared MBQ storage is not configured" });
