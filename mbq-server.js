@@ -211,21 +211,107 @@ const prototypeFile = path.join(
 
 
 
+
 const mbqLoginAttempts = new Map();
-const MBQ_ALLOWED_TABS = ["overview","indent","suggest","stock","open-to","advanced","allocation","planner","loading","flash","reports","settings"];
-function mbqPublicUser(user) {
+const MBQ_ALLOWED_TABS = ["overview","indent","suggest","stock","totracker","advanced","allocation","peak","loading","flash","reports","excelview","settings"];
+let mbqAccessTableReady = null;
+async function ensureMbqAccessTable(pool) {
+  if (!mbqAccessTableReady) {
+    mbqAccessTableReady = pool.query(`
+      CREATE TABLE IF NOT EXISTS mbq_employee_tab_access (
+        employee_id TEXT PRIMARY KEY REFERENCES employees(employee_id) ON DELETE CASCADE,
+        allowed_tabs TEXT[] NOT NULL DEFAULT '{}',
+        can_upload_excel BOOLEAN NOT NULL DEFAULT FALSE,
+        updated_by TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `).catch(error => { mbqAccessTableReady = null; throw error; });
+  }
+  await mbqAccessTableReady;
+}
+function mbqIsSuperAdmin(user) {
+  return String(user.role || "").toUpperCase() === "SUPER_ADMIN" &&
+    String(user.employeeId || "").toUpperCase() === SUPER_ADMIN_ID;
+}
+async function mbqGetAccess(pool,user) {
+  await ensureMbqAccessTable(pool);
+  if (mbqIsSuperAdmin(user)) return { allowedTabs: MBQ_ALLOWED_TABS, canUploadExcel: true };
+  const r = await pool.query("SELECT allowed_tabs, can_upload_excel FROM mbq_employee_tab_access WHERE employee_id=$1", [user.employeeId]);
+  const row = r.rows[0];
+  return {
+    allowedTabs: row ? (row.allowed_tabs || []).filter(tab => MBQ_ALLOWED_TABS.includes(tab)) : [],
+    canUploadExcel: Boolean(row && row.can_upload_excel)
+  };
+}
+async function mbqPublicUser(pool,user) {
   const employeeId = String(user.employeeId || user.employee_id || "");
-  const role = String(user.role || "").toUpperCase();
+  const access = await mbqGetAccess(pool,user);
   return {
     employeeId,
     maskedEmployeeId: employeeId.length > 5 ? employeeId.slice(0, 2) + "*****" + employeeId.slice(-2) : "*****",
     employeeName: user.employeeName || user.employee_name || "",
     designation: user.designation || "",
-    role,
-    allowedTabs: role === "SUPER_ADMIN" && employeeId.toUpperCase() === SUPER_ADMIN_ID ? MBQ_ALLOWED_TABS : [],
-    canUploadExcel: role === "SUPER_ADMIN" && employeeId.toUpperCase() === SUPER_ADMIN_ID
+    role: String(user.role || "").toUpperCase(),
+    allowedTabs: access.allowedTabs,
+    canUploadExcel: access.canUploadExcel
   };
 }
+async function mbqRequireSuperAdmin(req,res) {
+  const pool = getAccessControlPool();
+  if (!pool) { res.status(503).json({ success:false,error:"Employee database is not configured." }); return null; }
+  try {
+    const user = await resolveSession(pool, extractSessionToken(req.headers.cookie));
+    if (!user) { res.status(401).json({ success:false,error:"Employee login required." }); return null; }
+    if (!mbqIsSuperAdmin(user)) { res.status(403).json({ success:false,error:"Super Admin access required." }); return null; }
+    await ensureMbqAccessTable(pool);
+    return { pool, user };
+  } catch (error) {
+    console.error("MBQ permission administration check failed:",error.message);
+    res.status(503).json({ success:false,error:"Unable to verify MBQ administrator access." });
+    return null;
+  }
+}
+app.get("/api/mbq/admin/employee-access", async (req,res) => {
+  res.setHeader("Cache-Control","no-store");
+  const auth = await mbqRequireSuperAdmin(req,res); if(!auth)return;
+  try {
+    const r = await auth.pool.query(`
+      SELECT e.employee_id,e.employee_name,e.designation,e.role,e.status,
+             COALESCE(a.allowed_tabs,'{}'::text[]) AS allowed_tabs,
+             COALESCE(a.can_upload_excel,FALSE) AS can_upload_excel
+      FROM employees e
+      LEFT JOIN mbq_employee_tab_access a ON a.employee_id=e.employee_id
+      WHERE e.status='ACTIVE'
+      ORDER BY CASE WHEN UPPER(e.role)='SUPER_ADMIN' THEN 0 WHEN UPPER(e.role)='ADMIN' THEN 1 ELSE 2 END,e.employee_name
+    `);
+    res.json({success:true,tabs:MBQ_ALLOWED_TABS,employees:r.rows});
+  } catch(error) {
+    console.error("MBQ employee access list failed:",error.message);
+    res.status(500).json({success:false,error:"Could not load employee access list."});
+  }
+});
+app.put("/api/mbq/admin/employee-access/:employeeId", express.json({limit:"20kb"}), async(req,res) => {
+  res.setHeader("Cache-Control","no-store");
+  const auth = await mbqRequireSuperAdmin(req,res); if(!auth)return;
+  const employeeId=String(req.params.employeeId||"").trim().toUpperCase();
+  const requested=Array.isArray(req.body && req.body.allowedTabs)?req.body.allowedTabs:[];
+  const allowedTabs=[...new Set(requested.filter(tab=>MBQ_ALLOWED_TABS.includes(tab)))];
+  const canUploadExcel=Boolean(req.body && req.body.canUploadExcel);
+  if(!employeeId || employeeId===SUPER_ADMIN_ID) return res.status(400).json({success:false,error:"Protected Super Admin permissions cannot be changed."});
+  try {
+    const employee=await auth.pool.query("SELECT employee_id FROM employees WHERE employee_id=$1 AND status='ACTIVE'",[employeeId]);
+    if(!employee.rowCount) return res.status(404).json({success:false,error:"Active employee not found."});
+    await auth.pool.query(`
+      INSERT INTO mbq_employee_tab_access(employee_id,allowed_tabs,can_upload_excel,updated_by,updated_at)
+      VALUES($1,$2::text[],$3,$4,NOW())
+      ON CONFLICT(employee_id) DO UPDATE SET allowed_tabs=EXCLUDED.allowed_tabs,can_upload_excel=EXCLUDED.can_upload_excel,updated_by=EXCLUDED.updated_by,updated_at=NOW()
+    `,[employeeId,allowedTabs,canUploadExcel,auth.user.employeeId]);
+    res.json({success:true,employeeId,allowedTabs,canUploadExcel});
+  } catch(error) {
+    console.error("MBQ employee access save failed:",error.message);
+    res.status(500).json({success:false,error:"Could not save MBQ permissions."});
+  }
+});
 app.post("/api/mbq/auth/login", express.json({ limit: "10kb" }), async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
   const ip = String(req.ip || req.socket.remoteAddress || "unknown").slice(0, 100);
@@ -239,9 +325,14 @@ app.post("/api/mbq/auth/login", express.json({ limit: "10kb" }), async (req, res
   try {
     const result = await authenticateCredentials(pool, req.body && req.body.employee_id, req.body && req.body.password);
     if (!result) return res.status(401).json({ success: false, error: "Employee ID or password is incorrect, or the account is inactive." });
+    const user = await mbqPublicUser(pool,result.user);
+    if (!user.allowedTabs.length) {
+      await revokeSession(pool,result.token);
+      return res.status(403).json({ success:false,accessPending:true,error:"MBQ access has not been assigned by Super Admin." });
+    }
     mbqLoginAttempts.delete(ip);
     res.setHeader("Set-Cookie", sessionCookie(result.token));
-    return res.json({ success: true, user: mbqPublicUser(result.user) });
+    return res.json({ success: true, user });
   } catch (error) {
     console.error("MBQ employee login failed:", error.message);
     return res.status(503).json({ success: false, error: "Unable to complete login securely." });
@@ -254,7 +345,7 @@ app.get("/api/mbq/auth/me", async (req, res) => {
   try {
     const user = await resolveSession(pool, extractSessionToken(req.headers.cookie));
     if (!user) return res.status(401).json({ authenticated: false });
-    const publicUser = mbqPublicUser(user);
+    const publicUser = await mbqPublicUser(pool,user);
     if (!publicUser.allowedTabs.length) return res.status(403).json({ authenticated: true, accessPending: true, user: publicUser });
     return res.json({ authenticated: true, user: publicUser });
   } catch (error) {
@@ -274,21 +365,35 @@ app.post("/api/mbq/auth/logout", async (req, res) => {
     return res.status(503).json({ success: false, error: "Browser session cleared; server-side revocation could not be confirmed." });
   }
 });
-// Until Super Admin assigns individual MBQ tabs, only the protected Super Admin
-// can use dashboard APIs. Main-dashboard region/area/anchor scopes are not applied.
+// API access is checked on every request; MBQ does not apply Region/Area/Anchor scopes.
 app.use("/api/mbq", async (req, res, next) => {
-  if (req.path === "/status" || req.path.startsWith("/auth/")) return next();
+  if (req.path === "/status" || req.path === "/employee-db-check" || req.path.startsWith("/auth/") || req.path.startsWith("/admin/")) return next();
   res.setHeader("Cache-Control", "no-store");
   const pool = getAccessControlPool();
   if (!pool) return res.status(503).json({ success: false, error: "Employee database is not configured." });
   try {
     const user = await resolveSession(pool, extractSessionToken(req.headers.cookie));
     if (!user) return res.status(401).json({ success: false, error: "Employee login required." });
-    const employeeId = String(user.employeeId || "").toUpperCase();
-    if (String(user.role).toUpperCase() !== "SUPER_ADMIN" || employeeId !== SUPER_ADMIN_ID) {
-      return res.status(403).json({ success: false, error: "MBQ tab access has not been assigned by Super Admin yet." });
+    const access = await mbqGetAccess(pool,user);
+    if (!access.allowedTabs.length) return res.status(403).json({ success:false,error:"MBQ tab access has not been assigned." });
+    const p=req.path.toLowerCase();
+    const method=req.method.toUpperCase();
+    if ((p.startsWith("/master-workbook") || p.startsWith("/shared-upload") || (p.startsWith("/drafts") && method!=="GET")) && !access.canUploadExcel && !mbqIsSuperAdmin(user)) {
+      return res.status(403).json({success:false,error:"Excel upload permission is required."});
     }
-    req.mbqUser = user;
+    const required = p.startsWith("/soh") ? ["stock"] :
+      p.startsWith("/open-to") ? ["totracker"] :
+      p.startsWith("/cfa-allocation") ? ["allocation"] :
+      p.startsWith("/master-workbook") ? ["excelview","settings"] :
+      p.startsWith("/shared-upload") ? ["excelview","indent","allocation","settings"] :
+      p.startsWith("/drafts") ? ["excelview","indent","settings"] :
+      p.startsWith("/gsv") ? ["overview","indent","suggest","flash","reports","excelview"] :
+      MBQ_ALLOWED_TABS;
+    if (!mbqIsSuperAdmin(user) && !required.some(tab=>access.allowedTabs.includes(tab))) {
+      return res.status(403).json({success:false,error:"Your MBQ tab permission does not allow this data."});
+    }
+    req.mbqUser=user;
+    req.mbqAccess=access;
     return next();
   } catch (_) {
     return res.status(503).json({ success: false, error: "Unable to verify MBQ employee session." });
