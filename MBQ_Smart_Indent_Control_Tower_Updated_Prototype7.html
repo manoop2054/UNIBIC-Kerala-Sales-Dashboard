@@ -1474,112 +1474,7 @@ function printToReport(mode='details'){
  const w=window.open('','_blank');if(!w){showToast('Print popup അനുവദിക്കുക.');return;}
  const title=summary?'Summary':'Item Details';
  const html='<!doctype html><html><head><meta charset="utf-8"><title>Open TO Report</title><style>body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}</style></head><body><h2>Open TO '+title+'</h2><table><thead><tr>'+heads+'</tr></thead><tbody>'+rows+'</tbody></table>\n
-<script>
-/* MBQ ACCESS MANAGEMENT UI */
-(function(){
- 'use strict';
- const tabNames=[
-  ['overview','Overview Dashboard'],['indent','Monthly Indent Entry'],['suggest','AI Suggested Indent'],
-  ['stock','CFA-wise Stock'],['totracker','Open TO Tracker'],['advanced','Advanced Controls'],
-  ['allocation','CFA Allocation'],['peak','Peak Billing Planner'],['loading','CFA Loading Plan'],
-  ['flash','Daily WhatsApp Flash'],['reports','Reports & Export'],['excelview','MBQ Excel View'],
-  ['settings','Master Data & Settings']
- ];
- let employees=[];
- const card=()=>document.getElementById('mbqEmployeeAccessCard');
- const status=()=>document.getElementById('mbqAccessStatus');
- async function api(url,options){
-  const r=await fetch(url,{credentials:'same-origin',cache:'no-store',...options});
-  let j={};try{j=await r.json();}catch(_){}
-  if(!r.ok||j.success===false)throw new Error(j.error||'Request failed ('+r.status+')');
-  return j;
- }
- function applyUser(user){
-  if(!user)return;
-  const allowed=new Set(Array.isArray(user.allowedTabs)?user.allowedTabs:[]);
-  document.querySelectorAll('#nav button[data-page]').forEach(b=>{
-   b.hidden=!allowed.has(b.dataset.page);
-  });
-  const accessCard=card();
-  const superAdmin=String(user.role||'').toUpperCase()==='SUPER_ADMIN';
-  if(accessCard)accessCard.style.display=superAdmin?'block':'none';
-  document.querySelectorAll('input[type="file"]').forEach(input=>{
-   const can=superAdmin||Boolean(user.canUploadExcel);
-   input.disabled=!can;
-   input.style.display=can?'':'none';
-   if(input.id){
-    document.querySelectorAll('label[for="'+CSS.escape(input.id)+'"]').forEach(label=>label.style.display=can?'':'none');
-   }
-  });
-  if(superAdmin)loadEmployees();
- }
- window.mbqApplyUserAccess=applyUser;
- function renderTabChecks(selected){
-  const host=document.getElementById('mbqAccessTabs');if(!host)return;
-  const set=new Set(selected||[]);
-  host.innerHTML=tabNames.map(([key,label])=>
-   '<label style="display:flex;gap:8px;align-items:center;padding:9px 10px;border:1px solid var(--line,#dbe3ed);border-radius:9px;font-weight:600"><input type="checkbox" data-mbq-tab="'+key+'" style="width:auto" '+(set.has(key)?'checked':'')+'> '+label+'</label>'
-  ).join('');
- }
- async function loadEmployeeAccess(){
-  const select=document.getElementById('mbqAccessEmployee');
-  const upload=document.getElementById('mbqAccessUpload');
-  const selected=select&&select.value;
-  if(!selected){renderTabChecks([]);if(upload)upload.checked=false;return;}
-  const emp=employees.find(e=>e.employee_id===selected);
-  renderTabChecks(emp&&emp.allowed_tabs||[]);
-  if(upload)upload.checked=Boolean(emp&&emp.can_upload_excel);
-  if(status())status().textContent=emp?'Editing '+(emp.employee_name||emp.employee_id):'';
- }
- async function loadEmployees(){
-  const select=document.getElementById('mbqAccessEmployee');
-  if(!select)return;
-  if(status())status().textContent='Loading active employees…';
-  try{
-   const data=await api('/api/mbq/admin/employee-access');
-   employees=Array.isArray(data.employees)?data.employees:[];
-   select.innerHTML='<option value="">Select employee</option>'+employees.map(e=>
-    '<option value="'+String(e.employee_id).replace(/&/g,'&amp;').replace(/"/g,'&quot;')+'">'+
-    String(e.employee_name||e.employee_id).replace(/&/g,'&amp;').replace(/</g,'&lt;')+
-    ' · '+String(e.employee_id).replace(/&/g,'&amp;').replace(/</g,'&lt;')+
-    ' ('+String(e.role||'').replace(/</g,'&lt;')+')</option>'
-   ).join('');
-   if(selected&&employees.some(e=>e.employee_id===selected))select.value=selected;
-   else if(employees.length)select.value=employees.find(e=>String(e.role).toUpperCase()!=='SUPER_ADMIN')?.employee_id||employees[0].employee_id;
-   await loadEmployeeAccess();
-   if(status())status().textContent=employees.length+' active employees loaded.';
-  }catch(e){if(status())status().textContent='Could not load employees: '+e.message;}
- }
- async function save(){
-  const select=document.getElementById('mbqAccessEmployee');
-  const employeeId=select&&select.value;
-  if(!employeeId){if(status())status().textContent='Select an employee first.';return;}
-  const target=employees.find(e=>e.employee_id===employeeId);
-  if(target&&String(target.role).toUpperCase()==='SUPER_ADMIN'){if(status())status().textContent='Protected Super Admin access cannot be changed.';return;}
-  const allowedTabs=[...document.querySelectorAll('#mbqAccessTabs input[data-mbq-tab]:checked')].map(x=>x.dataset.mbqTab);
-  const canUploadExcel=Boolean(document.getElementById('mbqAccessUpload')?.checked);
-  const button=document.getElementById('mbqSaveAccess');if(button)button.disabled=true;
-  if(status())status().textContent='Saving permissions…';
-  try{
-   await api('/api/mbq/admin/employee-access/'+encodeURIComponent(employeeId),{
-    method:'PUT',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({allowedTabs,canUploadExcel})
-   });
-   if(status())status().textContent='Saved successfully for '+employeeId+'.';
-   await loadEmployees();
-   const selectAgain=document.getElementById('mbqAccessEmployee');if(selectAgain)selectAgain.value=employeeId;
-   await loadEmployeeAccess();
-   if(status())status().textContent='Permissions saved successfully for '+employeeId+'.';
-  }catch(e){if(status())status().textContent='Save failed: '+e.message;}
-  finally{if(button)button.disabled=false;}
- }
- document.addEventListener('DOMContentLoaded',()=>{
-  document.getElementById('mbqAccessEmployee')?.addEventListener('change',loadEmployeeAccess);
-  document.getElementById('mbqRefreshAccess')?.addEventListener('click',loadEmployees);
-  document.getElementById('mbqSaveAccess')?.addEventListener('click',save);
- });
-})();
-</script>
+
 
 </body></html>';
  w.document.open();w.document.write(html);w.document.close();w.onload=()=>w.print();
@@ -2402,6 +2297,112 @@ loadToRecords().then(()=>{renderToTracker();if(typeof renderDaysPlanner==='funct
     if(response.ok&&data.authenticated&&data.user&&Array.isArray(data.user.allowedTabs)&&data.user.allowedTabs.length)showDashboard(data.user);
     else if(response.status===403&&data.accessPending)showPending(data.user||{});
   }).catch(error=>console.warn('MBQ session check failed:',error));
+})();
+</script>
+<script>
+/* MBQ ACCESS MANAGEMENT UI */
+(function(){
+ 'use strict';
+ const tabNames=[
+  ['overview','Overview Dashboard'],['indent','Monthly Indent Entry'],['suggest','AI Suggested Indent'],
+  ['stock','CFA-wise Stock'],['totracker','Open TO Tracker'],['advanced','Advanced Controls'],
+  ['allocation','CFA Allocation'],['peak','Peak Billing Planner'],['loading','CFA Loading Plan'],
+  ['flash','Daily WhatsApp Flash'],['reports','Reports & Export'],['excelview','MBQ Excel View'],
+  ['settings','Master Data & Settings']
+ ];
+ let employees=[];
+ const card=()=>document.getElementById('mbqEmployeeAccessCard');
+ const status=()=>document.getElementById('mbqAccessStatus');
+ async function api(url,options){
+  const r=await fetch(url,{credentials:'same-origin',cache:'no-store',...options});
+  let j={};try{j=await r.json();}catch(_){}
+  if(!r.ok||j.success===false)throw new Error(j.error||'Request failed ('+r.status+')');
+  return j;
+ }
+ function applyUser(user){
+  if(!user)return;
+  const allowed=new Set(Array.isArray(user.allowedTabs)?user.allowedTabs:[]);
+  document.querySelectorAll('#nav button[data-page]').forEach(b=>{
+   b.hidden=!allowed.has(b.dataset.page);
+  });
+  const accessCard=card();
+  const superAdmin=String(user.role||'').toUpperCase()==='SUPER_ADMIN';
+  if(accessCard)accessCard.style.display=superAdmin?'block':'none';
+  document.querySelectorAll('input[type="file"]').forEach(input=>{
+   const can=superAdmin||Boolean(user.canUploadExcel);
+   input.disabled=!can;
+   input.style.display=can?'':'none';
+   if(input.id){
+    document.querySelectorAll('label[for="'+CSS.escape(input.id)+'"]').forEach(label=>label.style.display=can?'':'none');
+   }
+  });
+  if(superAdmin)loadEmployees();
+ }
+ window.mbqApplyUserAccess=applyUser;
+ function renderTabChecks(selected){
+  const host=document.getElementById('mbqAccessTabs');if(!host)return;
+  const set=new Set(selected||[]);
+  host.innerHTML=tabNames.map(([key,label])=>
+   '<label style="display:flex;gap:8px;align-items:center;padding:9px 10px;border:1px solid var(--line,#dbe3ed);border-radius:9px;font-weight:600"><input type="checkbox" data-mbq-tab="'+key+'" style="width:auto" '+(set.has(key)?'checked':'')+'> '+label+'</label>'
+  ).join('');
+ }
+ async function loadEmployeeAccess(){
+  const select=document.getElementById('mbqAccessEmployee');
+  const upload=document.getElementById('mbqAccessUpload');
+  const selected=select&&select.value;
+  if(!selected){renderTabChecks([]);if(upload)upload.checked=false;return;}
+  const emp=employees.find(e=>e.employee_id===selected);
+  renderTabChecks(emp&&emp.allowed_tabs||[]);
+  if(upload)upload.checked=Boolean(emp&&emp.can_upload_excel);
+  if(status())status().textContent=emp?'Editing '+(emp.employee_name||emp.employee_id):'';
+ }
+ async function loadEmployees(){
+  const select=document.getElementById('mbqAccessEmployee');
+  if(!select)return;
+  if(status())status().textContent='Loading active employees…';
+  try{
+   const data=await api('/api/mbq/admin/employee-access');
+   employees=Array.isArray(data.employees)?data.employees:[];
+   select.innerHTML='<option value="">Select employee</option>'+employees.map(e=>
+    '<option value="'+String(e.employee_id).replace(/&/g,'&amp;').replace(/"/g,'&quot;')+'">'+
+    String(e.employee_name||e.employee_id).replace(/&/g,'&amp;').replace(/</g,'&lt;')+
+    ' · '+String(e.employee_id).replace(/&/g,'&amp;').replace(/</g,'&lt;')+
+    ' ('+String(e.role||'').replace(/</g,'&lt;')+')</option>'
+   ).join('');
+   if(selected&&employees.some(e=>e.employee_id===selected))select.value=selected;
+   else if(employees.length)select.value=employees.find(e=>String(e.role).toUpperCase()!=='SUPER_ADMIN')?.employee_id||employees[0].employee_id;
+   await loadEmployeeAccess();
+   if(status())status().textContent=employees.length+' active employees loaded.';
+  }catch(e){if(status())status().textContent='Could not load employees: '+e.message;}
+ }
+ async function save(){
+  const select=document.getElementById('mbqAccessEmployee');
+  const employeeId=select&&select.value;
+  if(!employeeId){if(status())status().textContent='Select an employee first.';return;}
+  const target=employees.find(e=>e.employee_id===employeeId);
+  if(target&&String(target.role).toUpperCase()==='SUPER_ADMIN'){if(status())status().textContent='Protected Super Admin access cannot be changed.';return;}
+  const allowedTabs=[...document.querySelectorAll('#mbqAccessTabs input[data-mbq-tab]:checked')].map(x=>x.dataset.mbqTab);
+  const canUploadExcel=Boolean(document.getElementById('mbqAccessUpload')?.checked);
+  const button=document.getElementById('mbqSaveAccess');if(button)button.disabled=true;
+  if(status())status().textContent='Saving permissions…';
+  try{
+   await api('/api/mbq/admin/employee-access/'+encodeURIComponent(employeeId),{
+    method:'PUT',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({allowedTabs,canUploadExcel})
+   });
+   if(status())status().textContent='Saved successfully for '+employeeId+'.';
+   await loadEmployees();
+   const selectAgain=document.getElementById('mbqAccessEmployee');if(selectAgain)selectAgain.value=employeeId;
+   await loadEmployeeAccess();
+   if(status())status().textContent='Permissions saved successfully for '+employeeId+'.';
+  }catch(e){if(status())status().textContent='Save failed: '+e.message;}
+  finally{if(button)button.disabled=false;}
+ }
+ document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('mbqAccessEmployee')?.addEventListener('change',loadEmployeeAccess);
+  document.getElementById('mbqRefreshAccess')?.addEventListener('click',loadEmployees);
+  document.getElementById('mbqSaveAccess')?.addEventListener('click',save);
+ });
 })();
 </script>
 </body></html>
