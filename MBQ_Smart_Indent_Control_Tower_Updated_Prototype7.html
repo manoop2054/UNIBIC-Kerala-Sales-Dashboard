@@ -486,10 +486,10 @@ function mbqLiveStockMap(){
   const cfa=normalCfa(keyValue(raw,['WAREHOUSE','Warehouse','CFA','LocationCode','Location Code','Location_Code','Location Name','Location','Branch','Site','Store']));
   if(!code||!['ALU','PAY','TVD'].includes(cfa))return;
   const qty=Number(String(keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity','Available Quantity','Inventory','Stock Quantity'])??0).replace(/,/g,''))||0;
-  const k=cfa+'|'+code,old=map.get(k)||{stock:0,eligibleStock:0,shelf:0};old.stock+=qty;
+  const k=cfa+'|'+code,old=map.get(k)||{stock:0,eligibleStock:0,shelf:null};old.stock+=qty;
   const sh=keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%']);
   const sn=Number(String(sh??'').replace('%','').replace(/,/g,''));
-  if(sh!==''&&Number.isFinite(sn)){old.shelf=old.shelf?Math.min(old.shelf,sn):sn;if(sn>60)old.eligibleStock+=qty}
+  if(sh!==''&&Number.isFinite(sn)){old.shelf=old.shelf===null?sn:Math.min(old.shelf,sn);if(sn>60)old.eligibleStock+=qty}
   map.set(k,old);
  });return map;
 }
