@@ -1500,7 +1500,7 @@ function printToReport(mode='details'){
  $('mbqSaveAccess').addEventListener('click',async()=>{const id=$('mbqAccessEmployee').value;if(!id){$('mbqAccessStatus').textContent='Select an employee first.';return;}const allowedTabs=[...document.querySelectorAll('.mbq-tab-check:checked')].map(c=>c.value);const button=$('mbqSaveAccess');button.disabled=true;$('mbqAccessStatus').textContent='Saving permissions…';try{await api('/api/mbq/admin/employee-access/'+encodeURIComponent(id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({allowedTabs,canUploadExcel:$('mbqAccessUpload').checked})});$('mbqAccessStatus').textContent='Permissions saved for '+id+'.';await loadEmployees();$('mbqAccessEmployee').value=id;$('mbqAccessEmployee').dispatchEvent(new Event('change'));}catch(e){$('mbqAccessStatus').textContent=e.message;}finally{button.disabled=false;}});
  $('mbqLogoutButton').addEventListener('click',async()=>{try{await api('/api/mbq/auth/logout',{method:'POST'});}catch(_){}document.body.classList.remove('mbq-authenticated');$('mbqLoginGate').hidden=false;$('mbqLoginFormWrap').style.display='block';$('mbqAccessPending').style.display='none';$('mbqLoginForm').reset();});
 })();
-</script>
+<\/script>
 </body></html>';
  w.document.open();w.document.write(html);w.document.close();w.onload=()=>w.print();
 }
