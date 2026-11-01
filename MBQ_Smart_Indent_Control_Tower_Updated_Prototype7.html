@@ -69,6 +69,7 @@
 
 
 .mbq-fillrate-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.mbq-fr-foot{display:block;color:var(--muted);font-size:10px;margin-top:4px}.mbq-fr-filters{padding:0 18px 14px}.mbq-fr-filters .field{min-width:150px;flex:1}.mbq-fr-section-title{padding:16px 18px 8px;font-size:12px;font-weight:800;color:var(--ink)}.mbq-fr-section-title small{display:block;font-size:10px;font-weight:400;color:var(--muted);margin-top:3px}.mbq-fr-table{overflow:auto;border-top:1px solid var(--line)}.mbq-fr-table table{min-width:850px}.mbq-fr-table th{background:#f2f6fb}.mbq-fr-table td,.mbq-fr-table th{padding:10px 12px}.mbq-fr-rate{font-weight:800;color:var(--blue)}.mbq-fr-balance.negative{color:var(--red)}@media(max-width:700px){.mbq-fillrate-kpis{grid-template-columns:1fr}.mbq-fr-filters .field{min-width:130px}}
+.mbq-fr-upload-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.mbq-fr-upload-actions input{max-width:240px}.mbq-fr-upload-actions .btn{white-space:nowrap;padding:8px 11px;font-size:11px}@media(max-width:700px){.mbq-fr-upload-actions{width:100%}.mbq-fr-upload-actions input{max-width:100%}}
 /* Fill Rate section compact layout only — preserve calculations and other tabs. */
 #mbqFillRateCard>.card-head{padding:12px 15px 8px}
 #mbqFillRateCard .excel-upload{padding:10px 12px;border-radius:10px}
@@ -160,7 +161,7 @@
     </div>
     <div class="card" id="mbqFillRateCard">
       <div class="card-head"><div><h3>Fill Rate Report Upload</h3><small>Upload the same daily report containing PO_Open_Close, PO_Qty, Invoice_Qty and Diff_Qty.</small></div><span class="excel-pill">Daily refresh</span></div>
-      <div class="excel-upload"><div><strong>Choose Fill Rate Report Excel</strong><p>Daily report · CFA, Ship To Code, SKU Group and PO quantities are read from this file.</p></div><input id="mbqPoWorkbookFile" type="file" accept=".xlsb,.xlsx,.xls,.csv" onchange="loadMbqPoReport(event)"></div>
+      <div class="excel-upload"><div><strong>Choose Fill Rate Report Excel</strong><p>Daily report · CFA, Ship To Code, SKU Group and PO quantities are read from this file.</p></div><div class="mbq-fr-upload-actions"><input id="mbqPoWorkbookFile" type="file" accept=".xlsb,.xlsx,.xls,.csv" onchange="loadMbqPoReport(event)"><button class="btn" id="mbqClearPoReportBtn" type="button" onclick="clearMbqPoReport()" style="border-color:#dc2626;color:#b91c1c">Remove uploaded report</button></div></div>
       <div class="excel-stat-grid mbq-fillrate-kpis" style="margin-top:14px">
         <div class="excel-stat"><small>Open PO CBB</small><strong id="mbqPoOpenCbb">—</strong><span class="mbq-fr-foot">Open PO quantity</span></div>
         <div class="excel-stat"><small>Closed PO CBB</small><strong id="mbqPoCloseCbb">—</strong><span class="mbq-fr-foot">Closed PO quantity</span></div>
@@ -1735,7 +1736,20 @@ function mbqFindPoTable(wb){
   }
   return null;
 }
-async function loadMbqPoReport(event){
+async async function clearMbqPoReport(){
+ if(!confirm("Remove the uploaded Fill Rate Report from this dashboard for all users?"))return;
+ const btn=document.getElementById("mbqClearPoReportBtn");if(btn){btn.disabled=true;btn.textContent="Removing…";}
+ try{
+  const saved=await mbqSaveSharedUpload("open-po-report","",0,{rows:[],headers:[]});
+  if(!saved){if(btn){btn.disabled=false;btn.textContent="Remove uploaded report";}return;}
+  mbqPoRecords=[];mbqPoHeaders=[];mbqPoFileName="";
+  await mbqCacheSet("mbqPoCache",{rows:[],headers:[],name:"",clearedAt:new Date().toISOString()});
+  const input=document.getElementById("mbqPoWorkbookFile");if(input)input.value="";
+  renderMbqPoPreview();showToast("Fill Rate Report removed for all users.");
+ }catch(e){showToast("Could not remove Fill Rate Report: "+(e.message||"Please try again."));}
+ finally{if(btn){btn.disabled=false;btn.textContent="Remove uploaded report";}}
+}
+function loadMbqPoReport(event){
   const file=event.target.files&&event.target.files[0];if(!file)return;
   try{
     let parsed;
