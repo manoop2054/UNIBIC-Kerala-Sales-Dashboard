@@ -603,54 +603,63 @@ function downloadSalesHeadTemplate(){
  try{
   if(!window.XLSX)throw new Error('Excel library not loaded. Refresh the dashboard and try again.');
   const groups=[...new Set([...sourceRows.map(r=>String(r[0]||'').trim()),...rows.map(r=>String(r.sku||'').trim()),...mbqSalesRows.map(r=>String(r.SKU_Group??r.SKU_GROUP??r['SKU Group']??'').trim())].filter(Boolean))].sort((a,b)=>a.localeCompare(b));
-  const history=mbqLastCompletedMonths(2);
+  const history=mbqSelectedMonthHistory();
+  const monthTitle=m=>{const names=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];return names[(Number(m.month)||1)-1]+' '+m.year;};
+  const cfas=['TVD','PAY','ALU'];
   const data=[
-   ['SKU GROUP','AVG SALE LAST 2 MONTH','','','','RATIO ON AVG SALE','','','Total Indent BY RBM/Sales Head','CFA WISE ALLOCATION','',''],
-   ['', 'TVD','PAY','ALU','SUM','TVD RATIO %','PAY RATIO %','ALU RATIO %','','TVD','PAY','ALU'],
+   ['SKU GROUP',monthTitle(history[0])+' SALES','','','',monthTitle(history[1])+' SALES','','','',monthTitle(history[2])+' SALES','','','', '3-MONTH AVERAGE','','','','RATIO ON 3-MONTH AVG','','','Total Indent BY RBM/Sales Head','CFA WISE ALLOCATION','',''],
+   ['', 'TVD','PAY','ALU','SUM','TVD','PAY','ALU','SUM','TVD','PAY','ALU','SUM','TVD','PAY','ALU','SUM','TVD RATIO %','PAY RATIO %','ALU RATIO %','','TVD','PAY','ALU'],
    ...groups.map(g=>{
-    const avgs=['TVD','PAY','ALU'].map(cfa=>{
-     if(!Array.isArray(mbqSalesRows)||!mbqSalesRows.length||history.length!==2)return '';
-     const vals=history.map(m=>mbqLoadedSalesValue(g,cfa,m.month));
-     return vals.some(v=>v===null||!Number.isFinite(Number(v)))?'':(Number(vals[0])+Number(vals[1]))/2;
+    const monthValues=history.map(m=>{
+     const vals=cfas.map(cfa=>mbqLoadedSalesValue(g,cfa,m.month));
+     const sum=vals.every(v=>v!==null&&Number.isFinite(Number(v)))?vals.reduce((a,b)=>a+Number(b),0):'';
+     return [...vals,sum];
     });
-    const sum=avgs.every(v=>v!=='')?avgs.reduce((a,b)=>a+Number(b),0):'';
-    const ratios=sum!==''&&Number(sum)>0?avgs.map(v=>v===''?'':Number(v)/Number(sum)):[ '', '', '' ];
-    return [g,...avgs,sum,...ratios,'','','',''];
+    const averages=cfas.map((cfa,i)=>{
+     const vals=monthValues.map(m=>m[i]);
+     return vals.every(v=>v!==''&&Number.isFinite(Number(v)))?vals.reduce((a,b)=>a+Number(b),0)/3:'';
+    });
+    const averageSum=averages.every(v=>v!=='')?averages.reduce((a,b)=>a+Number(b),0):'';
+    const ratios=averageSum!==''&&Number(averageSum)>0?averages.map(v=>v===''?'':Number(v)/Number(averageSum)):[ '', '', '' ];
+    return [g,...monthValues.flat(),...averages,averageSum,...ratios,'','','',''];
    })
   ];
   const ws=XLSX.utils.aoa_to_sheet(data);
   ws['!merges']=[
    {s:{r:0,c:0},e:{r:1,c:0}},
    {s:{r:0,c:1},e:{r:0,c:4}},
-   {s:{r:0,c:5},e:{r:0,c:7}},
-   {s:{r:0,c:8},e:{r:1,c:8}},
-   {s:{r:0,c:9},e:{r:0,c:11}}
+   {s:{r:0,c:5},e:{r:0,c:8}},
+   {s:{r:0,c:9},e:{r:0,c:12}},
+   {s:{r:0,c:13},e:{r:0,c:16}},
+   {s:{r:0,c:17},e:{r:0,c:19}},
+   {s:{r:0,c:20},e:{r:1,c:20}},
+   {s:{r:0,c:21},e:{r:0,c:23}}
   ];
-  ws['!cols']=[{wch:21},{wch:12},{wch:12},{wch:12},{wch:12},{wch:10},{wch:10},{wch:10},{wch:17},{wch:12},{wch:12},{wch:12}];
+  ws['!cols']=[{wch:21},...Array.from({length:16},()=>({wch:11})),{wch:10},{wch:10},{wch:10},{wch:17},{wch:11},{wch:11},{wch:11}];
   ws['!freeze']={xSplit:0,ySplit:2};
-  ws['!autofilter']={ref:'A2:L'+Math.max(2,data.length)};
+  ws['!autofilter']={ref:'A2:X'+Math.max(2,data.length)};
   ws['!rows']=[{hpt:21},{hpt:20},...groups.map(()=>({hpt:18}))];
   const border={top:{style:'thin',color:{rgb:'D7E2EF'}},bottom:{style:'thin',color:{rgb:'D7E2EF'}},left:{style:'thin',color:{rgb:'D7E2EF'}},right:{style:'thin',color:{rgb:'D7E2EF'}}};
   const groupHeader={fill:{fgColor:{rgb:'17365D'}},font:{name:'Aptos',bold:true,color:{rgb:'FFFFFF'},sz:9},alignment:{horizontal:'center',vertical:'center',wrapText:true},border};
   const subHeader={fill:{fgColor:{rgb:'24476B'}},font:{name:'Aptos',bold:true,color:{rgb:'FFFFFF'},sz:9},alignment:{horizontal:'center',vertical:'center',wrapText:true},border};
   for(let r=0;r<data.length;r++){
-   for(let col=0;col<12;col++){
+   for(let col=0;col<24;col++){
     const addr=XLSX.utils.encode_cell({r,c:col}),cell=ws[addr];
     if(!cell)continue;
     cell.s={border,alignment:{vertical:'center',horizontal:col===0?'left':'center',wrapText:col===0},font:{name:'Aptos',sz:9,color:{rgb:'24364B'}},fill:{fgColor:{rgb:r%2===0?'F4F8FC':'FFFFFF'}}};
     if(r===0)cell.s={...cell.s,...groupHeader};
     else if(r===1)cell.s={...cell.s,...subHeader};
-    else if(col===8){cell.s={...cell.s,fill:{fgColor:{rgb:r%2===0?'FFF2CC':'FFF8E6'}},font:{name:'Aptos',bold:true,color:{rgb:'8A5A00'},sz:9},numFmt:'#,##0.##'};}
-    else if(col>=9){cell.s={...cell.s,fill:{fgColor:{rgb:r%2===0?'DDF4EF':'ECF9F6'}},font:{name:'Aptos',color:{rgb:'075E54'},sz:9},numFmt:'#,##0.##'};}
-    else if(col>=1&&col<=4){cell.s={...cell.s,numFmt:'#,##0.##'};}
-    else if(col>=5&&col<=7){cell.s={...cell.s,numFmt:'0.0%'};}
+    else if(col===20){cell.s={...cell.s,fill:{fgColor:{rgb:r%2===0?'FFF2CC':'FFF8E6'}},font:{name:'Aptos',bold:true,color:{rgb:'8A5A00'},sz:9},numFmt:'#,##0.##'};}
+    else if(col>=21){cell.s={...cell.s,fill:{fgColor:{rgb:r%2===0?'DDF4EF':'ECF9F6'}},font:{name:'Aptos',color:{rgb:'075E54'},sz:9},numFmt:'#,##0.##'};}
+    else if(col>=17&&col<=19){cell.s={...cell.s,numFmt:'0.0%'};}
+    else if(col>=1&&col<=16){cell.s={...cell.s,numFmt:'#,##0.##'};}
    }
   }
   ws['!sheetViews']=[{showGridLines:false}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Sales Head Indent');
   const month=document.getElementById('month')?.value||'November 2026';
   XLSX.writeFile(wb,'MBQ_Sales_Head_Indent_'+month.replace(/[^A-Za-z0-9]+/g,'_')+'.xlsx',{compression:true});
-  showToast(groups.length?'12-column compact Sales Head Excel downloaded.':'Excel template downloaded. SKU list is not loaded yet; load the workbook/source first for the SKU list.');
+  showToast(groups.length?'24-column compact Sales Head Excel downloaded.':'Excel template downloaded. SKU list is not loaded yet; load the workbook/source first for the SKU list.');
  }catch(e){console.error('Sales Head template download failed:',e);showToast('Excel download failed: '+(e.message||'Please refresh and retry'));}
 }
 let pendingUpload=[];
