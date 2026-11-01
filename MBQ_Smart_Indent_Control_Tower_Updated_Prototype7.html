@@ -2215,16 +2215,49 @@ loadToRecords().then(()=>{renderToTracker();if(typeof renderDaysPlanner==='funct
      try{const payload={fileData:await b64(file)};const r=await mbqDraftFetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,name:name.trim()||file.name,fileName:file.name,contentType:file.type||'application/octet-stream',fileSize:file.size,payload})});const j=await r.json();if(!r.ok||!j.success)throw new Error(j.detail||j.error||'Save failed');status.textContent='Saved to shared drafts';toast('Excel Draft save ചെയ്തു. മറ്റൊരു system-ലും ലഭിക്കും.');}
      catch(e){status.textContent='Draft save failed';toast('Draft save ആയില്ല: '+e.message);}finally{save.disabled=false;}
    });
+   async function loadSelectedDraft(selected){
+     if(!confirm('“'+selected.draft_name+'” load ചെയ്ത് ഈ tab-ന്റെ existing upload handler run ചെയ്യട്ടേ? Current displayed data മാറാം.'))return;
+     const detail=await mbqDraftFetch(API+'/'+selected.id,{cache:'no-store'});const dj=await detail.json();if(!detail.ok||!dj.success)throw new Error(dj.detail||dj.error||'Draft open failed');
+     const data=atob(dj.draft.payload.fileData||'');const bytes=new Uint8Array(data.length);for(let i=0;i<data.length;i++)bytes[i]=data.charCodeAt(i);
+     const file=new File([bytes],dj.draft.file_name||'restored.xlsx',{type:dj.draft.content_type||'application/octet-stream'});const dt=new DataTransfer();dt.items.add(file);input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));status.textContent='Loaded: '+file.name;toast('Draft file load ചെയ്തു. Upload handler പ്രവർത്തിപ്പിച്ചു.');
+   }
+   function renderDraftManager(drafts){
+     const overlay=document.createElement('div');
+     overlay.style.cssText='position:fixed;inset:0;background:rgba(10,22,40,.58);z-index:10050;display:flex;align-items:center;justify-content:center;padding:18px';
+     const panel=document.createElement('div');
+     panel.style.cssText='width:min(680px,100%);max-height:80vh;overflow:auto;background:#fff;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.28);padding:18px;color:#18253b';
+     const heading=document.createElement('div');
+     heading.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px';
+     heading.innerHTML='<strong style="font-size:16px">Open Saved Drafts</strong>';
+     const close=document.createElement('button');close.type='button';close.className='btn';close.textContent='Close';close.addEventListener('click',()=>overlay.remove());heading.append(close);
+     const list=document.createElement('div');list.style.cssText='display:grid;gap:9px';
+     function paint(){
+       list.innerHTML='';
+       if(!drafts.length){list.innerHTML='<div style="padding:22px;text-align:center;color:#718096">No saved drafts for this upload.</div>';return;}
+       drafts.forEach(d=>{
+         const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:9px;flex-wrap:wrap;border:1px solid #e4eaf2;border-radius:10px;padding:11px';
+         const info=document.createElement('div');info.style.cssText='flex:1;min-width:180px';
+         const name=document.createElement('div');name.style.cssText='font-weight:750;font-size:12px';name.textContent=d.draft_name||'Untitled draft';
+         const meta=document.createElement('div');meta.style.cssText='font-size:10px;color:#718096;margin-top:4px';meta.textContent=(d.file_name||'file')+' · '+new Date(d.updated_at).toLocaleString();
+         info.append(name,meta);
+         const openDraft=document.createElement('button');openDraft.type='button';openDraft.className='btn primary';openDraft.textContent='Open';
+         openDraft.addEventListener('click',async()=>{openDraft.disabled=true;try{await loadSelectedDraft(d);overlay.remove();}catch(e){toast('Draft തുറക്കാനായില്ല: '+e.message);}finally{openDraft.disabled=false;}});
+         const del=document.createElement('button');del.type='button';del.className='btn';del.textContent='Delete';del.style.cssText='border-color:#fecaca;color:#b91c1c;background:#fff';
+         del.addEventListener('click',async()=>{
+           if(!confirm('“'+(d.draft_name||'Untitled draft')+'” permanently delete ചെയ്യട്ടേ?'))return;
+           del.disabled=true;
+           try{const response=await mbqDraftFetch(API+'/'+d.id,{method:'DELETE'});const result=await response.json();if(!response.ok||!result.success)throw new Error(result.detail||result.error||'Delete failed');const index=drafts.findIndex(x=>String(x.id)===String(d.id));if(index>=0)drafts.splice(index,1);paint();status.textContent='Draft deleted';toast('തിരഞ്ഞെടുത്ത Draft delete ചെയ്തു.');}
+           catch(e){del.disabled=false;toast('Draft delete ആയില്ല: '+e.message);}
+         });
+         row.append(info,del,openDraft);list.append(row);
+       });
+     }
+     paint();panel.append(heading,list);overlay.append(panel);overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});document.body.append(overlay);
+   }
    open.addEventListener('click',async()=>{
      open.disabled=true;status.textContent='Loading drafts…';
-     try{const r=await mbqDraftFetch(API+'?type='+encodeURIComponent(type),{cache:'no-store'});const j=await r.json();if(!r.ok||!j.success)throw new Error(j.detail||j.error||'Load failed');if(!j.drafts.length){toast('ഈ upload-ന് shared draft ഒന്നുമില്ല.');status.textContent='No drafts';return;}
-       const list=j.drafts.map((d,i)=>(i+1)+'. '+d.draft_name+' — '+(d.file_name||'file')+' — '+new Date(d.updated_at).toLocaleString()).join('\n');
-       const choice=prompt('Open ചെയ്യേണ്ട Draft number നൽകുക:\n'+list);if(choice===null)return;const index=Number(choice)-1;if(!Number.isInteger(index)||index<0||index>=j.drafts.length){toast('Invalid draft number.');return;}
-       const selected=j.drafts[index];if(!confirm('“'+selected.draft_name+'” load ചെയ്ത് ഈ tab-ന്റെ existing upload handler run ചെയ്യട്ടേ? Current displayed data മാറാം.'))return;
-       const detail=await mbqDraftFetch(API+'/'+selected.id,{cache:'no-store'});const dj=await detail.json();if(!detail.ok||!dj.success)throw new Error(dj.detail||dj.error||'Draft open failed');
-       const data=atob(dj.draft.payload.fileData||'');const bytes=new Uint8Array(data.length);for(let i=0;i<data.length;i++)bytes[i]=data.charCodeAt(i);
-       const file=new File([bytes],dj.draft.file_name||'restored.xlsx',{type:dj.draft.content_type||'application/octet-stream'});const dt=new DataTransfer();dt.items.add(file);input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));status.textContent='Loaded: '+file.name;toast('Draft file load ചെയ്തു. Upload handler പ്രവർത്തിപ്പിച്ചു.');
-     }catch(e){status.textContent='Draft load failed';toast('Draft തുറക്കാനായില്ല: '+e.message);}finally{open.disabled=false;}
+     try{const response=await mbqDraftFetch(API+'?type='+encodeURIComponent(type),{cache:'no-store'});const result=await response.json();if(!response.ok||!result.success)throw new Error(result.detail||result.error||'Load failed');if(!result.drafts.length){toast('ഈ upload-ന് shared draft ഒന്നുമില്ല.');status.textContent='No drafts';return;}renderDraftManager(result.drafts);status.textContent=result.drafts.length+' drafts loaded.';}
+     catch(e){status.textContent='Draft load failed';toast('Drafts തുറക്കാനായില്ല: '+e.message);}finally{open.disabled=false;}
    });
  }
  function scan(){document.querySelectorAll('input[type=file]').forEach(install);}
