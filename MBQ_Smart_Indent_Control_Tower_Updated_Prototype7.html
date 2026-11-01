@@ -743,7 +743,7 @@ async function mbqSaveSharedUpload(category,fileName,fileSize,payload){
 }
 async function mbqDeleteSharedUpload(category){
  const pin=prompt('MBQ shared Excel upload PIN (4 digits):');if(pin===null)return false;
- if(!/^\\d{4}$/.test(String(pin).trim()))throw new Error('Enter the 4-digit MBQ upload PIN.');
+ if(!/^\d{4}$/.test(String(pin).trim()))throw new Error('Enter the 4-digit MBQ upload PIN.');
  const res=await fetch('/api/mbq/shared-upload/'+encodeURIComponent(category),{method:'DELETE',headers:{'X-MBQ-Master-Pin':String(pin).trim()},cache:'no-store'});
  const data=await res.json().catch(()=>({}));if(!res.ok||!data.success)throw new Error(data.error||'Shared upload removal failed.');return true;
 }
