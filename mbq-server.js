@@ -507,6 +507,18 @@ app.get("/api/mbq/drafts", async (req, res) => {
     res.json({ success: true, drafts: result.rows });
   } catch (error) { res.status(500).json({ success: false, error: "Could not load shared drafts", detail: error.message }); }
 });
+app.delete("/api/mbq/drafts", async (req, res) => {
+  try {
+    await readyDrafts();
+    const type = String(req.query.type || "").slice(0, 100);
+    if (!type) return res.status(400).json({ success: false, error: "Draft type is required" });
+    const result = await draftPool.query("DELETE FROM mbq_shared_drafts WHERE draft_type=$1", [type]);
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ success: true, deletedCount: result.rowCount, type });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Could not delete shared drafts", detail: error.message });
+  }
+});
 app.get("/api/mbq/drafts/:id", async (req, res) => {
   try {
     await readyDrafts();
@@ -600,7 +612,7 @@ app.delete("/api/mbq/shared-upload/:category", async (req, res) => {
   if (!masterPool) return res.status(503).json({ success: false, error: "Shared MBQ storage is not configured" });
   if (!MBQ_MASTER_UPLOAD_PIN || String(req.get("X-MBQ-Master-Pin") || "") !== MBQ_MASTER_UPLOAD_PIN) return res.status(401).json({ success: false, error: "Upload PIN is missing or incorrect" });
   const category = String(req.params.category || "");
-  if (category !== "open-po-report") return res.status(400).json({ success: false, error: "Removal is not enabled for this upload category" });
+  if (!["open-po-report", "monthly-indent"].includes(category)) return res.status(400).json({ success: false, error: "Removal is not enabled for this upload category" });
   try {
     await masterPool.query("DELETE FROM public.mbq_shared_uploads WHERE category=$1", [category]);
     res.json({ success: true, removed: true, category });
