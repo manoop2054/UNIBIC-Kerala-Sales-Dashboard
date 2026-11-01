@@ -366,6 +366,12 @@ app.put("/api/mbq/shared-upload/:category", express.json({ limit: "90mb" }), asy
   if (!["monthly-indent", "open-po-report", "production-settings"].includes(category)) return res.status(400).json({ success: false, error: "Unsupported upload category" });
   try {
     const b = req.body || {}, fileName = String(b.fileName || "").trim().slice(0,255), size = Number(b.fileSize || 0), payload = b.payload;
+    // Backward compatibility: older cached dashboard builds submit an empty PUT to remove the Fill Rate report.
+    const emptyFillRateRemoval = category === "open-po-report" && !fileName && size === 0 && payload && typeof payload === "object" && Array.isArray(payload.rows) && payload.rows.length === 0 && Array.isArray(payload.headers) && payload.headers.length === 0;
+    if (emptyFillRateRemoval) {
+      await masterPool.query("DELETE FROM public.mbq_shared_uploads WHERE category=$1", [category]);
+      return res.json({ success: true, removed: true, category, compatibility: true });
+    }
     if (!fileName || payload == null || !Number.isFinite(size) || size < 0) return res.status(400).json({ success: false, error: "A valid file name, size and parsed payload are required" });
     const json = JSON.stringify(payload);
     if (Buffer.byteLength(json, "utf8") > 90 * 1024 * 1024) return res.status(413).json({ success: false, error: "Parsed upload exceeds the 90 MB storage limit" });
