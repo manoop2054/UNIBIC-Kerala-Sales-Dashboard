@@ -603,51 +603,54 @@ function downloadSalesHeadTemplate(){
  try{
   if(!window.XLSX)throw new Error('Excel library not loaded. Refresh the dashboard and try again.');
   const groups=[...new Set([...sourceRows.map(r=>String(r[0]||'').trim()),...rows.map(r=>String(r.sku||'').trim()),...mbqSalesRows.map(r=>String(r.SKU_Group??r.SKU_GROUP??r['SKU Group']??'').trim())].filter(Boolean))].sort((a,b)=>a.localeCompare(b));
-  const headers=['SKU GROUP','AVG SALE LAST 2 MONTH - TVD','AVG SALE LAST 2 MONTH - PAY','AVG SALE LAST 2 MONTH - ALU','SUM AVG SALE LAST 2 MONTH','RATIO','Total Indent BY RBM/Sales Head','CFA WISE ALLOCATION - TVD','CFA WISE ALLOCATION - PAY','CFA WISE ALLOCATION - ALU'];
   const history=mbqLastCompletedMonths(2);
-  const data=[headers,...groups.map(g=>{
+  const data=[
+   ['SKU GROUP','AVG SALE LAST 2 MONTH','','','','RATIO ON AVG SALE','','','Total Indent BY RBM/Sales Head','CFA WISE ALLOCATION','',''],
+   ['', 'TVD','PAY','ALU','SUM','TVD RATIO %','PAY RATIO %','ALU RATIO %','','TVD','PAY','ALU'],
+   ...groups.map(g=>{
     const avgs=['TVD','PAY','ALU'].map(cfa=>{
-      if(!Array.isArray(mbqSalesRows)||!mbqSalesRows.length||history.length!==2)return '';
-      const vals=history.map(m=>mbqLoadedSalesValue(g,cfa,m.month));
-      return vals.some(v=>v===null||!Number.isFinite(Number(v)))?'':(Number(vals[0])+Number(vals[1]))/2;
+     if(!Array.isArray(mbqSalesRows)||!mbqSalesRows.length||history.length!==2)return '';
+     const vals=history.map(m=>mbqLoadedSalesValue(g,cfa,m.month));
+     return vals.some(v=>v===null||!Number.isFinite(Number(v)))?'':(Number(vals[0])+Number(vals[1]))/2;
     });
     const sum=avgs.every(v=>v!=='')?avgs.reduce((a,b)=>a+Number(b),0):'';
-    return [g,...avgs,sum,'','','','',''];
-  })];
-  const ws=XLSX.utils.aoa_to_sheet(data);
-  ws['!cols']=[{wch:24},{wch:27},{wch:27},{wch:27},{wch:26},{wch:12},{wch:30},{wch:26},{wch:26},{wch:26}];
-  ws['!freeze']={xSplit:0,ySplit:1};ws['!autofilter']={ref:'A1:J'+Math.max(1,data.length)};
-  ws['!rows']=[{hpt:34},...groups.map(()=>({hpt:23}))];
-  const border={top:{style:'thin',color:{rgb:'D7E2EF'}},bottom:{style:'thin',color:{rgb:'D7E2EF'}},left:{style:'thin',color:{rgb:'D7E2EF'}},right:{style:'thin',color:{rgb:'D7E2EF'}}};
-  const headerStyles=[
-    {fill:{fgColor:{rgb:'17365D'}},font:{name:'Aptos',bold:true,color:{rgb:'FFFFFF'},sz:10},alignment:{horizontal:'center',vertical:'center',wrapText:true}},
-    {fill:{fgColor:{rgb:'17365D'}},font:{name:'Aptos',bold:true,color:{rgb:'FFFFFF'},sz:10},alignment:{horizontal:'center',vertical:'center',wrapText:true}},
-    {fill:{fgColor:{rgb:'17365D'}},font:{name:'Aptos',bold:true,color:{rgb:'FFFFFF'},sz:10},alignment:{horizontal:'center',vertical:'center',wrapText:true}},
-    {fill:{fgColor:{rgb:'17365D'}},font:{name:'Aptos',bold:true,color:{rgb:'FFFFFF'},sz:10},alignment:{horizontal:'center',vertical:'center',wrapText:true}},
-    {fill:{fgColor:{rgb:'17365D'}},font:{name:'Aptos',bold:true,color:{rgb:'FFFFFF'},sz:10},alignment:{horizontal:'center',vertical:'center',wrapText:true}},
-    {fill:{fgColor:{rgb:'365F91'}},font:{name:'Aptos',bold:true,color:{rgb:'FFFFFF'},sz:10},alignment:{horizontal:'center',vertical:'center',wrapText:true}},
-    {fill:{fgColor:{rgb:'C58B18'}},font:{name:'Aptos',bold:true,color:{rgb:'FFFFFF'},sz:10},alignment:{horizontal:'center',vertical:'center',wrapText:true}},
-    {fill:{fgColor:{rgb:'087F8C'}},font:{name:'Aptos',bold:true,color:{rgb:'FFFFFF'},sz:10},alignment:{horizontal:'center',vertical:'center',wrapText:true}},
-    {fill:{fgColor:{rgb:'087F8C'}},font:{name:'Aptos',bold:true,color:{rgb:'FFFFFF'},sz:10},alignment:{horizontal:'center',vertical:'center',wrapText:true}},
-    {fill:{fgColor:{rgb:'087F8C'}},font:{name:'Aptos',bold:true,color:{rgb:'FFFFFF'},sz:10},alignment:{horizontal:'center',vertical:'center',wrapText:true}}
+    const ratios=sum!==''&&Number(sum)>0?avgs.map(v=>v===''?'':Number(v)/Number(sum)):[ '', '', '' ];
+    return [g,...avgs,sum,...ratios,'','','',''];
+   })
   ];
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!merges']=[
+   {s:{r:0,c:0},e:{r:1,c:0}},
+   {s:{r:0,c:1},e:{r:0,c:4}},
+   {s:{r:0,c:5},e:{r:0,c:7}},
+   {s:{r:0,c:8},e:{r:1,c:8}},
+   {s:{r:0,c:9},e:{r:0,c:11}}
+  ];
+  ws['!cols']=[{wch:21},{wch:12},{wch:12},{wch:12},{wch:12},{wch:10},{wch:10},{wch:10},{wch:17},{wch:12},{wch:12},{wch:12}];
+  ws['!freeze']={xSplit:0,ySplit:2};
+  ws['!autofilter']={ref:'A2:L'+Math.max(2,data.length)};
+  ws['!rows']=[{hpt:21},{hpt:20},...groups.map(()=>({hpt:18}))];
+  const border={top:{style:'thin',color:{rgb:'D7E2EF'}},bottom:{style:'thin',color:{rgb:'D7E2EF'}},left:{style:'thin',color:{rgb:'D7E2EF'}},right:{style:'thin',color:{rgb:'D7E2EF'}}};
+  const groupHeader={fill:{fgColor:{rgb:'17365D'}},font:{name:'Aptos',bold:true,color:{rgb:'FFFFFF'},sz:9},alignment:{horizontal:'center',vertical:'center',wrapText:true},border};
+  const subHeader={fill:{fgColor:{rgb:'24476B'}},font:{name:'Aptos',bold:true,color:{rgb:'FFFFFF'},sz:9},alignment:{horizontal:'center',vertical:'center',wrapText:true},border};
   for(let r=0;r<data.length;r++){
-    for(let col=0;col<10;col++){
-      const addr=XLSX.utils.encode_cell({r,c:col}),cell=ws[addr];
-      if(!cell)continue;
-      cell.s={border,alignment:{vertical:'center',horizontal:col===0?'left':'center',wrapText:col===0},font:{name:'Aptos',sz:10,color:{rgb:'24364B'}},fill:{fgColor:{rgb:r%2===0?'F4F8FC':'FFFFFF'}}};
-      if(r===0){cell.s={...cell.s,...headerStyles[col],border};}
-      else if(col===6){cell.s={...cell.s,fill:{fgColor:{rgb:r%2===0?'FFF2CC':'FFF8E6'}},font:{name:'Aptos',bold:true,color:{rgb:'8A5A00'},sz:10},numFmt:'#,##0.##'};}
-      else if(col>=7){cell.s={...cell.s,fill:{fgColor:{rgb:r%2===0?'DDF4EF':'ECF9F6'}},font:{name:'Aptos',color:{rgb:'075E54'},sz:10},numFmt:'#,##0.##'};}
-      else if(col>=1&&col<=4){cell.s={...cell.s,numFmt:'#,##0.##'};}
-      else if(col===5){cell.s={...cell.s,numFmt:'0.0%'};}
-    }
+   for(let col=0;col<12;col++){
+    const addr=XLSX.utils.encode_cell({r,c:col}),cell=ws[addr];
+    if(!cell)continue;
+    cell.s={border,alignment:{vertical:'center',horizontal:col===0?'left':'center',wrapText:col===0},font:{name:'Aptos',sz:9,color:{rgb:'24364B'}},fill:{fgColor:{rgb:r%2===0?'F4F8FC':'FFFFFF'}}};
+    if(r===0)cell.s={...cell.s,...groupHeader};
+    else if(r===1)cell.s={...cell.s,...subHeader};
+    else if(col===8){cell.s={...cell.s,fill:{fgColor:{rgb:r%2===0?'FFF2CC':'FFF8E6'}},font:{name:'Aptos',bold:true,color:{rgb:'8A5A00'},sz:9},numFmt:'#,##0.##'};}
+    else if(col>=9){cell.s={...cell.s,fill:{fgColor:{rgb:r%2===0?'DDF4EF':'ECF9F6'}},font:{name:'Aptos',color:{rgb:'075E54'},sz:9},numFmt:'#,##0.##'};}
+    else if(col>=1&&col<=4){cell.s={...cell.s,numFmt:'#,##0.##'};}
+    else if(col>=5&&col<=7){cell.s={...cell.s,numFmt:'0.0%'};}
+   }
   }
   ws['!sheetViews']=[{showGridLines:false}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Sales Head Indent');
   const month=document.getElementById('month')?.value||'November 2026';
   XLSX.writeFile(wb,'MBQ_Sales_Head_Indent_'+month.replace(/[^A-Za-z0-9]+/g,'_')+'.xlsx',{compression:true});
-  showToast(groups.length?'10-column Sales Head Excel downloaded. Fill Total Indent or CFA allocations; blank cells are allowed.':'Excel template downloaded. SKU list is not loaded yet; load the workbook/source first for the SKU list.');
+  showToast(groups.length?'12-column compact Sales Head Excel downloaded.':'Excel template downloaded. SKU list is not loaded yet; load the workbook/source first for the SKU list.');
  }catch(e){console.error('Sales Head template download failed:',e);showToast('Excel download failed: '+(e.message||'Please refresh and retry'));}
 }
 let pendingUpload=[];
