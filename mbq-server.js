@@ -7,6 +7,7 @@ const XLSX = require("xlsx");
 const ExcelJS = require("exceljs");
 const { Pool } = require("pg");
 const { getAccessControlPool } = require("./employee-access-control/postgres-db");
+const { authenticateCredentials, resolveSession, revokeSession, extractSessionToken, sessionCookie, clearSessionCookie, SUPER_ADMIN_ID } = require("./employee-access-control/session-auth");
 // Use explicit libpq-compatible secure SSL semantics for both isolated MBQ databases.
 function mbqVerifiedDatabaseUrl(value) {
   const parsed = new URL(value);
@@ -208,6 +209,91 @@ const prototypeFile = path.join(
   "MBQ_Smart_Indent_Control_Tower_Updated_Prototype7.html"
 );
 
+
+
+const mbqLoginAttempts = new Map();
+const MBQ_ALLOWED_TABS = ["overview","indent","suggest","stock","open-to","advanced","allocation","planner","loading","flash","reports","settings"];
+function mbqPublicUser(user) {
+  const employeeId = String(user.employeeId || user.employee_id || "");
+  const role = String(user.role || "").toUpperCase();
+  return {
+    employeeId,
+    maskedEmployeeId: employeeId.length > 5 ? employeeId.slice(0, 2) + "*****" + employeeId.slice(-2) : "*****",
+    employeeName: user.employeeName || user.employee_name || "",
+    designation: user.designation || "",
+    role,
+    allowedTabs: role === "SUPER_ADMIN" && employeeId.toUpperCase() === SUPER_ADMIN_ID ? MBQ_ALLOWED_TABS : [],
+    canUploadExcel: role === "SUPER_ADMIN" && employeeId.toUpperCase() === SUPER_ADMIN_ID
+  };
+}
+app.post("/api/mbq/auth/login", express.json({ limit: "10kb" }), async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const ip = String(req.ip || req.socket.remoteAddress || "unknown").slice(0, 100);
+  const now = Date.now();
+  let attempt = mbqLoginAttempts.get(ip);
+  if (!attempt || now - attempt.start >= 10 * 60 * 1000) { attempt = { start: now, count: 0 }; mbqLoginAttempts.set(ip, attempt); }
+  if (attempt.count >= 10) return res.status(429).json({ success: false, error: "Too many login attempts. Try again in 10 minutes." });
+  attempt.count++;
+  const pool = getAccessControlPool();
+  if (!pool) return res.status(503).json({ success: false, error: "Employee database is not configured." });
+  try {
+    const result = await authenticateCredentials(pool, req.body && req.body.employee_id, req.body && req.body.password);
+    if (!result) return res.status(401).json({ success: false, error: "Employee ID or password is incorrect, or the account is inactive." });
+    mbqLoginAttempts.delete(ip);
+    res.setHeader("Set-Cookie", sessionCookie(result.token));
+    return res.json({ success: true, user: mbqPublicUser(result.user) });
+  } catch (error) {
+    console.error("MBQ employee login failed:", error.message);
+    return res.status(503).json({ success: false, error: "Unable to complete login securely." });
+  }
+});
+app.get("/api/mbq/auth/me", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const pool = getAccessControlPool();
+  if (!pool) return res.status(503).json({ authenticated: false, error: "Employee database is not configured." });
+  try {
+    const user = await resolveSession(pool, extractSessionToken(req.headers.cookie));
+    if (!user) return res.status(401).json({ authenticated: false });
+    const publicUser = mbqPublicUser(user);
+    if (!publicUser.allowedTabs.length) return res.status(403).json({ authenticated: true, accessPending: true, user: publicUser });
+    return res.json({ authenticated: true, user: publicUser });
+  } catch (error) {
+    console.error("MBQ employee session check failed:", error.message);
+    return res.status(503).json({ authenticated: false, error: "Unable to verify employee session." });
+  }
+});
+app.post("/api/mbq/auth/logout", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Set-Cookie", clearSessionCookie());
+  const pool = getAccessControlPool();
+  if (!pool) return res.json({ success: true });
+  try {
+    await revokeSession(pool, extractSessionToken(req.headers.cookie));
+    return res.json({ success: true });
+  } catch (_) {
+    return res.status(503).json({ success: false, error: "Browser session cleared; server-side revocation could not be confirmed." });
+  }
+});
+// Until Super Admin assigns individual MBQ tabs, only the protected Super Admin
+// can use dashboard APIs. Main-dashboard region/area/anchor scopes are not applied.
+app.use("/api/mbq", async (req, res, next) => {
+  if (req.path === "/status" || req.path.startsWith("/auth/")) return next();
+  res.setHeader("Cache-Control", "no-store");
+  const pool = getAccessControlPool();
+  if (!pool) return res.status(503).json({ success: false, error: "Employee database is not configured." });
+  try {
+    const user = await resolveSession(pool, extractSessionToken(req.headers.cookie));
+    if (!user) return res.status(401).json({ success: false, error: "Employee login required." });
+    const employeeId = String(user.employeeId || "").toUpperCase();
+    if (String(user.role).toUpperCase() !== "SUPER_ADMIN" || employeeId !== SUPER_ADMIN_ID) {
+      return res.status(403).json({ success: false, error: "MBQ tab access has not been assigned by Super Admin yet." });
+    }
+    req.mbqUser = user;
+    return next();
+  } catch (_) {
+    return res.status(503).json({ success: false, error: "Unable to verify MBQ employee session." });
+  }
+});
 
 app.get("/api/mbq/gsv", async (req, res) => {
   try {
