@@ -343,7 +343,7 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 <div class="card peak-card">
  <div class="peak-head"><h3>2 · Planning Summary</h3><span class="peak-note" id="peakSummarySub">Calculate to load source-based values</span></div>
  <div class="peak-kpis">
-  <div class="card kpi peak-kpi"><div class="label">Expected Billing</div><div class="value" id="peakExpectedBilling">No Data Available</div><div class="sub">Date-matched GSV daily average · prior 3 completed months</div></div>
+  <div class="card kpi peak-kpi"><div class="label">Expected Billing</div><div class="value" id="peakExpectedBilling">No Data Available</div><div class="sub">Same calendar dates · prior 2 completed months</div></div>
   <div class="card kpi peak-kpi"><div class="label">Loading Required</div><div class="value" id="peakLoadingRequired">No Data Available</div><div class="sub">Demand less usable SOH & confirmed Open TO</div></div>
   <div class="card kpi peak-kpi"><div class="label">Usable CFA SOH</div><div class="value" id="peakUsableSoh">No Data Available</div><div class="sub">Remaining shelf life ≥60%</div></div>
   <div class="card kpi peak-kpi"><div class="label">Confirmed Open TO</div><div class="value" id="peakOpenTo">No Data Available</div><div class="sub">Uploaded, unreceived TO only</div></div>
@@ -351,12 +351,16 @@ body:not(.mbq-authenticated)>.app{display:none!important}
  <div class="peak-note" id="peakTargetComparison">₹ target and CBB demand remain separate; no assumed conversion.</div>
 </div>
 <div class="card table-card">
- <div class="card-head"><div><h3>3 · SKU Group Loading</h3><small id="peakGroupSub">Selected CFA · Group-wise totals</small></div><button class="btn" id="peakViewAll" onclick="togglePeakViewAll()">View All</button></div>
+ <div class="card-head"><div><h3>3 · Day-wise Billing Plan</h3><small id="peakDailySub">Historical GSV average basis · same calendar dates in prior 2 completed months</small></div></div>
+ <div class="table-wrap"><table class="peak-table"><thead><tr><th>Date</th><th>Expected Billing (₹)</th><th>Historical Samples</th><th>Status</th></tr></thead><tbody id="peakDailyRows"><tr><td colspan="4" class="empty">Select date and calculate the plan.</td></tr></tbody></table></div>
+</div>
+<div class="card table-card">
+ <div class="card-head"><div><h3>4 · SKU Group Loading</h3><small id="peakGroupSub">Selected CFA · Group-wise totals</small></div><button class="btn" id="peakViewAll" onclick="togglePeakViewAll()">View All</button></div>
  <div class="table-wrap"><table class="peak-table"><thead><tr><th>SKU Group</th><th>Demand (CBB)</th><th>Usable SOH</th><th>Open TO</th><th>Loading Required (CBB)</th></tr></thead><tbody id="peakGroupRows"><tr><td colspan="5" class="empty">Select date and calculate the plan.</td></tr></tbody></table></div>
  <div class="small-note">Group totals sum mapped item codes. Verify item mix before dispatch.</div>
 </div>
 <div class="card peak-card" style="margin-top:11px">
- <div class="peak-head"><h3>4 · Excel Export</h3><span class="peak-note">Calculated source data</span></div>
+ <div class="peak-head"><h3>5 · Excel Export</h3><span class="peak-note">Calculated source data</span></div>
  <div class="peak-fields"><div><b style="font-size:11px">Selected CFA</b><div class="peak-note">Current CFA details</div><button class="btn primary" style="margin-top:6px" onclick="exportPeakExcel('selected')">Export Selected CFA Excel</button></div><div><b style="font-size:11px">All CFA</b><div class="peak-note">Consolidated workbook · Separate sheets</div><button class="btn" style="margin-top:6px" onclick="exportPeakExcel('all')">Export All CFA Excel</button></div></div>
 </div>
 <details class="card peak-more" id="peakAdditionalDetails"><summary>Additional Details <span style="float:right;color:var(--muted);font-size:11px;font-weight:500">Open when needed ＋</span></summary>
@@ -1795,7 +1799,7 @@ let peakPlanResult=null,peakViewAll=false;
 function peakFmt(v){return Number(v).toLocaleString('en-IN',{maximumFractionDigits:0});}
 function peakCfas(c){return c==='ALL'?['TVD','PAY','ALU']:[c];}
 function peakISO(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-function peakHistory(){const m=mbqLastCompletedMonths(3),a=m[0],z=m[m.length-1],from=new Date(a.year,a.month-1,1),to=new Date(z.year,z.month,0);return {from:peakISO(from),to:peakISO(to),days:Math.round((to-from)/86400000)+1};}
+function peakHistory(){const m=mbqLastCompletedMonths(2),a=m[0],z=m[m.length-1],from=new Date(a.year,a.month-1,1),to=new Date(z.year,z.month,0);return {from:peakISO(from),to:peakISO(to),days:Math.round((to-from)/86400000)+1,months:m};}
 function updatePeakTargetLabels(){const m=Number(document.getElementById('monthlySales')?.value)||0,a=Number(document.getElementById('midTarget')?.value)||0,b=Number(document.getElementById('endTarget')?.value)||0;document.getElementById('peakMonthlyTarget').textContent='₹'+m.toFixed(1)+' Cr';document.getElementById('peakMidTarget').textContent='₹'+a.toFixed(1)+' Cr';document.getElementById('peakEndTarget').textContent='₹'+b.toFixed(1)+' Cr';const l=document.getElementById('lead')?.value;if(l)document.getElementById('peakLead').value=l;}
 function peakGroupData(group,cfa,hist,days,date){
  const codes=[...new Set(rows.filter(r=>mbqSkuGroupKey(r.sku)===mbqSkuGroupKey(group)&&r.code).map(r=>mbqGsvNormCode(r.code)).filter(Boolean))];if(!codes.length)return {demand:null,soh:null,to:null,codes};
@@ -1806,36 +1810,34 @@ function peakGroupData(group,cfa,hist,days,date){
  if(records.length){records.filter(t=>!t.fullyReceived&&(!t.monthKey||String(t.monthKey).slice(0,7)===month)&&set.has(mbqGsvNormCode(t.code))&&cfas.includes(normalCfa(t.cfa))).forEach(t=>open+=toNum(t.qty));}
  return {demand,soh:stockOk?stock:null,to:records.length?open:null,codes,historyQty:qty};
 }
+function peakDailyBilling(cfa,date,days,hist){
+ const cf=peakCfas(cfa),gsv=mbqGsvRows.filter(x=>x.date>=hist.from&&x.date<=hist.to&&cf.includes(normalCfa(x.cfa))&&x.amountAvailable&&Number.isFinite(Number(x.amount))),start=new Date(date+'T00:00:00'),out=[];
+ for(let offset=0;offset<days;offset++){
+  const d=new Date(start);d.setDate(d.getDate()+offset);const day=d.getDate(),monthValues=[];
+  hist.months.forEach(m=>{const lastDay=new Date(m.year,m.month,0).getDate();if(day>lastDay)return;const key=peakISO(new Date(m.year,m.month-1,day)),rs=gsv.filter(x=>x.date===key);if(rs.length)monthValues.push(rs.reduce((n,x)=>n+(Number(x.amount)||0),0));});
+  out.push({date:peakISO(d),amount:monthValues.length?monthValues.reduce((a,b)=>a+b,0)/monthValues.length:null,samples:monthValues.length});
+ }
+ return out;
+}
 function calculatePeak(){
  const date=document.getElementById('peakFromDate')?.value||'',cfa=document.getElementById('peakCfa')?.value||'ALL',win=document.getElementById('peakWindow')?.value||'mid',p=document.getElementById('peakDays')?.value||'7',days=p==='custom'?Number(document.getElementById('peakCustomDays')?.value):Number(p);
  if(!date){showToast('ആദ്യം From Date select ചെയ്യുക.');return;}if(!Number.isInteger(days)||days<1||days>60){showToast('Planning Days 1–60 ഇടയിൽ നൽകുക.');return;}if(!mbqGsvRows.length){showToast('GSV source data ലഭ്യമല്ല.');return;}
  const hist=peakHistory(),groups=[...new Map(rows.filter(r=>r.sku).map(r=>[mbqSkuGroupKey(r.sku),String(r.sku).trim()])).values()];
  peakPlanResult={date,cfa,win,days,hist,rows:groups.map(group=>{const v=peakGroupData(group,cfa,hist,days,date);return {group,...v,loading:v.demand!==null&&v.soh!==null&&v.to!==null?Math.max(0,v.demand-v.soh-v.to):null};})};
  const cf=peakCfas(cfa),gsv=mbqGsvRows.filter(x=>x.date>=hist.from&&x.date<=hist.to&&cf.includes(normalCfa(x.cfa))&&x.amountAvailable&&Number.isFinite(Number(x.amount)));
- const startDate=new Date(date+'T00:00:00'),dailyForecast=[];
- for(let offset=0;offset<days;offset++){
-  const targetDay=new Date(startDate);targetDay.setDate(targetDay.getDate()+offset);const day=targetDay.getDate(),monthTotals=[];
-  const cursor=new Date(hist.from+'T00:00:00'),last=new Date(hist.to+'T00:00:00');
-  for(let month=new Date(cursor.getFullYear(),cursor.getMonth(),1);month<=last;month=new Date(month.getFullYear(),month.getMonth()+1,1)){
-   const lastDay=new Date(month.getFullYear(),month.getMonth()+1,0).getDate();if(day>lastDay)continue;
-   const key=peakISO(new Date(month.getFullYear(),month.getMonth(),day));
-   const rowsForDay=gsv.filter(x=>x.date===key);
-   if(rowsForDay.length)monthTotals.push(rowsForDay.reduce((n,x)=>n+(Number(x.amount)||0),0));
-  }
-  dailyForecast.push({date:peakISO(targetDay),amount:monthTotals.length?monthTotals.reduce((a,b)=>a+b,0)/monthTotals.length:null,samples:monthTotals.length});
- }
- const bill=dailyForecast.every(x=>x.amount!==null)?dailyForecast.reduce((n,x)=>n+x.amount,0):null;
+ const dailyForecast=peakDailyBilling(cfa,date,days,hist),bill=dailyForecast.every(x=>x.amount!==null)?dailyForecast.reduce((n,x)=>n+x.amount,0):null;
  const sum=peakPlanResult.rows.reduce((a,x)=>{if(x.loading!==null){a.load+=x.loading;a.lok=true;}if(x.soh!==null){a.soh+=x.soh;a.sok=true;}if(x.to!==null){a.to+=x.to;a.tok=true;}return a;},{load:0,soh:0,to:0,lok:false,sok:false,tok:false});
  const money=v=>v===null?'No Data Available':'₹'+(v/1e7).toFixed(2)+' Cr';
  document.getElementById('peakExpectedBilling').textContent=money(bill);document.getElementById('peakLoadingRequired').textContent=sum.lok?peakFmt(sum.load)+' CBB':'No Data Available';document.getElementById('peakUsableSoh').textContent=sum.sok?peakFmt(sum.soh)+' CBB':'No Data Available';document.getElementById('peakOpenTo').textContent=sum.tok?peakFmt(sum.to)+' CBB':'No Data Available';
  const target=Number(document.getElementById(win==='mid'?'midTarget':'endTarget')?.value)||0;
  document.getElementById('peakWindowLabel').textContent='Selected · '+(win==='mid'?'Mid-month':'Month-end');document.getElementById('peakSummarySub').textContent=cfa+' · '+days+' days · History '+hist.from+' to '+hist.to;document.getElementById('peakGroupSub').textContent=cfa+' CFA · '+date+' · '+days+' days · Group-wise totals';document.getElementById('peakTargetComparison').textContent='Peak target ₹'+target.toFixed(2)+' Cr · Expected billing '+money(bill)+' · ₹ target and CBB demand are kept separate.';
- renderPeakGroupRows();
+ renderPeakDailyRows(dailyForecast);renderPeakGroupRows();
  const totalQty=peakPlanResult.rows.every(x=>x.historyQty!==undefined)?peakPlanResult.rows.reduce((n,x)=>n+(x.historyQty||0),0):null;
  const historicalValue=gsv.reduce((n,x)=>n+(Number(x.amount)||0),0),dailyText=dailyForecast.map(x=>x.date+' · '+(x.amount===null?'No Data Available':'₹'+(x.amount/1e5).toFixed(2)+' lakh')).join(' | ');\n document.getElementById('peakHistoricalAnalysis').innerHTML='<p><b>GSV history:</b> '+hist.from+' to '+hist.to+' ('+hist.days+' days)</p><p><b>Historical billed value:</b> '+(gsv.length?'₹'+(historicalValue/1e7).toFixed(2)+' Cr':'No Data Available')+'</p><p><b>Historical quantity:</b> '+(totalQty===null?'No Data Available':peakFmt(totalQty)+' CBB')+'</p><p><b>Daily billing reference:</b> '+dailyText+'</p><p><b>Forecast billing:</b> '+money(bill)+' total for '+days+' days, using the average of matching calendar dates in the completed history months.</p>';
  document.getElementById('peakCalculationDetails').innerHTML='<p>Demand = historical GSV group quantity ÷ '+hist.days+' days × '+days+' planning days.</p><p>Loading = max(0, Demand − usable CFA SOH − confirmed Open TO). Shelf life eligibility ≥60%.</p><p>Expected Billing uses historical GSV AmountToCustomer separately. No ₹-to-CBB conversion assumed.</p><p>Plant lead time: '+document.getElementById('peakLead').value+' days. Verify dispatch cut-off before release.</p>';
  document.getElementById('peakConnectionStatus').textContent=(mbqGsvRows.length?'GSV Connected':'GSV Unavailable')+' · '+(liveSohRows.length?'SOH Connected':'SOH Unavailable');showToast('Peak plan calculated from connected source data.');
 }
+function renderPeakDailyRows(data){const host=document.getElementById('peakDailyRows');if(!host)return;host.innerHTML=data.map(x=>'<tr><td>'+x.date+'</td><td>'+(x.amount===null?'No Data Available':'₹'+Math.round(x.amount).toLocaleString('en-IN'))+'</td><td>'+x.samples+'/2</td><td>'+(x.amount===null?'History unavailable':'Calculated')+'</td></tr>').join('')||'<tr><td colspan="4" class="empty">No Data Available</td></tr>';const sub=document.getElementById('peakDailySub');if(sub&&peakPlanResult)sub.textContent=peakPlanResult.cfa+' · '+peakPlanResult.hist.from+' to '+peakPlanResult.hist.to+' · Same calendar dates in prior 2 completed months';}
 function renderPeakGroupRows(){const host=document.getElementById('peakGroupRows');if(!host||!peakPlanResult)return;const data=peakPlanResult.rows,shown=peakViewAll?data:data.slice(0,8);host.innerHTML=shown.map(x=>'<tr><td class="sku">'+mbqEscape(x.group)+'</td><td>'+(x.demand===null?'No Data Available':peakFmt(x.demand))+'</td><td>'+(x.soh===null?'No Data Available':peakFmt(x.soh))+'</td><td>'+(x.to===null?'No Data Available':peakFmt(x.to))+'</td><td><b>'+(x.loading===null?'No Data Available':peakFmt(x.loading))+'</b></td></tr>').join('')||'<tr><td colspan="5" class="empty">No SKU Group mapping available.</td></tr>';const b=document.getElementById('peakViewAll');if(b)b.textContent=peakViewAll?'Show Less':'View All';}
 function togglePeakViewAll(){peakViewAll=!peakViewAll;renderPeakGroupRows();}
 function exportPeakExcel(mode){
@@ -1845,7 +1847,7 @@ function exportPeakExcel(mode){
  const meta=[['Peak Billing Planner'],['Peak Window',p.win],['From Date',p.date],['Planning Days',p.days],['Historical GSV',p.hist.from+' to '+p.hist.to],['CFA',p.cfa],['Monthly Target ₹ Cr',document.getElementById('monthlySales').value],['Mid-month Target ₹ Cr',document.getElementById('midTarget').value],['Month-end Target ₹ Cr',document.getElementById('endTarget').value]];
  add('Summary',meta);
  cfas.forEach(c=>{const rs=p.rows.map(x=>({group:x.group,...peakGroupData(x.group,c,p.hist,p.days,p.date)}));add(c,[['SKU Group','Demand CBB','Usable SOH CBB','Confirmed Open TO CBB','Loading Required CBB'],...rs.map(x=>[x.group,x.demand??'No Data Available',x.soh??'No Data Available',x.to??'No Data Available',x.demand!==null&&x.soh!==null&&x.to!==null?Math.max(0,x.demand-x.soh-x.to):'No Data Available'])]);});
- if(mode==='all'){const daily=[['Date','CFA','Expected Demand CBB']];for(let i=0;i<p.days;i++){const d=new Date(p.date+'T00:00:00');d.setDate(d.getDate()+i);daily.push([peakISO(d),p.cfa,p.rows.every(x=>x.demand!==null)?p.rows.reduce((n,x)=>n+x.demand,0)/p.days:'No Data Available']);}add('Day-wise Billing',daily);add('Loading Summary',[['CFA','Total Loading Required CBB'],...cfas.map(c=>{const rs=p.rows.map(x=>peakGroupData(x.group,c,p.hist,p.days,p.date));return [c,rs.every(x=>x.demand!==null&&x.soh!==null&&x.to!==null)?rs.reduce((n,x)=>n+Math.max(0,x.demand-x.soh-x.to),0):'No Data Available'];})]);}
+ if(mode==='all'){const daily=[['Date','CFA','Expected Billing ₹','Historical Month Samples']];cfas.forEach(c=>peakDailyBilling(c,p.date,p.days,p.hist).forEach(x=>daily.push([x.date,c,x.amount===null?'No Data Available':x.amount,x.samples])));add('Day-wise Billing',daily);add('Loading Summary',[['CFA','Total Loading Required CBB'],...cfas.map(c=>{const rs=p.rows.map(x=>peakGroupData(x.group,c,p.hist,p.days,p.date));return [c,rs.every(x=>x.demand!==null&&x.soh!==null&&x.to!==null)?rs.reduce((n,x)=>n+Math.max(0,x.demand-x.soh-x.to),0):'No Data Available'];})]);}
  XLSX.writeFile(wb,'Peak_Billing_Planner_'+mode.toUpperCase()+'.xlsx',{compression:true});showToast('Peak Planner Excel export ready.');
 }
 document.getElementById('peakDays')?.addEventListener('change',()=>{document.getElementById('peakCustomDaysWrap').style.display=document.getElementById('peakDays').value==='custom'?'block':'none';});
