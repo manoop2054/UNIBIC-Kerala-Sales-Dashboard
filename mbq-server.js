@@ -670,7 +670,8 @@ app.get("/api/mbq/peak-manual-indent", async (req, res) => {
   if (!masterPool) return res.status(503).json({ success: false, error: "Shared MBQ storage is not configured" });
   try {
     const result = await masterPool.query("SELECT payload FROM public.mbq_shared_uploads WHERE category='peak-manual-indent'");
-    const data = result.rowCount && result.rows[0].payload && typeof result.rows[0].payload === "object" ? result.rows[0].payload : {};
+    const payload = result.rowCount && result.rows[0].payload && typeof result.rows[0].payload === "object" ? result.rows[0].payload : {};
+    const data = Array.isArray(payload.submissions) ? payload : { legacyEntries: payload, submissions: [] };
     res.json({ success: true, data });
   } catch (error) { res.status(500).json({ success: false, error: "Could not load Peak Planner manual indents", detail: error.message }); }
 });
@@ -683,11 +684,56 @@ app.put("/api/mbq/peak-manual-indent", express.json({ limit: "10mb" }), async (r
     for (const [key, value] of Object.entries(data)) {
       if (key.length > 500 || !Number.isFinite(Number(value)) || Number(value) < 0) return res.status(400).json({ success: false, error: "Invalid manual indent entry" });
     }
-    const json = JSON.stringify(data);
-    if (Buffer.byteLength(json, "utf8") > 10 * 1024 * 1024) return res.status(413).json({ success: false, error: "Peak Planner manual indents exceed the 10 MB limit" });
-    await masterPool.query("INSERT INTO public.mbq_shared_uploads(category,file_name,payload,source_file_size,uploaded_at) VALUES('peak-manual-indent','Peak Planner Manual Indents',$1::jsonb,$2,NOW()) ON CONFLICT(category) DO UPDATE SET payload=EXCLUDED.payload,source_file_size=EXCLUDED.source_file_size,uploaded_at=NOW()", [json, Buffer.byteLength(json, "utf8")]);
+    const current = await masterPool.query("SELECT payload FROM public.mbq_shared_uploads WHERE category='peak-manual-indent'");
+    const prior = current.rowCount && current.rows[0].payload && typeof current.rows[0].payload === "object" ? current.rows[0].payload : {};
+    const legacyEntries = Array.isArray(prior.submissions) ? (prior.legacyEntries || {}) : prior;
+    const submissions = Array.isArray(prior.submissions) ? prior.submissions : [];
+    const payload = JSON.stringify({ legacyEntries: { ...legacyEntries, ...data }, submissions });
+    if (Buffer.byteLength(payload, "utf8") > 10 * 1024 * 1024) return res.status(413).json({ success: false, error: "Peak Planner manual indents exceed the 10 MB limit" });
+    await masterPool.query("INSERT INTO public.mbq_shared_uploads(category,file_name,payload,source_file_size,uploaded_at) VALUES('peak-manual-indent','Peak Planner Manual Indents',$1::jsonb,$2,NOW()) ON CONFLICT(category) DO UPDATE SET payload=EXCLUDED.payload,source_file_size=EXCLUDED.source_file_size,uploaded_at=NOW()", [payload, Buffer.byteLength(payload, "utf8")]);
     res.json({ success: true, count: Object.keys(data).length, savedAt: new Date().toISOString() });
-  } catch (error) { res.status(500).json({ success: false, error: "Could not save Peak Planner manual indents", detail: error.message }); }
+  } catch (error) { res.status(500).json({ success: false, error: "Could not save legacy Peak Planner manual indents", detail: error.message }); }
+});
+app.post("/api/mbq/peak-manual-indent", express.json({ limit: "10mb" }), async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  if (!masterPool) return res.status(503).json({ success: false, error: "Shared MBQ storage is not configured" });
+  const b = req.body && req.body.submission;
+  if (!b || typeof b !== "object" || Array.isArray(b)) return res.status(400).json({ success: false, error: "submission object is required" });
+  const month = String(b.month || ""), cfa = String(b.cfa || "").toUpperCase();
+  const fromDate = String(b.fromDate || ""), toDate = String(b.toDate || ""), submissionDate = String(b.submissionDate || "");
+  if (!/^\d{4}-\d{2}$/.test(month) || !["TVD", "PAY", "ALU"].includes(cfa) ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(fromDate) || !/^\d{4}-\d{2}-\d{2}$/.test(toDate) ||
+      fromDate.slice(0, 7) !== month || toDate.slice(0, 7) !== month || toDate < fromDate ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(submissionDate)) {
+    return res.status(400).json({ success: false, error: "Valid month, CFA, submission date and same-month indent period are required" });
+  }
+  if (!Array.isArray(b.rows) || !b.rows.length || b.rows.length > 2000) return res.status(400).json({ success: false, error: "At least one SKU Group row is required" });
+  const seen = new Set(), rows = [];
+  for (const row of b.rows) {
+    const group = String(row && row.group || "").trim(), qty = Number(row && row.qty);
+    if (!group || group.length > 200 || !Number.isFinite(qty) || qty <= 0 || seen.has(group)) return res.status(400).json({ success: false, error: "Invalid or duplicate SKU Group quantity" });
+    seen.add(group);
+    rows.push({ group, qty });
+  }
+  const submission = {
+    id: Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10),
+    month, cfa, fromDate, toDate, submissionDate, rows, submittedAt: new Date().toISOString()
+  };
+  try {
+    const json = JSON.stringify(submission);
+    const result = await masterPool.query(
+      "INSERT INTO public.mbq_shared_uploads(category,file_name,payload,source_file_size,uploaded_at) VALUES('peak-manual-indent','Peak Planner Manual Indent',jsonb_build_object('legacyEntries','{}'::jsonb,'submissions',jsonb_build_array($1::jsonb)),$2,NOW()) " +
+      "ON CONFLICT(category) DO UPDATE SET payload=CASE " +
+      "WHEN jsonb_typeof(public.mbq_shared_uploads.payload->'submissions')='array' THEN jsonb_set(public.mbq_shared_uploads.payload,'{submissions}',public.mbq_shared_uploads.payload->'submissions' || jsonb_build_array($1::jsonb),true) " +
+      "ELSE jsonb_build_object('legacyEntries',public.mbq_shared_uploads.payload,'submissions',jsonb_build_array($1::jsonb)) END, " +
+      "source_file_size=public.mbq_shared_uploads.source_file_size+EXCLUDED.source_file_size,uploaded_at=NOW() RETURNING payload",
+      [json, Buffer.byteLength(json, "utf8")]
+    );
+    res.status(201).json({ success: true, submission, data: result.rows[0].payload });
+  } catch (error) {
+    console.error("Peak Planner manual-indent submission failed:", error.message);
+    res.status(500).json({ success: false, error: "Could not save Peak Planner manual-indent submission" });
+  }
 });
 
 app.get("/api/mbq/status", (req, res) => res.json({ service: "MBQ Smart Indent Dashboard", liveSohEndpoint: "/api/mbq/soh" }));
