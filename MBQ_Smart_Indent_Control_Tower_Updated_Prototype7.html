@@ -352,7 +352,7 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 </div>
 <div class="card table-card">
  <div class="card-head"><div><h3>4 · SKU Group Loading</h3><small id="peakGroupSub">Selected CFA · Group-wise totals</small></div><button class="btn" id="peakViewAll" onclick="togglePeakViewAll()">View All</button></div>
- <div class="table-wrap"><table class="peak-table"><thead><tr><th>SKU Group</th><th>Expected Demand (CBB)</th><th>Usable SOH</th><th>Open TO</th><th>Loading Required (CBB)</th></tr></thead><tbody id="peakGroupRows"><tr><td colspan="5" class="empty">Select date and calculate the plan.</td></tr></tbody></table></div>
+ <div class="table-wrap"><table class="peak-table"><thead><tr><th>SKU Group</th><th>Expected Demand (CBB)</th><th>Usable SOH</th><th>Open TO</th><th>Loading Required (CBB)</th><th>Manual Indent (CBB)</th><th>Monthly Allocated (CBB)</th></tr></thead><tbody id="peakGroupRows"><tr><td colspan="7" class="empty">Select date and calculate the plan.</td></tr></tbody></table></div>
  <div class="small-note">Group totals sum mapped item codes. Verify item mix before dispatch.</div>
 </div>
 <div class="card peak-card" style="margin-top:11px">
@@ -1797,18 +1797,25 @@ function peakCfas(c){return c==='ALL'?['TVD','PAY','ALU']:[c];}
 function peakISO(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function peakHistory(){const m=mbqLastCompletedMonths(2),a=m[0],z=m[m.length-1],from=new Date(a.year,a.month-1,1),to=new Date(z.year,z.month,0);return {from:peakISO(from),to:peakISO(to),days:Math.round((to-from)/86400000)+1,months:m};}
 function updatePeakTargetLabels(){const m=Number(document.getElementById('monthlySales')?.value)||0,a=Number(document.getElementById('midTarget')?.value)||0,b=Number(document.getElementById('endTarget')?.value)||0;document.getElementById('peakMonthlyTarget').textContent='₹'+m.toFixed(1)+' Cr';document.getElementById('peakMidTarget').textContent='₹'+a.toFixed(1)+' Cr';document.getElementById('peakEndTarget').textContent='₹'+b.toFixed(1)+' Cr';const l=document.getElementById('lead')?.value;if(l)document.getElementById('peakLead').value=l;}
-const peakGsvDayCoverage={};
-function peakHasGsvDay(date,cfas){const key=date+'|'+cfas.join(',');if(!(key in peakGsvDayCoverage))peakGsvDayCoverage[key]=mbqGsvRows.some(x=>x.date===date&&cfas.includes(normalCfa(x.cfa)));return peakGsvDayCoverage[key];}
+function peakDateCovered(date){const coverage=mbqGsvMeta?.dateCoverage||{};return !!coverage.from&&!!coverage.to&&date>=coverage.from&&date<=coverage.to;}
+function peakDailyQty(date,cfas,codes){if(!peakDateCovered(date))return null;const codeSet=codes?new Set(codes):null;return mbqGsvRows.filter(x=>x.date===date&&cfas.includes(normalCfa(x.cfa))&&(!codeSet||codeSet.has(mbqGsvNormCode(x.itemId)))).reduce((sum,x)=>sum+(Number(x.quantity)||0),0);}
+let peakManualEntries={};
+let peakManualLoaded=false;
+function peakManualKey(month,cfa,group,from,to){return [month,cfa,mbqSkuGroupKey(group),from,to].join('|');}
+function peakMonthlyAllocated(group,cfa){if(!Array.isArray(allocationData)||!allocationData.length)return null;const allowed=peakCfas(cfa),key=mbqSkuGroupKey(group),matched=allocationData.filter(x=>mbqSkuGroupKey(x.sku)===key&&allowed.includes(normalCfa(x.cfaKey||x.cfa)));if(!matched.length)return 0;return matched.reduce((sum,x)=>sum+(Number(x.allocation??x.indentCbb)||0),0);}
+function peakManualMonthUsed(month,cfa,group,excludeKey=''){const allowed=peakCfas(cfa),key=mbqSkuGroupKey(group);return Object.entries(peakManualEntries||{}).reduce((sum,[k,v])=>{const p=k.split('|');return k!==excludeKey&&p[0]===month&&allowed.includes(p[1])&&p[2]===key?sum+(Number(v)||0):sum;},0);}
+async function loadPeakManualEntries(){try{const r=await fetch('/api/mbq/peak-manual-indent',{cache:'no-store'});const j=await r.json();if(r.ok&&j.success&&j.data&&typeof j.data==='object'){peakManualEntries=j.data;peakManualLoaded=true;}}catch(e){console.warn('Peak manual indent load unavailable',e);}}
+async function savePeakManualIndent(group,input){const p=peakPlanResult;if(!p)return;const month=p.date.slice(0,7);if(p.toDate.slice(0,7)!==month){showToast('Manual Indent: ഒരേ calendar month-നുള്ള date range മാത്രം അനുവദിക്കും.');renderPeakGroupRows();return;}if(!peakManualLoaded){showToast('Shared Manual Indent data load ആയിട്ടില്ല. Refresh ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.');renderPeakGroupRows();return;}const cf=p.cfa,key=peakManualKey(month,cf,group,p.date,p.toDate),value=String(input.value??'').trim()===''?0:Number(input.value);if(!Number.isFinite(value)||value<0){showToast('Valid non-negative CBB quantity നൽകുക.');renderPeakGroupRows();return;}const cap=peakMonthlyAllocated(group,cf);if(cap===null){showToast('ഈ SKU Group-ന്റെ monthly CFA allocation ലഭ്യമല്ല. ആദ്യം CFA Allocation complete ചെയ്യുക.');renderPeakGroupRows();return;}const used=peakManualMonthUsed(month,cf,group,key),remaining=Math.max(0,cap-used);if(value>remaining&&!window.confirm(group+' manual indent '+peakFmt(value)+' CBB ആണ്. Remaining monthly allocated quantity '+peakFmt(remaining)+' CBB മാത്രം. Monthly allocation കടക്കുന്നു. എന്നിട്ടും save ചെയ്യണോ?')){renderPeakGroupRows();return;}const old=peakManualEntries[key];if(value===0)delete peakManualEntries[key];else peakManualEntries[key]=value;try{const r=await fetch('/api/mbq/peak-manual-indent',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:peakManualEntries})});const j=await r.json().catch(()=>({}));if(!r.ok||!j.success)throw new Error(j.error||'Server save failed');showToast('Manual Indent shared storage-ൽ save ചെയ്തു.');}catch(e){if(old===undefined)delete peakManualEntries[key];else peakManualEntries[key]=old;showToast('Manual Indent server save ആയില്ല: '+e.message);}renderPeakGroupRows();}
+
 function peakGroupData(group,cfa,hist,days,date){
  const codes=[...new Set(rows.filter(r=>mbqSkuGroupKey(r.sku)===mbqSkuGroupKey(group)&&r.code).map(r=>mbqGsvNormCode(r.code)).filter(Boolean))];
  if(!codes.length)return {demand:null,soh:null,to:null,codes};
  const cfas=peakCfas(cfa),set=new Set(codes),gsv=mbqGsvRows.filter(x=>x.date>=hist.from&&x.date<=hist.to&&set.has(mbqGsvNormCode(x.itemId))&&cfas.includes(normalCfa(x.cfa)));
- const qty=gsv.length?gsv.reduce((n,x)=>n+(Number(x.quantity)||0),0):null,qtyByDate={};
- gsv.forEach(x=>qtyByDate[x.date]=(qtyByDate[x.date]||0)+(Number(x.quantity)||0));
+ const qty=gsv.length?gsv.reduce((n,x)=>n+(Number(x.quantity)||0),0):null;
  const start=new Date(date+'T00:00:00');let demand=0,demandOk=true;
  for(let offset=0;offset<days;offset++){
   const target=new Date(start);target.setDate(target.getDate()+offset);const day=target.getDate(),monthValues=[];
-  hist.months.forEach(m=>{if(day>new Date(m.year,m.month,0).getDate())return;const key=peakISO(new Date(m.year,m.month-1,day));if(peakHasGsvDay(key,cfas))monthValues.push(qtyByDate[key]||0);});
+  hist.months.forEach(m=>{if(day>new Date(m.year,m.month,0).getDate())return;const key=peakISO(new Date(m.year,m.month-1,day)),v=peakDailyQty(key,cfas,codes);if(v!==null)monthValues.push(v);});
   if(monthValues.length!==hist.months.length){demandOk=false;break;}
   demand+=monthValues.reduce((a,b)=>a+b,0)/hist.months.length;
  }
@@ -1820,10 +1827,10 @@ function peakGroupData(group,cfa,hist,days,date){
 }
 function updatePeakToDate(){const from=document.getElementById('peakFromDate')?.value||'',to=document.getElementById('peakToDate')?.value||'';const days=from&&to&&to>=from?Math.round((new Date(to+'T00:00:00')-new Date(from+'T00:00:00'))/86400000)+1:0;const note=document.getElementById('peakRangeDays');if(note)note.textContent=days?days+' planning days':'Select a valid date range';}
 function peakDailyBilling(cfa,date,days,hist){
- const cf=peakCfas(cfa),gsv=mbqGsvRows.filter(x=>x.date>=hist.from&&x.date<=hist.to&&cf.includes(normalCfa(x.cfa))),start=new Date(date+'T00:00:00'),out=[];
+ const cf=peakCfas(cfa),start=new Date(date+'T00:00:00'),out=[];
  for(let offset=0;offset<days;offset++){
   const d=new Date(start);d.setDate(d.getDate()+offset);const day=d.getDate(),monthValues=[];
-  hist.months.forEach(m=>{if(day>new Date(m.year,m.month,0).getDate())return;const key=peakISO(new Date(m.year,m.month-1,day));if(peakHasGsvDay(key,cf))monthValues.push(gsv.filter(x=>x.date===key).reduce((n,x)=>n+(Number(x.quantity)||0),0));});
+  hist.months.forEach(m=>{if(day>new Date(m.year,m.month,0).getDate())return;const key=peakISO(new Date(m.year,m.month-1,day)),v=peakDailyQty(key,cf);if(v!==null)monthValues.push(v);});
   out.push({date:peakISO(d),amount:monthValues.length===hist.months.length?monthValues.reduce((a,b)=>a+b,0)/hist.months.length:null,samples:monthValues.length});
  }
  return out;
@@ -1834,7 +1841,7 @@ function calculatePeak(){
  const days=Math.round((new Date(toDate+'T00:00:00')-new Date(date+'T00:00:00'))/86400000)+1;
  if(!Number.isInteger(days)||days<1||days>60){showToast('Date range 1–60 days ആയിരിക്കണം.');return;}
  if(!mbqGsvRows.length){showToast('GSV source data ലഭ്യമല്ല.');return;}
- const hist=peakHistory(),groups=[...new Set(rows.filter(r=>r.sku&&r.code).map(r=>String(r.sku).trim()))];
+ if(!Array.isArray(allocationData)||!allocationData.length){try{buildAllocationData();}catch(e){console.warn('Peak monthly allocation source unavailable',e);}}const hist=peakHistory(),groups=[...new Set(rows.filter(r=>r.sku&&r.code).map(r=>String(r.sku).trim()))];
  peakPlanResult={date,toDate,cfa,days,hist,rows:groups.map(group=>{const v=peakGroupData(group,cfa,hist,days,date);return {group,...v,loading:v.demand!==null&&v.soh!==null&&v.to!==null?Math.max(0,v.demand-v.soh-v.to):null};})};
  const dailyForecast=peakDailyBilling(cfa,date,days,hist),bill=dailyForecast.every(x=>x.amount!==null)?dailyForecast.reduce((n,x)=>n+x.amount,0):null;
  const allDemand=peakPlanResult.rows.every(x=>x.demand!==null)?peakPlanResult.rows.reduce((n,x)=>n+x.demand,0):null;
@@ -1857,7 +1864,7 @@ function calculatePeak(){
  showToast('Peak plan calculated from GSV, SOH and Open TO data.');
 }
 function renderPeakDailyRows(data){const host=document.getElementById('peakDailyRows');if(!host)return;host.innerHTML=data.map(x=>'<tr><td>'+x.date+'</td><td>'+(x.amount===null?'No Data Available':peakFmt(x.amount)+' CBB')+'</td><td>'+x.samples+'/2</td><td>'+(x.amount===null?'History unavailable':'Calculated')+'</td></tr>').join('')||'<tr><td colspan="4" class="empty">No Data Available</td></tr>';const sub=document.getElementById('peakDailySub');if(sub&&peakPlanResult)sub.textContent=peakPlanResult.cfa+' · '+peakPlanResult.date+' to '+peakPlanResult.toDate+' · Same dates in previous 2 completed months';}
-function renderPeakGroupRows(){const host=document.getElementById('peakGroupRows');if(!host||!peakPlanResult)return;const data=peakPlanResult.rows,shown=peakViewAll?data:data.slice(0,8);host.innerHTML=shown.map(x=>'<tr><td class="sku">'+mbqEscape(x.group)+'</td><td>'+(x.demand===null?'No Data Available':peakFmt(x.demand))+'</td><td>'+(x.soh===null?'No Data Available':peakFmt(x.soh))+'</td><td>'+(x.to===null?'No Data Available':peakFmt(x.to))+'</td><td><b>'+(x.loading===null?'No Data Available':peakFmt(x.loading))+'</b></td></tr>').join('')||'<tr><td colspan="5" class="empty">No SKU Group mapping available.</td></tr>';const b=document.getElementById('peakViewAll');if(b)b.textContent=peakViewAll?'Show Less':'View All';}
+function renderPeakGroupRows(){const host=document.getElementById('peakGroupRows');if(!host||!peakPlanResult)return;const p=peakPlanResult,month=p.date.slice(0,7),singleMonth=p.toDate.slice(0,7)===month,data=p.rows,shown=peakViewAll?data:data.slice(0,8);host.innerHTML=shown.map(x=>{const cap=peakMonthlyAllocated(x.group,p.cfa),key=peakManualKey(month,p.cfa,x.group,p.date,p.toDate),manual=Number(peakManualEntries[key]||0),used=peakManualMonthUsed(month,p.cfa,x.group,key),remaining=cap===null?null:Math.max(0,cap-used);return '<tr><td class="sku">'+mbqEscape(x.group)+'</td><td>'+(x.demand===null?'No Data Available':peakFmt(x.demand))+'</td><td>'+(x.soh===null?'No Data Available':peakFmt(x.soh))+'</td><td>'+(x.to===null?'No Data Available':peakFmt(x.to))+'</td><td><b>'+(x.loading===null?'No Data Available':peakFmt(x.loading))+'</b></td><td><input type="number" min="0" step="1" value="'+(manual||'')+'" placeholder="Enter CBB" '+(!singleMonth||!peakManualLoaded||cap===null?'disabled':'')+' onchange="savePeakManualIndent(\''+mbqEscape(x.group).replace(/'/g,"\\'")+'\',this)" style="width:115px;padding:7px;border:1px solid #cbd5e1;border-radius:7px;font-weight:700" title="'+(remaining===null?'Monthly allocation unavailable':'Remaining monthly allocation: '+peakFmt(remaining)+' CBB')+'"></td><td>'+(cap===null?'No allocation':peakFmt(cap))+'</td></tr>';}).join('')||'<tr><td colspan="7" class="empty">No SKU Group mapping available.</td></tr>';const b=document.getElementById('peakViewAll');if(b)b.textContent=peakViewAll?'Show Less':'View All';}
 function togglePeakViewAll(){peakViewAll=!peakViewAll;renderPeakGroupRows();}
 function exportPeakExcel(mode){
  if(!peakPlanResult){showToast('ആദ്യം Calculate Peak Plan ചെയ്യുക.');return;}if(!window.XLSX){showToast('Excel library loading. Refresh ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.');return;}
@@ -1865,12 +1872,12 @@ function exportPeakExcel(mode){
  const add=(name,data)=>{const ws=XLSX.utils.aoa_to_sheet(data);ws['!cols']=Array.from({length:Math.max(1,...data.map(r=>r.length))},(_,i)=>({wch:Math.min(34,Math.max(12,...data.map(r=>String(r[i]??'').length+2)))}));XLSX.utils.book_append_sheet(wb,ws,name.slice(0,31));};
  const meta=[['Peak Billing Planner'],['Date Range',p.date+' to '+p.toDate],['From Date',p.date],['To Date',p.toDate],['Planning Days',p.days],['Historical GSV',p.hist.from+' to '+p.hist.to],['CFA',p.cfa],['Monthly Target ₹ Cr',document.getElementById('monthlySales').value],['Mid-month Target ₹ Cr',document.getElementById('midTarget').value],['Month-end Target ₹ Cr',document.getElementById('endTarget').value]];
  add('Summary',meta);
- cfas.forEach(c=>{const rs=p.rows.map(x=>({group:x.group,...peakGroupData(x.group,c,p.hist,p.days,p.date)}));add(c,[['SKU Group','Demand CBB','Usable SOH CBB','Confirmed Open TO CBB','Loading Required CBB'],...rs.map(x=>[x.group,x.demand??'No Data Available',x.soh??'No Data Available',x.to??'No Data Available',x.demand!==null&&x.soh!==null&&x.to!==null?Math.max(0,x.demand-x.soh-x.to):'No Data Available'])]);});
+ cfas.forEach(c=>{const rs=p.rows.map(x=>({group:x.group,...peakGroupData(x.group,c,p.hist,p.days,p.date)}));add(c,[['SKU Group','Demand CBB','Usable SOH CBB','Confirmed Open TO CBB','Loading Required CBB','Manual Indent CBB','Monthly Allocated CBB'],...rs.map(x=>{const key=peakManualKey(p.date.slice(0,7),c,x.group,p.date,p.toDate),cap=peakMonthlyAllocated(x.group,c);return [x.group,x.demand??'No Data Available',x.soh??'No Data Available',x.to??'No Data Available',x.demand!==null&&x.soh!==null&&x.to!==null?Math.max(0,x.demand-x.soh-x.to):'No Data Available',Number(peakManualEntries[key]||0),cap===null?'No allocation':cap];})]);});
  const daily=[['Date','CFA','Expected Billing CBB','Historical Month Samples']];cfas.forEach(c=>peakDailyBilling(c,p.date,p.days,p.hist).forEach(x=>daily.push([x.date,c,x.amount===null?'No Data Available':x.amount,x.samples])));add('Day-wise Billing',daily);if(mode==='all')add('Loading Summary',[['CFA','Total Loading Required CBB'],...cfas.map(c=>{const rs=p.rows.map(x=>peakGroupData(x.group,c,p.hist,p.days,p.date));return [c,rs.every(x=>x.demand!==null&&x.soh!==null&&x.to!==null)?rs.reduce((n,x)=>n+Math.max(0,x.demand-x.soh-x.to),0):'No Data Available'];})]);
  XLSX.writeFile(wb,'Peak_Billing_Planner_'+mode.toUpperCase()+'.xlsx',{compression:true});showToast('Peak Planner Excel export ready.');
 }
 document.getElementById('peakFromDate')?.addEventListener('change',updatePeakToDate);document.getElementById('peakToDate')?.addEventListener('change',updatePeakToDate);
-updatePeakTargetLabels();updatePeakToDate();
+updatePeakTargetLabels();updatePeakToDate();loadPeakManualEntries().then(()=>{if(peakPlanResult)renderPeakGroupRows();});
 function exportTable(id,name){let table=document.getElementById(id);if(!table)return;let rows=[...table.closest('table').querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(td=>'"'+td.innerText.replaceAll('"','""')+'"').join(',')).join('\n');let blob=new Blob([rows],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);showToast('Exported CSV.')}
 function showToast(msg){let t=document.getElementById('toast');t.textContent=msg;t.style.display='block';clearTimeout(window._toastTimer);window._toastTimer=setTimeout(()=>t.style.display='none',2600)}
 function exportActivePageExcel(button){
