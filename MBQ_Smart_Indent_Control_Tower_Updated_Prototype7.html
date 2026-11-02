@@ -591,9 +591,7 @@ function mbqShelfLabel(value){const n=Number(value);return Number.isFinite(n)?n.
 function mbqMinShelfForCode(code,cfa){return mbqLiveStockMap().get(normalCfa(cfa)+'|'+mbqCodeKey(code))?.shelf??null}
 function mbqMinShelfForCodeAll(code){const m=mbqLiveStockMap(),v=['ALU','PAY','TVD'].map(c=>m.get(c+'|'+mbqCodeKey(code))?.shelf).filter(x=>x!==null&&x!==undefined);return v.length?Math.min(...v):null}
 function mbqBatchViewButton(code,cfa='all'){const p=encodeURIComponent(JSON.stringify([String(code||'')])),cs=encodeURIComponent(JSON.stringify(cfa==='all'?['ALU','PAY','TVD']:[normalCfa(cfa)])),t=encodeURIComponent(String(code||'Item'));return '<button type="button" class="mbq-view-btn" onclick="mbqShowBatchDetailsForCodes(JSON.parse(decodeURIComponent(\''+p+'\')),JSON.parse(decodeURIComponent(\''+cs+'\')),decodeURIComponent(\''+t+'\'))">View</button>'}
-function mbqBatchViewButtonForCodes(codes,cfas,title){const p=encodeURIComponent(JSON.stringify(codes||[])),cs=encodeURIComponent(JSON.stringify(cfas||['ALU','PAY','TVD'])),t=encodeURIComponent(String(title||'Batch details'));return '<button type="button" class="mbq-view-btn" onclick="mbqShowBatchDetailsForCodes(JSON.parse(decodeURIComponent(\''+p+'\')),JSON.parse(decodeURIComponent(\''+cs+'\')),decodeURIComponent(\''+t+'\'))">View</button>'}
-function mbqShowBatchDetailsForCodes(codes,cfas,title){const codeSet=new Set((codes||[]).map(mbqCodeKey).filter(Boolean)),cfaSet=new Set((cfas||[]).map(normalCfa)),items=[],batchKeys=['BATCH','BATCH NO','BATCH NUMBER','BATCHNO','BATCHNUM','LOT','LOT NO','LOT NUMBER','BATCH CODE'];liveSohRows.forEach(raw=>{const code=mbqCodeKey(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No'])),cfa=normalCfa(keyValue(raw,['WAREHOUSE','Warehouse','CFA','LocationCode','Location Code','Location_Code','Location Name','Location','Branch','Site','Store']));if(!codeSet.has(code)||!cfaSet.has(cfa))return;const qtyRaw=keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity','Available Quantity','Inventory','Stock Quantity']),qty=Number(String(qtyRaw??'').replace(/,/g,'')),shelfRaw=keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%']),shelf=Number(String(shelfRaw??'').replace('%','').replace(/,/g,'')),batch=keyValue(raw,batchKeys);items.push({cfa,code,batch:String(batch??'').trim()||'Batch not identified',qty:Number.isFinite(qty)?qty:null,shelf:shelfRaw!==''&&Number.isFinite(shelf)?shelf:null})});items.sort((a,b)=>a.cfa.localeCompare(b.cfa)||(a.shelf??Infinity)-(b.shelf??Infinity)||a.code.localeCompare(b.code));const total=items.reduce((sum,x)=>sum+(Number(x.qty)||0),0),shelves=items.map(x=>x.shelf).filter(x=>x!==null),minimum=shelves.length?Math.min(...shelves):null,modal=document.getElementById('mbqBatchModal'),heading=document.getElementById('mbqBatchTitle'),content=document.getElementById('mbqBatchContent');if(!modal||!content)return;heading.textContent=String(title||'Item')+' — Batch-wise SOH';content.innerHTML='<div class="batch-summary"><span>Total CBB: <b>'+total.toLocaleString('en-IN')+'</b></span><span>Minimum Shelf Life: <b>'+(minimum===null?'No data available':mbqShelfLabel(minimum))+'</b></span><span>Batch rows: <b>'+items.length+'</b></span></div><div class="table-wrap"><table><thead><tr><th>CFA</th><th>Item Code</th><th>Batch</th><th>CBB</th><th>Shelf Life %</th></tr></thead><tbody>'+(items.length?items.map(x=>'<tr><td>'+mbqEscape(x.cfa)+'</td><td>'+mbqEscape(x.code)+'</td><td>'+mbqEscape(x.batch)+'</td><td>'+(x.qty===null?'No data':x.qty.toLocaleString('en-IN'))+'</td><td>'+(x.shelf===null?'No data':x.shelf.toLocaleString('en-IN',{maximumFractionDigits:2})+'%')+'</td></tr>').join(''):'<tr><td colspan="5" class="empty">No matching batch-level SOH rows found.</td></tr>')+'</tbody></table></div>';modal.style.display='flex'}
-function mbqCloseBatchDetails(){const modal=document.getElementById('mbqBatchModal');if(modal)modal.style.display='none'}
+function mbqBatchViewButtonForCodes(codes,cfas,title,minShelf=null){const p=encodeURIComponent(JSON.stringify(codes||[])),cs=encodeURIComponent(JSON.stringify(cfas||['ALU','PAY','TVD'])),t=encodeURIComponent(String(title||'Batch details'));return '<button type="button" class="mbq-view-btn" onclick="mbqShowBatchDetailsForCodes(JSON.parse(decodeURIComponent(\\''+p+'\\')),JSON.parse(decodeURIComponent(\\''+cs+'\\')),decodeURIComponent(\\''+t+'\\'),'+(minShelf===null?'null':Number(minShelf))+')">View</button>'}function mbqShowBatchDetailsForCodes(codes,cfas,title,minShelf=null){const codeSet=new Set((codes||[]).map(mbqCodeKey).filter(Boolean)),cfaSet=new Set((cfas||[]).map(normalCfa)),items=[],batchKeys=['BATCH','BATCH NO','BATCH NUMBER','BATCHNO','BATCHNUM','LOT','LOT NO','LOT NUMBER','BATCH CODE'];liveSohRows.forEach(raw=>{const code=mbqCodeKey(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No'])),cfa=normalCfa(keyValue(raw,['WAREHOUSE','Warehouse','CFA','LocationCode','Location Code','Location_Code','Location Name','Location','Branch','Site','Store']));if(!codeSet.has(code)||!cfaSet.has(cfa))return;const qtyRaw=keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity','Available Quantity','Inventory','Stock Quantity']),qty=Number(String(qtyRaw??'').replace(/,/g,'')),shelfRaw=keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%']),shelf=Number(String(shelfRaw??'').replace('%','').replace(/,/g,''));if(minShelf!==null&&(!Number.isFinite(shelf)||shelf<Number(minShelf)))return;const batch=keyValue(raw,batchKeys);items.push({cfa,code,batch:String(batch??'').trim()||'Batch not identified',qty:Number.isFinite(qty)?qty:null,shelf:shelfRaw!==''&&Number.isFinite(shelf)?shelf:null})});items.sort((a,b)=>a.cfa.localeCompare(b.cfa)||(a.shelf??Infinity)-(b.shelf??Infinity)||a.code.localeCompare(b.code));const total=items.reduce((sum,x)=>sum+(Number(x.qty)||0),0),shelves=items.map(x=>x.shelf).filter(x=>x!==null),minimum=shelves.length?Math.min(...shelves):null,modal=document.getElementById('mbqBatchModal'),heading=document.getElementById('mbqBatchTitle'),content=document.getElementById('mbqBatchContent');if(!modal||!content)return;heading.textContent=String(title||'Item')+' — Batch-wise SOH';content.innerHTML='<div class="batch-summary"><span>Total CBB: <b>'+total.toLocaleString('en-IN')+'</b></span><span>Minimum Shelf Life: <b>'+(minimum===null?'No data available':mbqShelfLabel(minimum))+'</b></span><span>Batch rows: <b>'+items.length+'</b></span></div><div class="table-wrap"><table><thead><tr><th>CFA</th><th>Item Code</th><th>Batch</th><th>CBB</th><th>Shelf Life %</th></tr></thead><tbody>'+(items.length?items.map(x=>'<tr><td>'+mbqEscape(x.cfa)+'</td><td>'+mbqEscape(x.code)+'</td><td>'+mbqEscape(x.batch)+'</td><td>'+(x.qty===null?'No data':x.qty.toLocaleString('en-IN'))+'</td><td>'+(x.shelf===null?'No data':x.shelf.toLocaleString('en-IN',{maximumFractionDigits:2})+'%')+'</td></tr>').join(''):'<tr><td colspan="5" class="empty">No matching batch-level SOH rows found.</td></tr>')+'</tbody></table></div>';modal.style.display='flex'}function mbqCloseBatchDetails(){const modal=document.getElementById('mbqBatchModal');if(modal)modal.style.display='none'}
 function mbqLiveStockMap(){
  const map=new Map();liveSohRows.forEach(raw=>{
   const code=mbqCodeKey(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']));
@@ -632,59 +630,56 @@ function renderStock(){
   const type=String(keyValue(raw,['TYPE','Type'])||'').trim().toUpperCase();
   if(type&&type!=='SOH')return;
   const cfa=normalCfa(keyValue(raw,['WAREHOUSE','Warehouse','CFA','LocationCode','Location Code','Location_Code','Location Name','Location','Branch','Site','Store']));
-  const sku=String(keyValue(raw,['ItemAttribute.SKUGroup','SKUGroup','SKU Group'])||'').trim();
-  const g=groupKey(sku);
-  if(!g||!allowedCfas.includes(cfa))return;
-  const qtyRaw=keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity','Available Quantity','Inventory','Stock Quantity']);
-  const qty=Number(String(qtyRaw??0).replace(/,/g,''))||0;
+  const sku=String(keyValue(raw,['ItemAttribute.SKUGroup','SKUGroup','SKU Group'])||'').trim(),g=groupKey(sku);
+  const code=String(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No'])||'').trim();
+  if(!g||!code||!allowedCfas.includes(cfa))return;
   const shelfRaw=keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%']);
   const shelfNum=Number(String(shelfRaw??'').replace('%','').replace(/,/g,''));
-  const code=String(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No'])||'').trim();
-  const k=cfa+'|'+g,prev=stockMap.get(k)||{stock:0,shelf:null,description:'',codes:new Map()};
-  prev.stock+=qty;
-  if(shelfRaw!==''&&Number.isFinite(shelfNum))prev.shelf=prev.shelf===null?shelfNum:Math.min(prev.shelf,shelfNum);
-  if(code)prev.codes.set(cleanCode(code),code);
+  if(shelfRaw===''||!Number.isFinite(shelfNum)||shelfNum<60)return;
+  const qtyRaw=keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity','Available Quantity','Inventory','Stock Quantity']);
+  const qty=Number(String(qtyRaw??0).replace(/,/g,''))||0;
+  const k=cfa+'|'+g+'|'+cleanCode(code),prev=stockMap.get(k)||{stock:0,shelf:null,description:'',code};
+  prev.stock+=qty;prev.shelf=prev.shelf===null?shelfNum:Math.min(prev.shelf,shelfNum);
   if(!prev.description)prev.description=String(keyValue(raw,['DESCRIPTION','Description','Item Description','Product Name','Item Name'])||'').trim();
   stockMap.set(k,prev);
+  if(!itemCodesByGroup.has(g))itemCodesByGroup.set(g,new Map());
+  itemCodesByGroup.get(g).set(cleanCode(code),code);
  });
- const months=mbqLastCompletedMonths(3);
- const officialGroups=Array.isArray(window.mbqOfficialAssortmentGroupKeys)?window.mbqOfficialAssortmentGroupKeys:[];
- const data=[];
+ const months=mbqLastCompletedMonths(3),officialGroups=Array.isArray(window.mbqOfficialAssortmentGroupKeys)?window.mbqOfficialAssortmentGroupKeys:[],data=[];
  allowedCfas.forEach(cfa=>{
   if(cf!=='all'&&cf!==cfa)return;
   officialGroups.forEach(officialSku=>{
-   const g=groupKey(officialSku);
-   if(!g)return;
-   const sourceGroup=sourceRows.find(group=>groupKey(group[0])===g);
-   const sku=String(sourceGroup?.[0]||officialSku).trim();
-   const stockRec=stockMap.get(cfa+'|'+g)||null;
-   const codes=[...new Map([...(itemCodesByGroup.get(g)?.values()||[]),...(stockRec?[...stockRec.codes.values()]:[])].map(code=>[cleanCode(code),code])).values()];
-   const monthVals=months.map(m=>{
-    const monthKey=m.year+'-'+String(m.month).padStart(2,'0');
-    const vals=codes.map(code=>mbqGsvItemMonth(code,monthKey,cfa));
-    return vals.length&&vals.some(v=>v!==null)?vals.reduce((sum,v)=>sum+(Number(v)||0),0):null;
+   const g=groupKey(officialSku);if(!g)return;
+   const sourceGroup=sourceRows.find(group=>groupKey(group[0])===g),sku=String(sourceGroup?.[0]||officialSku).trim();
+   [...(itemCodesByGroup.get(g)?.values()||[])].forEach(code=>{
+    const stockRec=stockMap.get(cfa+'|'+g+'|'+cleanCode(code))||null;
+    if(!stockRec||stockRec.stock<=0)return;
+    const monthVals=months.map(m=>mbqGsvItemMonth(code,m.year+'-'+String(m.month).padStart(2,'0'),cfa));
+    const salesDay=mbqGsvRows.length&&monthVals.length===3&&monthVals.every(v=>v!==null)?monthVals.reduce((sum,v)=>sum+Number(v||0),0)/3/30:null;
+    let openPo=null,poFound=false,poTotal=0;
+    if(mbqPoRecords.length)for(const pr of mbqPoRecords){
+     const poCode=String(mbqPoVal(pr,['ITEM_ID','ITEMID','ITEM_CODE','FG_CODE','PRODUCT_CODE','MATERIAL_CODE'])||'').trim();
+     const poCfa=normalCfa(mbqPoVal(pr,['CFA','PUSHED_TEMPLATE_ID','COLUMN1','CFA NAME','WAREHOUSE']));
+     const poStatus=String(mbqPoVal(pr,['PO_OPEN_CLOSE'])||'').trim().toUpperCase();
+     if(!poCode||cleanCode(poCode)!==cleanCode(code)||poCfa!==cfa||poStatus!=='OPEN')continue;
+     const raw=mbqPoVal(pr,['PO_QTY']),n=Number(String(raw??'').replace(/,/g,'').trim());
+     if(raw!==''&&raw!==null&&raw!==undefined&&Number.isFinite(n)){poTotal+=n;poFound=true;}
+    }
+    if(poFound)openPo=poTotal;
+    const cover=salesDay!==null&&salesDay>0?stockRec.stock/salesDay:null,status=cover!==null&&cover<6?'Low cover':cover!==null?'Normal':'No data available';
+    data.push({cfa,sku,code,stock:stockRec.stock,codes:[code],salesDay,cover,status,desc:stockRec.description,shelf:stockRec.shelf,openPo});
    });
-   const salesDay=mbqGsvRows.length&&monthVals.length===3&&monthVals.every(v=>v!==null)?monthVals.reduce((sum,v)=>sum+Number(v||0),0)/3/30:null;
-   const stock=stockRec?stockRec.stock:null;
-   const cover=salesDay!==null&&salesDay>0&&stock!==null?stock/salesDay:null;
-   const shelf=stockRec?stockRec.shelf:null;
-   const openPo=mbqPoRecords.length?mbqExcelGroupPo(sku,cfa,'OPEN'):null;
-   const status=!stockRec?'No data available':shelf!==null&&shelf<30?'Review shelf-life':cover!==null&&cover<6?'Low cover':cover!==null?'Normal':'No data available';
-   const codeLabel=codes.length?codes.join(', '):'No mapped ItemId';
-   data.push({cfa,sku,code:codeLabel,codes,stock,salesDay,cover,status,desc:stockRec?.description||'',shelf,openPo});
   });
  });
  const filtered=data.filter(r=>(r.sku.toLowerCase().includes(q)||r.code.toLowerCase().includes(q)||r.desc.toLowerCase().includes(q))&&(st==='all'||r.status===st));
- const tbody=document.getElementById('stockRows');
- if(!tbody)return;
+ const tbody=document.getElementById('stockRows');if(!tbody)return;
  if(liveSohError){tbody.innerHTML='<tr><td colspan="8" class="empty">LIVE SOH load failed: '+liveSohError.replace(/[<>&"]/g,'')+'</td></tr>';mbqRefreshDashboardKpis();return}
  if(!liveSohRows.length){tbody.innerHTML='<tr><td colspan="8" class="empty">'+(liveSohError?'LIVE SOH unavailable: '+liveSohError.replace(/[<>&"]/g,''):'LIVE SOH workbook load cheyyunnu…')+'</td></tr>';mbqRefreshDashboardKpis();return}
  tbody.innerHTML=filtered.map(r=>{
-  const batchBtn=r.codes.length?mbqBatchViewButtonForCodes(r.codes,[r.cfa],r.sku):'';
-  return '<tr><td>'+r.cfa+' CFA</td><td class="sku">'+mbqEscape(r.sku)+'</td><td>'+mbqEscape(r.code)+'</td><td>'+(r.stock===null?'No data available':r.stock.toLocaleString('en-IN'))+' '+batchBtn+'</td><td>'+(r.salesDay!==null?r.salesDay.toLocaleString('en-IN',{maximumFractionDigits:2}):'No data available')+'</td><td>'+(r.openPo===null?'No data available':r.openPo.toLocaleString('en-IN'))+'</td><td>'+(r.cover!==null?r.cover.toFixed(1)+' days':'No data available')+'</td><td>'+riskPill(r.status==='Low cover'?'High':r.status==='Review shelf-life'?'Review':r.status)+'</td></tr>';
- }).join('')||'<tr><td colspan="8" class="empty">Selected CFA / filter-ൽ matching assortment items ഇല്ല.</td></tr>';
- const small=document.querySelector('#page-stock .card-head small');
- if(small)small.textContent='KERALA ASSORTMENT × LIVE STOCK REPORT · '+officialGroups.length.toLocaleString('en-IN')+' SKU Groups';
+  const batchBtn=mbqBatchViewButtonForCodes(r.codes,[r.cfa],r.code,60);
+  return '<tr><td>'+r.cfa+' CFA</td><td class="sku">'+mbqEscape(r.sku)+'</td><td>'+mbqEscape(r.code)+'</td><td>'+r.stock.toLocaleString('en-IN')+' '+batchBtn+'</td><td>'+(r.salesDay!==null?r.salesDay.toLocaleString('en-IN',{maximumFractionDigits:2}):'No data available')+'</td><td>'+(r.openPo===null?'No data available':r.openPo.toLocaleString('en-IN'))+'</td><td>'+(r.cover!==null?r.cover.toFixed(1)+' days':'No data available')+'</td><td>'+riskPill(r.status==='Low cover'?'High':r.status)+'</td></tr>';
+ }).join('')||'<tr><td colspan="8" class="empty">No item has 60%+ Remaining Shelf Life stock for the selected CFA / filter.</td></tr>';
+ const small=document.querySelector('#page-stock .card-head small');if(small)small.textContent='KERALA ASSORTMENT × LIVE STOCK REPORT · '+officialGroups.length.toLocaleString('en-IN')+' SKU Groups · 60%+ Shelf Life';
 }
 function changeIndentMode(){const mode=document.getElementById('indentMode').value;const group=mode==='group';document.getElementById('groupEntryPanel').style.display='block';document.getElementById('mrpFilterPanel').style.display=group?'none':'block';document.getElementById('groupQtyPanel').style.display='none';document.getElementById('groupNotePanel').style.display='none';document.getElementById('groupAddPanel').style.display='none';document.getElementById('itemSearchPanel').style.display=group?'none':'block';document.getElementById('entryCfa').parentElement.style.display=group?'none':'block';document.getElementById('shelfFilter').parentElement.style.display=group?'none':'block';document.getElementById('addCompleteIndentBtn').style.display=group?'none':'inline-block';document.getElementById('saveAllGroupBtn').style.display=group?'inline-block':'none';document.getElementById('indentWorkspaceTitle').textContent=group?'SKU Group-wise Monthly Indent':'Item-wise Indent Entry';document.getElementById('indentWorkspaceNote').textContent=group?'SKU Group filter തിരഞ്ഞെടുക്കുമ്പോൾ ആ group-നോട് ബന്ധിപ്പിച്ച Items, Item Code, Description ലഭ്യമായിടത്ത്, MRP എന്നിവ താഴെ കാണിക്കും. Billing columns ഒഴിവാക്കിയിരിക്കുന്നു. Source data ലഭ്യമായാൽ മാത്രമേ values കാണിക്കൂ.':'SKU Group തിരഞ്ഞെടുക്കുമ്പോൾ അതിലെ items, MRP സഹിതം കാണാം. Item-wise entry-യിൽ SKU Group നൽകിയാൽ MRP column മറയ്ക്കും.';renderIndentWorkspace()}
 function getIndentFilteredRows(){let cfa=document.getElementById('entryCfa')?.value||'all',sf=document.getElementById('shelfFilter')?.value||'all',group=document.getElementById('entrySkuGroup')?.value||'',mrp=document.getElementById('entryMrp')?.value||'all',q=(document.getElementById('itemIndentSearch')?.value||'').toLowerCase();const base=rows.filter(r=>(sf==='all'||(sf==='above60'?r.shelfLife>60:r.shelfLife<=60))&&(!group||r.sku===group)&&(mrp==='all'||String(r.mrp)===mrp)&&(r.sku.toLowerCase().includes(q)||r.code.toLowerCase().includes(q)));return base.flatMap(r=>(cfa==='all'?['ALU','PAY','TVD']:[cfa]).map(k=>({...r,cfa:k,cfaKey:k})))}
