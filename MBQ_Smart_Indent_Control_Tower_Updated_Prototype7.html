@@ -1649,6 +1649,7 @@ let mbqSalesRows = [];
 let mbqIndentRows = [];
 let mbqPoRecords = [];
 let mbqPoHeaders = [];
+let mbqPoUploadRevision = 0;
 let mbqWorkbookName = '';
 let mbqPoFileName = '';
 const MBQ_VIEW_DB = 'mbq-control-tower-local-v1';
@@ -2075,17 +2076,24 @@ async function clearMbqPoReport(){
  finally{if(btn){btn.disabled=false;btn.textContent="Remove uploaded report";}}
 }
 async function loadMbqPoReport(event){
-  const file=event.target.files&&event.target.files[0];if(!file)return;
+  const input=event.target,file=input.files&&input.files[0];if(!file)return;
+  const uploadRevision=++mbqPoUploadRevision;
+  input.disabled=true;
   try{
     let parsed;
     if(file.name.toLowerCase().endsWith('.csv')){const text=await file.text();const wb=XLSX.read(text,{type:'string'});parsed=mbqFindPoTable(wb);}
     else{const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});parsed=mbqFindPoTable(wb);}
+    if(uploadRevision!==mbqPoUploadRevision)return;
     if(!parsed)throw new Error('Required columns not detected. Expected PO Open/Close, PO Qty, Diff. Qty and PO/CFA identifiers.');
-    mbqPoRecords=parsed.rows;mbqPoHeaders=parsed.headers;mbqPoFileName=file.name;
-    await mbqCacheSet('mbqPoCache',{rows:mbqPoRecords,headers:mbqPoHeaders,name:file.name,loadedAt:new Date().toISOString()});
-    try{await mbqSaveSharedUpload('open-po-report',file.name,file.size,{rows:mbqPoRecords,headers:mbqPoHeaders});}catch(e){showToast('Shared Fill Rate Report save failed: '+e.message);}
+    const nextRows=parsed.rows,nextHeaders=parsed.headers,nextName=file.name;
+    mbqPoRecords=nextRows;mbqPoHeaders=nextHeaders;mbqPoFileName=nextName;
+    await mbqCacheSet('mbqPoCache',{rows:nextRows,headers:nextHeaders,name:nextName,loadedAt:new Date().toISOString()});
+    if(uploadRevision!==mbqPoUploadRevision)return;
+    try{await mbqSaveSharedUpload('open-po-report',nextName,file.size,{rows:nextRows,headers:nextHeaders});}catch(e){showToast('Shared Fill Rate Report save failed: '+e.message);}
+    if(uploadRevision!==mbqPoUploadRevision)return;
     renderMbqPoPreview();showToast('Fill Rate Report loaded.');
-  }catch(e){showToast('PO upload failed: '+(e.message||'Check the report format.'));}
+  }catch(e){if(uploadRevision===mbqPoUploadRevision)showToast('PO upload failed: '+(e.message||'Check the report format.'));}
+  finally{input.disabled=false;}
 }
 function mbqPoVal(row,names){for(const name of names){const key=mbqPoCanonicalHeader(name);if(Object.prototype.hasOwnProperty.call(row,key))return row[key];}return '';}
 function mbqFrNum(v){const n=Number(String(v??'').replace(/,/g,'').trim());return Number.isFinite(n)?n:0;}
@@ -2132,6 +2140,7 @@ function renderMbqPoPreview(){
 }
 async function restoreMbqLocalData(){
   const status=document.getElementById('mbqWorkbookStatus');let sharedLoaded=false;
+  const poRevisionAtRestoreStart=mbqPoUploadRevision;
   try{
     const response=await fetch('/api/mbq/master-workbook',{cache:'no-store'});const result=await response.json();
     if(!response.ok||!result.success)throw new Error(result.error||'Shared master unavailable');
@@ -2147,7 +2156,22 @@ async function restoreMbqLocalData(){
     const book=await mbqCacheGet('mbqExcelCache');
     if(book&&book.sheets){mbqExcelSheets=book.sheets;mbqSalesRows=book.salesRows||[];mbqIndentRows=book.indentRows||[];mbqWorkbookName=book.name||'';if(status){status.classList.add('ready');status.innerHTML='<span class="dot"></span><span>Local copy only: '+mbqEscape(mbqWorkbookName)+' · not shared across devices</span>';}renderMbqExcelView();}
   }
-  const po=await mbqCacheGet('mbqPoCache');if(po&&po.rows){mbqPoRecords=po.rows;mbqPoHeaders=po.headers||[];mbqPoFileName=po.name||'';renderMbqPoPreview();}try{const sharedPo=await mbqGetSharedUpload('open-po-report');if(sharedPo&&sharedPo.payload&&Array.isArray(sharedPo.payload.rows)){mbqPoRecords=sharedPo.payload.rows;mbqPoHeaders=sharedPo.payload.headers||[];mbqPoFileName=sharedPo.fileName||'';await mbqCacheSet('mbqPoCache',{rows:mbqPoRecords,headers:mbqPoHeaders,name:mbqPoFileName,loadedAt:sharedPo.uploadedAt,shared:true});renderMbqPoPreview();}else{mbqPoRecords=[];mbqPoHeaders=[];mbqPoFileName='';await mbqCacheSet('mbqPoCache',{rows:[],headers:[],name:'',clearedAt:new Date().toISOString(),shared:true});renderMbqPoPreview();}}catch(e){console.warn('Shared Fill Rate Report restore unavailable:',e.message);}
+  const po=await mbqCacheGet('mbqPoCache');
+  if(poRevisionAtRestoreStart===mbqPoUploadRevision&&po&&po.rows){mbqPoRecords=po.rows;mbqPoHeaders=po.headers||[];mbqPoFileName=po.name||'';renderMbqPoPreview();}
+  try{
+    const sharedPo=await mbqGetSharedUpload('open-po-report');
+    // A user upload always wins over an older in-flight startup restore.
+    if(poRevisionAtRestoreStart!==mbqPoUploadRevision)return;
+    if(sharedPo&&sharedPo.payload&&Array.isArray(sharedPo.payload.rows)){
+      mbqPoRecords=sharedPo.payload.rows;mbqPoHeaders=sharedPo.payload.headers||[];mbqPoFileName=sharedPo.fileName||'';
+      await mbqCacheSet('mbqPoCache',{rows:mbqPoRecords,headers:mbqPoHeaders,name:mbqPoFileName,loadedAt:sharedPo.uploadedAt,shared:true});
+      if(poRevisionAtRestoreStart===mbqPoUploadRevision)renderMbqPoPreview();
+    }else{
+      mbqPoRecords=[];mbqPoHeaders=[];mbqPoFileName='';
+      await mbqCacheSet('mbqPoCache',{rows:[],headers:[],name:'',clearedAt:new Date().toISOString(),shared:true});
+      if(poRevisionAtRestoreStart===mbqPoUploadRevision)renderMbqPoPreview();
+    }
+  }catch(e){console.warn('Shared Fill Rate Report restore unavailable:',e.message);}
 }
 
 
