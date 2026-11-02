@@ -347,8 +347,8 @@ body:not(.mbq-authenticated)>.app{display:none!important}
  <div class="peak-note" id="peakTargetComparison">₹ target and CBB demand remain separate; no assumed conversion.</div>
 </div>
 <div class="card table-card">
- <div class="card-head"><div><h3>3 · Day-wise Billing Plan</h3><small id="peakDailySub">Expected CBB from same dates in previous 2 completed months</small></div></div>
- <div class="table-wrap"><table class="peak-table"><thead><tr><th>Date</th><th>Expected Billing (CBB)</th><th>Historical Samples</th><th>Status</th></tr></thead><tbody id="peakDailyRows"><tr><td colspan="4" class="empty">Select date and calculate the plan.</td></tr></tbody></table></div>
+ <div class="card-head"><div><h3>3 · Day-wise Billing Plan</h3><small id="peakDailySub">SKU Group-wise expected CBB · Expand a SKU Group for date-wise details</small></div></div>
+ <div id="peakDailyRows" style="padding:0 14px 14px"><div class="empty">Select date and calculate the plan.</div></div>
 </div>
 <div class="card table-card">
  <div class="card-head"><div><h3>4 · SKU Group Loading</h3><small id="peakGroupSub">Selected CFA · Group-wise totals</small></div><button class="btn" id="peakViewAll" onclick="togglePeakViewAll()">View All</button></div>
@@ -1999,7 +1999,27 @@ function calculatePeak(){
  document.getElementById('peakConnectionStatus').textContent=(mbqGsvRows.length?'GSV Connected':'GSV Unavailable')+' · '+(liveSohRows.length?'SOH Connected':'SOH Unavailable');
  renderPeakManualReport();showToast('Peak plan calculated from GSV, SOH and Open TO data.');
 }
-function renderPeakDailyRows(data){const host=document.getElementById('peakDailyRows');if(!host)return;host.innerHTML=data.map(x=>'<tr><td>'+x.date+'</td><td>'+(x.amount===null?'No Data Available':peakFmt(x.amount)+' CBB')+'</td><td>'+x.samples+'/2</td><td>'+(x.amount===null?'History unavailable':'Calculated')+'</td></tr>').join('')||'<tr><td colspan="4" class="empty">No Data Available</td></tr>';const sub=document.getElementById('peakDailySub');if(sub&&peakPlanResult)sub.textContent=peakPlanResult.cfa+' · '+peakPlanResult.date+' to '+peakPlanResult.toDate+' · Same dates in previous 2 completed months';}
+function peakSkuGroupDailyBilling(group,cfa,date,days,hist,codes){
+ const cfas=peakCfas(cfa),start=new Date(date+'T00:00:00'),out=[];
+ for(let offset=0;offset<days;offset++){
+  const d=new Date(start);d.setDate(d.getDate()+offset);const day=d.getDate(),monthValues=[];
+  hist.months.forEach(m=>{if(day>new Date(m.year,m.month,0).getDate())return;const key=peakISO(new Date(m.year,m.month-1,day)),v=peakDailyQty(key,cfas,codes);if(v!==null)monthValues.push(v);});
+  out.push({date:peakISO(d),amount:monthValues.length===hist.months.length?monthValues.reduce((a,b)=>a+b,0)/hist.months.length:null,samples:monthValues.length});
+ }
+ return out;
+}
+function renderPeakDailyRows(data){
+ const host=document.getElementById('peakDailyRows');if(!host||!peakPlanResult)return;
+ const p=peakPlanResult,groups=p.rows||[];
+ const total=groups.every(x=>x.demand!==null)?groups.reduce((n,x)=>n+x.demand,0):null;
+ host.innerHTML=groups.map((x,i)=>{
+  const daily=peakSkuGroupDailyBilling(x.group,p.cfa,p.date,p.days,p.hist,x.codes||[]);
+  const rows=daily.map(d=>'<tr><td style="padding:7px 10px">'+mbqEscape(d.date)+'</td><td style="padding:7px 10px;text-align:right">'+(d.amount===null?'No Data Available':peakFmt(d.amount)+' CBB')+'</td><td style="padding:7px 10px;text-align:center">'+d.samples+'/2</td></tr>').join('');
+  return '<details style="border:1px solid var(--line);border-radius:9px;margin:8px 0;background:#fff"><summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 13px"><span style="font-weight:750;min-width:0;overflow-wrap:anywhere">'+mbqEscape(x.group)+'</span><span style="font-size:11px;color:var(--muted);white-space:nowrap">'+(x.demand===null?'No Data Available':peakFmt(x.demand)+' CBB')+'　⌄</span></summary><div style="padding:0 10px 10px;overflow-x:auto"><table class="peak-table" style="min-width:360px"><thead><tr><th>Date</th><th style="text-align:right">Expected Billing (CBB)</th><th style="text-align:center">Historical Samples</th></tr></thead><tbody>'+rows+'</tbody></table></div></details>';
+ }).join('')||'<div class="empty">No SKU Group mapping available.</div>';
+ if(groups.length)host.insertAdjacentHTML('beforeend','<div style="display:flex;justify-content:space-between;gap:12px;padding:10px 3px 2px;border-top:1px solid var(--line);font-weight:800"><span>Grand Total · All SKU Groups</span><span>'+(total===null?'No Data Available':peakFmt(total)+' CBB')+'</span></div>');
+ const sub=document.getElementById('peakDailySub');if(sub)sub.textContent=p.cfa+' · '+p.date+' to '+p.toDate+' · '+groups.length+' SKU Groups · Expand for date-wise billing';
+}
 function renderPeakGroupRows(){
  const host=document.getElementById('peakGroupRows');if(!host||!peakPlanResult)return;
  const p=peakPlanResult,month=p.date.slice(0,7),singleMonth=p.toDate.slice(0,7)===month,data=p.rows,shown=peakViewAll?data:data.slice(0,8);
