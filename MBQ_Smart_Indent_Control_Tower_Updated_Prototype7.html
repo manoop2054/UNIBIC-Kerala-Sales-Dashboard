@@ -1804,7 +1804,15 @@ function updatePeakTargetLabels(){const m=Number(document.getElementById('monthl
 function peakGroupData(group,cfa,hist,days,date){
  const codes=[...new Set(rows.filter(r=>mbqSkuGroupKey(r.sku)===mbqSkuGroupKey(group)&&r.code).map(r=>mbqGsvNormCode(r.code)).filter(Boolean))];if(!codes.length)return {demand:null,soh:null,to:null,codes};
  const cfas=peakCfas(cfa),set=new Set(codes),gsv=mbqGsvRows.filter(x=>x.date>=hist.from&&x.date<=hist.to&&set.has(mbqGsvNormCode(x.itemId))&&cfas.includes(normalCfa(x.cfa)));
- const qty=gsv.length?gsv.reduce((n,x)=>n+(Number(x.quantity)||0),0):null,demand=qty===null?null:qty/hist.days*days;
+ const qty=gsv.length?gsv.reduce((n,x)=>n+(Number(x.quantity)||0),0):null;
+ const start=new Date(date+'T00:00:00');let demand=0,demandOk=true;
+ for(let offset=0;offset<days;offset++){
+  const target=new Date(start);target.setDate(target.getDate()+offset);const day=target.getDate(),monthValues=[];
+  hist.months.forEach(m=>{if(day>new Date(m.year,m.month,0).getDate())return;const key=peakISO(new Date(m.year,m.month-1,day)),dayRows=mbqGsvRows.filter(x=>x.date===key&&cfas.includes(normalCfa(x.cfa)));if(!dayRows.length)return;const skuRows=dayRows.filter(x=>set.has(mbqGsvNormCode(x.itemId)));monthValues.push(skuRows.reduce((n,x)=>n+(Number(x.quantity)||0),0));});
+  if(!monthValues.length){demandOk=false;break;}
+  demand+=monthValues.reduce((a,b)=>a+b,0)/monthValues.length;
+ }
+ if(!demandOk)demand=null;
  let stock=0,stockOk=true;codes.forEach(k=>cfas.forEach(cf=>{const v=mbqPlannerUsableSoh(cf,k);if(v===null)stockOk=false;else stock+=v;}));
  const records=getToRecords(),month=date.slice(0,7);let open=0;
  if(records.length){records.filter(t=>!t.fullyReceived&&(!t.monthKey||String(t.monthKey).slice(0,7)===month)&&set.has(mbqGsvNormCode(t.code))&&cfas.includes(normalCfa(t.cfa))).forEach(t=>open+=toNum(t.qty));}
