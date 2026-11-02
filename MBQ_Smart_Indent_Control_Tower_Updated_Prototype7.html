@@ -1801,14 +1801,16 @@ function peakCfas(c){return c==='ALL'?['TVD','PAY','ALU']:[c];}
 function peakISO(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function peakHistory(){const m=mbqLastCompletedMonths(2),a=m[0],z=m[m.length-1],from=new Date(a.year,a.month-1,1),to=new Date(z.year,z.month,0);return {from:peakISO(from),to:peakISO(to),days:Math.round((to-from)/86400000)+1,months:m};}
 function updatePeakTargetLabels(){const m=Number(document.getElementById('monthlySales')?.value)||0,a=Number(document.getElementById('midTarget')?.value)||0,b=Number(document.getElementById('endTarget')?.value)||0;document.getElementById('peakMonthlyTarget').textContent='₹'+m.toFixed(1)+' Cr';document.getElementById('peakMidTarget').textContent='₹'+a.toFixed(1)+' Cr';document.getElementById('peakEndTarget').textContent='₹'+b.toFixed(1)+' Cr';const l=document.getElementById('lead')?.value;if(l)document.getElementById('peakLead').value=l;}
+const peakGsvDayCoverage={};
+function peakHasGsvDay(date,cfas){const key=date+'|'+cfas.join(',');if(!(key in peakGsvDayCoverage))peakGsvDayCoverage[key]=mbqGsvRows.some(x=>x.date===date&&cfas.includes(normalCfa(x.cfa)));return peakGsvDayCoverage[key];}
 function peakGroupData(group,cfa,hist,days,date){
  const codes=[...new Set(rows.filter(r=>mbqSkuGroupKey(r.sku)===mbqSkuGroupKey(group)&&r.code).map(r=>mbqGsvNormCode(r.code)).filter(Boolean))];if(!codes.length)return {demand:null,soh:null,to:null,codes};
  const cfas=peakCfas(cfa),set=new Set(codes),gsv=mbqGsvRows.filter(x=>x.date>=hist.from&&x.date<=hist.to&&set.has(mbqGsvNormCode(x.itemId))&&cfas.includes(normalCfa(x.cfa)));
- const qty=gsv.length?gsv.reduce((n,x)=>n+(Number(x.quantity)||0),0):null;
+ const qty=gsv.length?gsv.reduce((n,x)=>n+(Number(x.quantity)||0),0):null,qtyByDate={};gsv.forEach(x=>qtyByDate[x.date]=(qtyByDate[x.date]||0)+(Number(x.quantity)||0));
  const start=new Date(date+'T00:00:00');let demand=0,demandOk=true;
  for(let offset=0;offset<days;offset++){
   const target=new Date(start);target.setDate(target.getDate()+offset);const day=target.getDate(),monthValues=[];
-  hist.months.forEach(m=>{if(day>new Date(m.year,m.month,0).getDate())return;const key=peakISO(new Date(m.year,m.month-1,day)),dayRows=mbqGsvRows.filter(x=>x.date===key&&cfas.includes(normalCfa(x.cfa)));if(!dayRows.length)return;const skuRows=dayRows.filter(x=>set.has(mbqGsvNormCode(x.itemId)));monthValues.push(skuRows.reduce((n,x)=>n+(Number(x.quantity)||0),0));});
+  hist.months.forEach(m=>{if(day>new Date(m.year,m.month,0).getDate())return;const key=peakISO(new Date(m.year,m.month-1,day));if(!peakHasGsvDay(key,cfas))return;monthValues.push(qtyByDate[key]||0);});
   if(!monthValues.length){demandOk=false;break;}
   demand+=monthValues.reduce((a,b)=>a+b,0)/monthValues.length;
  }
