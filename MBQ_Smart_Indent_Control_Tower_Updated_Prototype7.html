@@ -1914,7 +1914,7 @@ function renderPeakManualReport(){
  const put=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value;};
  put('peakManualTotalAllocation',allocatedRows.length?peakFmt(totalAllocated)+' CBB':'No Data Available');
  put('peakManualTotalSubmitted',peakFmt(totalManual)+' CBB');
- put('peakManualTotalExcess',peakFmt(totalExcess)+' CBB');
+ put('peakManualTotalExcess',allocatedRows.length?peakFmt(totalExcess)+' CBB':'No Data Available');
  put('peakManualUtilisation',totalAllocated>0?(totalManual/totalAllocated*100).toFixed(1)+'%':'No Data Available');
  const summary=document.getElementById('peakManualSummaryRows');
  if(summary)summary.innerHTML=rows.length?rows.map(x=>'<tr><td>'+mbqEscape(x.cfa)+'</td><td class="sku">'+mbqEscape(x.group)+'</td><td>'+(x.allocated===null?'No Data Available':peakFmt(x.allocated))+'</td><td>'+peakFmt(x.manual)+'</td><td><b class="'+(x.excess>0?'negative':'positive')+'">'+(x.excess===null?'No Data Available':peakFmt(x.excess))+'</b></td><td>'+(x.excessPct===null?'No Data Available':x.excessPct.toFixed(1)+'%')+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No allocation or manual indent records for this month.</td></tr>';
@@ -1928,6 +1928,7 @@ function renderPeakManualReport(){
 function exportPeakManualExcel(){
  if(!window.XLSX){showToast('Excel library loading. Refresh ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.');return;}
  const month=document.getElementById('peakManualReportMonth')?.value||'',filter=document.getElementById('peakManualReportCfa')?.value||'ALL',cfas=peakCfas(filter);
+ if(!Array.isArray(allocationData)||!allocationData.length){try{buildAllocationData();}catch(e){console.warn('Manual indent export allocation source unavailable',e);}}
  const records=peakManualRecords().filter(s=>String(s.month||'')===month&&cfas.includes(normalCfa(s.cfa)));
  const history=[['Submission Date','Saved At','CFA','Month','Period From','Period To','SKU Group','Manual Indent CBB']];
  records.forEach(s=>(Array.isArray(s.rows)?s.rows:[]).forEach(r=>history.push([s.submissionDate||'',s.submittedAt||'',s.cfa||'',s.month||'',s.fromDate||'',s.toDate||'',r.group||'',Number(r.qty)||0])));
@@ -1996,7 +1997,7 @@ function calculatePeak(){
  document.getElementById('peakHistoricalAnalysis').innerHTML='<p><b>Historical periods:</b> '+historyText+'</p><p><b>Historical quantity:</b> '+(totalQty===null?'No Data Available':peakFmt(totalQty)+' CBB')+'</p><p><b>Expected Billing:</b> '+fmt(bill)+' for '+days+' selected days.</p>';
  document.getElementById('peakCalculationDetails').innerHTML='<p>For each selected date: (same-date GSV CBB in month 1 + same-date GSV CBB in month 2) ÷ 2.</p><p>Expected Billing CBB = total of daily expected CBB for the selected date range.</p><p>SKU demand uses the same date-wise two-month average. Loading = max(0, SKU Demand − usable CFA SOH − confirmed unreceived Open TO). SOH shelf life eligibility ≥60%.</p><p>Plant lead time: '+document.getElementById('peakLead').value+' days.</p>';
  document.getElementById('peakConnectionStatus').textContent=(mbqGsvRows.length?'GSV Connected':'GSV Unavailable')+' · '+(liveSohRows.length?'SOH Connected':'SOH Unavailable');
- showToast('Peak plan calculated from GSV, SOH and Open TO data.');
+ renderPeakManualReport();showToast('Peak plan calculated from GSV, SOH and Open TO data.');
 }
 function renderPeakDailyRows(data){const host=document.getElementById('peakDailyRows');if(!host)return;host.innerHTML=data.map(x=>'<tr><td>'+x.date+'</td><td>'+(x.amount===null?'No Data Available':peakFmt(x.amount)+' CBB')+'</td><td>'+x.samples+'/2</td><td>'+(x.amount===null?'History unavailable':'Calculated')+'</td></tr>').join('')||'<tr><td colspan="4" class="empty">No Data Available</td></tr>';const sub=document.getElementById('peakDailySub');if(sub&&peakPlanResult)sub.textContent=peakPlanResult.cfa+' · '+peakPlanResult.date+' to '+peakPlanResult.toDate+' · Same dates in previous 2 completed months';}
 function renderPeakGroupRows(){
