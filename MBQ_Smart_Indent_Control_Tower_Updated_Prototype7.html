@@ -1823,7 +1823,7 @@ function peakGroupData(group,cfa,hist,days,date){
  let stock=0,stockOk=true;codes.forEach(k=>cfas.forEach(cf=>{const v=mbqPlannerUsableSoh(cf,k);if(v===null)stockOk=false;else stock+=v;}));
  const records=getToRecords(),month=date.slice(0,7);let open=0;
  if(records.length){records.filter(t=>!t.fullyReceived&&(!t.monthKey||String(t.monthKey).slice(0,7)===month)&&set.has(mbqGsvNormCode(t.code))&&cfas.includes(normalCfa(t.cfa))).forEach(t=>open+=Math.max(0,toNum(t.qty)-toNum(t.received)));}
- return {demand,soh:stockOk?stock:null,to:records.length?open:null,codes,historyQty:qty};
+ return {demand,soh:stockOk?stock:null,to:open,codes,historyQty:qty};
 }
 function updatePeakToDate(){const from=document.getElementById('peakFromDate')?.value||'',to=document.getElementById('peakToDate')?.value||'';const days=from&&to&&to>=from?Math.round((new Date(to+'T00:00:00')-new Date(from+'T00:00:00'))/86400000)+1:0;const note=document.getElementById('peakRangeDays');if(note)note.textContent=days?days+' planning days':'Select a valid date range';}
 function peakDailyBilling(cfa,date,days,hist){
