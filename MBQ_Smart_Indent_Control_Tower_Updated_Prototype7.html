@@ -1080,7 +1080,7 @@ function buildAllocationData(){
    const hasPositiveManual=(groupLine&&Number(groupLine.qty)>0)||itemLines.some(x=>Number(x.qty)>0);
    const hasPositiveIndent=hasUploadedTotal&&Number(salesHeadSource[1])>0;
    // Official assortment is always listed. Outside the master, retain only real positive Sales Head / manual quantities.
-   if(!isOfficial&&!hasPositiveCfa&&!hasPositiveManual&&!hasPositiveIndent)return;
+   if(!isOfficial)return;
    const totalInd=hasUploadedTotal?salesHeadInd:(Object.prototype.hasOwnProperty.call(mbqAcceptedSuggestionBySku,String(group.sku||'').trim().toLowerCase())?Number(mbqAcceptedSuggestionBySku[String(group.sku||'').trim().toLowerCase()]):salesHeadInd);
    const effectiveTotalInd=totalInd===null||!Number.isFinite(Number(totalInd))?0:Number(totalInd);
    if(effectiveTotalInd<0)return;
@@ -1543,7 +1543,7 @@ function renderFlash(){
  const cfaKey=c==='All CFAs'?'DATA':normalCfa(c);
  const fmt=v=>v===null||v===undefined||!Number.isFinite(Number(v))?'No Data Available':Number(v).toLocaleString('en-IN',{maximumFractionDigits:0});
  const pct=v=>v===null||v===undefined||!Number.isFinite(Number(v))?'No Data Available':Number(v).toLocaleString('en-IN',{maximumFractionDigits:1})+'%';
- const salesHeadRows=(Array.isArray(sourceRows)?sourceRows:[]).filter(r=>String(r[0]||'').trim());
+ const salesHeadRows=(Array.isArray(sourceRows)?sourceRows:[]).filter(r=>mbqIsOfficialSkuGroup(r[0]));
  const allocationRows=Array.isArray(allocationData)?allocationData:[];
  const skuNames=[...new Set([...salesHeadRows.map(r=>String(r[0]||'').trim()),...allocationRows.map(x=>String(x.sku||'').trim())].filter(Boolean))];
  const validRange=!!from&&!!to&&from<=to;
@@ -1921,7 +1921,7 @@ function mbqUpdateMappedProdDays(el){const sku=el.getAttribute('data-prod-sku'),
 function mbqProductionSettings(){try{return JSON.parse(localStorage.getItem('mbqProductionFrequencySettings')||'{}')}catch(e){return {}}}
 function mbqProductionRows(){
  const groups=new Map();
- Object.keys(mbqExcelSheets||{}).forEach(key=>{const sh=mbqExcelSheets[key];if(!sh||!sh.headers||!sh.rows)return;const ix={};sh.headers.forEach((h,i)=>ix[String(h).trim().toUpperCase()]=i);const si=ix['SKU GROUP'],fi=ix['PROD FREQ'],di=ix['MBQ DAYS (BASED ON PROD FREQ)'],ti=ix['TRANSIT DAYS'];if(si===undefined)return;sh.rows.forEach(row=>{const sku=String(row[si]||'').trim();if(!sku)return;const prev=groups.get(sku)||{sku,freq:'',prodDays:'',transitDays:''};if(prev.freq===''&&fi!==undefined&&row[fi]!==''&&row[fi]!==undefined)prev.freq=row[fi];if(prev.prodDays===''&&di!==undefined&&row[di]!==''&&row[di]!==undefined)prev.prodDays=row[di];if(prev.transitDays===''&&ti!==undefined&&row[ti]!==''&&row[ti]!==undefined)prev.transitDays=row[ti];groups.set(sku,prev);});});
+ Object.keys(mbqExcelSheets||{}).forEach(key=>{const sh=mbqExcelSheets[key];if(!sh||!sh.headers||!sh.rows)return;const ix={};sh.headers.forEach((h,i)=>ix[String(h).trim().toUpperCase()]=i);const si=ix['SKU GROUP'],fi=ix['PROD FREQ'],di=ix['MBQ DAYS (BASED ON PROD FREQ)'],ti=ix['TRANSIT DAYS'];if(si===undefined)return;sh.rows.forEach(row=>{const sku=String(row[si]||'').trim();if(!sku||!mbqIsOfficialSkuGroup(sku))return;const prev=groups.get(sku)||{sku,freq:'',prodDays:'',transitDays:''};if(prev.freq===''&&fi!==undefined&&row[fi]!==''&&row[fi]!==undefined)prev.freq=row[fi];if(prev.prodDays===''&&di!==undefined&&row[di]!==''&&row[di]!==undefined)prev.prodDays=row[di];if(prev.transitDays===''&&ti!==undefined&&row[ti]!==''&&row[ti]!==undefined)prev.transitDays=row[ti];groups.set(sku,prev);});});
  if(!groups.size){[...new Set([...(sourceRows||[]).map(r=>String(r[0]||'').trim()),...(rows||[]).map(r=>String(r.sku||'').trim())].filter(Boolean))].forEach(sku=>groups.set(sku,{sku,freq:'',prodDays:'',transitDays:''}));}
  return [...groups.values()].sort((a,b)=>a.sku.localeCompare(b.sku));
 }
@@ -2184,7 +2184,7 @@ function mbqFrAggregate(rowsIn,keyFn){
 }
 function mbqRenderFrTable(hostId,headers,rowsHtml,emptyText){const host=document.getElementById(hostId);if(!host)return;host.innerHTML=rowsHtml?'<div class="mbq-fr-table"><table><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rowsHtml+'</tbody></table></div>':'<div class="excel-empty">'+emptyText+'</div>';}
 function renderMbqFillRateAnalysis(){
- const all=mbqPoRecords,fmt=mbqFrFmt;
+ const all=mbqPoRecords.filter(r=>{const sku=mbqText(mbqPoVal(r,['SKU_GROUP'])).trim();return !sku||mbqIsOfficialSkuGroup(sku);}),fmt=mbqFrFmt;
  const open=all.filter(r=>mbqFrStatus(r)==='OPEN').reduce((s,r)=>s+mbqFrNum(mbqPoVal(r,['PO_QTY'])),0);
  const closed=all.filter(r=>['CLOSE','CLOSED'].includes(mbqFrStatus(r))).reduce((s,r)=>s+mbqFrNum(mbqPoVal(r,['PO_QTY'])),0);
  const totalPo=all.reduce((s,r)=>s+mbqFrNum(mbqPoVal(r,['PO_QTY'])),0),totalInv=all.reduce((s,r)=>s+mbqFrNum(mbqPoVal(r,['INVOICE_QTY'])),0),rate=mbqFrRate(totalInv,totalPo);
