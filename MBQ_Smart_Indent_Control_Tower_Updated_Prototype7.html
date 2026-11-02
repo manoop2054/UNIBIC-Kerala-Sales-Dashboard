@@ -454,7 +454,7 @@ let mbqGsvRows = [];
 let mbqGsvMeta = null;
 let mbqGsvLoading = false;
 let mbqGsvTimer = null;
-function mbqSkuGroupKey(v){return String(v??"").normalize("NFKC").replace(/[\u00A0\u2007\u202F\uFFFD]/g," ").replace(/[\u200B-\u200D\uFEFF]/g,"").replace(/\s+/g," ").trim().toUpperCase();}
+function mbqSkuGroupKey(v){return String(v??"").normalize("NFKC").replace(/\uFFFD/g,"").replace(/[\p{Z}\s]+/gu," ").replace(/\p{Cf}/gu,"").replace(/\s+/g," ").trim().toUpperCase();}
 function mbqGsvNormCode(v){return String(v??"").trim().toUpperCase().replace(/\s+/g,"");}
 function mbqGsvItemMonth(code, month, cfa="DATA") {
   const key=mbqGsvNormCode(code), mo=String(month||"").trim();
@@ -1666,7 +1666,7 @@ async function fetchGitHubAssortment(){
   const headers=parsed[0].map(h=>String(h||'').trim().replace(/^\uFEFF/,''));
   const groupIdx=headers.findIndex(h=>h.toLowerCase()==='sku_group'||h.toLowerCase()==='sku group');
   if(groupIdx<0)throw new Error("SKU_Group column not found in assortment CSV");
-  const cleanGroup=v=>String(v??'').normalize('NFKC').replace(/[\u00A0\u2007\u202F\uFFFD]/g,' ').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/\s+/g,' ').trim();
+  const cleanGroup=v=>String(v??'').normalize('NFKC').replace(/\uFFFD/g,'').replace(/[\p{Z}\s]+/gu,' ').replace(/\p{Cf}/gu,'').replace(/\s+/g,' ').trim();
   const priorGroupValues=new Map(sourceRows.filter(r=>r&&r[0]).map(r=>[mbqSkuGroupKey(r[0]),r[1]]));
   const priorIndentLines=indentLines.map(x=>({...x}));
   sourceRows.length=0;
