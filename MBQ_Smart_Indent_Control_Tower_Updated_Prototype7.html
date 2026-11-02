@@ -1441,7 +1441,8 @@ function mbqPlannerUsableSoh(cfa,code){
   const qty=Number(String(qtyRaw??'').replace(/,/g,''));
   if(Number.isFinite(qty))total+=qty;
  });
- return matched&&shelfSeen?total:null;
+ // A successfully loaded full LIVE SOH snapshot is authoritative: if this item code has no row for the selected CFA, its stock there is zero. If a matching row exists but shelf-life data is missing/invalid, keep it unavailable rather than inventing a value.
+ return matched?(shelfSeen?total:null):0;
 }
 function mbqPlannerSalesQty(code,cfa,month){
  const codeKey=mbqGsvNormCode(code),monthRows=mbqGsvRows.filter(x=>x.month===month&&x.cfa===cfa);
