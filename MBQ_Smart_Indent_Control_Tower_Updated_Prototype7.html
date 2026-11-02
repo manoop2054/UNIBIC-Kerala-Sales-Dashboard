@@ -676,7 +676,7 @@ function renderStock(){
  if(liveSohError){tbody.innerHTML='<tr><td colspan="8" class="empty">LIVE SOH load failed: '+liveSohError.replace(/[<>&"]/g,'')+'</td></tr>';mbqRefreshDashboardKpis();return}
  if(!liveSohRows.length){tbody.innerHTML='<tr><td colspan="8" class="empty">'+(liveSohError?'LIVE SOH unavailable: '+liveSohError.replace(/[<>&"]/g,''):'LIVE SOH workbook load cheyyunnu…')+'</td></tr>';mbqRefreshDashboardKpis();return}
  tbody.innerHTML=filtered.map(r=>{
-  const batchBtn=mbqBatchViewButtonForCodes(r.codes,[r.cfa],r.code,60);
+  const batchBtn=mbqBatchViewButtonForCodes(r.codes,[r.cfa],r.code);
   return '<tr><td>'+r.cfa+' CFA</td><td class="sku">'+mbqEscape(r.sku)+'</td><td>'+mbqEscape(r.code)+'</td><td>'+r.stock.toLocaleString('en-IN')+' '+batchBtn+'</td><td>'+(r.salesDay!==null?r.salesDay.toLocaleString('en-IN',{maximumFractionDigits:2}):'No data available')+'</td><td>'+(r.openPo===null?'No data available':r.openPo.toLocaleString('en-IN'))+'</td><td>'+(r.cover!==null?r.cover.toFixed(1)+' days':'No data available')+'</td><td>'+riskPill(r.status==='Low cover'?'High':r.status)+'</td></tr>';
  }).join('')||'<tr><td colspan="8" class="empty">No item has 60%+ Remaining Shelf Life stock for the selected CFA / filter.</td></tr>';
  const small=document.querySelector('#page-stock .card-head small');if(small)small.textContent='KERALA ASSORTMENT × LIVE STOCK REPORT · '+officialGroups.length.toLocaleString('en-IN')+' SKU Groups · 60%+ Shelf Life';
