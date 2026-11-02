@@ -1922,7 +1922,7 @@ function mbqProductionSettings(){try{return JSON.parse(localStorage.getItem('mbq
 function mbqProductionRows(){
  const groups=new Map();
  Object.keys(mbqExcelSheets||{}).forEach(key=>{const sh=mbqExcelSheets[key];if(!sh||!sh.headers||!sh.rows)return;const ix={};sh.headers.forEach((h,i)=>ix[String(h).trim().toUpperCase()]=i);const si=ix['SKU GROUP'],fi=ix['PROD FREQ'],di=ix['MBQ DAYS (BASED ON PROD FREQ)'],ti=ix['TRANSIT DAYS'];if(si===undefined)return;sh.rows.forEach(row=>{const sku=String(row[si]||'').trim();if(!sku||!mbqIsOfficialSkuGroup(sku))return;const prev=groups.get(sku)||{sku,freq:'',prodDays:'',transitDays:''};if(prev.freq===''&&fi!==undefined&&row[fi]!==''&&row[fi]!==undefined)prev.freq=row[fi];if(prev.prodDays===''&&di!==undefined&&row[di]!==''&&row[di]!==undefined)prev.prodDays=row[di];if(prev.transitDays===''&&ti!==undefined&&row[ti]!==''&&row[ti]!==undefined)prev.transitDays=row[ti];groups.set(sku,prev);});});
- if(!groups.size){[...new Set([...(sourceRows||[]).map(r=>String(r[0]||'').trim()),...(rows||[]).map(r=>String(r.sku||'').trim())].filter(Boolean))].forEach(sku=>groups.set(sku,{sku,freq:'',prodDays:'',transitDays:''}));}
+ if(!groups.size){[...new Set([...(sourceRows||[]).map(r=>String(r[0]||'').trim()),...(rows||[]).map(r=>String(r.sku||'').trim())].filter(sku=>sku&&mbqIsOfficialSkuGroup(sku)))].forEach(sku=>groups.set(sku,{sku,freq:'',prodDays:'',transitDays:''}));}
  return [...groups.values()].sort((a,b)=>a.sku.localeCompare(b.sku));
 }
 function renderProductionFrequencySettings(){
