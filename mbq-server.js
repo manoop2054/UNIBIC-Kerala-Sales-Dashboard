@@ -690,7 +690,7 @@ app.put("/api/mbq/peak-manual-indent", express.json({ limit: "10mb" }), async (r
     const submissions = Array.isArray(prior.submissions) ? prior.submissions : [];
     const payload = JSON.stringify({ legacyEntries: { ...legacyEntries, ...data }, submissions });
     if (Buffer.byteLength(payload, "utf8") > 10 * 1024 * 1024) return res.status(413).json({ success: false, error: "Peak Planner manual indents exceed the 10 MB limit" });
-    await masterPool.query("INSERT INTO public.mbq_shared_uploads(category,file_name,payload,source_file_size,uploaded_at) VALUES('peak-manual-indent','Peak Planner Manual Indents',$1::jsonb,$2,NOW()) ON CONFLICT(category) DO UPDATE SET payload=EXCLUDED.payload,source_file_size=EXCLUDED.source_file_size,uploaded_at=NOW()", [payload, Buffer.byteLength(payload, "utf8")]);
+    await masterPool.query("INSERT INTO public.mbq_shared_uploads AS stored(category,file_name,payload,source_file_size,uploaded_at) VALUES('peak-manual-indent','Peak Planner Manual Indents',$1::jsonb,$2,NOW()) ON CONFLICT(category) DO UPDATE SET payload=EXCLUDED.payload,source_file_size=EXCLUDED.source_file_size,uploaded_at=NOW()", [payload, Buffer.byteLength(payload, "utf8")]);
     res.json({ success: true, count: Object.keys(data).length, savedAt: new Date().toISOString() });
   } catch (error) { res.status(500).json({ success: false, error: "Could not save legacy Peak Planner manual indents", detail: error.message }); }
 });
@@ -724,9 +724,9 @@ app.post("/api/mbq/peak-manual-indent", express.json({ limit: "10mb" }), async (
     const result = await masterPool.query(
       "INSERT INTO public.mbq_shared_uploads(category,file_name,payload,source_file_size,uploaded_at) VALUES('peak-manual-indent','Peak Planner Manual Indent',jsonb_build_object('legacyEntries','{}'::jsonb,'submissions',jsonb_build_array($1::jsonb)),$2,NOW()) " +
       "ON CONFLICT(category) DO UPDATE SET payload=CASE " +
-      "WHEN jsonb_typeof(public.mbq_shared_uploads.payload->'submissions')='array' THEN jsonb_set(public.mbq_shared_uploads.payload,'{submissions}',public.mbq_shared_uploads.payload->'submissions' || jsonb_build_array($1::jsonb),true) " +
-      "ELSE jsonb_build_object('legacyEntries',public.mbq_shared_uploads.payload,'submissions',jsonb_build_array($1::jsonb)) END, " +
-      "source_file_size=public.mbq_shared_uploads.source_file_size+EXCLUDED.source_file_size,uploaded_at=NOW() RETURNING payload",
+      "WHEN jsonb_typeof(stored.payload->'submissions')='array' THEN jsonb_set(stored.payload,'{submissions}',stored.payload->'submissions' || jsonb_build_array($1::jsonb),true) " +
+      "ELSE jsonb_build_object('legacyEntries',stored.payload,'submissions',jsonb_build_array($1::jsonb)) END, " +
+      "source_file_size=stored.source_file_size+EXCLUDED.source_file_size,uploaded_at=NOW() RETURNING payload",
       [json, Buffer.byteLength(json, "utf8")]
     );
     res.status(201).json({ success: true, submission, data: result.rows[0].payload });
