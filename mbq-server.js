@@ -88,7 +88,7 @@ async function buildMbqGsvAggregate() {
           qty: find(["QuantityinCBD","QuantityinCBO","Quantity in CBO","CBO","CBB","QuantityinBox","Quantity"]),
           amount: find(["AmountToCustomer","Amount To Customer","GSV Amount","GSV","GSV IN LAKH","AssesableValue","AssessableValue","Amount"]),
           cfa: find(["LocationCode","Location Code","Location_Code","CFA","Warehouse","Branch","Site"]),
-          dbrCode: find(["Ship To Code","ShipToCode","Ship To Customer Code","Customer Code","CustomerCode","Debtor Code","Customer Id","Account Code"]),
+          dbrCode: find(["Ship Code","ShipCode","Ship To Code","ShipToCode","Ship To Customer Code","DBR Code","DBRCode","Customer Code","CustomerCode","Debtor Code","Customer Id","Account Code"]),
           dbrName: find(["Ship To Name","ShipToName","Customer Name","CustomerName","Debtor Name","Account Name"])
         };
         stats.headers = headers.filter(Boolean);
@@ -122,7 +122,7 @@ async function buildMbqGsvAggregate() {
   }
   if (!sheetFound) throw new Error("GSV worksheet not found: " + GSV_SHEET);
   if (!indexes || !aggregate.size) throw new Error("GSV workbook contained no usable item/month/quantity records");
-  const payload = { success: true, schemaVersion: 3, data: Array.from(aggregate.values()), rows: rowCount, matchedRows, aggregateRows: aggregate.size, loadedAt: new Date().toISOString(), dateCoverage: { from: minDate, to: maxDate }, detected: stats.detected, headers: stats.headers, sourceBytes: stats.sourceBytes };
+  const payload = { success: true, schemaVersion: 4, data: Array.from(aggregate.values()), rows: rowCount, matchedRows, aggregateRows: aggregate.size, loadedAt: new Date().toISOString(), dateCoverage: { from: minDate, to: maxDate }, detected: stats.detected, headers: stats.headers, sourceBytes: stats.sourceBytes };
   await fs.promises.writeFile(tmp, JSON.stringify(payload), "utf8");
   await fs.promises.rename(tmp, cache);
   console.log("MBQ GSV ready:", JSON.stringify({ rows: rowCount, matchedRows, aggregateRows: aggregate.size, detected: stats.detected }));
@@ -135,7 +135,7 @@ async function readMbqGsvCache() {
     const stat = await fs.promises.stat(cache);
     if (Date.now() - stat.mtimeMs < 6 * 60 * 60 * 1000) {
       const cached = JSON.parse(await fs.promises.readFile(cache, "utf8"));
-      if (cached.schemaVersion === 3 && Array.isArray(cached.data) && cached.data.every(row => row && /^\d{4}-\d{2}-\d{2}$/.test(String(row.date || "")))) return cached;
+      if (cached.schemaVersion === 4 && Array.isArray(cached.data) && cached.data.every(row => row && /^\d{4}-\d{2}-\d{2}$/.test(String(row.date || "")))) return cached;
       console.log("MBQ GSV cache schema outdated; rebuilding with posting dates");
     }
   } catch (_) {}
