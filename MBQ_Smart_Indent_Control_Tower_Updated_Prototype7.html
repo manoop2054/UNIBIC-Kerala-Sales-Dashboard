@@ -570,47 +570,81 @@ function renderStock(){
  const cf=document.getElementById('stockCfa')?.value||'all';
  const st=document.getElementById('stockStatus')?.value||'all';
  const allowedCfas=['ALU','PAY','TVD'];
- const codeKey=v=>String(v??'').trim().toUpperCase().replace(/\s+/g,'');
+ const cleanCode=v=>String(v??'').trim().toUpperCase().replace(/\\s+/g,'');
+ const groupKey=v=>mbqSkuGroupKey(String(v??'').trim());
+ const itemCodesByGroup=new Map();
+ rows.forEach(item=>{
+  const g=groupKey(item.sku),code=String(item.code||'').trim();
+  if(!g||!code)return;
+  if(!itemCodesByGroup.has(g))itemCodesByGroup.set(g,new Map());
+  itemCodesByGroup.get(g).set(cleanCode(code),code);
+ });
  const stockMap=new Map();
  liveSohRows.forEach(raw=>{
-   const code=codeKey(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']));
-   const cfa=normalCfa(keyValue(raw,['WAREHOUSE','Warehouse','CFA','LocationCode','Location Code','Location_Code','Location Name','Location','Branch','Site','Store']));
-   if(!code||!allowedCfas.includes(cfa))return;
-   const qty=Number(String(keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity','Available Quantity','Inventory','Stock Quantity'])??0).replace(/,/g,''))||0;
-   const shelfRaw=keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%']);
-   const shelfNum=Number(String(shelfRaw??'').replace('%','').replace(/,/g,''));
-   if(shelfRaw===''||!Number.isFinite(shelfNum)||shelfNum<59)return;
-   const k=cfa+'|'+code;
-   const prev=stockMap.get(k)||{stock:0,shelf:null,description:''};
-   prev.stock+=qty;
-   prev.shelf=prev.shelf===null?shelfNum:Math.min(prev.shelf,shelfNum);
-   if(!prev.description)prev.description=String(keyValue(raw,['DESCRIPTION','Description','Item Description','Product Name','Item Name'])||'').trim();
-   stockMap.set(k,prev);
+  const type=String(keyValue(raw,['TYPE','Type'])||'').trim();
+  if(type&&type.toUpperCase()!=='SOH')return;
+  const cfa=normalCfa(keyValue(raw,['WAREHOUSE','Warehouse','CFA','LocationCode','Location Code','Location_Code','Location Name','Location','Branch','Site','Store']));
+  const sku=String(keyValue(raw,['ItemAttribute.SKUGroup','SKUGroup','SKU Group'])||'').trim();
+  const g=groupKey(sku);
+  if(!g||!allowedCfas.includes(cfa))return;
+  const shelfRaw=keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%']);
+  const shelfNum=Number(String(shelfRaw??'').replace('%','').replace(/,/g,''));
+  if(shelfRaw===''||!Number.isFinite(shelfNum)||shelfNum<59)return;
+  const qtyRaw=keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity','Available Quantity','Inventory','Stock Quantity']);
+  const qty=Number(String(qtyRaw??0).replace(/,/g,''))||0;
+  const code=String(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No'])||'').trim();
+  const k=cfa+'|'+g;
+  const prev=stockMap.get(k)||{stock:0,shelf:null,description:'',codes:new Map()};
+  prev.stock+=qty;
+  prev.shelf=prev.shelf===null?shelfNum:Math.min(prev.shelf,shelfNum);
+  if(code)prev.codes.set(cleanCode(code),code);
+  if(!prev.description)prev.description=String(keyValue(raw,['DESCRIPTION','Description','Item Description','Product Name','Item Name'])||'').trim();
+  stockMap.set(k,prev);
  });
- const assortmentItems=rows.filter(r=>String(r.code||'').trim()&&String(r.sku||'').trim()&&mbqGroupHasIndent(r.sku));
  const data=[];
  allowedCfas.forEach(cfa=>{
-   if(cf!=='all'&&cf!==cfa)return;
-   assortmentItems.forEach(item=>{
-     const code=String(item.code||'').trim();
-     const stockRec=stockMap.get(cfa+'|'+codeKey(code))||null;
-     const stock=stockRec?stockRec.stock:null;
-     const desc=String(item.description||(stockRec&&stockRec.description)||'').trim();
-     const sku=String(item.sku||'').trim();
-     const salesDay=Number(item.salesDay)||0;
-     const cover=salesDay>0&&stock!==null?stock/salesDay:null;
-     const shelf=stockRec?stockRec.shelf:(item.shelfLife??null);
-     const status=!stockRec?'No data available':shelf!==null&&shelf<30?'Review shelf-life':salesDay>0&&cover!==null&&cover<6?'Low cover':salesDay>0&&cover!==null?'Healthy':'No data available';
-     data.push({cfa,sku,code,stock,salesDay,cover,status,desc,shelf,item});
-   });
+  if(cf!=='all'&&cf!==cfa)return;
+  sourceRows.forEach(group=>{
+   const sku=String(group[0]||'').trim(),g=groupKey(sku);
+   if(!g)return;
+   const stockRec=stockMap.get(cfa+'|'+g)||null;
+   const codes=[...new Set([...(itemCodesByGroup.get(g)?.values()||[]),...(stockRec?[...stockRec.codes.values()]:[])])];
+   let salesDay=null;
+   if(mbqGsvRows.length&&codes.length){
+    const months=mbqLastCompletedMonths(3);
+    const monthVals=months.map(m=>{
+     const vals=codes.map(code=>mbqGsvItemMonth(code,m.year+'-'+String(m.month).padStart(2,'0'),cfa)).filter(v=>v!==null);
+     return vals.length?vals.reduce((sum,v)=>sum+Number(v||0),0):null;
+    });
+    if(monthVals.length===3&&monthVals.every(v=>v!==null))salesDay=monthVals.reduce((sum,v)=>sum+Number(v||0),0)/3/30;
+   }
+   const stock=stockRec?stockRec.stock:null;
+   const cover=salesDay!==null&&salesDay>0&&stock!==null?stock/salesDay:null;
+   const shelf=stockRec?stockRec.shelf:null;
+   const desc=stockRec?.description||'';
+   const status=!stockRec?'No data available':shelf!==null&&shelf<30?'Review shelf-life':salesDay>0&&cover!==null&&cover<6?'Low cover':salesDay>0&&cover!==null?'Healthy':'No data available';
+   const codeLabel=codes.length?codes.join(', '):'No mapped ItemId';
+   const openTo=codes.reduce((sum,code)=>sum+openToQtyFor(cfa,code),0);
+   const plantStates=codes.map(code=>mbqPlantToStatus(cfa,code));
+   const plantOut=plantStates.includes('out');
+   data.push({cfa,sku,code:codeLabel,codes,stock,salesDay,cover,status,desc,shelf,openTo,plantOut});
+  });
  });
  const filtered=data.filter(r=>(r.sku.toLowerCase().includes(q)||r.code.toLowerCase().includes(q)||r.desc.toLowerCase().includes(q))&&(st==='all'||r.status===st));
  const tbody=document.getElementById('stockRows');
+ if(!tbody)return;
  if(liveSohError){tbody.innerHTML='<tr><td colspan="9" class="empty">LIVE SOH load failed: '+liveSohError.replace(/[<>&"]/g,'')+'</td></tr>';mbqRefreshDashboardKpis();return}
- if(!liveSohRows.length){tbody.innerHTML='<tr><td colspan="8" class="empty">'+(liveSohError?'LIVE SOH unavailable: '+liveSohError.replace(/[<>&"]/g,''):'LIVE SOH workbook load cheyyunnu…')+'</td></tr>';mbqRefreshDashboardKpis();return}
- tbody.innerHTML=filtered.map(r=>'<tr class="'+(mbqPlantToStatus(r.cfa,r.code)==='out'?'plant-stockout-row':'')+'"><td>'+r.cfa+' CFA</td><td class="sku">'+r.sku.replace(/[<>&"]/g,'')+'</td><td>'+r.code.replace(/[<>&"]/g,'')+'</td><td>'+(r.stock===null?'No data available':r.stock.toLocaleString('en-IN'))+' '+mbqBatchViewButton(r.code,r.cfa)+'</td><td>'+(r.shelf===null?'No data available':mbqShelfLabel(r.shelf))+' '+mbqBatchViewButton(r.code,r.cfa)+'</td><td>'+(r.salesDay?r.salesDay.toLocaleString('en-IN'):'No data available')+'</td><td>'+(r.stock===null?'No data available':openToQtyFor(r.cfa,r.code).toLocaleString('en-IN'))+'</td><td>'+(r.cover!==null?r.cover.toFixed(1)+' days':'No data available')+'</td><td>'+riskPill(r.status==='Low cover'?'High':r.status==='Review shelf-life'?'Review':r.status)+'</td></tr>').join('')||'<tr><td colspan="9" class="empty">Selected CFA / filter-ൽ matching assortment items ഇല്ല.</td></tr>';
- const small=document.querySelector('#page-stock .card-head small');if(small)small.textContent='KERALA ASSORTMENT × LIVE STOCK REPORT · '+assortmentItems.length.toLocaleString('en-IN')+' assortment items';
-}function changeIndentMode(){const mode=document.getElementById('indentMode').value;const group=mode==='group';document.getElementById('groupEntryPanel').style.display='block';document.getElementById('mrpFilterPanel').style.display=group?'none':'block';document.getElementById('groupQtyPanel').style.display='none';document.getElementById('groupNotePanel').style.display='none';document.getElementById('groupAddPanel').style.display='none';document.getElementById('itemSearchPanel').style.display=group?'none':'block';document.getElementById('entryCfa').parentElement.style.display=group?'none':'block';document.getElementById('shelfFilter').parentElement.style.display=group?'none':'block';document.getElementById('addCompleteIndentBtn').style.display=group?'none':'inline-block';document.getElementById('saveAllGroupBtn').style.display=group?'inline-block':'none';document.getElementById('indentWorkspaceTitle').textContent=group?'SKU Group-wise Monthly Indent':'Item-wise Indent Entry';document.getElementById('indentWorkspaceNote').textContent=group?'SKU Group filter തിരഞ്ഞെടുക്കുമ്പോൾ ആ group-നോട് ബന്ധിപ്പിച്ച Items, Item Code, Description ലഭ്യമായിടത്ത്, MRP എന്നിവ താഴെ കാണിക്കും. Billing columns ഒഴിവാക്കിയിരിക്കുന്നു. Source data ലഭ്യമായാൽ മാത്രമേ values കാണിക്കൂ.':'SKU Group തിരഞ്ഞെടുക്കുമ്പോൾ അതിലെ items, MRP സഹിതം കാണാം. Item-wise entry-യിൽ SKU Group നൽകിയാൽ MRP column മറയ്ക്കും.';renderIndentWorkspace()}
+ if(!liveSohRows.length){tbody.innerHTML='<tr><td colspan="9" class="empty">'+(liveSohError?'LIVE SOH unavailable: '+liveSohError.replace(/[<>&"]/g,''):'LIVE SOH workbook load cheyyunnu…')+'</td></tr>';mbqRefreshDashboardKpis();return}
+ tbody.innerHTML=filtered.map(r=>{
+  const codesArg=JSON.stringify(r.codes);
+  const batchBtn=r.codes.length?mbqBatchViewButtonForCodes(r.codes,[r.cfa],r.sku):'';
+  const plantBtn=r.plantOut?'plant-stockout-row':'';
+  return '<tr class="'+plantBtn+'"><td>'+r.cfa+' CFA</td><td class="sku">'+mbqEscape(r.sku)+'</td><td>'+mbqEscape(r.code)+'</td><td>'+(r.stock===null?'No data available':r.stock.toLocaleString('en-IN'))+' '+batchBtn+'</td><td>'+(r.shelf===null?'No data available':mbqShelfLabel(r.shelf))+' '+batchBtn+'</td><td>'+(r.salesDay!==null?r.salesDay.toLocaleString('en-IN'):'No data available')+'</td><td>'+(r.stock===null?'No data available':r.openTo.toLocaleString('en-IN'))+'</td><td>'+(r.cover!==null?r.cover.toFixed(1)+' days':'No data available')+'</td><td>'+riskPill(r.status==='Low cover'?'High':r.status==='Review shelf-life'?'Review':r.status)+'</td></tr>';
+ }).join('')||'<tr><td colspan="9" class="empty">Selected CFA / filter-ൽ matching assortment items ഇല്ല.</td></tr>';
+ const small=document.querySelector('#page-stock .card-head small');
+ if(small)small.textContent='KERALA ASSORTMENT × LIVE STOCK REPORT · '+sourceRows.length.toLocaleString('en-IN')+' SKU Groups';
+}
+function changeIndentMode(){const mode=document.getElementById('indentMode').value;const group=mode==='group';document.getElementById('groupEntryPanel').style.display='block';document.getElementById('mrpFilterPanel').style.display=group?'none':'block';document.getElementById('groupQtyPanel').style.display='none';document.getElementById('groupNotePanel').style.display='none';document.getElementById('groupAddPanel').style.display='none';document.getElementById('itemSearchPanel').style.display=group?'none':'block';document.getElementById('entryCfa').parentElement.style.display=group?'none':'block';document.getElementById('shelfFilter').parentElement.style.display=group?'none':'block';document.getElementById('addCompleteIndentBtn').style.display=group?'none':'inline-block';document.getElementById('saveAllGroupBtn').style.display=group?'inline-block':'none';document.getElementById('indentWorkspaceTitle').textContent=group?'SKU Group-wise Monthly Indent':'Item-wise Indent Entry';document.getElementById('indentWorkspaceNote').textContent=group?'SKU Group filter തിരഞ്ഞെടുക്കുമ്പോൾ ആ group-നോട് ബന്ധിപ്പിച്ച Items, Item Code, Description ലഭ്യമായിടത്ത്, MRP എന്നിവ താഴെ കാണിക്കും. Billing columns ഒഴിവാക്കിയിരിക്കുന്നു. Source data ലഭ്യമായാൽ മാത്രമേ values കാണിക്കൂ.':'SKU Group തിരഞ്ഞെടുക്കുമ്പോൾ അതിലെ items, MRP സഹിതം കാണാം. Item-wise entry-യിൽ SKU Group നൽകിയാൽ MRP column മറയ്ക്കും.';renderIndentWorkspace()}
 function getIndentFilteredRows(){let cfa=document.getElementById('entryCfa')?.value||'all',sf=document.getElementById('shelfFilter')?.value||'all',group=document.getElementById('entrySkuGroup')?.value||'',mrp=document.getElementById('entryMrp')?.value||'all',q=(document.getElementById('itemIndentSearch')?.value||'').toLowerCase();const base=rows.filter(r=>(sf==='all'||(sf==='above60'?r.shelfLife>60:r.shelfLife<=60))&&(!group||r.sku===group)&&(mrp==='all'||String(r.mrp)===mrp)&&(r.sku.toLowerCase().includes(q)||r.code.toLowerCase().includes(q)));return base.flatMap(r=>(cfa==='all'?['ALU','PAY','TVD']:[cfa]).map(k=>({...r,cfa:k,cfaKey:k})))}
 function gapText(indent,avg){if(avg===null||avg===undefined||avg===''||!Number.isFinite(Number(avg)))return 'No data available';indent=Number(indent)||0;avg=Number(avg);if(indent===0)return '—';const gap=((indent-avg)/indent)*100;return (gap>0?'+':'')+gap.toFixed(2)+'%'}
 function renderIndentWorkspace(){
@@ -1571,6 +1605,31 @@ function go(page){document.querySelectorAll('.section').forEach(s=>s.classList.r
 document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>go(b.dataset.page)));
 document.getElementById('entrySkuGroup').innerHTML='<option value="">All (എല്ലാ SKU Groups-ഉം ഒരുമിച്ച് കാണിക്കുക)</option>'+sourceRows.map(r=>`<option value="${r[0]}">${r[0]}</option>`) .join('');mbqRefreshDashboardKpis();
 document.getElementById('entryMrp').innerHTML='<option value="all">All MRP</option>'+[...new Set(rows.map(r=>r.mrp))].sort((a,b)=>a-b).map(v=>`<option value="${v}">₹${v}</option>`).join('');
+function mbqRebuildAssortmentItemRows(){
+ if(!Array.isArray(liveSohRows)||!liveSohRows.length||!Array.isArray(sourceRows)||!sourceRows.length)return;
+ const groupNames=new Map(sourceRows.map(r=>[mbqSkuGroupKey(r[0]),String(r[0]||'').trim()]));
+ const itemMap=new Map();
+ const codeKey=v=>String(v??'').trim().toUpperCase().replace(/\\s+/g,'');
+ liveSohRows.forEach(raw=>{
+  const type=String(keyValue(raw,['TYPE','Type'])||'').trim();
+  if(type&&type.toUpperCase()!=='SOH')return;
+  const sku=String(keyValue(raw,['ItemAttribute.SKUGroup','SKUGroup','SKU Group'])||'').trim();
+  const groupKey=mbqSkuGroupKey(sku),displayGroup=groupNames.get(groupKey);
+  const code=String(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No'])||'').trim();
+  if(!displayGroup||!code)return;
+  const k=groupKey+'|'+codeKey(code);
+  const prior=itemMap.get(k);
+  const description=String(keyValue(raw,['DESCRIPTION','Description','Item Description','Product Name','Item Name'])||'').trim();
+  if(prior){if(!prior.description&&description)prior.description=description;return;}
+  itemMap.set(k,{sku:displayGroup,indent:null,avg:null,suggest:null,risk:'No data available',cfa:'No data available',cover:null,open:null,stock:null,code,shelfLife:null,mrp:null,salesDay:null,description});
+ });
+ rows.length=0;
+ itemMap.forEach(item=>{
+  const group=sourceRows.find(r=>mbqSkuGroupKey(r[0])===mbqSkuGroupKey(item.sku));
+  item.indent=group&&group[1]!==null&&group[1]!==undefined?group[1]:null;
+  rows.push(item);
+ });
+}
 async function loadLiveSoh(){
   const tbody=document.getElementById('stockRows');
   if(tbody)tbody.innerHTML='<tr><td colspan="8" class="empty">LIVE SOH workbook load cheyyunnu…</td></tr>';
@@ -1579,7 +1638,7 @@ async function loadLiveSoh(){
     const payload=await response.json();
     if(!response.ok||payload.success!==true)throw new Error(payload.detail||payload.error||('HTTP '+response.status));
     if(!Array.isArray(payload.data))throw new Error('API response has no data array');
-    liveSohRows=payload.data;refreshMbqLiveStockViews();
+    liveSohRows=payload.data;mbqRebuildAssortmentItemRows();refreshMbqLiveStockViews();if(mbqGsvRows.length)mbqApplyGsvSales();
     liveSohMeta={sheet:payload.sheet||'LIVE STOCK REPORT',loadedAt:payload.loadedAt||'',count:payload.rows||payload.data.length};
     liveSohError='';
     const cfas=['ALU','PAY','TVD'];
@@ -1600,46 +1659,40 @@ async function loadLiveSoh(){
 }
 async function fetchGitHubAssortment(){
  try{
-  const res=await fetch("https://raw.githubusercontent.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/feature/mbq-smart-indent-dashboard/KERALA%20ASSORTMENT%20FILE%20.csv");
+  const res=await fetch("https://raw.githubusercontent.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/feature/mbq-smart-indent-dashboard/UNIBIC_Kerala_Assortment_SKU_Group_Only.csv",{cache:"no-store"});
   if(!res.ok)throw new Error("HTTP "+res.status);
-  const text=await res.text(),parsed=parseCsv(text);
-  if(parsed.length>1){
-   const headers=parsed[0].map(h=>h.trim());
-   const fgIdx=headers.findIndex(h=>h==="ItemId"),groupIdx=headers.findIndex(h=>h==="SKU_Group"),mrpIdx=headers.findIndex(h=>h==="MRP_Price"),descIdx=headers.findIndex(h=>h==="Description");
-   const cleanGroup=v=>String(v??"").normalize("NFKC").replace(/[\u00A0\u2007\u202F\uFFFD]/g," ").replace(/[\u200B-\u200D\uFEFF]/g,"").replace(/\s+/g," ").trim();
-   const priorGroupValues=new Map(sourceRows.filter(r=>r&&r[0]).map(r=>[mbqSkuGroupKey(r[0]),r[1]]));
-   const priorIndentLines=indentLines.map(x=>({...x}));
-   sourceRows.length=0;rows.length=0;
-   const addedGroups=new Map();
-   parsed.slice(1).forEach(r=>{
-    const fgCode=fgIdx>=0&&r[fgIdx]?r[fgIdx].trim():"";
-    const rawGroup=groupIdx>=0&&r[groupIdx]?r[groupIdx]:"";
-    const skuGroup=cleanGroup(rawGroup),displayGroup=skuGroup,groupKey=mbqSkuGroupKey(displayGroup);
-    const mrpVal=mrpIdx>=0&&r[mrpIdx]!==''&&!isNaN(parseFloat(r[mrpIdx]))?parseFloat(r[mrpIdx]):null;
-    const desc=descIdx>=0&&r[descIdx]?r[descIdx].trim():"";
-    if(displayGroup){
-     if(!addedGroups.has(groupKey)){
-      addedGroups.set(groupKey,displayGroup);
-      sourceRows.push([displayGroup,null,null,null,"No data available","No data available"]);
-     }
-     rows.push({sku:addedGroups.get(groupKey),indent:null,avg:null,suggest:null,risk:"No data available",cfa:"No data available",cover:null,open:null,stock:null,code:fgCode,shelfLife:null,mrp:mrpVal,salesDay:null,description:desc});
-    }
-   });
-   sourceRows.forEach(sr=>{
-    const key=mbqSkuGroupKey(sr[0]),prior=priorGroupValues.get(key);
-    const line=[...priorIndentLines].reverse().find(x=>x.mode==='group'&&mbqSkuGroupKey(x.sku)===key);
-    const qty=(prior!==null&&prior!==undefined&&prior!==''&&Number.isFinite(Number(prior)))?Number(prior):(line&&line.qty!==''&&line.qty!==null&&line.qty!==undefined&&Number.isFinite(Number(line.qty))?Number(line.qty):null);
-    if(qty!==null){sr[1]=qty;rows.filter(x=>mbqSkuGroupKey(x.sku)===key).forEach(x=>x.indent=qty);}
-   });
-   window.mbqAssortmentLoaded=true;
-   mbqRestoreSharedSalesHeadUpload().then(()=>mbqApplyPendingSalesHeadUpload());
-   const groupSelect=document.getElementById("entrySkuGroup");
-   if(groupSelect)groupSelect.innerHTML='<option value="">All (എല്ലാ SKU Groups-ഉം ഒരുമിച്ച് കാണിക്കുക)</option>'+Array.from(addedGroups.values()).map(g=>'<option value="'+escapeHtml(g)+'">'+escapeHtml(g)+'</option>').join("");
-   renderIndentWorkspace();renderIndent();renderWatch();renderSuggestions();renderStock();renderMbqExcelView();mbqRefreshDashboardKpis();
-   if(mbqGsvRows.length)mbqApplyGsvSales();
-   if(typeof renderDaysPlanner==='function')renderDaysPlanner();
-   showToast("GitHub Kerala Assortment Master loaded; normalized SKU Groups successfully.");
-  }
+  const parsed=parseCsv(await res.text());
+  if(parsed.length<2)throw new Error("Assortment CSV has no SKU Groups");
+  const headers=parsed[0].map(h=>String(h||'').trim().replace(/^\\uFEFF/,''));
+  const groupIdx=headers.findIndex(h=>h.toLowerCase()==='sku_group'||h.toLowerCase()==='sku group');
+  if(groupIdx<0)throw new Error("SKU_Group column not found in assortment CSV");
+  const cleanGroup=v=>String(v??'').normalize('NFKC').replace(/[\\u00A0\\u2007\\u202F\\uFFFD]/g,' ').replace(/[\\u200B-\\u200D\\uFEFF]/g,'').replace(/\\s+/g,' ').trim();
+  const priorGroupValues=new Map(sourceRows.filter(r=>r&&r[0]).map(r=>[mbqSkuGroupKey(r[0]),r[1]]));
+  const priorIndentLines=indentLines.map(x=>({...x}));
+  sourceRows.length=0;
+  const addedGroups=new Map();
+  parsed.slice(1).forEach(r=>{
+   const displayGroup=cleanGroup(r[groupIdx]),key=mbqSkuGroupKey(displayGroup);
+   if(displayGroup&&!addedGroups.has(key)){
+    addedGroups.set(key,displayGroup);
+    sourceRows.push([displayGroup,null,null,null,"No data available","No data available"]);
+   }
+  });
+  sourceRows.forEach(sr=>{
+   const key=mbqSkuGroupKey(sr[0]),prior=priorGroupValues.get(key);
+   const line=[...priorIndentLines].reverse().find(x=>x.mode==='group'&&mbqSkuGroupKey(x.sku)===key);
+   const qty=(prior!==null&&prior!==undefined&&prior!==''&&Number.isFinite(Number(prior)))?Number(prior):(line&&line.qty!==''&&line.qty!==null&&line.qty!==undefined&&Number.isFinite(Number(line.qty))?Number(line.qty):null);
+   if(qty!==null)sr[1]=qty;
+  });
+  window.mbqAssortmentLoaded=true;
+  mbqRebuildAssortmentItemRows();
+  mbqRestoreSharedSalesHeadUpload().then(()=>mbqApplyPendingSalesHeadUpload());
+  const groupSelect=document.getElementById("entrySkuGroup");
+  if(groupSelect)groupSelect.innerHTML='<option value="">All (എല്ലാ SKU Groups-ഉം ഒരുമിച്ച് കാണിക്കുക)</option>'+Array.from(addedGroups.values()).map(g=>'<option value="'+escapeHtml(g)+'">'+escapeHtml(g)+'</option>').join("");
+  renderIndentWorkspace();renderIndent();renderWatch();renderSuggestions();renderStock();renderMbqExcelView();mbqRefreshDashboardKpis();
+  if(mbqGsvRows.length)mbqApplyGsvSales();
+  if(typeof renderDaysPlanner==='function')renderDaysPlanner();
+  showToast("GitHub Kerala Assortment Master loaded · "+addedGroups.size+" SKU Groups.");
  }catch(e){console.warn("Assortment load failed:",e);showToast("GitHub Assortment load cheyyan kazhinjilla!");mbqRefreshDashboardKpis();}
 }
 fetchGitHubAssortment();
