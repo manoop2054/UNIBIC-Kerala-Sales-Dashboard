@@ -174,11 +174,21 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 #page-allocation .table-wrap td input[data-allocation-index]{display:block;margin:0 auto;text-align:center;width:88px!important;min-width:0!important;padding:5px!important}
 
 
-/* CFA-wise Stock: prevent the first header character from being clipped */
+/* CFA-wise Stock: compact, fixed column sizing; keep all data and headings unchanged */
 #page-stock .table-wrap{overflow-x:auto;overflow-y:visible}
-#page-stock .table-wrap table{min-width:900px;table-layout:auto}
+#page-stock .table-wrap table{width:100%;min-width:900px;table-layout:fixed}
+#page-stock .table-wrap th:nth-child(1),#page-stock .table-wrap td:nth-child(1){width:82px}
+#page-stock .table-wrap th:nth-child(2),#page-stock .table-wrap td:nth-child(2){width:150px}
+#page-stock .table-wrap th:nth-child(3),#page-stock .table-wrap td:nth-child(3){width:205px}
+#page-stock .table-wrap th:nth-child(4),#page-stock .table-wrap td:nth-child(4){width:105px}
+#page-stock .table-wrap th:nth-child(5),#page-stock .table-wrap td:nth-child(5){width:105px}
+#page-stock .table-wrap th:nth-child(6),#page-stock .table-wrap td:nth-child(6){width:95px}
+#page-stock .table-wrap th:nth-child(7),#page-stock .table-wrap td:nth-child(7){width:90px}
+#page-stock .table-wrap th:nth-child(8),#page-stock .table-wrap td:nth-child(8){width:125px}
 #page-stock .table-wrap thead th:first-child,
-#page-stock .table-wrap tbody td:first-child{position:static!important;left:auto!important;min-width:105px;width:105px;padding:12px 18px!important;text-indent:0!important;white-space:nowrap;overflow:visible}
+#page-stock .table-wrap tbody td:first-child{position:static!important;left:auto!important;min-width:82px;width:82px;padding:10px 9px!important;text-indent:0!important;white-space:nowrap;overflow:visible}
+#page-stock .table-wrap th,#page-stock .table-wrap td{padding-left:9px;padding-right:9px}
+#page-stock .table-wrap th:nth-child(3),#page-stock .table-wrap td:nth-child(3){white-space:normal;overflow-wrap:anywhere}
 #page-stock .table-wrap thead th:first-child{background:#f8fafd}
 #page-stock .table-wrap tbody td:first-child{background:#fff;font-weight:750}
 #page-stock .table-wrap tbody tr:hover td:first-child{background:#fafcff}
