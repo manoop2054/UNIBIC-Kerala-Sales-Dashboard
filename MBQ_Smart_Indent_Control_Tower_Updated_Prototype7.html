@@ -352,11 +352,30 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 </div>
 <div class="card table-card">
  <div class="card-head"><div><h3>4 · SKU Group Loading</h3><small id="peakGroupSub">Selected CFA · Group-wise totals</small></div><button class="btn" id="peakViewAll" onclick="togglePeakViewAll()">View All</button></div>
- <div class="table-wrap"><table class="peak-table"><thead><tr><th>SKU Group</th><th>Expected Demand (CBB)</th><th>Usable SOH</th><th>Open TO</th><th>Loading Required (CBB)</th><th>Manual Indent (CBB)</th><th>Monthly Allocated (CBB)</th></tr></thead><tbody id="peakGroupRows"><tr><td colspan="7" class="empty">Select date and calculate the plan.</td></tr></tbody></table></div>
- <div class="small-note">Group totals sum mapped item codes. Manual Indent is CFA-wise and date-range total; monthly CFA allocation is the ceiling. Select TVD / PAY / ALU (not All CFA) to enter it. A warning appears if saved manual entries exceed the remaining monthly allocation.</div>
+ <div class="table-wrap"><table class="peak-table"><thead><tr><th>SKU Group</th><th>Expected Demand (CBB)</th><th>Usable SOH</th><th>Open TO</th><th>Loading Required (CBB)</th><th>New Manual Indent (CBB)</th><th>Submitted This Month (CBB)</th><th>Monthly Allocated (CBB)</th></tr></thead><tbody id="peakGroupRows"><tr><td colspan="8" class="empty">Select date and calculate the plan.</td></tr></tbody></table></div>
+ <div class="peak-fields" style="padding:12px 18px;align-items:center"><button class="btn primary" onclick="savePeakManualSubmission()">Save Manual Indent Submission</button><span class="peak-note">Enter quantities for the required SKU Groups, then save once. Every save is stored as a separate date-wise submission; previous submissions are never overwritten.</span></div><div class="small-note">Select one CFA and a date range within one month. Monthly totals include every saved submission for that CFA and SKU Group. Excess is flagged but can still be submitted after confirmation.</div>
 </div>
 <div class="card peak-card" style="margin-top:11px">
- <div class="peak-head"><h3>5 · Excel Export</h3><span class="peak-note">Calculated source data</span></div>
+ <div class="peak-head"><h3>5 · Sales Manager Manual Indent Control</h3><span class="peak-note" id="peakManualReportSub">Monthly allocation vs all saved submissions</span></div>
+ <div class="peak-fields" style="padding:12px 18px">
+  <div class="field"><label>Report Month</label><input id="peakManualReportMonth" type="month"></div>
+  <div class="field"><label>CFA</label><select id="peakManualReportCfa"><option value="ALL">All CFA</option><option value="TVD">TVD</option><option value="PAY">PAY</option><option value="ALU">ALU</option></select></div>
+  <div class="field" style="display:flex;align-items:end"><button class="btn" style="width:100%" onclick="renderPeakManualReport()">Refresh Report</button></div>
+  <div class="field" style="display:flex;align-items:end"><button class="btn primary" style="width:100%" onclick="exportPeakManualExcel()">Export Indent Excel</button></div>
+ </div>
+ <div class="peak-kpis">
+  <div class="card kpi peak-kpi"><div class="label">Monthly CFA Allocation</div><div class="value" id="peakManualTotalAllocation">No Data Available</div></div>
+  <div class="card kpi peak-kpi"><div class="label">Total Manual Indent</div><div class="value" id="peakManualTotalSubmitted">0 CBB</div></div>
+  <div class="card kpi peak-kpi"><div class="label">Excess Indent</div><div class="value" id="peakManualTotalExcess">0 CBB</div></div>
+  <div class="card kpi peak-kpi"><div class="label">Allocation Utilisation</div><div class="value" id="peakManualUtilisation">No Data Available</div></div>
+ </div>
+ <div class="card-head"><div><h3>Monthly SKU Group Comparison</h3><small>All submissions added together · Excess = Manual Indent − Monthly Allocation</small></div></div>
+ <div class="table-wrap"><table class="peak-table"><thead><tr><th>CFA</th><th>SKU Group</th><th>Monthly Allocation (CBB)</th><th>Total Manual Indent (CBB)</th><th>Excess (CBB)</th><th>Excess %</th></tr></thead><tbody id="peakManualSummaryRows"><tr><td colspan="6" class="empty">Select a month to view the report.</td></tr></tbody></table></div>
+ <div class="card-head"><div><h3>Submission History</h3><small>Every save is a separate record; previous months remain available for reporting and export.</small></div></div>
+ <div class="table-wrap"><table class="peak-table"><thead><tr><th>Submission Date</th><th>CFA</th><th>Indent Period</th><th>SKU Group</th><th>Manual Indent (CBB)</th><th>Saved At</th></tr></thead><tbody id="peakManualHistoryRows"><tr><td colspan="6" class="empty">No submissions saved for this month.</td></tr></tbody></table></div>
+</div>
+<div class="card peak-card" style="margin-top:11px">
+ <div class="peak-head"><h3>6 · Peak Planner Excel Export</h3><span class="peak-note">Calculated source data</span></div>
  <div class="peak-fields"><div><b style="font-size:11px">Selected CFA</b><div class="peak-note">Current CFA details</div><button class="btn primary" style="margin-top:6px" onclick="exportPeakExcel('selected')">Export Selected CFA Excel</button></div><div><b style="font-size:11px">All CFA</b><div class="peak-note">Consolidated workbook · Separate sheets</div><button class="btn" style="margin-top:6px" onclick="exportPeakExcel('all')">Export All CFA Excel</button></div></div>
 </div>
 <details class="card peak-more" id="peakAdditionalDetails"><summary>Additional Details <span style="float:right;color:var(--muted);font-size:11px;font-weight:500">Open when needed ＋</span></summary>
@@ -1799,13 +1818,129 @@ function peakHistory(){const m=mbqLastCompletedMonths(2),a=m[0],z=m[m.length-1],
 function updatePeakTargetLabels(){const m=Number(document.getElementById('monthlySales')?.value)||0,a=Number(document.getElementById('midTarget')?.value)||0,b=Number(document.getElementById('endTarget')?.value)||0;document.getElementById('peakMonthlyTarget').textContent='₹'+m.toFixed(1)+' Cr';document.getElementById('peakMidTarget').textContent='₹'+a.toFixed(1)+' Cr';document.getElementById('peakEndTarget').textContent='₹'+b.toFixed(1)+' Cr';const l=document.getElementById('lead')?.value;if(l)document.getElementById('peakLead').value=l;}
 function peakDateCovered(date){const coverage=mbqGsvMeta?.dateCoverage||{};return !!coverage.from&&!!coverage.to&&date>=coverage.from&&date<=coverage.to;}
 function peakDailyQty(date,cfas,codes){if(!peakDateCovered(date))return null;const codeSet=codes?new Set(codes):null;return mbqGsvRows.filter(x=>x.date===date&&cfas.includes(normalCfa(x.cfa))&&(!codeSet||codeSet.has(mbqGsvNormCode(x.itemId)))).reduce((sum,x)=>sum+(Number(x.quantity)||0),0);}
-let peakManualEntries={};
+let peakManualData={legacyEntries:{},submissions:[]};
+let peakManualDrafts={};
 let peakManualLoaded=false;
+function peakManualNormalize(data){
+ if(data&&typeof data==='object'&&Array.isArray(data.submissions))return {legacyEntries:data.legacyEntries&&typeof data.legacyEntries==='object'?data.legacyEntries:{},submissions:data.submissions};
+ return {legacyEntries:data&&typeof data==='object'?data:{},submissions:[]};
+}
+function peakManualRecords(){
+ const legacy=Object.entries(peakManualData.legacyEntries||{}).map(([key,value])=>{
+  const p=key.split('|');
+  return {id:'legacy-'+key,month:p[0]||'',cfa:normalCfa(p[1]||''),fromDate:p[3]||'',toDate:p[4]||'',submissionDate:p[4]||p[3]||'',submittedAt:'',legacy:true,rows:[{group:p[2]||'',qty:Number(value)||0}]};
+ });
+ return legacy.concat(Array.isArray(peakManualData.submissions)?peakManualData.submissions:[]);
+}
 function peakManualKey(month,cfa,group,from,to){return [month,cfa,mbqSkuGroupKey(group),from,to].join('|');}
-function peakMonthlyAllocated(group,cfa){if(!Array.isArray(allocationData)||!allocationData.length)return null;const allowed=peakCfas(cfa),key=mbqSkuGroupKey(group),matched=allocationData.filter(x=>mbqSkuGroupKey(x.sku)===key&&allowed.includes(normalCfa(x.cfaKey||x.cfa)));if(!matched.length)return 0;return matched.reduce((sum,x)=>sum+(Number(x.allocation??x.indentCbb)||0),0);}
-function peakManualMonthUsed(month,cfa,group,excludeKey=''){const allowed=peakCfas(cfa),key=mbqSkuGroupKey(group);return Object.entries(peakManualEntries||{}).reduce((sum,[k,v])=>{const p=k.split('|');return k!==excludeKey&&p[0]===month&&allowed.includes(p[1])&&p[2]===key?sum+(Number(v)||0):sum;},0);}
-async function loadPeakManualEntries(){try{const r=await fetch('/api/mbq/peak-manual-indent',{cache:'no-store'});const j=await r.json();if(r.ok&&j.success&&j.data&&typeof j.data==='object'){peakManualEntries=j.data;peakManualLoaded=true;}}catch(e){console.warn('Peak manual indent load unavailable',e);}}
-async function savePeakManualIndent(group,input){const p=peakPlanResult;if(!p)return;const month=p.date.slice(0,7);if(p.toDate.slice(0,7)!==month){showToast('Manual Indent: ഒരേ calendar month-നുള്ള date range മാത്രം അനുവദിക്കും.');renderPeakGroupRows();return;}if(p.cfa==='ALL'){showToast('Manual Indent enter ചെയ്യാൻ TVD / PAY / ALU ഒരു CFA select ചെയ്യുക.');renderPeakGroupRows();return;}if(!peakManualLoaded){showToast('Shared Manual Indent data load ആയിട്ടില്ല. Refresh ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.');renderPeakGroupRows();return;}const cf=p.cfa,key=peakManualKey(month,cf,group,p.date,p.toDate),value=String(input.value??'').trim()===''?0:Number(input.value);if(!Number.isFinite(value)||value<0){showToast('Valid non-negative CBB quantity നൽകുക.');renderPeakGroupRows();return;}const cap=peakMonthlyAllocated(group,cf);if(cap===null){showToast('ഈ SKU Group-ന്റെ monthly CFA allocation ലഭ്യമല്ല. ആദ്യം CFA Allocation complete ചെയ്യുക.');renderPeakGroupRows();return;}const used=peakManualMonthUsed(month,cf,group,key),remaining=Math.max(0,cap-used);if(value>remaining&&!window.confirm(group+' manual indent '+peakFmt(value)+' CBB ആണ്. Remaining monthly allocated quantity '+peakFmt(remaining)+' CBB മാത്രം. Monthly allocation കടക്കുന്നു. എന്നിട്ടും save ചെയ്യണോ?')){renderPeakGroupRows();return;}const old=peakManualEntries[key];if(value===0)delete peakManualEntries[key];else peakManualEntries[key]=value;try{const r=await fetch('/api/mbq/peak-manual-indent',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:peakManualEntries})});const j=await r.json().catch(()=>({}));if(!r.ok||!j.success)throw new Error(j.error||'Server save failed');showToast('Manual Indent shared storage-ൽ save ചെയ്തു.');}catch(e){if(old===undefined)delete peakManualEntries[key];else peakManualEntries[key]=old;showToast('Manual Indent server save ആയില്ല: '+e.message);}renderPeakGroupRows();}
+function peakMonthlyAllocated(group,cfa){
+ if(!Array.isArray(allocationData)||!allocationData.length)return null;
+ const allowed=peakCfas(cfa),key=mbqSkuGroupKey(group),matched=allocationData.filter(x=>mbqSkuGroupKey(x.sku)===key&&allowed.includes(normalCfa(x.cfaKey||x.cfa)));
+ if(!matched.length)return 0;
+ return matched.reduce((sum,x)=>sum+(Number(x.allocation??x.indentCbb)||0),0);
+}
+function peakManualMonthTotal(month,cfa,group){
+ const allowed=peakCfas(cfa),key=mbqSkuGroupKey(group);
+ return peakManualRecords().filter(s=>String(s.month||'')===month&&allowed.includes(normalCfa(s.cfa))).reduce((sum,s)=>sum+(Array.isArray(s.rows)?s.rows:[]).reduce((n,r)=>n+(mbqSkuGroupKey(r.group)===key?(Number(r.qty)||0):0),0),0);
+}
+function peakManualMonthUsed(month,cfa,group){return peakManualMonthTotal(month,cfa,group);}
+async function loadPeakManualEntries(){
+ try{
+  const r=await fetch('/api/mbq/peak-manual-indent',{cache:'no-store'});
+  const j=await r.json();
+  if(r.ok&&j.success){peakManualData=peakManualNormalize(j.data);peakManualLoaded=true;}
+ }catch(e){console.warn('Peak manual indent load unavailable',e);}
+}
+function setPeakManualDraft(group,value){
+ const raw=String(value??'').trim();
+ if(raw===''){delete peakManualDrafts[group];return;}
+ const qty=Number(raw);
+ if(Number.isFinite(qty)&&qty>=0)peakManualDrafts[group]=qty;
+}
+async function savePeakManualSubmission(){
+ const p=peakPlanResult;
+ if(!p){showToast('ആദ്യം Calculate Peak Plan ചെയ്യുക.');return;}
+ if(p.cfa==='ALL'){showToast('Manual Indent save ചെയ്യാൻ TVD / PAY / ALU ഒരു CFA select ചെയ്യുക.');return;}
+ if(p.toDate.slice(0,7)!==p.date.slice(0,7)){showToast('ഒരു calendar month-നുള്ള date range മാത്രം submit ചെയ്യാം.');return;}
+ if(!peakManualLoaded){showToast('Shared Manual Indent history load ആയിട്ടില്ല. Refresh ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.');return;}
+ const entries=Object.entries(peakManualDrafts).filter(([,qty])=>Number(qty)>0);
+ if(!entries.length){showToast('ആദ്യം ഒന്നോ അതിലധികമോ SKU Group Manual Indent quantities enter ചെയ്യുക.');return;}
+ const month=p.date.slice(0,7),warnings=[];
+ for(const [group,qty] of entries){
+  const cap=peakMonthlyAllocated(group,p.cfa);
+  if(cap===null){showToast(group+': Monthly CFA allocation ലഭ്യമല്ല.');return;}
+  const already=peakManualMonthTotal(month,p.cfa,group);
+  if(already+qty>cap)warnings.push(group+': '+peakFmt(already+qty)+' / '+peakFmt(cap)+' CBB');
+ }
+ if(warnings.length&&!window.confirm('Monthly CFA allocation കടക്കുന്ന SKU Groups:\n'+warnings.join('\n')+'\n\nExcess indent history-ൽ save ചെയ്യണോ?'))return;
+ const submission={
+  month:month,cfa:p.cfa,fromDate:p.date,toDate:p.toDate,
+  submissionDate:peakISO(new Date()),
+  rows:entries.map(([group,qty])=>({group:String(group),qty:Number(qty)}))
+ };
+ try{
+  const r=await fetch('/api/mbq/peak-manual-indent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({submission})});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok||!j.success)throw new Error(j.error||'Server save failed');
+  peakManualData=peakManualNormalize(j.data||{legacyEntries:peakManualData.legacyEntries,submissions:(peakManualData.submissions||[]).concat(j.submission||submission)});
+  peakManualDrafts={};
+  showToast('Date-wise Manual Indent submission shared storage-ൽ save ചെയ്തു.');
+  renderPeakGroupRows();
+  renderPeakManualReport();
+ }catch(e){showToast('Manual Indent save ആയില്ല: '+e.message);}
+}
+function renderPeakManualReport(){
+ const monthEl=document.getElementById('peakManualReportMonth'),cfaEl=document.getElementById('peakManualReportCfa');
+ const month=monthEl?.value||'',filter=cfaEl?.value||'ALL';
+ const cfas=peakCfas(filter);
+ if(!Array.isArray(allocationData)||!allocationData.length){try{buildAllocationData();}catch(e){console.warn('Monthly allocation report unavailable',e);}}
+ const map=new Map();
+ (Array.isArray(allocationData)?allocationData:[]).forEach(x=>{
+  const cfa=normalCfa(x.cfaKey||x.cfa),group=String(x.sku||'').trim();
+  if(!group||!cfas.includes(cfa))return;
+  const key=cfa+'|'+mbqSkuGroupKey(group);
+  if(!map.has(key))map.set(key,{cfa,group});
+ });
+ const records=peakManualRecords().filter(s=>String(s.month||'')===month&&cfas.includes(normalCfa(s.cfa)));
+ records.forEach(s=>(Array.isArray(s.rows)?s.rows:[]).forEach(r=>{
+  const group=String(r.group||'').trim(),cfa=normalCfa(s.cfa),key=cfa+'|'+mbqSkuGroupKey(group);
+  if(group&&!map.has(key))map.set(key,{cfa,group});
+ }));
+ const rows=[...map.values()].map(x=>{
+  const allocated=peakMonthlyAllocated(x.group,x.cfa),manual=peakManualMonthTotal(month,x.cfa,x.group);
+  return {...x,allocated,manual,excess:allocated===null?null:Math.max(0,manual-allocated),excessPct:allocated>0?Math.max(0,manual-allocated)/allocated*100:(manual>0?null:0)};
+ }).sort((a,b)=>a.cfa.localeCompare(b.cfa)||a.group.localeCompare(b.group));
+ const allocatedRows=rows.filter(x=>x.allocated!==null),totalAllocated=allocatedRows.reduce((n,x)=>n+x.allocated,0),totalManual=rows.reduce((n,x)=>n+x.manual,0),totalExcess=rows.reduce((n,x)=>n+(x.excess||0),0);
+ const put=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value;};
+ put('peakManualTotalAllocation',allocatedRows.length?peakFmt(totalAllocated)+' CBB':'No Data Available');
+ put('peakManualTotalSubmitted',peakFmt(totalManual)+' CBB');
+ put('peakManualTotalExcess',peakFmt(totalExcess)+' CBB');
+ put('peakManualUtilisation',totalAllocated>0?(totalManual/totalAllocated*100).toFixed(1)+'%':'No Data Available');
+ const summary=document.getElementById('peakManualSummaryRows');
+ if(summary)summary.innerHTML=rows.length?rows.map(x=>'<tr><td>'+mbqEscape(x.cfa)+'</td><td class="sku">'+mbqEscape(x.group)+'</td><td>'+(x.allocated===null?'No Data Available':peakFmt(x.allocated))+'</td><td>'+peakFmt(x.manual)+'</td><td><b class="'+(x.excess>0?'negative':'positive')+'">'+(x.excess===null?'No Data Available':peakFmt(x.excess))+'</b></td><td>'+(x.excessPct===null?'No Data Available':x.excessPct.toFixed(1)+'%')+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No allocation or manual indent records for this month.</td></tr>';
+ const history=document.getElementById('peakManualHistoryRows');
+ const historyRows=[];
+ records.forEach(s=>(Array.isArray(s.rows)?s.rows:[]).forEach(r=>historyRows.push({date:s.submissionDate||'',saved:s.submittedAt||'',cfa:s.cfa||'',period:(s.fromDate||'')+' – '+(s.toDate||''),group:r.group||'',qty:Number(r.qty)||0,legacy:!!s.legacy})));
+ historyRows.sort((a,b)=>(b.saved||b.date).localeCompare(a.saved||a.date));
+ if(history)history.innerHTML=historyRows.length?historyRows.map(x=>'<tr><td>'+mbqEscape(x.date)+(x.legacy?' · legacy':'')+'</td><td>'+mbqEscape(x.cfa)+'</td><td>'+mbqEscape(x.period)+'</td><td class="sku">'+mbqEscape(x.group)+'</td><td>'+peakFmt(x.qty)+'</td><td>'+mbqEscape(x.saved?new Date(x.saved).toLocaleString('en-IN'):'Existing saved entry')+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No submissions saved for this month.</td></tr>';
+ const sub=document.getElementById('peakManualReportSub');if(sub)sub.textContent=(month||'Select month')+' · '+(filter==='ALL'?'All CFAs':filter)+' · '+records.length+' submissions';
+}
+function exportPeakManualExcel(){
+ if(!window.XLSX){showToast('Excel library loading. Refresh ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.');return;}
+ const month=document.getElementById('peakManualReportMonth')?.value||'',filter=document.getElementById('peakManualReportCfa')?.value||'ALL',cfas=peakCfas(filter);
+ const records=peakManualRecords().filter(s=>String(s.month||'')===month&&cfas.includes(normalCfa(s.cfa)));
+ const history=[['Submission Date','Saved At','CFA','Month','Period From','Period To','SKU Group','Manual Indent CBB']];
+ records.forEach(s=>(Array.isArray(s.rows)?s.rows:[]).forEach(r=>history.push([s.submissionDate||'',s.submittedAt||'',s.cfa||'',s.month||'',s.fromDate||'',s.toDate||'',r.group||'',Number(r.qty)||0])));
+ const summary=[['CFA','SKU Group','Monthly Allocated CBB','Total Manual Indent CBB','Excess CBB','Excess %']];
+ const map=new Map();
+ (Array.isArray(allocationData)?allocationData:[]).forEach(x=>{const c=normalCfa(x.cfaKey||x.cfa),g=String(x.sku||'').trim();if(g&&cfas.includes(c))map.set(c+'|'+mbqSkuGroupKey(g),{c,g});});
+ records.forEach(s=>(Array.isArray(s.rows)?s.rows:[]).forEach(r=>{const c=normalCfa(s.cfa),g=String(r.group||'').trim();if(g&&!map.has(c+'|'+mbqSkuGroupKey(g)))map.set(c+'|'+mbqSkuGroupKey(g),{c,g});}));
+ [...map.values()].sort((a,b)=>a.c.localeCompare(b.c)||a.g.localeCompare(b.g)).forEach(x=>{const allocated=peakMonthlyAllocated(x.g,x.c),manual=peakManualMonthTotal(month,x.c,x.g),excess=allocated===null?'No Data Available':Math.max(0,manual-allocated),pct=allocated>0?Math.max(0,manual-allocated)/allocated*100:'No Data Available';summary.push([x.c,x.g,allocated===null?'No Data Available':allocated,manual,excess,pct==='No Data Available'?pct:pct.toFixed(1)+'%']);});
+ const wb=XLSX.utils.book_new(),add=(name,data)=>{const ws=XLSX.utils.aoa_to_sheet(data);ws['!cols']=Array.from({length:Math.max(1,...data.map(r=>r.length))},(_,i)=>({wch:Math.min(36,Math.max(12,...data.map(r=>String(r[i]??'').length+2)))}));XLSX.utils.book_append_sheet(wb,ws,name);};
+ add('Monthly Summary',summary);add('Submission History',history);
+ XLSX.writeFile(wb,'Sales_Manager_Manual_Indent_'+month+'_'+filter+'.xlsx',{compression:true});
+ showToast('Manual Indent Summary & Submission History Excel ready.');
+}
 
 function peakGroupData(group,cfa,hist,days,date){
  const codes=[...new Set(rows.filter(r=>mbqSkuGroupKey(r.sku)===mbqSkuGroupKey(group)&&r.code).map(r=>mbqGsvNormCode(r.code)).filter(Boolean))];
@@ -1864,7 +1999,15 @@ function calculatePeak(){
  showToast('Peak plan calculated from GSV, SOH and Open TO data.');
 }
 function renderPeakDailyRows(data){const host=document.getElementById('peakDailyRows');if(!host)return;host.innerHTML=data.map(x=>'<tr><td>'+x.date+'</td><td>'+(x.amount===null?'No Data Available':peakFmt(x.amount)+' CBB')+'</td><td>'+x.samples+'/2</td><td>'+(x.amount===null?'History unavailable':'Calculated')+'</td></tr>').join('')||'<tr><td colspan="4" class="empty">No Data Available</td></tr>';const sub=document.getElementById('peakDailySub');if(sub&&peakPlanResult)sub.textContent=peakPlanResult.cfa+' · '+peakPlanResult.date+' to '+peakPlanResult.toDate+' · Same dates in previous 2 completed months';}
-function renderPeakGroupRows(){const host=document.getElementById('peakGroupRows');if(!host||!peakPlanResult)return;const p=peakPlanResult,month=p.date.slice(0,7),singleMonth=p.toDate.slice(0,7)===month,data=p.rows,shown=peakViewAll?data:data.slice(0,8);host.innerHTML=shown.map(x=>{const cap=peakMonthlyAllocated(x.group,p.cfa),key=peakManualKey(month,p.cfa,x.group,p.date,p.toDate),manual=Number(peakManualEntries[key]||0),used=peakManualMonthUsed(month,p.cfa,x.group,key),remaining=cap===null?null:Math.max(0,cap-used);return '<tr><td class="sku">'+mbqEscape(x.group)+'</td><td>'+(x.demand===null?'No Data Available':peakFmt(x.demand))+'</td><td>'+(x.soh===null?'No Data Available':peakFmt(x.soh))+'</td><td>'+(x.to===null?'No Data Available':peakFmt(x.to))+'</td><td><b>'+(x.loading===null?'No Data Available':peakFmt(x.loading))+'</b></td><td><input type="number" min="0" step="1" value="'+(manual||'')+'" placeholder="Enter CBB" '+(!singleMonth||p.cfa==='ALL'||!peakManualLoaded||cap===null?'disabled':'')+' onchange="savePeakManualIndent(this.dataset.group,this)" data-group="'+mbqEscape(x.group)+'" style="width:115px;padding:7px;border:1px solid #cbd5e1;border-radius:7px;font-weight:700" title="'+(remaining===null?'Monthly allocation unavailable':'Remaining monthly allocation: '+peakFmt(remaining)+' CBB')+'"></td><td>'+(cap===null?'No allocation':peakFmt(cap))+'</td></tr>';}).join('')||'<tr><td colspan="7" class="empty">No SKU Group mapping available.</td></tr>';const b=document.getElementById('peakViewAll');if(b)b.textContent=peakViewAll?'Show Less':'View All';}
+function renderPeakGroupRows(){
+ const host=document.getElementById('peakGroupRows');if(!host||!peakPlanResult)return;
+ const p=peakPlanResult,month=p.date.slice(0,7),singleMonth=p.toDate.slice(0,7)===month,data=p.rows,shown=peakViewAll?data:data.slice(0,8);
+ host.innerHTML=shown.map(x=>{
+  const cap=peakMonthlyAllocated(x.group,p.cfa),draft=peakManualDrafts[x.group]??'',submitted=peakManualMonthTotal(month,p.cfa,x.group);
+  return '<tr><td class="sku">'+mbqEscape(x.group)+'</td><td>'+(x.demand===null?'No Data Available':peakFmt(x.demand))+'</td><td>'+(x.soh===null?'No Data Available':peakFmt(x.soh))+'</td><td>'+(x.to===null?'No Data Available':peakFmt(x.to))+'</td><td><b>'+(x.loading===null?'No Data Available':peakFmt(x.loading))+'</b></td><td><input type="number" min="0" step="1" value="'+(draft===''?'':peakFmt(draft).replaceAll(',',''))+'" placeholder="Enter CBB" '+(!singleMonth||p.cfa==='ALL'||!peakManualLoaded||cap===null?'disabled':'')+' oninput="setPeakManualDraft(this.dataset.group,this.value)" data-group="'+mbqEscape(x.group)+'" style="width:115px;padding:7px;border:1px solid #cbd5e1;border-radius:7px;font-weight:700" title="'+(cap===null?'Monthly allocation unavailable':'Monthly allocation: '+peakFmt(cap)+' CBB')+'"></td><td>'+peakFmt(submitted)+'</td><td>'+(cap===null?'No allocation':peakFmt(cap))+'</td></tr>';
+ }).join('')||'<tr><td colspan="8" class="empty">No SKU Group mapping available.</td></tr>';
+ const b=document.getElementById('peakViewAll');if(b)b.textContent=peakViewAll?'Show Less':'View All';
+}
 function togglePeakViewAll(){peakViewAll=!peakViewAll;renderPeakGroupRows();}
 function exportPeakExcel(mode){
  if(!peakPlanResult){showToast('ആദ്യം Calculate Peak Plan ചെയ്യുക.');return;}if(!window.XLSX){showToast('Excel library loading. Refresh ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.');return;}
@@ -1872,12 +2015,13 @@ function exportPeakExcel(mode){
  const add=(name,data)=>{const ws=XLSX.utils.aoa_to_sheet(data);ws['!cols']=Array.from({length:Math.max(1,...data.map(r=>r.length))},(_,i)=>({wch:Math.min(34,Math.max(12,...data.map(r=>String(r[i]??'').length+2)))}));XLSX.utils.book_append_sheet(wb,ws,name.slice(0,31));};
  const meta=[['Peak Billing Planner'],['Date Range',p.date+' to '+p.toDate],['From Date',p.date],['To Date',p.toDate],['Planning Days',p.days],['Historical GSV',p.hist.from+' to '+p.hist.to],['CFA',p.cfa],['Monthly Target ₹ Cr',document.getElementById('monthlySales').value],['Mid-month Target ₹ Cr',document.getElementById('midTarget').value],['Month-end Target ₹ Cr',document.getElementById('endTarget').value]];
  add('Summary',meta);
- cfas.forEach(c=>{const rs=p.rows.map(x=>({group:x.group,...peakGroupData(x.group,c,p.hist,p.days,p.date)}));add(c,[['SKU Group','Demand CBB','Usable SOH CBB','Confirmed Open TO CBB','Loading Required CBB','Manual Indent CBB','Monthly Allocated CBB'],...rs.map(x=>{const key=peakManualKey(p.date.slice(0,7),c,x.group,p.date,p.toDate),cap=peakMonthlyAllocated(x.group,c);return [x.group,x.demand??'No Data Available',x.soh??'No Data Available',x.to??'No Data Available',x.demand!==null&&x.soh!==null&&x.to!==null?Math.max(0,x.demand-x.soh-x.to):'No Data Available',Number(peakManualEntries[key]||0),cap===null?'No allocation':cap];})]);});
+ cfas.forEach(c=>{const rs=p.rows.map(x=>({group:x.group,...peakGroupData(x.group,c,p.hist,p.days,p.date)}));add(c,[['SKU Group','Demand CBB','Usable SOH CBB','Confirmed Open TO CBB','Loading Required CBB','Manual Indent CBB','Monthly Allocated CBB'],...rs.map(x=>{const cap=peakMonthlyAllocated(x.group,c);return [x.group,x.demand??'No Data Available',x.soh??'No Data Available',x.to??'No Data Available',x.demand!==null&&x.soh!==null&&x.to!==null?Math.max(0,x.demand-x.soh-x.to):'No Data Available',peakManualMonthTotal(p.date.slice(0,7),c,x.group),cap===null?'No allocation':cap];})]);});
  const daily=[['Date','CFA','Expected Billing CBB','Historical Month Samples']];cfas.forEach(c=>peakDailyBilling(c,p.date,p.days,p.hist).forEach(x=>daily.push([x.date,c,x.amount===null?'No Data Available':x.amount,x.samples])));add('Day-wise Billing',daily);if(mode==='all')add('Loading Summary',[['CFA','Total Loading Required CBB'],...cfas.map(c=>{const rs=p.rows.map(x=>peakGroupData(x.group,c,p.hist,p.days,p.date));return [c,rs.every(x=>x.demand!==null&&x.soh!==null&&x.to!==null)?rs.reduce((n,x)=>n+Math.max(0,x.demand-x.soh-x.to),0):'No Data Available'];})]);
  XLSX.writeFile(wb,'Peak_Billing_Planner_'+mode.toUpperCase()+'.xlsx',{compression:true});showToast('Peak Planner Excel export ready.');
 }
 document.getElementById('peakFromDate')?.addEventListener('change',updatePeakToDate);document.getElementById('peakToDate')?.addEventListener('change',updatePeakToDate);
-updatePeakTargetLabels();updatePeakToDate();loadPeakManualEntries().then(()=>{if(peakPlanResult)renderPeakGroupRows();});
+document.getElementById('peakManualReportMonth')?.addEventListener('change',renderPeakManualReport);document.getElementById('peakManualReportCfa')?.addEventListener('change',renderPeakManualReport);
+updatePeakTargetLabels();updatePeakToDate();const peakReportMonth=document.getElementById('peakManualReportMonth');if(peakReportMonth)peakReportMonth.value=peakISO(new Date()).slice(0,7);loadPeakManualEntries().then(()=>{if(peakPlanResult)renderPeakGroupRows();renderPeakManualReport();});
 function exportTable(id,name){let table=document.getElementById(id);if(!table)return;let rows=[...table.closest('table').querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(td=>'"'+td.innerText.replaceAll('"','""')+'"').join(',')).join('\n');let blob=new Blob([rows],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);showToast('Exported CSV.')}
 function showToast(msg){let t=document.getElementById('toast');t.textContent=msg;t.style.display='block';clearTimeout(window._toastTimer);window._toastTimer=setTimeout(()=>t.style.display='none',2600)}
 function exportActivePageExcel(button){
