@@ -1656,7 +1656,7 @@ function exportActivePageExcel(button){
  if(!tables.length){showToast('ഈ Tab-ൽ export ചെയ്യാൻ table data ലഭ്യമല്ല.');return;}
  const wb=XLSX.utils.book_new();let added=0;
  tables.forEach((table,index)=>{
-  const rows=[...table.querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(cell=>(cell.innerText||cell.textContent||'').replace(/\\s+/g,' ').trim()));
+  const rows=[...table.querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(cell=>(cell.innerText||cell.textContent||'').replace(/\s+/g,' ').trim()));
   if(!rows.length||rows.every(row=>row.every(v=>!v)))return;
   const ws=XLSX.utils.aoa_to_sheet(rows);
   ws['!cols']=Array.from({length:Math.max(...rows.map(row=>row.length))},(_,c)=>({wch:Math.min(36,Math.max(12,...rows.map(row=>String(row[c]||'').length+2)))}));
@@ -1670,7 +1670,10 @@ function exportActivePageExcel(button){
 }
 function installTabExcelButtons(){
  document.querySelectorAll('.section').forEach(section=>{
-  const actions=section.querySelector('.page-head .actions');if(!actions||actions.querySelector('.tab-excel-export'))return;
+  const head=section.querySelector('.page-head');if(!head)return;
+  let actions=head.querySelector('.actions');
+  if(!actions){actions=document.createElement('div');actions.className='actions';head.appendChild(actions);}
+  if(actions.querySelector('.tab-excel-export'))return;
   const button=document.createElement('button');button.type='button';button.className='btn tab-excel-export';button.textContent='⇩ Excel Export';button.addEventListener('click',()=>exportActivePageExcel(button));actions.appendChild(button);
  });
 }
