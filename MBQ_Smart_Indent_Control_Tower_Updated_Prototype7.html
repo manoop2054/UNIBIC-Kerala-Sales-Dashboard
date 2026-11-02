@@ -327,23 +327,19 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 <div class="page-head"><div><div class="eyebrow">Kerala · Planning Intelligence</div><h1>Peak Billing Planner</h1><p>Peak demand · CFA stock · Plant loading</p></div><span class="pill green" id="peakConnectionStatus">Checking sources…</span></div>
 <div class="peak-stats"><div class="peak-stat"><small>Monthly Target</small><strong id="peakMonthlyTarget">₹5.5 Cr</strong></div><div class="peak-stat"><small>Mid-month</small><strong id="peakMidTarget">₹2 Cr</strong></div><div class="peak-stat"><small>Month-end</small><strong id="peakEndTarget">₹2 Cr</strong></div></div>
 <div class="card peak-card">
- <div class="peak-head"><h3>1 · Select Peak</h3><span class="peak-note" id="peakWindowLabel">Selected · Mid-month</span></div>
+ <div class="peak-head"><h3>1 · Select Date Range</h3><span class="peak-note" id="peakRangeDays">Select a valid date range</span></div>
  <div class="peak-fields">
-  <div class="field"><label>Peak Window</label><select id="peakWindow"><option value="mid">Mid-month · 13–15</option><option value="end">Month-end · 28–31</option></select></div>
-  <div class="field"><label>From Date</label><input id="peakFromDate" type="date"></div>\n   <div class="field"><label>To Date</label><div id="peakToDate" class="input" style="min-height:37px;display:flex;align-items:center">Auto calculated</div></div>
-  <div class="field"><label>Planning Days</label><select id="peakDays"><option value="3">3 Days</option><option value="5">5 Days</option><option value="7" selected>7 Days</option><option value="10">10 Days</option><option value="15">15 Days</option><option value="custom">Custom</option></select></div>
-  <div class="field" id="peakCustomDaysWrap" style="display:none"><label>Custom Days</label><input id="peakCustomDays" type="number" min="1" max="60" placeholder="Enter days"></div>
- </div>
- <div class="peak-fields" style="margin-top:9px">
+  <div class="field"><label>From Date</label><input id="peakFromDate" type="date"></div>
+  <div class="field"><label>To Date</label><input id="peakToDate" type="date"></div>
   <div class="field"><label>CFA</label><select id="peakCfa"><option value="ALL">All CFA</option><option value="TVD">TVD</option><option value="PAY">PAY</option><option value="ALU">ALU</option></select></div>
   <div class="field"><label>Plant Lead Time</label><select id="peakLead"><option value="4">4 Days</option><option value="5" selected>5 Days</option></select></div>
-  <div class="field" style="display:flex;align-items:end"><button class="btn primary" style="width:100%;min-height:37px" onclick="calculatePeak()">Calculate Peak Plan</button></div>
+  <div class="field" style="display:flex;align-items:end"><button class="btn primary" style="width:100%;min-height:37px" onclick="calculatePeak()">Calculate Plan</button></div>
  </div>
-</div>
+ </div>
 <div class="card peak-card">
  <div class="peak-head"><h3>2 · Planning Summary</h3><span class="peak-note" id="peakSummarySub">Calculate to load source-based values</span></div>
  <div class="peak-kpis">
-  <div class="card kpi peak-kpi"><div class="label">Expected Billing</div><div class="value" id="peakExpectedBilling">No Data Available</div><div class="sub">Same calendar dates · prior 2 completed months</div></div>
+  <div class="card kpi peak-kpi"><div class="label">Expected Billing (CBB)</div><div class="value" id="peakExpectedBilling">No Data Available</div><div class="sub">Selected date range · average of prior 2 completed months</div></div>
   <div class="card kpi peak-kpi"><div class="label">Loading Required</div><div class="value" id="peakLoadingRequired">No Data Available</div><div class="sub">Demand less usable SOH & confirmed Open TO</div></div>
   <div class="card kpi peak-kpi"><div class="label">Usable CFA SOH</div><div class="value" id="peakUsableSoh">No Data Available</div><div class="sub">Remaining shelf life ≥60%</div></div>
   <div class="card kpi peak-kpi"><div class="label">Confirmed Open TO</div><div class="value" id="peakOpenTo">No Data Available</div><div class="sub">Uploaded, unreceived TO only</div></div>
@@ -351,12 +347,12 @@ body:not(.mbq-authenticated)>.app{display:none!important}
  <div class="peak-note" id="peakTargetComparison">₹ target and CBB demand remain separate; no assumed conversion.</div>
 </div>
 <div class="card table-card">
- <div class="card-head"><div><h3>3 · Day-wise Billing Plan</h3><small id="peakDailySub">Historical GSV average basis · same calendar dates in prior 2 completed months</small></div></div>
- <div class="table-wrap"><table class="peak-table"><thead><tr><th>Date</th><th>Expected Billing (₹)</th><th>Historical Samples</th><th>Status</th></tr></thead><tbody id="peakDailyRows"><tr><td colspan="4" class="empty">Select date and calculate the plan.</td></tr></tbody></table></div>
+ <div class="card-head"><div><h3>3 · Day-wise Billing Plan</h3><small id="peakDailySub">Expected CBB from same dates in previous 2 completed months</small></div></div>
+ <div class="table-wrap"><table class="peak-table"><thead><tr><th>Date</th><th>Expected Billing (CBB)</th><th>Historical Samples</th><th>Status</th></tr></thead><tbody id="peakDailyRows"><tr><td colspan="4" class="empty">Select date and calculate the plan.</td></tr></tbody></table></div>
 </div>
 <div class="card table-card">
  <div class="card-head"><div><h3>4 · SKU Group Loading</h3><small id="peakGroupSub">Selected CFA · Group-wise totals</small></div><button class="btn" id="peakViewAll" onclick="togglePeakViewAll()">View All</button></div>
- <div class="table-wrap"><table class="peak-table"><thead><tr><th>SKU Group</th><th>Demand (CBB)</th><th>Usable SOH</th><th>Open TO</th><th>Loading Required (CBB)</th></tr></thead><tbody id="peakGroupRows"><tr><td colspan="5" class="empty">Select date and calculate the plan.</td></tr></tbody></table></div>
+ <div class="table-wrap"><table class="peak-table"><thead><tr><th>SKU Group</th><th>Expected Demand (CBB)</th><th>Usable SOH</th><th>Open TO</th><th>Loading Required (CBB)</th></tr></thead><tbody id="peakGroupRows"><tr><td colspan="5" class="empty">Select date and calculate the plan.</td></tr></tbody></table></div>
  <div class="small-note">Group totals sum mapped item codes. Verify item mix before dispatch.</div>
 </div>
 <div class="card peak-card" style="margin-top:11px">
@@ -1804,67 +1800,76 @@ function updatePeakTargetLabels(){const m=Number(document.getElementById('monthl
 const peakGsvDayCoverage={};
 function peakHasGsvDay(date,cfas){const key=date+'|'+cfas.join(',');if(!(key in peakGsvDayCoverage))peakGsvDayCoverage[key]=mbqGsvRows.some(x=>x.date===date&&cfas.includes(normalCfa(x.cfa)));return peakGsvDayCoverage[key];}
 function peakGroupData(group,cfa,hist,days,date){
- const codes=[...new Set(rows.filter(r=>mbqSkuGroupKey(r.sku)===mbqSkuGroupKey(group)&&r.code).map(r=>mbqGsvNormCode(r.code)).filter(Boolean))];if(!codes.length)return {demand:null,soh:null,to:null,codes};
+ const codes=[...new Set(rows.filter(r=>mbqSkuGroupKey(r.sku)===mbqSkuGroupKey(group)&&r.code).map(r=>mbqGsvNormCode(r.code)).filter(Boolean))];
+ if(!codes.length)return {demand:null,soh:null,to:null,codes};
  const cfas=peakCfas(cfa),set=new Set(codes),gsv=mbqGsvRows.filter(x=>x.date>=hist.from&&x.date<=hist.to&&set.has(mbqGsvNormCode(x.itemId))&&cfas.includes(normalCfa(x.cfa)));
- const qty=gsv.length?gsv.reduce((n,x)=>n+(Number(x.quantity)||0),0):null,qtyByDate={};gsv.forEach(x=>qtyByDate[x.date]=(qtyByDate[x.date]||0)+(Number(x.quantity)||0));
+ const qty=gsv.length?gsv.reduce((n,x)=>n+(Number(x.quantity)||0),0):null,qtyByDate={};
+ gsv.forEach(x=>qtyByDate[x.date]=(qtyByDate[x.date]||0)+(Number(x.quantity)||0));
  const start=new Date(date+'T00:00:00');let demand=0,demandOk=true;
  for(let offset=0;offset<days;offset++){
   const target=new Date(start);target.setDate(target.getDate()+offset);const day=target.getDate(),monthValues=[];
-  hist.months.forEach(m=>{if(day>new Date(m.year,m.month,0).getDate())return;const key=peakISO(new Date(m.year,m.month-1,day));if(!peakHasGsvDay(key,cfas))return;monthValues.push(qtyByDate[key]||0);});
-  if(!monthValues.length){demandOk=false;break;}
-  demand+=monthValues.reduce((a,b)=>a+b,0)/monthValues.length;
+  hist.months.forEach(m=>{if(day>new Date(m.year,m.month,0).getDate())return;const key=peakISO(new Date(m.year,m.month-1,day));if(peakHasGsvDay(key,cfas))monthValues.push(qtyByDate[key]||0);});
+  if(monthValues.length!==hist.months.length){demandOk=false;break;}
+  demand+=monthValues.reduce((a,b)=>a+b,0)/hist.months.length;
  }
  if(!demandOk)demand=null;
  let stock=0,stockOk=true;codes.forEach(k=>cfas.forEach(cf=>{const v=mbqPlannerUsableSoh(cf,k);if(v===null)stockOk=false;else stock+=v;}));
  const records=getToRecords(),month=date.slice(0,7);let open=0;
- if(records.length){records.filter(t=>!t.fullyReceived&&(!t.monthKey||String(t.monthKey).slice(0,7)===month)&&set.has(mbqGsvNormCode(t.code))&&cfas.includes(normalCfa(t.cfa))).forEach(t=>open+=toNum(t.qty));}
+ if(records.length){records.filter(t=>!t.fullyReceived&&(!t.monthKey||String(t.monthKey).slice(0,7)===month)&&set.has(mbqGsvNormCode(t.code))&&cfas.includes(normalCfa(t.cfa))).forEach(t=>open+=Math.max(0,toNum(t.qty)-toNum(t.received)));}
  return {demand,soh:stockOk?stock:null,to:records.length?open:null,codes,historyQty:qty};
 }
-function updatePeakToDate(){const from=document.getElementById('peakFromDate')?.value,p=document.getElementById('peakDays')?.value||'7',days=p==='custom'?Number(document.getElementById('peakCustomDays')?.value):Number(p),out=document.getElementById('peakToDate');if(!out)return;if(!from||!Number.isInteger(days)||days<1){out.textContent='Auto calculated';return;}const d=new Date(from+'T00:00:00');d.setDate(d.getDate()+days-1);out.textContent=peakISO(d);}
+function updatePeakToDate(){const from=document.getElementById('peakFromDate')?.value||'',to=document.getElementById('peakToDate')?.value||'';const days=from&&to&&to>=from?Math.round((new Date(to+'T00:00:00')-new Date(from+'T00:00:00'))/86400000)+1:0;const note=document.getElementById('peakRangeDays');if(note)note.textContent=days?days+' planning days':'Select a valid date range';}
 function peakDailyBilling(cfa,date,days,hist){
- const cf=peakCfas(cfa),gsv=mbqGsvRows.filter(x=>x.date>=hist.from&&x.date<=hist.to&&cf.includes(normalCfa(x.cfa))&&x.amountAvailable&&Number.isFinite(Number(x.amount))),start=new Date(date+'T00:00:00'),out=[];
+ const cf=peakCfas(cfa),gsv=mbqGsvRows.filter(x=>x.date>=hist.from&&x.date<=hist.to&&cf.includes(normalCfa(x.cfa))),start=new Date(date+'T00:00:00'),out=[];
  for(let offset=0;offset<days;offset++){
   const d=new Date(start);d.setDate(d.getDate()+offset);const day=d.getDate(),monthValues=[];
-  hist.months.forEach(m=>{const lastDay=new Date(m.year,m.month,0).getDate();if(day>lastDay)return;const key=peakISO(new Date(m.year,m.month-1,day)),rs=gsv.filter(x=>x.date===key);if(rs.length)monthValues.push(rs.reduce((n,x)=>n+(Number(x.amount)||0),0));});
-  out.push({date:peakISO(d),amount:monthValues.length?monthValues.reduce((a,b)=>a+b,0)/monthValues.length:null,samples:monthValues.length});
+  hist.months.forEach(m=>{if(day>new Date(m.year,m.month,0).getDate())return;const key=peakISO(new Date(m.year,m.month-1,day));if(peakHasGsvDay(key,cf))monthValues.push(gsv.filter(x=>x.date===key).reduce((n,x)=>n+(Number(x.quantity)||0),0));});
+  out.push({date:peakISO(d),amount:monthValues.length===hist.months.length?monthValues.reduce((a,b)=>a+b,0)/hist.months.length:null,samples:monthValues.length});
  }
  return out;
 }
 function calculatePeak(){
- const date=document.getElementById('peakFromDate')?.value||'',cfa=document.getElementById('peakCfa')?.value||'ALL',win=document.getElementById('peakWindow')?.value||'mid',p=document.getElementById('peakDays')?.value||'7',days=p==='custom'?Number(document.getElementById('peakCustomDays')?.value):Number(p);
- if(!date){showToast('ആദ്യം From Date select ചെയ്യുക.');return;}if(!Number.isInteger(days)||days<1||days>60){showToast('Planning Days 1–60 ഇടയിൽ നൽകുക.');return;}if(!mbqGsvRows.length){showToast('GSV source data ലഭ്യമല്ല.');return;}
- const hist=peakHistory(),groups=[...new Map(rows.filter(r=>r.sku).map(r=>[mbqSkuGroupKey(r.sku),String(r.sku).trim()])).values()];
- peakPlanResult={date,cfa,win,days,hist,rows:groups.map(group=>{const v=peakGroupData(group,cfa,hist,days,date);return {group,...v,loading:v.demand!==null&&v.soh!==null&&v.to!==null?Math.max(0,v.demand-v.soh-v.to):null};})};
- const cf=peakCfas(cfa),gsv=mbqGsvRows.filter(x=>x.date>=hist.from&&x.date<=hist.to&&cf.includes(normalCfa(x.cfa))&&x.amountAvailable&&Number.isFinite(Number(x.amount)));
+ const date=document.getElementById('peakFromDate')?.value||'',toDate=document.getElementById('peakToDate')?.value||'',cfa=document.getElementById('peakCfa')?.value||'ALL';
+ if(!date||!toDate||toDate<date){showToast('ശരിയായ From Date, To Date select ചെയ്യുക.');return;}
+ const days=Math.round((new Date(toDate+'T00:00:00')-new Date(date+'T00:00:00'))/86400000)+1;
+ if(!Number.isInteger(days)||days<1||days>60){showToast('Date range 1–60 days ആയിരിക്കണം.');return;}
+ if(!mbqGsvRows.length){showToast('GSV source data ലഭ്യമല്ല.');return;}
+ const hist=peakHistory(),groups=[...new Set(rows.filter(r=>r.sku&&r.code).map(r=>String(r.sku).trim()))];
+ peakPlanResult={date,toDate,cfa,days,hist,rows:groups.map(group=>{const v=peakGroupData(group,cfa,hist,days,date);return {group,...v,loading:v.demand!==null&&v.soh!==null&&v.to!==null?Math.max(0,v.demand-v.soh-v.to):null};})};
  const dailyForecast=peakDailyBilling(cfa,date,days,hist),bill=dailyForecast.every(x=>x.amount!==null)?dailyForecast.reduce((n,x)=>n+x.amount,0):null;
- const sum=peakPlanResult.rows.reduce((a,x)=>{if(x.loading!==null){a.load+=x.loading;a.lok=true;}if(x.soh!==null){a.soh+=x.soh;a.sok=true;}if(x.to!==null){a.to+=x.to;a.tok=true;}return a;},{load:0,soh:0,to:0,lok:false,sok:false,tok:false});
- const money=v=>v===null?'No Data Available':'₹'+(v/1e7).toFixed(2)+' Cr';
- document.getElementById('peakExpectedBilling').textContent=money(bill);document.getElementById('peakLoadingRequired').textContent=sum.lok?peakFmt(sum.load)+' CBB':'No Data Available';document.getElementById('peakUsableSoh').textContent=sum.sok?peakFmt(sum.soh)+' CBB':'No Data Available';document.getElementById('peakOpenTo').textContent=sum.tok?peakFmt(sum.to)+' CBB':'No Data Available';
- const target=Number(document.getElementById(win==='mid'?'midTarget':'endTarget')?.value)||0;
- document.getElementById('peakWindowLabel').textContent='Selected · '+(win==='mid'?'Mid-month':'Month-end');document.getElementById('peakSummarySub').textContent=cfa+' · '+days+' days · History '+hist.from+' to '+hist.to;document.getElementById('peakGroupSub').textContent=cfa+' CFA · '+date+' · '+days+' days · Group-wise totals';document.getElementById('peakTargetComparison').textContent='Peak target ₹'+target.toFixed(2)+' Cr · Expected billing '+money(bill)+' · ₹ target and CBB demand are kept separate.';
+ const allDemand=peakPlanResult.rows.every(x=>x.demand!==null)?peakPlanResult.rows.reduce((n,x)=>n+x.demand,0):null;
+ const sumField=key=>peakPlanResult.rows.every(x=>x[key]!==null)?peakPlanResult.rows.reduce((n,x)=>n+x[key],0):null;
+ const totalSoh=sumField('soh'),totalTo=sumField('to'),totalLoad=peakPlanResult.rows.every(x=>x.loading!==null)?peakPlanResult.rows.reduce((n,x)=>n+x.loading,0):null;
+ const fmt=v=>v===null?'No Data Available':peakFmt(v)+' CBB';
+ document.getElementById('peakExpectedBilling').textContent=fmt(bill);
+ document.getElementById('peakLoadingRequired').textContent=fmt(totalLoad);
+ document.getElementById('peakUsableSoh').textContent=fmt(totalSoh);
+ document.getElementById('peakOpenTo').textContent=fmt(totalTo);
+ const sub=document.getElementById('peakSummarySub');if(sub)sub.textContent=cfa+' · '+date+' to '+toDate+' · '+days+' days';
+ const groupSub=document.getElementById('peakGroupSub');if(groupSub)groupSub.textContent=cfa+' CFA · '+date+' to '+toDate+' · SKU-wise CBB';
+ const target=document.getElementById('peakTargetComparison');if(target)target.textContent='Expected demand: '+fmt(allDemand)+' · Based on same calendar dates in previous 2 completed months.';
  renderPeakDailyRows(dailyForecast);renderPeakGroupRows();
  const totalQty=peakPlanResult.rows.every(x=>x.historyQty!==undefined)?peakPlanResult.rows.reduce((n,x)=>n+(x.historyQty||0),0):null;
- const historicalValue=gsv.reduce((n,x)=>n+(Number(x.amount)||0),0),dailyText=dailyForecast.map(x=>x.date+' · '+(x.amount===null?'No Data Available':'₹'+(x.amount/1e5).toFixed(2)+' lakh')).join(' | ');
-  document.getElementById('peakHistoricalAnalysis').innerHTML='<p><b>GSV history:</b> '+hist.from+' to '+hist.to+' ('+hist.days+' days)</p><p><b>Historical billed value:</b> '+(gsv.length?'₹'+(historicalValue/1e7).toFixed(2)+' Cr':'No Data Available')+'</p><p><b>Historical quantity:</b> '+(totalQty===null?'No Data Available':peakFmt(totalQty)+' CBB')+'</p><p><b>Daily billing reference:</b> '+dailyText+'</p><p><b>Forecast billing:</b> '+money(bill)+' total for '+days+' days, using the average of matching calendar dates in the completed history months.</p>';
- document.getElementById('peakCalculationDetails').innerHTML='<p>Demand = historical GSV group quantity ÷ '+hist.days+' days × '+days+' planning days.</p><p>Loading = max(0, Demand − usable CFA SOH − confirmed Open TO). Shelf life eligibility ≥60%.</p><p>Expected Billing uses historical GSV AmountToCustomer separately. No ₹-to-CBB conversion assumed.</p><p>Plant lead time: '+document.getElementById('peakLead').value+' days. Verify dispatch cut-off before release.</p>';
- document.getElementById('peakConnectionStatus').textContent=(mbqGsvRows.length?'GSV Connected':'GSV Unavailable')+' · '+(liveSohRows.length?'SOH Connected':'SOH Unavailable');showToast('Peak plan calculated from connected source data.');
+ const historyText=hist.months.map(m=>m.year+'-'+String(m.month).padStart(2,'0')).join(' and ');
+ document.getElementById('peakHistoricalAnalysis').innerHTML='<p><b>Historical periods:</b> '+historyText+'</p><p><b>Historical quantity:</b> '+(totalQty===null?'No Data Available':peakFmt(totalQty)+' CBB')+'</p><p><b>Expected Billing:</b> '+fmt(bill)+' for '+days+' selected days.</p>';
+ document.getElementById('peakCalculationDetails').innerHTML='<p>For each selected date: (same-date GSV CBB in month 1 + same-date GSV CBB in month 2) ÷ 2.</p><p>Expected Billing CBB = total of daily expected CBB for the selected date range.</p><p>SKU demand uses the same date-wise two-month average. Loading = max(0, SKU Demand − usable CFA SOH − confirmed unreceived Open TO). SOH shelf life eligibility ≥60%.</p><p>Plant lead time: '+document.getElementById('peakLead').value+' days.</p>';
+ document.getElementById('peakConnectionStatus').textContent=(mbqGsvRows.length?'GSV Connected':'GSV Unavailable')+' · '+(liveSohRows.length?'SOH Connected':'SOH Unavailable');
+ showToast('Peak plan calculated from GSV, SOH and Open TO data.');
 }
-function renderPeakDailyRows(data){const host=document.getElementById('peakDailyRows');if(!host)return;host.innerHTML=data.map(x=>'<tr><td>'+x.date+'</td><td>'+(x.amount===null?'No Data Available':'₹'+Math.round(x.amount).toLocaleString('en-IN'))+'</td><td>'+x.samples+'/2</td><td>'+(x.amount===null?'History unavailable':'Calculated')+'</td></tr>').join('')||'<tr><td colspan="4" class="empty">No Data Available</td></tr>';const sub=document.getElementById('peakDailySub');if(sub&&peakPlanResult)sub.textContent=peakPlanResult.cfa+' · '+peakPlanResult.hist.from+' to '+peakPlanResult.hist.to+' · Same calendar dates in prior 2 completed months';}
+function renderPeakDailyRows(data){const host=document.getElementById('peakDailyRows');if(!host)return;host.innerHTML=data.map(x=>'<tr><td>'+x.date+'</td><td>'+(x.amount===null?'No Data Available':'₹'+Math.round(x.amount).toLocaleString('en-IN'))+'</td><td>'+x.samples+'/2</td><td>'+(x.amount===null?'History unavailable':'Calculated')+'</td></tr>').join('')||'<tr><td colspan="4" class="empty">No Data Available</td></tr>';const sub=document.getElementById('peakDailySub');if(sub&&peakPlanResult)sub.textContent=peakPlanResult.cfa+' · '+peakPlanResult.hist.from+' to '+peakPlanResult.hist.to+' · Same dates in previous 2 completed months';}
 function renderPeakGroupRows(){const host=document.getElementById('peakGroupRows');if(!host||!peakPlanResult)return;const data=peakPlanResult.rows,shown=peakViewAll?data:data.slice(0,8);host.innerHTML=shown.map(x=>'<tr><td class="sku">'+mbqEscape(x.group)+'</td><td>'+(x.demand===null?'No Data Available':peakFmt(x.demand))+'</td><td>'+(x.soh===null?'No Data Available':peakFmt(x.soh))+'</td><td>'+(x.to===null?'No Data Available':peakFmt(x.to))+'</td><td><b>'+(x.loading===null?'No Data Available':peakFmt(x.loading))+'</b></td></tr>').join('')||'<tr><td colspan="5" class="empty">No SKU Group mapping available.</td></tr>';const b=document.getElementById('peakViewAll');if(b)b.textContent=peakViewAll?'Show Less':'View All';}
 function togglePeakViewAll(){peakViewAll=!peakViewAll;renderPeakGroupRows();}
 function exportPeakExcel(mode){
  if(!peakPlanResult){showToast('ആദ്യം Calculate Peak Plan ചെയ്യുക.');return;}if(!window.XLSX){showToast('Excel library loading. Refresh ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.');return;}
  const p=peakPlanResult,cfas=mode==='all'?['TVD','PAY','ALU']:[p.cfa],wb=XLSX.utils.book_new();
  const add=(name,data)=>{const ws=XLSX.utils.aoa_to_sheet(data);ws['!cols']=Array.from({length:Math.max(1,...data.map(r=>r.length))},(_,i)=>({wch:Math.min(34,Math.max(12,...data.map(r=>String(r[i]??'').length+2)))}));XLSX.utils.book_append_sheet(wb,ws,name.slice(0,31));};
- const meta=[['Peak Billing Planner'],['Peak Window',p.win],['From Date',p.date],['Planning Days',p.days],['Historical GSV',p.hist.from+' to '+p.hist.to],['CFA',p.cfa],['Monthly Target ₹ Cr',document.getElementById('monthlySales').value],['Mid-month Target ₹ Cr',document.getElementById('midTarget').value],['Month-end Target ₹ Cr',document.getElementById('endTarget').value]];
+ const meta=[['Peak Billing Planner'],['Date Range',p.win],['From Date',p.date],['Planning Days',p.days],['Historical GSV',p.hist.from+' to '+p.hist.to],['CFA',p.cfa],['Monthly Target ₹ Cr',document.getElementById('monthlySales').value],['Mid-month Target ₹ Cr',document.getElementById('midTarget').value],['Month-end Target ₹ Cr',document.getElementById('endTarget').value]];
  add('Summary',meta);
  cfas.forEach(c=>{const rs=p.rows.map(x=>({group:x.group,...peakGroupData(x.group,c,p.hist,p.days,p.date)}));add(c,[['SKU Group','Demand CBB','Usable SOH CBB','Confirmed Open TO CBB','Loading Required CBB'],...rs.map(x=>[x.group,x.demand??'No Data Available',x.soh??'No Data Available',x.to??'No Data Available',x.demand!==null&&x.soh!==null&&x.to!==null?Math.max(0,x.demand-x.soh-x.to):'No Data Available'])]);});
  const daily=[['Date','CFA','Expected Billing ₹','Historical Month Samples']];cfas.forEach(c=>peakDailyBilling(c,p.date,p.days,p.hist).forEach(x=>daily.push([x.date,c,x.amount===null?'No Data Available':x.amount,x.samples])));add('Day-wise Billing',daily);if(mode==='all')add('Loading Summary',[['CFA','Total Loading Required CBB'],...cfas.map(c=>{const rs=p.rows.map(x=>peakGroupData(x.group,c,p.hist,p.days,p.date));return [c,rs.every(x=>x.demand!==null&&x.soh!==null&&x.to!==null)?rs.reduce((n,x)=>n+Math.max(0,x.demand-x.soh-x.to),0):'No Data Available'];})]);
  XLSX.writeFile(wb,'Peak_Billing_Planner_'+mode.toUpperCase()+'.xlsx',{compression:true});showToast('Peak Planner Excel export ready.');
 }
-document.getElementById('peakDays')?.addEventListener('change',()=>{document.getElementById('peakCustomDaysWrap').style.display=document.getElementById('peakDays').value==='custom'?'block':'none';updatePeakToDate();});
-document.getElementById('peakCustomDays')?.addEventListener('input',updatePeakToDate);document.getElementById('peakFromDate')?.addEventListener('change',updatePeakToDate);
-document.getElementById('peakWindow')?.addEventListener('change',()=>{const w=document.getElementById('peakWindow').value;document.getElementById('peakWindowLabel').textContent='Selected · '+(w==='mid'?'Mid-month':'Month-end');});
+document.getElementById('peakFromDate')?.addEventListener('change',updatePeakToDate);document.getElementById('peakToDate')?.addEventListener('change',updatePeakToDate);
 updatePeakTargetLabels();updatePeakToDate();
 function exportTable(id,name){let table=document.getElementById(id);if(!table)return;let rows=[...table.closest('table').querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(td=>'"'+td.innerText.replaceAll('"','""')+'"').join(',')).join('\n');let blob=new Blob([rows],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);showToast('Exported CSV.')}
 function showToast(msg){let t=document.getElementById('toast');t.textContent=msg;t.style.display='block';clearTimeout(window._toastTimer);window._toastTimer=setTimeout(()=>t.style.display='none',2600)}
