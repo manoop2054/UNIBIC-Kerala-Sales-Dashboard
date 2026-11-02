@@ -193,7 +193,74 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 #page-stock .table-wrap tbody td:first-child{background:#fff;font-weight:750}
 #page-stock .table-wrap tbody tr:hover td:first-child{background:#fafcff}
 
-</style></head>
+</style>
+<style id="mbq-compact-layout-refinement">
+/* Dashboard-wide compact layout refinement: spacing and presentation only. */
+@media (min-width: 701px){
+  .sidebar{width:224px;padding:17px 12px}
+  .brand{padding-bottom:17px}
+  .nav-label{margin:17px 10px 6px}
+  .nav{gap:3px}
+  .nav button{padding:9px 11px;gap:9px}
+  .topbar{height:56px;padding:0 20px;gap:10px}
+  .content{padding:16px 20px 24px;max-width:1800px}
+  .page-head{gap:14px;margin-bottom:13px}
+  .page-head h1{font-size:22px;margin:3px 0 4px}
+  .page-head p{font-size:11.5px}
+  .actions{gap:6px}
+  .btn{padding:7px 10px;font-size:11px}
+  .notice{padding:8px 11px;margin-bottom:12px}
+  .grid{gap:10px}
+  .kpis{gap:10px;margin-bottom:11px}
+  .kpi{padding:12px 14px}
+  .kpi .value{font-size:22px;margin:5px 0 3px}
+  .kpi .sub{font-size:10px}
+  .two{gap:10px;margin-bottom:11px}
+  .card{border-radius:11px}
+  .card-head{padding:11px 13px 8px;gap:9px}
+  .card-body{padding:0 13px 13px}
+  .filters{gap:6px;padding:0 13px 10px}
+  .filters input,.filters select{padding:6px 8px;min-width:105px;font-size:10.5px}
+  .table-card{margin-bottom:11px}
+  .table-wrap table{font-size:10.5px}
+  .table-wrap th{padding:8px 9px;font-size:9px}
+  .table-wrap td{padding:8px 9px;font-size:10.5px}
+  .form-grid{gap:9px;padding:13px}
+  .field label{margin-bottom:4px;font-size:10px}
+  .field input,.field select,.field textarea{padding:8px;font-size:11px}
+  .field textarea{min-height:58px}
+  .callout{padding:10px 12px}
+  .peak-list{gap:9px}
+  .peak{padding:11px}
+  .cfa-row{margin:10px 0;gap:8px}
+  .report-tile{padding:13px}
+  .report-tile p{min-height:0;margin-bottom:7px}
+  .small-note{padding:7px 13px}
+  .empty{padding:22px}
+  .excel-workspace{gap:11px}
+  .excel-hero{padding:16px 19px;border-radius:13px}
+  .excel-hero h2{font-size:19px}
+  .excel-stat-grid{gap:9px}
+  .excel-stat{padding:11px 13px}
+  .excel-stat strong{font-size:18px}
+  .excel-table th{padding:8px 9px}
+  .excel-table td{padding:7px 9px}
+  .mbq-trend-kpis{gap:9px;margin:9px 0 11px}
+  .mbq-trend-kpi{padding:11px 13px}
+  .mbq-trend-kpi .k-value{font-size:24px;margin-top:5px}
+  #indentWorkspaceWrap{max-height:calc(100vh - 300px)}
+  #indentWorkspaceWrap table{min-width:1320px}
+  #linkedItemsPanel table{min-width:600px}
+}
+@media (min-width: 701px) and (max-width: 1200px){
+  .sidebar{width:205px}
+  .content{padding-left:14px;padding-right:14px}
+  .page-head h1{font-size:20px}
+  .card-head{padding-left:11px;padding-right:11px}
+  .card-body{padding-left:11px;padding-right:11px}
+}
+</style>
+</head>
 <body><div id="mbqLoginGate"><div class="mbq-login-card"><div class="mbq-login-brand">UNIBIC · EMPLOYEE ACCESS</div><div id="mbqLoginFormWrap"><h1>MBQ Smart Indent</h1><p>Sign in using your existing UNIBIC Dashboard Employee ID and password.</p><form id="mbqLoginForm"><label for="mbqEmployeeId">Employee ID</label><input id="mbqEmployeeId" name="employee_id" autocomplete="username" required><label for="mbqEmployeePassword">Password</label><input id="mbqEmployeePassword" name="password" type="password" autocomplete="current-password" required><button id="mbqLoginButton" type="submit">Login</button><div id="mbqLoginMessage" role="alert"></div></form></div><div id="mbqAccessPending"><h1>Access not assigned yet</h1><p id="mbqPendingMessage">Your MBQ tab access has not been assigned by Super Admin.</p><button type="button" id="mbqPendingLogout">Logout</button></div></div></div><div class="app"><aside class="sidebar"><div class="brand"><div class="logo">MB</div><div><strong>SMART INDENT</strong><small>Kerala · CFA Replenishment</small></div></div><div class="nav-label">WORKSPACE</div><nav class="nav" id="nav"><button class="active" data-page="overview"><span>◫</span>Overview Dashboard</button><button data-page="indent"><span>＋</span>Monthly Indent Entry</button><button data-page="suggest"><span>✦</span>AI Suggested Indent</button><button data-page="stock"><span>▦</span>CFA-wise Stock</button><button data-page="totracker"><span>⇄</span>Open TO Tracker</button><button data-page="advanced"><span>✦</span>Advanced Controls</button><button data-page="allocation"><span>⇄</span>CFA Allocation</button><button data-page="peak"><span>◷</span>Peak Billing Planner</button><button data-page="loading"><span>▤</span>CFA Loading Plan</button><button data-page="flash"><span>◉</span>Daily WhatsApp Flash</button><button data-page="reports"><span>⇩</span>Reports & Export</button><button data-page="excelview"><span>▤</span>MBQ Excel View</button><button data-page="settings"><span>⚙</span>Master Data & Settings</button></nav><div class="sidebar-foot"><span class="dot"></span>MBQ workspace<br><br>Data will appear after the relevant source is connected.</div></aside>
 <main class="main"><header class="topbar"><div class="crumb">Workspace / <b id="crumb">Overview Dashboard</b></div><div class="top-right"><div id="gsvConnectionStatus" class="gsv-connection loading" role="status" aria-live="polite"><span class="gsv-dot"></span><span id="gsvConnectionLabel">GSV Loading</span></div><select class="select" id="month" onchange="renderMbqExcelView()"><option>November 2026</option><option>October 2026</option><option>December 2026</option></select><select class="select" id="cfa"><option>All CFAs</option><option>TVD CFA</option><option>PAY CFA</option><option>ALU CFA</option></select><div class="user" id="mbqEmployeeIdDisplay">Employee</div><button class="mbq-logout-link" id="mbqLogoutButton" type="button">Logout</button></div></header><div class="content">
 <section class="section active" id="page-overview">
