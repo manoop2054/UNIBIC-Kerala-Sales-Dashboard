@@ -664,6 +664,32 @@ app.put("/api/mbq/cfa-allocation", express.json({ limit: "10mb" }), async (req, 
   } catch (error) { res.status(500).json({ success: false, error: "Could not save shared CFA allocation", detail: error.message }); }
 });
 
+// Shared Peak Planner manual indents, persisted centrally for all dashboard users.
+app.get("/api/mbq/peak-manual-indent", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  if (!masterPool) return res.status(503).json({ success: false, error: "Shared MBQ storage is not configured" });
+  try {
+    const result = await masterPool.query("SELECT payload FROM public.mbq_shared_uploads WHERE category='peak-manual-indent'");
+    const data = result.rowCount && result.rows[0].payload && typeof result.rows[0].payload === "object" ? result.rows[0].payload : {};
+    res.json({ success: true, data });
+  } catch (error) { res.status(500).json({ success: false, error: "Could not load Peak Planner manual indents", detail: error.message }); }
+});
+app.put("/api/mbq/peak-manual-indent", express.json({ limit: "10mb" }), async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  if (!masterPool) return res.status(503).json({ success: false, error: "Shared MBQ storage is not configured" });
+  const data = req.body && req.body.data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) return res.status(400).json({ success: false, error: "data must be a manual indent object" });
+  try {
+    for (const [key, value] of Object.entries(data)) {
+      if (key.length > 500 || !Number.isFinite(Number(value)) || Number(value) < 0) return res.status(400).json({ success: false, error: "Invalid manual indent entry" });
+    }
+    const json = JSON.stringify(data);
+    if (Buffer.byteLength(json, "utf8") > 10 * 1024 * 1024) return res.status(413).json({ success: false, error: "Peak Planner manual indents exceed the 10 MB limit" });
+    await masterPool.query("INSERT INTO public.mbq_shared_uploads(category,file_name,payload,source_file_size,uploaded_at) VALUES('peak-manual-indent','Peak Planner Manual Indents',$1::jsonb,$2,NOW()) ON CONFLICT(category) DO UPDATE SET payload=EXCLUDED.payload,source_file_size=EXCLUDED.source_file_size,uploaded_at=NOW()", [json, Buffer.byteLength(json, "utf8")]);
+    res.json({ success: true, count: Object.keys(data).length, savedAt: new Date().toISOString() });
+  } catch (error) { res.status(500).json({ success: false, error: "Could not save Peak Planner manual indents", detail: error.message }); }
+});
+
 app.get("/api/mbq/status", (req, res) => res.json({ service: "MBQ Smart Indent Dashboard", liveSohEndpoint: "/api/mbq/soh" }));
 
 app.get("/api/mbq/employee-db-check", async (req, res) => {
