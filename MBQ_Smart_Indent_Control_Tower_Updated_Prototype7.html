@@ -2298,7 +2298,8 @@ function peakCategoryForGroup(group){
   const sh=sheets[name];if(!sh||!Array.isArray(sh.headers)||!Array.isArray(sh.rows))continue;
   const skuIx=sh.headers.findIndex(h=>String(h||'').trim().toUpperCase()==='SKU GROUP'),catIx=sh.headers.findIndex(h=>String(h||'').trim().toUpperCase()==='CAT');
   if(skuIx<0||catIx<0)continue;
-  const row=sh.rows.find(r=>mbqSkuGroupKey(r[skuIx])===key);
+  const calculatedRows=mbqRecalcContributionRows(sh);
+  const row=calculatedRows.find(r=>mbqSkuGroupKey(r[skuIx])===key);
   if(row&&row[catIx]!==undefined&&String(row[catIx]).trim())return String(row[catIx]).trim().toUpperCase();
  }
  return 'No Data Available';
