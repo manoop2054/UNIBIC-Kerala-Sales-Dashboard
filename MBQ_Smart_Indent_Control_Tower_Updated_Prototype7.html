@@ -440,6 +440,7 @@ body:not(.mbq-authenticated)>.app{display:none!important}
   <div class="field"><label>From Date</label><input id="peakFromDate" type="date" onchange="updatePeakToDate()"></div>
   <div class="field"><label>To Date</label><input id="peakToDate" type="date" readonly></div>
   <div class="field"><label>CFA Filter</label><select id="peakCfa" onchange="calculatePeak()"><option value="ALL">All CFAs</option><option value="TVD">TVD CFA</option><option value="PAY">PAY CFA</option><option value="ALU">ALU CFA</option></select></div>
+  <div class="field"><label>Category Filter</label><select id="peakCategoryFilter" onchange="peakRenderSkuFilter();renderPeakGroupRows();renderPeakItemDetails()"><option value="ALL">All Categories</option><option value="A">Category A</option><option value="B">Category B</option><option value="C">Category C</option><option value="D">Category D</option></select></div>
   <div class="field"><label>SKU Group Filter</label><select id="peakSkuGroupFilter" onchange="renderPeakGroupRows();renderPeakItemDetails()"><option value="ALL">All SKU Groups</option></select></div>
   <div class="field"><button class="btn primary" style="width:100%;min-height:37px" onclick="calculatePeak()">Calculate Plan</button></div>
  </div>
@@ -2296,7 +2297,8 @@ function peakPlantSohForCode(code){
 }
 function peakRenderSkuFilter(){
  const select=document.getElementById('peakSkuGroupFilter');if(!select||!peakPlanResult)return;
- const prior=select.value||'ALL',groups=peakPlanResult.rows.map(x=>x.group).sort((a,b)=>a.localeCompare(b));
+ const prior=select.value||'ALL',category=document.getElementById('peakCategoryFilter')?.value||'ALL';
+ const groups=peakPlanResult.rows.filter(x=>category==='ALL'||String(x.cat||'').trim().toUpperCase()===category).map(x=>x.group).sort((a,b)=>a.localeCompare(b));
  select.innerHTML='<option value="ALL">All SKU Groups</option>'+groups.map(g=>'<option value="'+mbqEscape(g)+'">'+mbqEscape(g)+'</option>').join('');
  select.value=groups.includes(prior)?prior:'ALL';
 }
@@ -2399,7 +2401,7 @@ function renderPeakGroupRows(){
  const totalKeys={totalIndent:data.map(x=>peakNum(x.totalIndent)),plant:data.map(x=>peakNum(x.plant)),totalL2M:data.map(x=>peakNum(x.totalL2M))};
  const sumStrict=vals=>vals.length&&vals.every(v=>v!==null)?vals.reduce((a,b)=>a+b,0):null;
  const body=data.map(x=>{
-  const cat=String(x.cat||'No Data Available').toLowerCase(),catHtml=['a','b','c'].includes(cat)?'<span class="cat-badge cat-'+cat+'">'+cat.toUpperCase()+'</span>':'No Data Available';
+  const cat=String(x.cat||'No Data Available').toLowerCase(),catHtml=['a','b','c','d'].includes(cat)?'<span class="cat-badge cat-'+cat+'">'+cat.toUpperCase()+'</span>':'No Data Available';
   const cells=cfas.map(c=>{
    const d=x.cfaData[c]||{};
    const alloc=d.allocation===null?'<span class="not-done">ALLOCATION NOT DONE</span>':peakFmt(d.allocation);
@@ -2425,14 +2427,17 @@ function renderPeakGroupRows(){
 function renderPeakItemDetails(){
  const host=document.getElementById('peakItemDetails');if(!host)return;
  const group=document.getElementById('peakSkuGroupFilter')?.value||'ALL';
- if(!peakPlanResult||group==='ALL'){host.innerHTML='<div class="empty">SKU Group Filter-ൽ ഒരു group select ചെയ്താൽ item-wise MRP, CFA SOH, Plant SOH details ഇവിടെ വരും.</div>';const sub=document.getElementById('peakItemSub');if(sub)sub.textContent='Select one SKU Group above to view its mapped items.';return;}
+ if(!peakPlanResult||group==='ALL'){host.innerHTML='<div class="empty">SKU Group Filter-ൽ ഒരു group select ചെയ്താൽ item-wise MRP, selected CFA SOH, Plant SOH details ഇവിടെ വരും.</div>';const sub=document.getElementById('peakItemSub');if(sub)sub.textContent='Select one SKU Group above to view its mapped items.';return;}
+ const selectedCfas=peakPlanResult.cfa==='ALL'?['TVD','PAY','ALU']:[peakPlanResult.cfa];
  const items=peakItemRowsForGroup(group),fmt=v=>peakDisplay(v);
- const sub=document.getElementById('peakItemSub');if(sub)sub.textContent=group+' · '+items.length+' mapped items · CFA SOH values are shelf-life ≥60%';
+ const sub=document.getElementById('peakItemSub');if(sub)sub.textContent=group+' · '+items.length+' mapped items · '+selectedCfas.join(' / ')+' CFA SOH · shelf-life ≥60%';
+ const cfaHeaders=selectedCfas.map(c=>'<th>'+c+' SOH &gt;60%</th>').join('');
  const body=items.map(x=>{
   const code=encodeURIComponent(x.code);
-  return '<tr><td>'+mbqEscape(x.code)+'</td><td style="text-align:left;white-space:normal;min-width:180px">'+mbqEscape(x.description||'No Data Available')+'</td><td>'+ (x.mrp===null?'No Data Available':'₹'+peakFmt(x.mrp))+'</td><td>'+fmt(x.tvd)+'</td><td>'+fmt(x.pay)+'</td><td>'+fmt(x.alu)+'</td><td>'+fmt(x.plant)+'</td><td><button class="peak-view-soh" type="button" onclick="peakShowSoh(decodeURIComponent(\''+code+'\'))">SOH VIEW</button></td></tr>';
+  const cfaCells=selectedCfas.map(c=>'<td>'+fmt(x[c.toLowerCase()])+'</td>').join('');
+  return '<tr><td>'+mbqEscape(x.code)+'</td><td style="text-align:left;white-space:normal;min-width:180px">'+mbqEscape(x.description||'No Data Available')+'</td><td>'+(x.mrp===null?'No Data Available':'₹'+peakFmt(x.mrp))+'</td>'+cfaCells+'<td>'+fmt(x.plant)+'</td><td><button class="peak-view-soh" type="button" onclick="peakShowSoh(decodeURIComponent(\''+code+'\'))">SOH VIEW</button></td></tr>';
  }).join('');
- host.innerHTML=items.length?'<div class="peak-item-table-scroll"><table class="peak-item-table"><thead><tr><th>ITEM CODE</th><th>ITEM DESCRIPTION</th><th>MRP</th><th>TVD SOH &gt;60%</th><th>PAY SOH &gt;60%</th><th>ALU SOH &gt;60%</th><th>PLANT SOH</th><th>SOH DETAILS</th></tr></thead><tbody>'+body+'</tbody></table></div>':'<div class="empty">Selected SKU Group-ന് item mapping ലഭ്യമല്ല.</div>';
+ host.innerHTML=items.length?'<div class="peak-item-table-scroll"><table class="peak-item-table"><thead><tr><th>ITEM CODE</th><th>ITEM DESCRIPTION</th><th>MRP</th>'+cfaHeaders+'<th>PLANT SOH</th><th>SOH DETAILS</th></tr></thead><tbody>'+body+'</tbody></table></div>':'<div class="empty">Selected SKU Group-ന് item mapping ലഭ്യമല്ല.</div>';
 }
 function peakShowSoh(code){
  const modal=document.getElementById('peakSohModal'),body=document.getElementById('peakSohModalBody');if(!modal||!body)return;
@@ -2460,7 +2465,8 @@ function exportPeakExcel(mode){
  if(!window.XLSX){showToast('Excel library loading. Refresh ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.');return;}
  const p=peakPlanResult,cfas=mode==='all'?['TVD','PAY','ALU']:(p.cfa==='ALL'?['TVD','PAY','ALU']:[p.cfa]);
  const selected=document.getElementById('peakSkuGroupFilter')?.value||'ALL';
- const data=p.rows.filter(x=>selected==='ALL'||mbqSkuGroupKey(x.group)===mbqSkuGroupKey(selected));
+ const category=document.getElementById('peakCategoryFilter')?.value||'ALL';
+ const data=p.rows.filter(x=>(category==='ALL'||String(x.cat||'').trim().toUpperCase()===category)&&(selected==='ALL'||mbqSkuGroupKey(x.group)===mbqSkuGroupKey(selected)));
  const summary=[['SKU GROUP','TOTAL INDENT','CAT','PLANT SOH']];
  cfas.forEach(c=>summary[0].push(c+' ALLOCATION IND',c+' SOH >60%',c+' L2M AVG / PERIOD DEMAND CBB',c+' CONFIRMED OPEN TO CBB',c+' ABM REQUIREMENT CBB'));
  summary[0].push('TOTAL L2M AVG CBB');
