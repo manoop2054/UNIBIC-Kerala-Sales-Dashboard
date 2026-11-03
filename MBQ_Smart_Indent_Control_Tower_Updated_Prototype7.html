@@ -302,98 +302,108 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 <section class="section" id="page-allocation"><div class="page-head"><div><div class="eyebrow">Demand-led distribution planning</div><h1>Automated CFA Allocation</h1><p>ഓരോ CFA-യിലെയും ഓരോ Item-ന്റെ Last 2 Months actual billing CBB കൃത്യമായി പരിശോധിച്ചാണ് allocation recommendation.</p></div><div class="actions"><button class="btn" onclick="exportTable('allocRows','CFA_Item_Allocation.csv')">Export CSV</button><button class="btn primary" onclick="runCfaAllocation()">↻ Run CFA Allocation</button></div><div id="allocRunStatus" class="notice" role="status" aria-live="polite" style="margin-top:10px;border-left:4px solid #64748b">Not run yet. Click “Run CFA Allocation” to calculate; the result and any missing source data will be shown here.</div></div><div class="notice"><b>CORE RULE:</b> CFA-wise Item Last Month Billing + Previous Month Billing → Last 2 Months Avg CBB. തുടർന്ന് Current Usable SOH, confirmed incoming supply, target closing stock, plant availability എന്നിവ പരിഗണിക്കും. Live GSV billing + LIVE SOH + confirmed Open TO ഉപയോഗിച്ച് CFA-item recommendation കണക്കാക്കുന്നു. CFA mapping അല്ലെങ്കിൽ ആവശ്യമായ source month ലഭ്യമല്ലെങ്കിൽ അത് No Data ആയി നിലനിർത്തും.</div><div class="grid kpis"><div class="card kpi"><div class="label">Sales Head IND</div><div class="value" id="allocSalesHeadTotal">No Data Available</div><div class="sub">Fixed total IND for the allocated SKU groups</div></div><div class="card kpi"><div class="label">Allocated Total</div><div class="value" id="allocNetTotal">No Data Available</div><div class="sub">Sum of editable CFA Manual Allocation quantities</div></div><div class="card kpi" style="cursor:pointer" onclick="openUnallocatedIndReport()" title="Click to view Unallocated IND Report"><div class="label">Balance IND</div><div class="value" id="allocShortage" style="text-decoration:underline;text-decoration-style:dotted;text-underline-offset:4px">No Data Available</div><div class="sub">Click to view SKU / Item / CFA pending breakup</div></div><div class="card kpi"><div class="label">Over-allocation Warning</div><div class="value" id="allocOverWarning">No Data Available</div><div class="sub">Warns when allocations exceed Sales Head IND</div></div><div class="card kpi"><div class="label">CFA × Item rows</div><div class="value" id="allocLineCount">No Data Available</div><div class="sub">Rows available for manual allocation</div></div><div class="card kpi"><div class="label">Plant TO Excel</div><div class="value" id="allocToStatus">Not uploaded</div><div class="sub">Reference status only; not used to alter Sales Head IND</div></div></div><div class="card table-card"><div class="card-head"><div><h3>Item-wise CFA Allocation Review</h3><small>Last 2M average is the primary demand basis · filters update visible rows</small></div><span class="pill blue">SOURCE DATA REQUIRED</span></div><div class="filters"><input id="allocSearch" placeholder="Search SKU / FG Code" oninput="renderAlloc()"><select id="allocCfaFilter" onchange="renderAlloc()"><option value="all">All CFAs</option><option value="ALU">ALU CFA</option><option value="PAY">PAY CFA</option><option value="TVD">TVD CFA</option></select><select id="allocRiskFilter" onchange="renderAlloc()"><option value="all">All priorities</option><option value="Critical">Critical</option><option value="High">High</option><option value="Normal">Normal</option></select><button class="btn" id="allocHideZeroBtn" type="button" onclick="toggleAllocHideZero()">Hide Indent = 0</button></div><div class="table-wrap"><table><thead><tr><th>CFA</th><th>SKU Group / Item</th><th>FG Code</th><th>Last Month Billing</th><th>Previous Month Billing</th><th>Last 2 Months Avg CBB</th><th>INDENT CBB</th><th>Current SOH</th><th>Confirmed Incoming</th><th>Net Requirement</th><th>Input Your CBB</th><th>Priority</th></tr></thead><tbody id="allocRows"></tbody></table></div><div class="small-note">INDENT CBB is the CFA-item share of Sales Head IND. Net Requirement = INDENT CBB − Current SOH − Confirmed Incoming (minimum 0). Last 2M Avg CBB is a planning reference only; do not add it to INDENT. Sales Head enters any additional manual quantity in “Input Your CBB”.</div></div><div class="card" style="margin-top:16px"><div class="card-head"><h3>Allocation decision steps</h3></div><div class="card-body"><div class="callout"><strong>1 · Calculate CFA-specific demand</strong>Last 2 months billing average for that exact CFA + Item, not Kerala-wide average.</div><div class="callout" style="margin-top:8px"><strong>2 · Adjust for stock and confirmed supply</strong>Net Requirement = INDENT CBB − Current SOH − Confirmed Incoming Supply (minimum 0). Last 2M Avg CBB is reference only.</div><div class="callout" style="margin-top:8px"><strong>3 · Allocate within plant availability</strong>Risk/shortage priority, stock cover and available CBB are considered; show any remaining shortage rather than hiding it.</div></div></div></section>
 <section class="section" id="page-peak">
 <style>
-#page-peak .peak-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-bottom:12px}
-#page-peak .peak-stat{background:#fff;border:1px solid var(--line);border-radius:11px;padding:11px 14px}
-#page-peak .peak-stat small{display:block;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px}
-#page-peak .peak-stat strong{display:block;font-size:20px;margin-top:4px}
-#page-peak .peak-card{padding:13px 15px;margin-bottom:11px}
-#page-peak .peak-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
-#page-peak .peak-head h3{font-size:13px;margin:0}
-#page-peak .peak-fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
-#page-peak .peak-fields .field{min-width:0}
-#page-peak .peak-fields input,#page-peak .peak-fields select{width:100%;min-height:37px;border:1px solid var(--line);border-radius:8px;padding:8px 9px;background:#fff}
-#page-peak .peak-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-bottom:10px}
-#page-peak .peak-kpi{padding:11px 13px}
-#page-peak .peak-kpi .value{font-size:20px;margin:5px 0 2px}
-#page-peak .peak-table{min-width:720px}
-#page-peak .peak-table th,#page-peak .peak-table td{padding:9px 10px}
-#page-peak details.peak-more{margin-top:9px}
-#page-peak details.peak-more>summary{cursor:pointer;list-style:none;padding:12px 14px;font-weight:700}
-#page-peak details.peak-more>summary::-webkit-details-marker{display:none}
-#page-peak .peak-note{font-size:10px;color:var(--muted)}
-@media(max-width:850px){#page-peak .peak-fields{grid-template-columns:repeat(2,minmax(0,1fr))}#page-peak .peak-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:520px){#page-peak .peak-stats{gap:6px}#page-peak .peak-stat{padding:9px}#page-peak .peak-stat strong{font-size:16px}#page-peak .peak-fields{grid-template-columns:1fr 1fr}}
+#page-peak .peak-hero{background:linear-gradient(115deg,#122b4b 0%,#174b70 55%,#087f83 100%);color:#fff;border-radius:16px;padding:17px 20px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+#page-peak .peak-hero h1{font-size:21px;margin:3px 0 4px;color:#fff}
+#page-peak .peak-hero p{margin:0;color:#d7e8f5;font-size:11px}
+#page-peak .peak-hero .eyebrow{color:#8de6dc}
+#page-peak .peak-hero-status{font-size:10px;font-weight:800;background:#ffffff20;border:1px solid #ffffff35;border-radius:99px;padding:7px 10px;white-space:nowrap}
+#page-peak .peak-filter-card{background:#fff;border:1px solid var(--line);border-radius:13px;padding:13px 15px;margin-bottom:12px;box-shadow:var(--shadow)}
+#page-peak .peak-filter-grid{display:grid;grid-template-columns:1.05fr 1fr 1fr 1fr 1.2fr auto;gap:9px;align-items:end}
+#page-peak .peak-filter-grid .field{min-width:0}
+#page-peak .peak-filter-grid label{display:block;font-size:10px;color:var(--muted);font-weight:700;margin-bottom:5px}
+#page-peak .peak-filter-grid select,#page-peak .peak-filter-grid input{width:100%;min-height:37px;border:1px solid #d7e0eb;border-radius:8px;padding:7px 9px;background:#fff;color:var(--ink);font-size:11px}
+#page-peak .peak-filter-grid input[readonly]{background:#f3f6fa;color:#5b6b80}
+#page-peak .peak-range-note{font-size:10px;color:var(--muted);margin-top:8px}
+#page-peak .peak-table-card{background:#fff;border:1px solid var(--line);border-radius:13px;overflow:hidden;margin-bottom:12px;box-shadow:var(--shadow)}
+#page-peak .peak-card-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 15px;border-bottom:1px solid var(--line)}
+#page-peak .peak-card-heading h3{font-size:13px;margin:0;color:#183451}
+#page-peak .peak-card-heading small{display:block;font-size:10px;color:var(--muted);margin-top:3px}
+#page-peak .peak-card-heading .peak-heading-tag{font-size:9px;font-weight:800;color:#087f70;background:#e5f7f2;border:1px solid #bce9dc;border-radius:99px;padding:5px 8px;white-space:nowrap}
+#page-peak .peak-table-scroll{overflow:auto;max-height:64vh}
+#page-peak .peak-new-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:10.5px;white-space:nowrap}
+#page-peak .peak-new-table th{padding:9px 10px;text-align:center;color:#fff;font-size:9px;letter-spacing:.25px;border-right:1px solid #ffffff25;border-bottom:1px solid #ffffff25;position:sticky;top:0;z-index:3}
+#page-peak .peak-new-table thead tr:first-child th{top:0}
+#page-peak .peak-new-table thead tr:nth-child(2) th{top:34px}
+#page-peak .peak-new-table th.common-head{background:#183451}
+#page-peak .peak-new-table th.tvd-head{background:#245c9b}
+#page-peak .peak-new-table th.pay-head{background:#19765f}
+#page-peak .peak-new-table th.alu-head{background:#9a641f}
+#page-peak .peak-new-table th.total-head{background:#6846a2}
+#page-peak .peak-new-table th.sub-common{background:#31506e}
+#page-peak .peak-new-table th.sub-tvd{background:#3677b5}
+#page-peak .peak-new-table th.sub-pay{background:#269779}
+#page-peak .peak-new-table th.sub-alu{background:#bd812e}
+#page-peak .peak-new-table th.sub-total{background:#805db7}
+#page-peak .peak-new-table td{padding:8px 10px;border-right:1px solid #e8edf4;border-bottom:1px solid #e8edf4;background:#fff;color:#24354b;text-align:right}
+#page-peak .peak-new-table td:first-child{text-align:left;font-weight:750;position:sticky;left:0;z-index:2;background:#eef4fb;min-width:190px}
+#page-peak .peak-new-table tbody tr:nth-child(even) td{background:#f7f9fc}
+#page-peak .peak-new-table tbody tr:nth-child(even) td:first-child{background:#eaf1f9}
+#page-peak .peak-new-table tbody tr:hover td{background:#eaf8f7}
+#page-peak .peak-new-table tbody tr:hover td:first-child{background:#dff2f0}
+#page-peak .peak-new-table .num-demand{background:#fff5df;color:#8a570d;font-weight:800}
+#page-peak .peak-new-table .num-abm{background:#e9f6ee;color:#17623c;font-weight:850}
+#page-peak .peak-new-table .cat-badge{display:inline-block;border-radius:5px;padding:3px 6px;font-size:9px;font-weight:850}
+#page-peak .peak-new-table .cat-a{background:#dff5e8;color:#17623c}
+#page-peak .peak-new-table .cat-b{background:#fff1d4;color:#8a5a0a}
+#page-peak .peak-new-table .cat-c{background:#fce5e7;color:#a52b3a}
+#page-peak .peak-new-table .not-done{color:#a15b12;font-size:9px;font-weight:800}
+#page-peak .peak-new-table tfoot td{background:#e6edf6!important;color:#173451;font-weight:850;border-top:2px solid #9fb3ca}
+#page-peak .peak-item-wrap{padding:12px 14px}
+#page-peak .peak-item-table{width:100%;min-width:760px;border-collapse:collapse;font-size:10.5px}
+#page-peak .peak-item-table th{background:#24516f;color:#fff;text-align:left;padding:9px 10px;font-size:9px}
+#page-peak .peak-item-table td{padding:8px 10px;border-bottom:1px solid #e7edf4;white-space:nowrap}
+#page-peak .peak-item-table tr:nth-child(even) td{background:#f6f9fc}
+#page-peak .peak-item-table td:nth-child(n+3){text-align:right}
+#page-peak .peak-view-soh{border:1px solid #b8d7ee;background:#eaf5ff;color:#175b8d;border-radius:7px;padding:5px 9px;font-size:9px;font-weight:850;cursor:pointer}
+#page-peak .peak-grand-total{font-weight:900}
+#page-peak .peak-modal{display:none;position:fixed;inset:0;background:#0b1b2dbb;z-index:1000;align-items:center;justify-content:center;padding:18px}
+#page-peak .peak-modal-panel{background:#fff;border-radius:14px;width:min(980px,96vw);max-height:88vh;overflow:auto;box-shadow:0 18px 60px #07182c55}
+#page-peak .peak-modal-head{position:sticky;top:0;background:#173b5b;color:#fff;padding:13px 16px;display:flex;align-items:center;justify-content:space-between;z-index:2}
+#page-peak .peak-modal-head h3{margin:0;font-size:13px}
+#page-peak .peak-modal-head button{border:0;background:#ffffff20;color:#fff;border-radius:7px;padding:6px 10px;cursor:pointer}
+#page-peak .peak-modal-body{padding:14px;overflow:auto}
+#page-peak .peak-modal-body table{width:100%;min-width:650px;border-collapse:collapse;font-size:10px}
+#page-peak .peak-modal-body th{background:#26745f;color:#fff;padding:8px;text-align:left}
+#page-peak .peak-modal-body td{padding:8px;border-bottom:1px solid #e7edf4}
+#page-peak .peak-modal-summary{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:11px}
+#page-peak .peak-modal-summary span{background:#edf5fb;border:1px solid #d8e6f2;border-radius:8px;padding:7px 10px;font-size:10px}
+#page-peak .peak-export-row{display:flex;gap:8px;flex-wrap:wrap}
+#page-peak .peak-muted{font-size:10px;color:var(--muted)}
+@media(max-width:1050px){#page-peak .peak-filter-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:650px){#page-peak .peak-hero{align-items:flex-start;padding:14px}#page-peak .peak-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#page-peak .peak-table-scroll{max-height:58vh}}
 </style>
-<div class="page-head"><div><div class="eyebrow">Kerala · Planning Intelligence</div><h1>Peak Billing Planner</h1><p>Peak demand · CFA stock · Plant loading</p></div><span class="pill green" id="peakConnectionStatus">Checking sources…</span></div>
-<div class="peak-stats"><div class="peak-stat"><small>Monthly Target</small><strong id="peakMonthlyTarget">₹5.5 Cr</strong></div><div class="peak-stat"><small>Mid-month</small><strong id="peakMidTarget">₹2 Cr</strong></div><div class="peak-stat"><small>Month-end</small><strong id="peakEndTarget">₹2 Cr</strong></div></div>
-<div class="card peak-card">
- <div class="peak-head"><h3>1 · Select Date Range</h3><span class="peak-note" id="peakRangeDays">Select a valid date range</span></div>
- <div class="peak-fields">
-  <div class="field"><label>From Date</label><input id="peakFromDate" type="date"></div>
-  <div class="field"><label>To Date</label><input id="peakToDate" type="date"></div>
-  <div class="field"><label>CFA</label><select id="peakCfa"><option value="ALL">All CFA</option><option value="TVD">TVD</option><option value="PAY">PAY</option><option value="ALU">ALU</option></select></div>
-  <div class="field"><label>Plant Lead Time</label><select id="peakLead"><option value="4">4 Days</option><option value="5" selected>5 Days</option></select></div>
-  <div class="field" style="display:flex;align-items:end"><button class="btn primary" style="width:100%;min-height:37px" onclick="calculatePeak()">Calculate Plan</button></div>
- </div>
- </div>
-<div class="card peak-card">
- <div class="peak-head"><h3>2 · Planning Summary</h3><span class="peak-note" id="peakSummarySub">Calculate to load source-based values</span></div>
- <div class="peak-kpis">
-  <div class="card kpi peak-kpi"><div class="label">Expected Billing (CBB)</div><div class="value" id="peakExpectedBilling">No Data Available</div><div class="sub">Selected date range · average of prior 2 completed months</div></div>
-  <div class="card kpi peak-kpi"><div class="label">Loading Required</div><div class="value" id="peakLoadingRequired">No Data Available</div><div class="sub">Demand less usable SOH & confirmed Open TO</div></div>
-  <div class="card kpi peak-kpi"><div class="label">Usable CFA SOH</div><div class="value" id="peakUsableSoh">No Data Available</div><div class="sub">Remaining shelf life ≥60%</div></div>
-  <div class="card kpi peak-kpi"><div class="label">Confirmed Open TO</div><div class="value" id="peakOpenTo">No Data Available</div><div class="sub">Uploaded, unreceived TO only</div></div>
- </div>
- <div class="peak-note" id="peakTargetComparison">₹ target and CBB demand remain separate; no assumed conversion.</div>
+<div class="peak-hero">
+ <div><div class="eyebrow">Kerala · Planning Intelligence</div><h1>Peak Billing Planner</h1><p>SKU-wise demand · CFA allocation · Live SOH · ABM requirement</p></div>
+ <span class="peak-hero-status" id="peakConnectionStatus">Checking GSV / LIVE SOH</span>
 </div>
-<div class="card table-card">
- <div class="card-head"><div><h3>3 · Day-wise Billing Plan</h3><small id="peakDailySub">SKU Group-wise expected CBB · Expand a SKU Group for date-wise details</small></div></div>
- <div id="peakDailyRows" style="padding:0 14px 14px"><div class="empty">Select date and calculate the plan.</div></div>
-</div>
-<div class="card table-card">
- <div class="card-head"><div><h3>4 · SKU Group Loading</h3><small id="peakGroupSub">Selected CFA · Group-wise totals</small></div><button class="btn" id="peakViewAll" onclick="togglePeakViewAll()">View All</button></div>
- <div class="table-wrap"><table class="peak-table"><thead><tr><th>SKU Group</th><th>Expected Demand (CBB)</th><th>Usable SOH</th><th>Open TO</th><th>Loading Required (CBB)</th><th>New Manual Indent (CBB)</th><th>Submitted This Month (CBB)</th><th>Monthly Allocated (CBB)</th></tr></thead><tbody id="peakGroupRows"><tr><td colspan="8" class="empty">Select date and calculate the plan.</td></tr></tbody></table></div>
- <div class="peak-fields" style="padding:12px 18px;align-items:center"><button class="btn primary" onclick="savePeakManualSubmission()">Save Manual Indent Submission</button><span class="peak-note">Enter quantities for the required SKU Groups, then save once. Every save is stored as a separate date-wise submission; previous submissions are never overwritten.</span></div><div class="small-note">Select one CFA and a date range within one month. Monthly totals include every saved submission for that CFA and SKU Group. Excess is flagged but can still be submitted after confirmation.</div>
-</div>
-<div class="card peak-card" style="margin-top:11px">
- <div class="peak-head"><h3>5 · Sales Manager Manual Indent Control</h3><span class="peak-note" id="peakManualReportSub">Monthly allocation vs all saved submissions</span></div>
- <div class="peak-fields" style="padding:12px 18px">
-  <div class="field"><label>Report Month</label><input id="peakManualReportMonth" type="month"></div>
-  <div class="field"><label>CFA</label><select id="peakManualReportCfa"><option value="ALL">All CFA</option><option value="TVD">TVD</option><option value="PAY">PAY</option><option value="ALU">ALU</option></select></div>
-  <div class="field" style="display:flex;align-items:end"><button class="btn" style="width:100%" onclick="renderPeakManualReport()">Refresh Report</button></div>
-  <div class="field" style="display:flex;align-items:end"><button class="btn primary" style="width:100%" onclick="exportPeakManualExcel()">Export Indent Excel</button></div>
+<div class="peak-filter-card">
+ <div class="peak-filter-grid">
+  <div class="field"><label>Planning Period</label><select id="peakPeriodDays" onchange="peakPeriodChanged()"><option value="6">6 Days</option><option value="12" selected>12 Days</option><option value="18">18 Days</option><option value="custom">Custom Period</option></select></div>
+  <div class="field"><label>From Date</label><input id="peakFromDate" type="date" onchange="updatePeakToDate()"></div>
+  <div class="field"><label>To Date</label><input id="peakToDate" type="date" readonly></div>
+  <div class="field"><label>CFA Filter</label><select id="peakCfa" onchange="calculatePeak()"><option value="ALL">All CFAs</option><option value="TVD">TVD CFA</option><option value="PAY">PAY CFA</option><option value="ALU">ALU CFA</option></select></div>
+  <div class="field"><label>SKU Group Filter</label><select id="peakSkuGroupFilter" onchange="renderPeakGroupRows();renderPeakItemDetails()"><option value="ALL">All SKU Groups</option></select></div>
+  <div class="field"><button class="btn primary" style="width:100%;min-height:37px" onclick="calculatePeak()">Calculate Plan</button></div>
  </div>
- <div class="peak-kpis">
-  <div class="card kpi peak-kpi"><div class="label">Monthly CFA Allocation</div><div class="value" id="peakManualTotalAllocation">No Data Available</div></div>
-  <div class="card kpi peak-kpi"><div class="label">Total Manual Indent</div><div class="value" id="peakManualTotalSubmitted">0 CBB</div></div>
-  <div class="card kpi peak-kpi"><div class="label">Excess Indent</div><div class="value" id="peakManualTotalExcess">0 CBB</div></div>
-  <div class="card kpi peak-kpi"><div class="label">Allocation Utilisation</div><div class="value" id="peakManualUtilisation">No Data Available</div></div>
- </div>
- <div class="card-head"><div><h3>Monthly SKU Group Comparison</h3><small>All submissions added together · Excess = Manual Indent − Monthly Allocation</small></div></div>
- <div class="table-wrap"><table class="peak-table"><thead><tr><th>CFA</th><th>SKU Group</th><th>Monthly Allocation (CBB)</th><th>Total Manual Indent (CBB)</th><th>Excess (CBB)</th><th>Excess %</th></tr></thead><tbody id="peakManualSummaryRows"><tr><td colspan="6" class="empty">Select a month to view the report.</td></tr></tbody></table></div>
- <div class="card-head"><div><h3>Submission History</h3><small>Every save is a separate record; previous months remain available for reporting and export.</small></div></div>
- <div class="table-wrap"><table class="peak-table"><thead><tr><th>Submission Date</th><th>CFA</th><th>Indent Period</th><th>SKU Group</th><th>Manual Indent (CBB)</th><th>Saved At</th></tr></thead><tbody id="peakManualHistoryRows"><tr><td colspan="6" class="empty">No submissions saved for this month.</td></tr></tbody></table></div>
+ <div class="peak-range-note" id="peakRangeDays">12 planning days · date range will be calculated automatically.</div>
+ <div class="peak-range-note" id="peakHistoryLabel">L2M comparison uses the same calendar dates in the previous two months.</div>
+ <div id="peakCustomRangeNote" class="peak-range-note" style="display:none">Custom Period: select both From Date and To Date.</div>
 </div>
-<div class="card peak-card" style="margin-top:11px">
- <div class="peak-head"><h3>6 · Peak Planner Excel Export</h3><span class="peak-note">Calculated source data</span></div>
- <div class="peak-fields"><div><b style="font-size:11px">Selected CFA</b><div class="peak-note">Current CFA details</div><button class="btn primary" style="margin-top:6px" onclick="exportPeakExcel('selected')">Export Selected CFA Excel</button></div><div><b style="font-size:11px">All CFA</b><div class="peak-note">Consolidated workbook · Separate sheets</div><button class="btn" style="margin-top:6px" onclick="exportPeakExcel('all')">Export All CFA Excel</button></div></div>
+<div class="peak-table-card">
+ <div class="peak-card-heading"><div><h3>SKU Group · CFA Planning Matrix</h3><small id="peakGroupSub">Select a period and calculate to load connected GSV, MBQ, CFA allocation and LIVE SOH data.</small></div><span class="peak-heading-tag">CBB · LIVE SOURCES</span></div>
+ <div class="peak-table-scroll" id="peakMainTableWrap"><div class="empty">Select planning period and click Calculate Plan.</div></div>
 </div>
-<details class="card peak-more" id="peakAdditionalDetails"><summary>Additional Details <span style="float:right;color:var(--muted);font-size:11px;font-weight:500">Open when needed ＋</span></summary>
- <details class="card peak-more" style="margin:0 11px 9px"><summary>Historical Sales Analysis</summary><div class="card-body" id="peakHistoricalAnalysis"><div class="peak-note">Calculate a plan to view GSV history.</div></div></details>
- <details class="card peak-more" style="margin:0 11px 9px"><summary>Billing Window Settings</summary><div class="form-grid">
-  <div class="field"><label>Monthly Target (₹ Cr)</label><input id="monthlySales" type="number" min="0" step="0.1" value="5.5"></div>
-  <div class="field"><label>Mid-month Target (₹ Cr)</label><input id="midTarget" type="number" min="0" step="0.1" value="2"></div>
-  <div class="field"><label>Mid-month Dates</label><input id="midDates" value="13–15"></div>
-  <div class="field"><label>Month-end Target (₹ Cr)</label><input id="endTarget" type="number" min="0" step="0.1" value="2"></div>
-  <div class="field"><label>Month-end Dates</label><input id="endDates" value="28–31"></div>
-  <div class="field"><label>Plant Lead Time (days)</label><select id="lead"><option value="4">4 days</option><option value="5" selected>5 days</option></select></div>
- </div><div style="padding:0 18px 13px"><button class="btn" onclick="updatePeakTargetLabels()">Apply Settings</button></div></details>
- <details class="card peak-more" style="margin:0 11px 9px"><summary>Planning Calculation Details</summary><div class="card-body" id="peakCalculationDetails"><p class="peak-note">Demand = historical GSV quantity ÷ completed history days × planning days.</p><p class="peak-note">Loading = max(0, Demand − usable SOH − confirmed Open TO). SOH shelf life ≥60%.</p><p class="peak-note">₹ billing target and CBB demand are not converted without an approved factor.</p></div></details>
- <details class="card peak-more" style="margin:0 11px 11px"><summary>Existing Planning Checklist</summary><div class="grid two" style="padding:0 11px 11px">
-  <div class="card"><div class="card-head"><h3>Mid-month checklist</h3><span class="pill blue">13th–15th</span></div><div class="card-body"><p>☐ Confirm plant dispatch cut-off using 4–5 day lead time.</p><p>☐ Check CFA-wise stock cover for priority SKU groups.</p><p>☐ Include only confirmed incoming PO before the window.</p><p>☐ Reserve stock against the approved peak SKU mix.</p></div></div>
-  <div class="card"><div class="card-head"><h3>Month-end checklist</h3><span class="pill amber">28th–31st</span></div><div class="card-body"><p>☐ Roll forward post-mid-month stock and actual billing.</p><p>☐ Deduct forecast consumption between windows.</p><p>☐ Re-check lead time and confirmed receipts.</p><p>☐ Prevent duplicate allocation of stock to both peaks.</p></div></div>
- </div></details>
-</details>
+<div class="peak-table-card">
+ <div class="peak-card-heading"><div><h3>Item-wise MRP & SOH Details</h3><small id="peakItemSub">Select a SKU Group above to view its mapped items.</small></div><span class="peak-heading-tag">ITEM MASTER + LIVE SOH</span></div>
+ <div class="peak-item-wrap" id="peakItemDetails"><div class="empty">Select a SKU Group to view item-wise MRP and SOH.</div></div>
+</div>
+<div class="peak-table-card">
+ <div class="peak-card-heading"><div><h3>Export Planning Data</h3><small>Current selected period · source-linked values only</small></div><div class="peak-export-row"><button class="btn primary" onclick="exportPeakExcel('selected')">Export Selected CFA</button><button class="btn" onclick="exportPeakExcel('all')">Export All CFAs</button></div></div>
+ <div class="peak-item-wrap peak-muted">Excel includes SKU Group totals, CFA-wise L2M period average, allocation, SOH, Plant SOH, confirmed Open TO and ABM Requirement. Item-wise MRP and warehouse SOH are included in a separate sheet.</div>
+</div>
+<div class="peak-modal" id="peakSohModal" role="dialog" aria-modal="true" aria-labelledby="peakSohTitle" onclick="if(event.target===this)peakCloseSoh()">
+ <div class="peak-modal-panel"><div class="peak-modal-head"><h3 id="peakSohTitle">Item-wise Warehouse SOH</h3><button type="button" onclick="peakCloseSoh()">Close ✕</button></div><div class="peak-modal-body" id="peakSohModalBody"></div></div>
+</div>
 </section>
 <section class="section" id="page-loading"><div class="page-head"><div><div class="eyebrow">CFA-specific supply planning</div><h1>CFA Loading & Indent Planner</h1><p>Day-wise demand is the base. Required Loading = max(0, Allocated Indent − 60%+ usable CFA SOH − Confirmed Open TO). No uploaded TO records means 0 pending TO; this planner's current loading is never treated as Open TO.</p></div><div class="actions"><button class="btn" onclick="exportTable('daysPlanRows','Plant_Loading_Sheet.csv')">Export Plant Loading Sheet</button><button class="btn" onclick="aiFillDaysPlanBalance()">AI Fill Balance</button><button class="btn primary" onclick="renderDaysPlanner()">↻ Calculate plan</button></div></div><div class="card" style="margin-bottom:16px"><div class="form-grid"><div class="field"><label>Selected CFA</label><select id="daysPlanCfa" onchange="renderDaysPlanner()"><option value="PAY" selected>PAY CFA</option><option value="ALU">ALU CFA</option><option value="TVD">TVD CFA</option></select></div><div class="field"><label>Planning period</label><select id="daysPlanDays" onchange="renderDaysPlanner()"><option value="6">6 Days</option><option value="12" selected>12 Days</option><option value="18">18 Days</option><option value="custom">Custom Days</option></select></div><div class="field" id="daysPlanCustomWrap" style="display:none"><label>Custom days</label><input id="daysPlanCustom" type="number" min="1" step="1" placeholder="Enter days" oninput="renderDaysPlanner()"></div><div class="field"><label>Available loading capacity (CBB) · optional</label><input id="daysPlanCapacity" type="number" min="0" step="1" placeholder="Enter approved CBB capacity" oninput="renderDaysPlanner()"></div><div class="field"><label>Item display</label><button class="btn" id="daysPlanZeroIndentToggle" type="button" onclick="toggleDaysPlanZeroIndent()">Hide 0 Indent</button></div></div></div><div class="grid kpis" style="margin-bottom:16px"><div class="card kpi"><div class="label">Period demand</div><div class="value" id="daysPlanDemand">No Data Available</div><div class="sub">Average daily sales × selected days</div></div><div class="card kpi"><div class="label">Required loading</div><div class="value" id="daysPlanIndent">No Data Available</div><div class="sub">Allocated Indent less 60%+ usable SOH and confirmed Open TO</div></div><div class="card kpi"><div class="label">Final loading qty</div><div class="value" id="daysPlanLoad">No Data Available</div><div class="sub" id="daysPlanLoadSub">AI add-on not applied</div></div><div class="card kpi"><div class="label">Balance capacity</div><div class="value" id="daysPlanShortage">No Data Available</div><div class="sub">After final loading; capacity required</div></div></div><div class="card table-card"><div class="card-head"><div><h3>Item-wise CFA Demand & Loading</h3><small id="daysPlanTableSub">PAY CFA · 12 days · Latest 3 completed months (excludes current month)</small></div><span class="pill blue" id="daysPlanStatus">SOURCE DATA REQUIRED</span></div><div class="table-wrap"><table><thead><tr><th>CFA</th><th>SKU Group</th><th>FG Code</th><th>Allocated Indent</th><th>Average Daily Sales</th><th>Period Demand</th><th>Usable CFA SOH</th><th>Confirmed Open TO</th><th>Required Loading</th><th>AI Suggested Add-on</th><th>Allocation Balance (CBB)</th><th>Final Loading Qty</th><th>Status</th></tr></thead><tbody id="daysPlanRows"><tr><td colspan="13" class="empty">No Data Available</td></tr></tbody></table></div><div class="small-note">Required Loading = max(0, Allocated Indent − 60%+ usable CFA SOH − confirmed Open TO). Allocation Balance = max(0, Allocated Indent − 60%+ usable CFA SOH − confirmed Open TO). Final Loading Qty is limited by the available allocation balance; 0-indent items can be hidden with the toggle. No uploaded TO records means 0 pending TO. AI Suggested Add-on fills only the remaining capacity up to the 950 CBB target; Required Loading and Allocation Balance are not reduced. Missing demand or SOH is flagged, not silently treated as confirmed data.</div></div></section>
 <section class="section" id="page-flash"><div class="page-head"><div><div class="eyebrow">Daily execution</div><h1>Daily WhatsApp Flash</h1><p>Build a concise operational update for sharing with the sales / supply team.</p></div><div class="actions"><button class="btn" onclick="copyFlash()">⧉ Copy WhatsApp text</button><button class="btn primary" onclick="showToast('Flash report exported as text.')">Export text</button></div></div><div class="card"><div class="card-head"><h3>Flash report filters</h3><small>Choose a date range; billing is calculated from dated GSV invoice rows.</small></div><div class="form-grid"><div class="field"><label>From Date</label><input id="flashFromDate" type="date" onchange="renderFlash()"></div><div class="field"><label>To Date</label><input id="flashToDate" type="date" onchange="renderFlash()"></div><div class="field"><label>CFA</label><select id="flashCfa" onchange="renderFlash()"><option>All CFAs</option><option>TVD CFA</option><option>PAY CFA</option><option>ALU CFA</option></select></div><div class="field"><label>Sales / billing source</label><div id="flashSourceStatus" class="input" style="min-height:38px;display:flex;align-items:center;color:var(--green);font-weight:600">GSV date-wise billing loading…</div></div></div><div class="card-body"><div id="flashText" class="flash"></div><div id="flashBillingNote" style="margin-top:12px;font-size:10.5px;color:var(--muted)">Billing totals will be calculated from the actual GSV posting dates.</div></div></div>
@@ -2043,6 +2053,224 @@ function exportPeakExcel(mode){
 document.getElementById('peakFromDate')?.addEventListener('change',updatePeakToDate);document.getElementById('peakToDate')?.addEventListener('change',updatePeakToDate);
 document.getElementById('peakManualReportMonth')?.addEventListener('change',renderPeakManualReport);document.getElementById('peakManualReportCfa')?.addEventListener('change',renderPeakManualReport);
 updatePeakTargetLabels();updatePeakToDate();const peakReportMonth=document.getElementById('peakManualReportMonth');if(peakReportMonth)peakReportMonth.value=peakISO(new Date()).slice(0,7);loadPeakManualEntries().then(()=>{if(peakPlanResult)renderPeakGroupRows();renderPeakManualReport();});
+
+/* Peak Billing Planner: compact source-linked CFA matrix. Existing source loaders and shared data APIs remain unchanged. */
+function peakHistory(date){
+ const base=date?new Date(date+'T00:00:00'):new Date();
+ const first=new Date(base.getFullYear(),base.getMonth()-2,1),second=new Date(base.getFullYear(),base.getMonth()-1,1);
+ const months=[first,second].map(d=>({month:d.getMonth()+1,label:['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][d.getMonth()],year:d.getFullYear()}));
+ const from=peakISO(first),to=peakISO(new Date(second.getFullYear(),second.getMonth()+1,0));
+ return {from,to,days:Math.round((new Date(to+'T00:00:00')-new Date(from+'T00:00:00'))/86400000)+1,months};
+}
+function peakPeriodChanged(){
+ const period=document.getElementById('peakPeriodDays')?.value||'12';
+ const to=document.getElementById('peakToDate'),custom=document.getElementById('peakCustomRangeNote');
+ if(to)to.readOnly=period!=='custom';
+ if(custom)custom.style.display=period==='custom'?'block':'none';
+ updatePeakToDate();
+}
+function updatePeakToDate(){
+ const fromEl=document.getElementById('peakFromDate'),toEl=document.getElementById('peakToDate'),period=document.getElementById('peakPeriodDays')?.value||'12';
+ if(!fromEl||!toEl)return;
+ if(!fromEl.value){const now=new Date();fromEl.value=peakISO(now);}
+ if(period!=='custom'){
+  const days=Number(period)||12,start=new Date(fromEl.value+'T00:00:00');start.setDate(start.getDate()+days-1);toEl.value=peakISO(start);
+ }
+ const from=fromEl.value,to=toEl.value;
+ const count=from&&to&&to>=from?Math.round((new Date(to+'T00:00:00')-new Date(from+'T00:00:00'))/86400000)+1:0;
+ const note=document.getElementById('peakRangeDays');if(note)note.textContent=count?count+' planning days · '+from+' to '+to:'Select a valid planning date range';
+ const history=document.getElementById('peakHistoryLabel');if(history&&from){const h=peakHistory(from);history.textContent='L2M comparison: '+h.months.map(m=>m.label+' '+m.year).join(' + ')+' · same calendar dates only';}
+}
+function updatePeakTargetLabels(){}
+function peakCategoryForGroup(group){
+ const key=mbqSkuGroupKey(group),sheets=mbqExcelSheets||{};
+ for(const name of ['DATA','TVD','PAY','ALU']){
+  const sh=sheets[name];if(!sh||!Array.isArray(sh.headers)||!Array.isArray(sh.rows))continue;
+  const skuIx=sh.headers.findIndex(h=>String(h||'').trim().toUpperCase()==='SKU GROUP'),catIx=sh.headers.findIndex(h=>String(h||'').trim().toUpperCase()==='CAT');
+  if(skuIx<0||catIx<0)continue;
+  const row=sh.rows.find(r=>mbqSkuGroupKey(r[skuIx])===key);
+  if(row&&row[catIx]!==undefined&&String(row[catIx]).trim())return String(row[catIx]).trim().toUpperCase();
+ }
+ return 'No Data Available';
+}
+function peakPlantSohForGroup(group){
+ if(!Array.isArray(liveSohRows)||!liveSohRows.length)return null;
+ const codes=new Set(rows.filter(r=>mbqSkuGroupKey(r.sku)===mbqSkuGroupKey(group)&&r.code).map(r=>mbqCodeKey(r.code)).filter(Boolean));
+ if(!codes.size)return null;
+ let total=0,found=false;
+ liveSohRows.forEach(raw=>{
+  const type=String(keyValue(raw,['TYPE','Type'])||'').trim().toUpperCase();if(type&&type!=='SOH')return;
+  const code=mbqCodeKey(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']));
+  const warehouse=String(keyValue(raw,['WAREHOUSE','Warehouse','Location','Location Name','LocationCode','Location Code'])||'').toUpperCase();
+  if(!codes.has(code)||!warehouse.includes('HYD PLANT1'))return;
+  found=true;
+  const qty=Number(String(keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity'])??'').replace(/,/g,''));
+  if(Number.isFinite(qty))total+=qty;
+ });
+ return found?total:0;
+}
+function peakAllocationForGroup(group,cfa){
+ if(!Array.isArray(allocationData)||!allocationData.length)return null;
+ const matches=allocationData.filter(x=>mbqSkuGroupKey(x.sku)===mbqSkuGroupKey(group)&&normalCfa(x.cfaKey||x.cfa)===cfa);
+ return matches.length?matches.reduce((sum,x)=>sum+(Number(x.allocation??x.indentCbb)||0),0):null;
+}
+function peakRawItemValue(code,candidates){
+ const key=mbqCodeKey(code);
+ for(const raw of (Array.isArray(liveSohRows)?liveSohRows:[])){
+  if(mbqCodeKey(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']))!==key)continue;
+  const value=keyValue(raw,candidates);if(value!==''&&value!==null&&value!==undefined)return value;
+ }
+ return '';
+}
+function peakItemRowsForGroup(group){
+ const items=new Map();
+ rows.filter(r=>mbqSkuGroupKey(r.sku)===mbqSkuGroupKey(group)&&r.code).forEach(r=>{
+  const code=String(r.code||'').trim(),key=mbqCodeKey(code);if(!key)return;
+  if(!items.has(key))items.set(key,{code,description:String(r.description||'').trim()});
+ });
+ return [...items.values()].sort((a,b)=>a.description.localeCompare(b.description)||a.code.localeCompare(b.code)).map(item=>{
+  const mrpRaw=peakRawItemValue(item.code,['MRP','M.R.P','MRP VALUE','UNIT MRP']);
+  const mrp=mrpRaw===''?null:Number(String(mrpRaw).replace(/[₹,]/g,'').trim());
+  const plant=peakPlantSohForCode(item.code);
+  return {...item,mrp:Number.isFinite(mrp)?mrp:null,
+   tvd:mbqPlannerUsableSoh('TVD',item.code),pay:mbqPlannerUsableSoh('PAY',item.code),alu:mbqPlannerUsableSoh('ALU',item.code),plant};
+ });
+}
+function peakPlantSohForCode(code){
+ if(!Array.isArray(liveSohRows)||!liveSohRows.length)return null;
+ const key=mbqCodeKey(code);let found=false,total=0;
+ liveSohRows.forEach(raw=>{
+  const type=String(keyValue(raw,['TYPE','Type'])||'').trim().toUpperCase();if(type&&type!=='SOH')return;
+  const c=mbqCodeKey(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']));
+  const wh=String(keyValue(raw,['WAREHOUSE','Warehouse','Location','Location Name','LocationCode','Location Code'])||'').toUpperCase();
+  if(c!==key||!wh.includes('HYD PLANT1'))return;
+  found=true;const q=Number(String(keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity'])??'').replace(/,/g,''));
+  if(Number.isFinite(q))total+=q;
+ });
+ return found?total:0;
+}
+function peakRenderSkuFilter(){
+ const select=document.getElementById('peakSkuGroupFilter');if(!select||!peakPlanResult)return;
+ const prior=select.value||'ALL',groups=peakPlanResult.rows.map(x=>x.group).sort((a,b)=>a.localeCompare(b));
+ select.innerHTML='<option value="ALL">All SKU Groups</option>'+groups.map(g=>'<option value="'+mbqEscape(g)+'">'+mbqEscape(g)+'</option>').join('');
+ select.value=groups.includes(prior)?prior:'ALL';
+}
+function peakNum(v){return v===null||v===undefined||!Number.isFinite(Number(v))?null:Number(v);}
+function peakDisplay(v,suffix=''){return v===null||v===undefined||!Number.isFinite(Number(v))?'No Data Available':peakFmt(v)+(suffix?' '+suffix:'');}
+function peakGroupCellData(group,cfa,p){
+ const calc=peakGroupData(group,cfa,p.hist,p.days,p.date);
+ const allocation=peakAllocationForGroup(group,cfa);
+ const plant=peakPlantSohForGroup(group);
+ const abm=calc.demand!==null&&calc.soh!==null&&calc.to!==null?Math.max(0,calc.demand-calc.soh-calc.to):null;
+ return {allocation,soh:calc.soh,plant,demand:calc.demand,openTo:calc.to,abm,codes:calc.codes||[]};
+}
+function calculatePeak(){
+ const date=document.getElementById('peakFromDate')?.value||'',toDate=document.getElementById('peakToDate')?.value||'',cfa=document.getElementById('peakCfa')?.value||'ALL';
+ if(!date||!toDate||toDate<date){showToast('ശരിയായ From Date, To Date select ചെയ്യുക.');return;}
+ const days=Math.round((new Date(toDate+'T00:00:00')-new Date(date+'T00:00:00'))/86400000)+1;
+ if(!Number.isInteger(days)||days<1||days>60){showToast('Date range 1–60 days ആയിരിക്കണം.');return;}
+ if(!Array.isArray(mbqGsvRows)||!mbqGsvRows.length){showToast('GSV source data ലഭ്യമല്ല.');return;}
+ if(!Array.isArray(allocationData)||!allocationData.length){try{buildAllocationData();}catch(e){console.warn('Peak allocation source unavailable',e);}}
+ const hist=peakHistory(date),official=Array.isArray(sourceRows)?sourceRows.map(r=>String(r[0]||'').trim()).filter(Boolean):[];
+ const itemGroups=Array.isArray(rows)?rows.map(r=>String(r.sku||'').trim()).filter(Boolean):[];
+ const groups=[...new Map([...official,...itemGroups].map(g=>[mbqSkuGroupKey(g),g])).values()].filter(g=>!Array.isArray(window.mbqOfficialAssortmentGroupKeys)||!window.mbqOfficialAssortmentGroupKeys.length||mbqIsOfficialSkuGroup(g)).sort((a,b)=>a.localeCompare(b));
+ const cfas=['TVD','PAY','ALU'];
+ peakPlanResult={date,toDate,cfa,days,hist,rows:groups.map(group=>{
+  const cfaData={};cfas.forEach(cf=>{cfaData[cf]=peakGroupCellData(group,cf,{date,toDate,cfa,days,hist});});
+  const demandValues=cfas.map(cf=>cfaData[cf].demand),totalL2M=demandValues.every(v=>v!==null)?demandValues.reduce((a,b)=>a+b,0):null;
+  return {group,totalIndent:mbqUploadedIndentForSku(group),cat:peakCategoryForGroup(group),plant:peakPlantSohForGroup(group),cfaData,totalL2M};
+ })};
+ const status=document.getElementById('peakConnectionStatus');if(status)status.textContent='GSV '+(mbqGsvRows.length?'CONNECTED':'UNAVAILABLE')+' · SOH '+(liveSohRows.length?'CONNECTED':'UNAVAILABLE');
+ const sub=document.getElementById('peakGroupSub');if(sub)sub.textContent=date+' to '+toDate+' · '+days+' days · Historical comparison '+hist.months.map(m=>m.label+' '+m.year).join(' / ')+' · '+groups.length+' SKU Groups';
+ peakRenderSkuFilter();renderPeakGroupRows();renderPeakItemDetails();
+ showToast('Peak Billing Planner updated from GSV, MBQ allocation and LIVE SOH sources.');
+}
+function renderPeakGroupRows(){
+ const host=document.getElementById('peakMainTableWrap');if(!host)return;
+ if(!peakPlanResult){host.innerHTML='<div class="empty">Select planning period and click Calculate Plan.</div>';return;}
+ const p=peakPlanResult,selected=document.getElementById('peakSkuGroupFilter')?.value||'ALL';
+ const data=p.rows.filter(x=>selected==='ALL'||mbqSkuGroupKey(x.group)===mbqSkuGroupKey(selected));
+ const cfas=p.cfa==='ALL'?['TVD','PAY','ALU']:[p.cfa];
+ const groupHead=cfas.map(c=>'<th colspan="5" class="'+c.toLowerCase()+'-head">'+c+' CFA</th>').join('');
+ const subHead=cfas.map(c=>'<th class="sub-'+c.toLowerCase()+'">ALLOCATION IND</th><th class="sub-'+c.toLowerCase()+'">SOH &gt;60%</th><th class="sub-'+c.toLowerCase()+'">L2M AVG / PERIOD DEMAND CBB</th><th class="sub-'+c.toLowerCase()+'">CONFIRMED OPEN TO</th><th class="sub-'+c.toLowerCase()+'">ABM REQUIREMENT</th>').join('');
+ const header='<thead><tr><th rowspan="2" class="common-head">SKU GROUP</th><th rowspan="2" class="common-head">TOTAL INDENT</th><th rowspan="2" class="common-head">CAT</th><th rowspan="2" class="common-head">PLANT SOH<br>HYD PLANT1</th>'+groupHead+'<th rowspan="2" class="total-head">TOTAL L2M AVG CBB</th></tr><tr>'+subHead+'</tr></thead>';
+ const totalKeys={totalIndent:data.map(x=>peakNum(x.totalIndent)),plant:data.map(x=>peakNum(x.plant)),totalL2M:data.map(x=>peakNum(x.totalL2M))};
+ const sumStrict=vals=>vals.length&&vals.every(v=>v!==null)?vals.reduce((a,b)=>a+b,0):null;
+ const body=data.map(x=>{
+  const cat=String(x.cat||'No Data Available').toLowerCase(),catHtml=['a','b','c'].includes(cat)?'<span class="cat-badge cat-'+cat+'">'+cat.toUpperCase()+'</span>':'No Data Available';
+  const cells=cfas.map(c=>{
+   const d=x.cfaData[c]||{};
+   const alloc=d.allocation===null?'<span class="not-done">ALLOCATION NOT DONE</span>':peakFmt(d.allocation);
+   return '<td>'+alloc+'</td><td>'+peakDisplay(d.soh)+'</td><td class="num-demand">'+peakDisplay(d.demand,'CBB')+'</td><td>'+peakDisplay(d.openTo,'CBB')+'</td><td class="num-abm">'+peakDisplay(d.abm,'CBB')+'</td>';
+  }).join('');
+  return '<tr><td>'+mbqEscape(x.group)+'</td><td>'+peakDisplay(x.totalIndent)+'</td><td style="text-align:center">'+catHtml+'</td><td>'+peakDisplay(x.plant,'CBB')+'</td>'+cells+'<td class="num-demand">'+peakDisplay(x.totalL2M,'CBB')+'</td></tr>';
+ }).join('');
+ const footCfas=cfas.map(c=>{
+  const keys=['allocation','soh','demand','openTo','abm'];
+  return keys.map(k=>{const vals=data.map(x=>peakNum(x.cfaData[c]?.[k]));const v=sumStrict(vals);return '<td>'+peakDisplay(v,k==='allocation'?'CBB':(k==='soh'?'CBB':'CBB'))+'</td>';}).join('');
+ }).join('');
+ const totalRow='<tfoot><tr><td>GRAND TOTAL</td><td>'+peakDisplay(sumStrict(totalKeys.totalIndent),'CBB')+'</td><td>—</td><td>'+peakDisplay(sumStrict(totalKeys.plant),'CBB')+'</td>'+footCfas+'<td>'+peakDisplay(sumStrict(totalKeys.totalL2M),'CBB')+'</td></tr></tfoot>';
+ host.innerHTML='<table class="peak-new-table">'+header+'<tbody>'+(body||'<tr><td colspan="'+(4+cfas.length*5+1)+'" class="empty">No SKU Group rows available for this filter.</td></tr>')+'</tbody>'+totalRow+'</table>';
+}
+function renderPeakItemDetails(){
+ const host=document.getElementById('peakItemDetails');if(!host)return;
+ const group=document.getElementById('peakSkuGroupFilter')?.value||'ALL';
+ if(!peakPlanResult||group==='ALL'){host.innerHTML='<div class="empty">SKU Group Filter-ൽ ഒരു group select ചെയ്താൽ item-wise MRP, CFA SOH, Plant SOH details ഇവിടെ വരും.</div>';const sub=document.getElementById('peakItemSub');if(sub)sub.textContent='Select one SKU Group above to view its mapped items.';return;}
+ const items=peakItemRowsForGroup(group),fmt=v=>peakDisplay(v);
+ const sub=document.getElementById('peakItemSub');if(sub)sub.textContent=group+' · '+items.length+' mapped items · CFA SOH values are shelf-life ≥60%';
+ const body=items.map(x=>{
+  const code=encodeURIComponent(x.code);
+  return '<tr><td>'+mbqEscape(x.code)+'</td><td style="text-align:left;white-space:normal;min-width:180px">'+mbqEscape(x.description||'No Data Available')+'</td><td>'+ (x.mrp===null?'No Data Available':'₹'+peakFmt(x.mrp))+'</td><td>'+fmt(x.tvd)+'</td><td>'+fmt(x.pay)+'</td><td>'+fmt(x.alu)+'</td><td>'+fmt(x.plant)+'</td><td><button class="peak-view-soh" type="button" onclick="peakShowSoh(decodeURIComponent(\''+code+'\'))">SOH VIEW</button></td></tr>';
+ }).join('');
+ host.innerHTML=items.length?'<div style="overflow:auto"><table class="peak-item-table"><thead><tr><th>ITEM CODE</th><th>ITEM DESCRIPTION</th><th>MRP</th><th>TVD SOH &gt;60%</th><th>PAY SOH &gt;60%</th><th>ALU SOH &gt;60%</th><th>PLANT SOH</th><th>SOH DETAILS</th></tr></thead><tbody>'+body+'</tbody></table></div>':'<div class="empty">Selected SKU Group-ന് item mapping ലഭ്യമല്ല.</div>';
+}
+function peakShowSoh(code){
+ const modal=document.getElementById('peakSohModal'),body=document.getElementById('peakSohModalBody');if(!modal||!body)return;
+ const key=mbqCodeKey(code),items=[];
+ (Array.isArray(liveSohRows)?liveSohRows:[]).forEach(raw=>{
+  const type=String(keyValue(raw,['TYPE','Type'])||'').trim().toUpperCase();if(type&&type!=='SOH')return;
+  if(mbqCodeKey(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']))!==key)return;
+  const warehouse=String(keyValue(raw,['WAREHOUSE','Warehouse','Location','Location Name','LocationCode','Location Code'])||'Unmapped').trim();
+  const qtyRaw=keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity']),qty=Number(String(qtyRaw??'').replace(/,/g,''));
+  const shelfRaw=keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%']),shelf=Number(String(shelfRaw??'').replace('%','').replace(/,/g,''));
+  const bucket=!Number.isFinite(shelf)?'Shelf life unavailable':shelf<=0?'Expired':shelf<11?'≤10%':shelf<30?'11–29%':shelf<60?'30–59%':'≥60%';
+  const mrpRaw=keyValue(raw,['MRP','M.R.P','MRP VALUE','UNIT MRP']);
+  items.push({warehouse,qty:Number.isFinite(qty)?qty:null,shelf:Number.isFinite(shelf)?shelf:null,bucket,mrp:mrpRaw});
+ });
+ items.sort((a,b)=>a.warehouse.localeCompare(b.warehouse)||(a.shelf??Infinity)-(b.shelf??Infinity));
+ const total=items.reduce((n,x)=>n+(x.qty||0),0);
+ const title=document.getElementById('peakSohTitle');if(title)title.textContent='Item '+code+' · Warehouse-wise SOH';
+ const fmt=v=>v===null?'No Data Available':peakFmt(v);
+ body.innerHTML='<div class="peak-modal-summary"><span>Item Code: <b>'+mbqEscape(code)+'</b></span><span>Total SOH: <b>'+peakFmt(total)+' CBB</b></span><span>Warehouse rows: <b>'+items.length+'</b></span></div><div style="overflow:auto"><table><thead><tr><th>WAREHOUSE / CFA</th><th>MRP</th><th>SOH CBB</th><th>REMAINING SHELF LIFE</th><th>SHELF-LIFE BUCKET</th></tr></thead><tbody>'+(items.length?items.map(x=>'<tr><td>'+mbqEscape(x.warehouse)+'</td><td>'+(x.mrp===''?'No Data Available':'₹'+mbqEscape(x.mrp))+'</td><td>'+fmt(x.qty)+'</td><td>'+(x.shelf===null?'No Data Available':peakFmt(x.shelf)+'%')+'</td><td>'+mbqEscape(x.bucket)+'</td></tr>').join(''):'<tr><td colspan="5" class="empty">No LIVE SOH rows found for this item.</td></tr>')+'</tbody></table></div>';
+ modal.style.display='flex';
+}
+function peakCloseSoh(){const modal=document.getElementById('peakSohModal');if(modal)modal.style.display='none';}
+function exportPeakExcel(mode){
+ if(!peakPlanResult){showToast('ആദ്യം Calculate Plan ചെയ്യുക.');return;}
+ if(!window.XLSX){showToast('Excel library loading. Refresh ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.');return;}
+ const p=peakPlanResult,cfas=mode==='all'?['TVD','PAY','ALU']:(p.cfa==='ALL'?['TVD','PAY','ALU']:[p.cfa]);
+ const selected=document.getElementById('peakSkuGroupFilter')?.value||'ALL';
+ const data=p.rows.filter(x=>selected==='ALL'||mbqSkuGroupKey(x.group)===mbqSkuGroupKey(selected));
+ const summary=[['SKU GROUP','TOTAL INDENT','CAT','PLANT SOH']];
+ cfas.forEach(c=>summary[0].push(c+' ALLOCATION IND',c+' SOH >60%',c+' L2M AVG / PERIOD DEMAND CBB',c+' CONFIRMED OPEN TO CBB',c+' ABM REQUIREMENT CBB'));
+ summary[0].push('TOTAL L2M AVG CBB');
+ data.forEach(x=>{
+  const line=[x.group,x.totalIndent??'No Data Available',x.cat,x.plant??'No Data Available'];
+  cfas.forEach(c=>{const d=x.cfaData[c]||{};line.push(d.allocation===null?'ALLOCATION NOT DONE':d.allocation,d.soh??'No Data Available',d.demand??'No Data Available',d.openTo??'No Data Available',d.abm??'No Data Available');});
+  line.push(x.totalL2M??'No Data Available');summary.push(line);
+ });
+ const itemData=[['SKU GROUP','ITEM CODE','ITEM DESCRIPTION','MRP','TVD SOH >60%','PAY SOH >60%','ALU SOH >60%','PLANT SOH']];
+ data.forEach(x=>peakItemRowsForGroup(x.group).forEach(it=>itemData.push([x.group,it.code,it.description,it.mrp??'No Data Available',it.tvd??'No Data Available',it.pay??'No Data Available',it.alu??'No Data Available',it.plant??'No Data Available'])));
+ const wb=XLSX.utils.book_new(),add=(name,values)=>{const ws=XLSX.utils.aoa_to_sheet(values);ws['!cols']=Array.from({length:Math.max(1,...values.map(r=>r.length))},(_,i)=>({wch:Math.min(34,Math.max(12,...values.map(r=>String(r[i]??'').length+2)))}));XLSX.utils.book_append_sheet(wb,ws,name);};
+ add('Peak Plan', [['From Date',p.date],['To Date',p.toDate],['Planning Days',p.days],['Historical Periods',p.hist.months.map(m=>m.label+' '+m.year).join(' + ')],['CFA Filter',p.cfa],[],...summary]);
+ add('Item-wise MRP SOH',itemData);
+ XLSX.writeFile(wb,'Peak_Billing_Planner_'+p.date+'_to_'+p.toDate+'.xlsx',{compression:true});
+ showToast('Peak Billing Planner Excel exported.');
+}
+document.getElementById('peakFromDate')?.addEventListener('change',updatePeakToDate);
+document.getElementById('peakToDate')?.addEventListener('change',updatePeakToDate);
+peakPeriodChanged();
+
 function exportTable(id,name){let table=document.getElementById(id);if(!table)return;let rows=[...table.closest('table').querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(td=>'"'+td.innerText.replaceAll('"','""')+'"').join(',')).join('\n');let blob=new Blob([rows],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);showToast('Exported CSV.')}
 function showToast(msg){let t=document.getElementById('toast');t.textContent=msg;t.style.display='block';clearTimeout(window._toastTimer);window._toastTimer=setTimeout(()=>t.style.display='none',2600)}
 function exportActivePageExcel(button){
