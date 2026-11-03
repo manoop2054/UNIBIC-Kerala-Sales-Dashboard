@@ -2541,17 +2541,45 @@ function exportPeakExcel(mode){
  cfas.forEach(c=>summary[0].push(c+' ALLOCATION IND',c+' SOH >60%',c+' L2M AVG / PERIOD DEMAND CBB',c+' CONFIRMED OPEN TO CBB',c+' ABM REQUIREMENT CBB'));
  summary[0].push('TOTAL L2M AVG CBB');
  data.forEach(x=>{
-  const line=[x.group,x.totalIndent??'No Data Available',x.cat,x.plant??'No Data Available'];
+  const line=[x.group,x.totalIndent??'No Data Available',x.cat||'No Data Available',x.plant??'No Data Available'];
   cfas.forEach(c=>{const d=x.cfaData[c]||{};line.push(d.allocation===null?'ALLOCATION NOT DONE':d.allocation,d.soh??'No Data Available',d.demand??'No Data Available',d.openTo??'No Data Available',d.abm??'No Data Available');});
   line.push(x.totalL2M??'No Data Available');summary.push(line);
  });
  const itemData=[['SKU GROUP','ITEM CODE','ITEM DESCRIPTION','MRP','TVD SOH >60%','PAY SOH >60%','ALU SOH >60%','PLANT SOH']];
  data.forEach(x=>peakItemRowsForGroup(x.group).forEach(it=>itemData.push([x.group,it.code,it.description,it.mrp??'No Data Available',it.tvd??'No Data Available',it.pay??'No Data Available',it.alu??'No Data Available',it.plant??'No Data Available'])));
- const wb=XLSX.utils.book_new(),add=(name,values)=>{const ws=XLSX.utils.aoa_to_sheet(values);ws['!cols']=Array.from({length:Math.max(1,...values.map(r=>r.length))},(_,i)=>({wch:Math.min(34,Math.max(12,...values.map(r=>String(r[i]??'').length+2)))}));XLSX.utils.book_append_sheet(wb,ws,name);};
- add('Peak Plan', [['From Date',p.date],['To Date',p.toDate],['Planning Days',p.days],['Historical Periods',p.hist.months.map(m=>m.label+' '+m.year).join(' + ')],['CFA Filter',p.cfa],[],...summary]);
- add('Item-wise MRP SOH',itemData);
+ const wb=XLSX.utils.book_new();
+ const border={top:{style:'thin',color:{rgb:'CBD5E1'}},bottom:{style:'thin',color:{rgb:'CBD5E1'}},left:{style:'thin',color:{rgb:'CBD5E1'}},right:{style:'thin',color:{rgb:'CBD5E1'}}};
+ const font=(color='24364B',bold=false,sz=10)=>({name:'Aptos',sz,bold,color:{rgb:color}});
+ const fill=color=>({patternType:'solid',fgColor:{rgb:color}});
+ const styleRange=(ws,range,style)=>{const rg=XLSX.utils.decode_range(range);for(let R=rg.s.r;R<=rg.e.r;R++)for(let C=rg.s.c;C<=rg.e.c;C++){const a=XLSX.utils.encode_cell({r:R,c:C});if(ws[a])ws[a].s={...(ws[a].s||{}),...style};}};
+ const add=(name,values,opts={})=>{
+  const ws=XLSX.utils.aoa_to_sheet(values);
+  const maxCols=Math.max(1,...values.map(r=>r.length));
+  ws['!cols']=Array.from({length:maxCols},(_,i)=>({wch:opts.widths?.[i]||Math.min(34,Math.max(13,...values.map(r=>String(r[i]??'').length+2)))}));
+  ws['!views']=[{state:'frozen',ySplit:opts.freeze||1,showGridLines:false}];
+  ws['!autofilter']={ref:XLSX.utils.encode_range({s:{r:opts.filterRow??0,c:0},e:{r:values.length-1,c:maxCols-1}})};
+  for(let R=0;R<values.length;R++)for(let C=0;C<maxCols;C++){
+   const a=XLSX.utils.encode_cell({r:R,c:C}),cell=ws[a];if(!cell)continue;
+   cell.s={font:font(),border,alignment:{vertical:'center',horizontal:C===0?'left':'center',wrapText:true},fill:fill(R%2?'F4F7FB':'FFFFFF')};
+   if(R===(opts.headerRow??0)){cell.s={...cell.s,fill:fill('17365D'),font:font('FFFFFF',true,10),alignment:{horizontal:'center',vertical:'center',wrapText:true}};}
+   if(opts.titleRows?.includes(R)){cell.s={...cell.s,fill:fill('102A43'),font:font('FFFFFF',true,15),alignment:{horizontal:'left',vertical:'center'}};}
+   if(R>(opts.headerRow??0)&&C>0&&typeof cell.v==='number')cell.s={...cell.s,numFmt:'#,##0;[Red](#,##0);-',alignment:{horizontal:'right',vertical:'center'}};
+   if(R>(opts.headerRow??0)&&C===2&&opts.catColumn){const cat=String(cell.v||'').toUpperCase(),colors={A:['D1FAE5','047857'],B:['DBEAFE','1D4ED8'],C:['FEF3C7','B45309'],D:['FEE2E2','B91C1C']};if(colors[cat])cell.s={...cell.s,fill:fill(colors[cat][0]),font:font(colors[cat][1],true,10),alignment:{horizontal:'center',vertical:'center'}};}
+   if(R>(opts.headerRow??0)&&String(cell.v||'').startsWith('No Data'))cell.s={...cell.s,font:font('64748B',false,9),alignment:{horizontal:'center',vertical:'center'}};
+  }
+  if(opts.rowHeights)ws['!rows']=opts.rowHeights.map(h=>({hpt:h}));
+  XLSX.utils.book_append_sheet(wb,ws,name);
+  return ws;
+ };
+ const meta=[['PEAK BILLING PLANNER · OPERATIONAL REPORT'],['PLANNING WINDOW',p.date+'  →  '+p.toDate],['PLANNING DAYS',p.days],['HISTORICAL COMPARISON',p.hist.months.map(m=>m.label+' '+m.year).join('  +  ')],['CFA FILTER',p.cfa],['CATEGORY FILTER',category],['SKU GROUP FILTER',selected],[],...summary];
+ const main=add('Peak Plan',meta,{headerRow:7,freeze:8,filterRow:7,catColumn:true,widths:[29,17,12,17,...Array(cfas.length*5).fill(19),19],titleRows:[0],rowHeights:[30,22,22,22,22,22,8,34]});
+ styleRange(main,'A2:B7',{fill:fill('EAF1F8'),font:font('17365D',true,10),border,alignment:{vertical:'center',wrapText:true}});
+ const headerRow=7, totalCols=summary[0].length;
+ for(let c=4;c<totalCols-1;c+=5){const color=cfas[Math.floor((c-4)/5)]==='TVD'?'0F766E':cfas[Math.floor((c-4)/5)]==='PAY'?'1D4ED8':'7C3AED';for(let k=0;k<5&&c+k<totalCols;k++){const cell=main[XLSX.utils.encode_cell({r:headerRow,c:c+k})];if(cell)cell.s={...cell.s,fill:fill(color),font:font('FFFFFF',true,9)};}}
+ const itemSheet=add('Item-wise MRP SOH',[['ITEM-WISE STOCK & MRP DETAIL'],...itemData],{headerRow:1,freeze:2,filterRow:1,titleRows:[0],widths:[28,18,42,14,17,17,17,17],rowHeights:[30,32]});
+ styleRange(itemSheet,'A2:H2',{fill:fill('17365D'),font:font('FFFFFF',true,10),border,alignment:{horizontal:'center',vertical:'center',wrapText:true}});
  XLSX.writeFile(wb,'Peak_Billing_Planner_'+p.date+'_to_'+p.toDate+'.xlsx',{compression:true});
- showToast('Peak Billing Planner Excel exported.');
+ showToast('Professional formatted Peak Billing Planner Excel downloaded.');
 }
 document.getElementById('peakFromDate')?.addEventListener('change',updatePeakToDate);
 document.getElementById('peakToDate')?.addEventListener('change',updatePeakToDate);
