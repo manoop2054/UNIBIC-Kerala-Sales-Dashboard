@@ -405,6 +405,30 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 #page-peak .peak-abm-report-table .peak-excess-value{color:#bd3e18}
 #page-peak .peak-abm-report-table tfoot td{font-weight:900;background:#eaf1f8;color:#173653;border-top:2px solid #b7c9da}
 #page-peak .peak-manual-savebar{display:flex;justify-content:flex-end;align-items:center;gap:10px;padding:9px 13px;background:#f6f9fc;border-bottom:1px solid #e3eaf2}
+/* Bottom report tables: consistent column alignment and controlled horizontal scrolling */
+#page-peak .peak-abm-report-scroll,#page-peak .peak-item-table-scroll{width:100%;max-width:100%;overflow:auto}
+#page-peak .peak-abm-report-scroll{max-height:64vh;padding:0 14px 12px}
+#page-peak .peak-abm-report-table{width:100%;min-width:900px;table-layout:fixed;border-collapse:separate;border-spacing:0}
+#page-peak .peak-abm-report-table th,#page-peak .peak-abm-report-table td{box-sizing:border-box;padding:10px 12px;line-height:1.35;vertical-align:middle;white-space:normal}
+#page-peak .peak-abm-report-table th:nth-child(1),#page-peak .peak-abm-report-table td:nth-child(1){width:25%;text-align:left!important}
+#page-peak .peak-abm-report-table th:nth-child(2),#page-peak .peak-abm-report-table td:nth-child(2){width:18%;text-align:center!important}
+#page-peak .peak-abm-report-table th:nth-child(3),#page-peak .peak-abm-report-table td:nth-child(3){width:21%;text-align:center!important}
+#page-peak .peak-abm-report-table th:nth-child(4),#page-peak .peak-abm-report-table td:nth-child(4){width:18%;text-align:center!important}
+#page-peak .peak-abm-report-table th:nth-child(5),#page-peak .peak-abm-report-table td:nth-child(5){width:18%;text-align:center!important}
+#page-peak .peak-abm-report-table tbody tr:hover td{background:#eef7fb}
+#page-peak #peakItemDetails{padding:12px 14px}
+#page-peak .peak-item-table-scroll{max-height:64vh}
+#page-peak .peak-item-table{width:100%;min-width:1080px;table-layout:fixed;border-collapse:collapse}
+#page-peak .peak-item-table th,#page-peak .peak-item-table td{box-sizing:border-box;padding:10px 9px;line-height:1.35;vertical-align:middle;white-space:normal}
+#page-peak .peak-item-table th:nth-child(1),#page-peak .peak-item-table td:nth-child(1){width:13%;text-align:center!important}
+#page-peak .peak-item-table th:nth-child(2),#page-peak .peak-item-table td:nth-child(2){width:29%;min-width:0;text-align:left!important;white-space:normal;overflow-wrap:anywhere}
+#page-peak .peak-item-table th:nth-child(3),#page-peak .peak-item-table td:nth-child(3){width:9%;text-align:center!important}
+#page-peak .peak-item-table th:nth-child(4),#page-peak .peak-item-table td:nth-child(4),
+#page-peak .peak-item-table th:nth-child(5),#page-peak .peak-item-table td:nth-child(5),
+#page-peak .peak-item-table th:nth-child(6),#page-peak .peak-item-table td:nth-child(6),
+#page-peak .peak-item-table th:nth-child(7),#page-peak .peak-item-table td:nth-child(7){width:10%;text-align:center!important}
+#page-peak .peak-item-table th:nth-child(8),#page-peak .peak-item-table td:nth-child(8){width:8%;text-align:center!important}
+#page-peak .peak-item-table tbody tr:hover td{background:#eef7fb}
 </style>
 <div class="peak-hero">
  <div><div class="eyebrow">Kerala · Planning Intelligence</div><h1>Peak Billing Planner</h1><p>SKU-wise demand · CFA allocation · Live SOH · ABM requirement</p></div>
@@ -2361,7 +2385,7 @@ function renderPeakAbmExcessReport(){
   const hot=x.excess!==null&&x.excess>0;
   return '<tr class="'+(hot?'peak-excess-row':'')+'"><td class="sku">'+mbqEscape(x.group)+'</td><td>'+fmt(x.monthly)+'</td><td>'+fmt(x.final)+'</td><td><b class="'+(hot?'peak-excess-value':'')+'">'+(x.excess===null?'No Data Available':fmt(x.excess)+' CBB')+'</b></td><td><b class="'+(hot?'peak-excess-value':'')+'">'+(x.pct===null?'No Data Available':x.pct.toFixed(1)+'%')+'</b></td></tr>';
  }).join('');
- host.innerHTML='<div class="peak-abm-report-meta">'+month+' · All CFAs · '+report.length+' SKU Groups · Excess rows highlighted</div><div class="peak-table-scroll"><table class="peak-abm-report-table"><thead><tr><th>SKU GROUP</th><th>MONTHLY TOTAL INDENT CBB</th><th>FINAL ABM REQUIREMENT CBB</th><th>EXCESS CBB</th><th>EXCESS %</th></tr></thead><tbody>'+body+'</tbody><tfoot><tr><td>GRAND TOTAL</td><td>'+fmt(totalMonthly)+'</td><td>'+fmt(totalFinal)+'</td><td>'+fmt(totalExcess)+'</td><td>'+(totalPct===null?'No Data Available':totalPct.toFixed(1)+'%')+'</td></tr></tfoot></table></div>';
+ host.innerHTML='<div class="peak-abm-report-meta">'+month+' · All CFAs · '+report.length+' SKU Groups · Excess rows highlighted</div><div class="peak-abm-report-scroll"><table class="peak-abm-report-table"><thead><tr><th>SKU GROUP</th><th>MONTHLY TOTAL INDENT CBB</th><th>FINAL ABM REQUIREMENT CBB</th><th>EXCESS CBB</th><th>EXCESS %</th></tr></thead><tbody>'+body+'</tbody><tfoot><tr><td>GRAND TOTAL</td><td>'+fmt(totalMonthly)+'</td><td>'+fmt(totalFinal)+'</td><td>'+fmt(totalExcess)+'</td><td>'+(totalPct===null?'No Data Available':totalPct.toFixed(1)+'%')+'</td></tr></tfoot></table></div>';
 }
 function renderPeakGroupRows(){
  const host=document.getElementById('peakMainTableWrap');if(!host)return;
@@ -2408,7 +2432,7 @@ function renderPeakItemDetails(){
   const code=encodeURIComponent(x.code);
   return '<tr><td>'+mbqEscape(x.code)+'</td><td style="text-align:left;white-space:normal;min-width:180px">'+mbqEscape(x.description||'No Data Available')+'</td><td>'+ (x.mrp===null?'No Data Available':'₹'+peakFmt(x.mrp))+'</td><td>'+fmt(x.tvd)+'</td><td>'+fmt(x.pay)+'</td><td>'+fmt(x.alu)+'</td><td>'+fmt(x.plant)+'</td><td><button class="peak-view-soh" type="button" onclick="peakShowSoh(decodeURIComponent(\''+code+'\'))">SOH VIEW</button></td></tr>';
  }).join('');
- host.innerHTML=items.length?'<div style="overflow:auto"><table class="peak-item-table"><thead><tr><th>ITEM CODE</th><th>ITEM DESCRIPTION</th><th>MRP</th><th>TVD SOH &gt;60%</th><th>PAY SOH &gt;60%</th><th>ALU SOH &gt;60%</th><th>PLANT SOH</th><th>SOH DETAILS</th></tr></thead><tbody>'+body+'</tbody></table></div>':'<div class="empty">Selected SKU Group-ന് item mapping ലഭ്യമല്ല.</div>';
+ host.innerHTML=items.length?'<div class="peak-item-table-scroll"><table class="peak-item-table"><thead><tr><th>ITEM CODE</th><th>ITEM DESCRIPTION</th><th>MRP</th><th>TVD SOH &gt;60%</th><th>PAY SOH &gt;60%</th><th>ALU SOH &gt;60%</th><th>PLANT SOH</th><th>SOH DETAILS</th></tr></thead><tbody>'+body+'</tbody></table></div>':'<div class="empty">Selected SKU Group-ന് item mapping ലഭ്യമല്ല.</div>';
 }
 function peakShowSoh(code){
  const modal=document.getElementById('peakSohModal'),body=document.getElementById('peakSohModalBody');if(!modal||!body)return;
