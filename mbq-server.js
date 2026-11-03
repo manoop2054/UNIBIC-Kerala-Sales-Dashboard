@@ -736,6 +736,41 @@ app.post("/api/mbq/peak-manual-indent", express.json({ limit: "10mb" }), async (
   }
 });
 
+app.get("/api/mbq/peak-abm-manual", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  if (!masterPool) return res.status(503).json({ success: false, error: "Shared MBQ storage is not configured" });
+  try {
+    const result = await masterPool.query("SELECT payload FROM public.mbq_shared_uploads WHERE category='peak-abm-manual'");
+    const payload = result.rowCount && result.rows[0].payload && typeof result.rows[0].payload === "object" ? result.rows[0].payload : {};
+    res.json({ success: true, data: payload });
+  } catch (error) {
+    console.error("Peak ABM manual quantity read failed:", error.message);
+    res.status(500).json({ success: false, error: "Could not load Peak ABM manual quantities" });
+  }
+});
+app.put("/api/mbq/peak-abm-manual", express.json({ limit: "2mb" }), async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  if (!masterPool) return res.status(503).json({ success: false, error: "Shared MBQ storage is not configured" });
+  const data = req.body && req.body.data;
+  if (!data || typeof data !== "object" || Array.isArray(data) || Object.keys(data).length > 2000) return res.status(400).json({ success: false, error: "Manual Qty data must be an object with at most 2000 entries" });
+  try {
+    for (const [key, value] of Object.entries(data)) {
+      if (key.length > 500 || !/^\d{4}-\d{2}\|(TVD|PAY|ALU)\|.+$/.test(key) || !Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > 100000000) {
+        return res.status(400).json({ success: false, error: "Invalid Peak ABM manual quantity entry" });
+      }
+    }
+    const current = await masterPool.query("SELECT payload FROM public.mbq_shared_uploads WHERE category='peak-abm-manual'");
+    const prior = current.rowCount && current.rows[0].payload && typeof current.rows[0].payload === "object" ? current.rows[0].payload : {};
+    const payload = JSON.stringify({ ...prior, ...data });
+    if (Buffer.byteLength(payload, "utf8") > 2 * 1024 * 1024) return res.status(413).json({ success: false, error: "Peak ABM manual quantities exceed the 2 MB limit" });
+    await masterPool.query("INSERT INTO public.mbq_shared_uploads AS stored(category,file_name,payload,source_file_size,uploaded_at) VALUES('peak-abm-manual','Peak ABM Manual Quantities',$1::jsonb,$2,NOW()) ON CONFLICT(category) DO UPDATE SET payload=EXCLUDED.payload,source_file_size=EXCLUDED.source_file_size,uploaded_at=NOW()", [payload, Buffer.byteLength(payload, "utf8")]);
+    res.json({ success: true, count: Object.keys(data).length, savedAt: new Date().toISOString() });
+  } catch (error) {
+    console.error("Peak ABM manual quantity save failed:", error.message);
+    res.status(500).json({ success: false, error: "Could not save Peak ABM manual quantities" });
+  }
+});
+
 app.get("/api/mbq/status", (req, res) => res.json({ service: "MBQ Smart Indent Dashboard", liveSohEndpoint: "/api/mbq/soh" }));
 
 app.get("/api/mbq/employee-db-check", async (req, res) => {
