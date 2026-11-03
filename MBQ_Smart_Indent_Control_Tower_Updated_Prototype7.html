@@ -2049,6 +2049,40 @@ function renderPeakDailyRows(data){
  const sub=document.getElementById('peakDailySub');if(sub)sub.textContent=p.cfa+' · '+p.date+' to '+p.toDate+' · '+groups.length+' SKU Groups · Expand for date-wise billing';
 }
 function peakCloseBilling(){const modal=document.getElementById("peakBillingModal");if(modal)modal.style.display="none";}
+
+function peakShowBilling(group,cfa,kind){
+ const p=peakPlanResult,modal=document.getElementById("peakBillingModal"),body=document.getElementById("peakBillingModalBody");
+ if(!p||!modal||!body)return;
+ const codes=new Set(rows.filter(r=>mbqSkuGroupKey(r.sku)===mbqSkuGroupKey(group)&&r.code).map(r=>mbqGsvNormCode(r.code)).filter(Boolean));
+ if(!codes.size){showToast("No GSV item mapping for this SKU Group.");return;}
+ const cfas=cfa==="TOTAL"?["TVD","PAY","ALU"]:[normalCfa(cfa)],detail=[];
+ for(let i=0;i<p.days;i++){
+  const dt=new Date(p.date+"T00:00:00");dt.setDate(dt.getDate()+i);
+  const planningDate=peakISO(dt),day=dt.getDate(),hist=peakHistory(planningDate);
+  hist.months.forEach(m=>{
+   if(day>new Date(m.year,m.month,0).getDate())return;
+   const billDate=peakISO(new Date(m.year,m.month-1,day));
+   cfas.forEach(cf=>{
+    const byDbr=new Map();
+    mbqGsvRows.forEach(x=>{
+     if(x.date!==billDate||normalCfa(x.cfa)!==cf||!codes.has(mbqGsvNormCode(x.itemId)))return;
+     const code=String(x.dbrCode||"").trim(),name=String(x.dbrName||"").trim(),key=code+"|"+name;
+     const v=byDbr.get(key)||{planningDate,month:m.label+" "+m.year,billDate,cfa:cf,code,name,qty:0};
+     v.qty+=Number(x.quantity)||0;byDbr.set(key,v);
+    });
+    if(byDbr.size)detail.push(...byDbr.values());
+    else detail.push({planningDate,month:m.label+" "+m.year,billDate,cfa:cf,code:"—",name:"No DBR billing rows",qty:0});
+   });
+  });
+ }
+ const total=detail.reduce((a,x)=>a+x.qty,0);
+ const bodyRows=detail.map(x=>"<tr><td>"+mbqEscape(x.planningDate)+"</td><td>"+mbqEscape(x.month)+"</td><td>"+mbqEscape(x.billDate)+"</td><td>"+mbqEscape(x.cfa)+"</td><td>"+mbqEscape(x.name||"—")+"</td><td>"+mbqEscape(x.code||"—")+"</td><td>"+peakFmt(x.qty)+" CBB</td></tr>").join("");
+ const scope=cfa==="TOTAL"?"All CFAs":cfa+" CFA";
+ document.getElementById("peakBillingTitle").textContent=group+" · "+scope+" · "+kind;
+ body.innerHTML="<div class='peak-billing-total'><span>Planning period: <b>"+p.date+" to "+p.toDate+"</b></span><span>Historical billed total: <b>"+peakFmt(total)+" CBB</b></span></div><div style='overflow:auto'><table><thead><tr><th>PLANNING DATE</th><th>HISTORICAL MONTH</th><th>GSV BILLING DATE</th><th>CFA</th><th>DBR NAME</th><th>DBR CODE</th><th>BILLED CBB</th></tr></thead><tbody>"+bodyRows+"</tbody></table></div>";
+ modal.style.display="flex";
+}
+
 function renderPeakGroupRows(){
  const host=document.getElementById('peakGroupRows');if(!host||!peakPlanResult)return;
  const p=peakPlanResult,month=p.date.slice(0,7),singleMonth=p.toDate.slice(0,7)===month,data=p.rows,shown=peakViewAll?data:data.slice(0,8);
