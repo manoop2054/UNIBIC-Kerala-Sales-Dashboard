@@ -193,6 +193,27 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 #page-stock .table-wrap tbody td:first-child{background:#fff;font-weight:750}
 #page-stock .table-wrap tbody tr:hover td:first-child{background:#fafcff}
 
+
+/* Consistent alignment for data tables: centered headings and corresponding values */
+.table-wrap th,.excel-table th,.mbq-indent-report th,
+#page-peak .peak-new-table th,#page-peak .peak-item-table th,
+#page-peak .peak-abm-report-table th,#page-peak .peak-modal-body th{
+ text-align:center!important;vertical-align:middle;
+}
+.table-wrap td,.excel-table td,.mbq-indent-report td,
+#page-peak .peak-new-table td,#page-peak .peak-item-table td,
+#page-peak .peak-abm-report-table td,#page-peak .peak-modal-body td{
+ text-align:center;vertical-align:middle;
+}
+#page-peak .peak-item-table th,#page-peak .peak-item-table td{padding:10px 9px;line-height:1.35}
+#page-peak .peak-item-table th:nth-child(2),#page-peak .peak-item-table td:nth-child(2){text-align:left!important;white-space:normal;min-width:250px}
+#page-peak .peak-new-table th:first-child,#page-peak .peak-new-table td:first-child,
+#page-peak .peak-abm-report-table th:first-child,#page-peak .peak-abm-report-table td:first-child{text-align:left!important}
+#page-peak .peak-modal-body th,#page-peak .peak-modal-body td{text-align:center!important;vertical-align:middle}
+#page-peak .peak-modal-body td:nth-child(5){text-align:left!important}
+#page-stock .table-wrap th:nth-child(3),#page-stock .table-wrap td:nth-child(3){text-align:left!important}
+#indentWorkspaceWrap th,#indentWorkspaceWrap td{text-align:center}
+#indentWorkspaceWrap td:nth-child(1),#indentWorkspaceWrap td:nth-child(2){text-align:left}
 </style>
 <style id="mbq-compact-layout-refinement">
 /* Dashboard-wide compact layout refinement: spacing and presentation only. */
