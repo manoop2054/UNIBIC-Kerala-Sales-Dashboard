@@ -2302,7 +2302,14 @@ function peakCategoryForGroup(group){
   const row=calculatedRows.find(r=>mbqSkuGroupKey(r[skuIx])===key);
   if(row&&row[catIx]!==undefined&&String(row[catIx]).trim())return String(row[catIx]).trim().toUpperCase();
  }
- return 'No Data Available';
+ // With no official workbook, mirror the MBQ Excel View fallback CAT calculation
+ // across the full official assortment, using the currently selected CFA sheet.
+ const viewKey=document.getElementById('mbqSheetSelect')?.value||'DATA';
+ const unique=[...new Set(rows.filter(r=>r&&r.sku&&mbqIsOfficialSkuGroup(r.sku)&&(!mbqHideEmptyIndents||mbqGroupHasIndent(r.sku))).map(r=>r.sku))];
+ const fallback=mbqExcelFormulaDisplayRows(unique,viewKey);
+ const match=[...fallback.entries()].find(([sku])=>mbqSkuGroupKey(sku)===key);
+ const cat=match?.[1]?.cat;
+ return cat&&cat!=='No Data Available'?String(cat).trim().toUpperCase():'No Data Available';
 }
 function peakPlantSohForGroup(group){
  if(!Array.isArray(liveSohRows)||!liveSohRows.length)return null;
