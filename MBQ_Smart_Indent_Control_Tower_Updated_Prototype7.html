@@ -371,6 +371,18 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 #page-peak .peak-muted{font-size:10px;color:var(--muted)}
 @media(max-width:1050px){#page-peak .peak-filter-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:650px){#page-peak .peak-hero{align-items:flex-start;padding:14px}#page-peak .peak-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#page-peak .peak-table-scroll{max-height:58vh}}
+
+#page-peak .peak-manual-input{width:94px;max-width:100%;padding:6px 7px;border:1px solid #a8b9cc;border-radius:7px;font-weight:800;text-align:right;background:#fffdf1;color:#16334d}
+#page-peak .peak-abm-report-meta{padding:10px 14px;color:#53677e;font-size:11px;font-weight:700;background:#f5f8fc;border-bottom:1px solid #e3eaf2}
+#page-peak .peak-abm-report-table{width:100%;border-collapse:separate;border-spacing:0;font-size:11px;white-space:nowrap}
+#page-peak .peak-abm-report-table th{position:sticky;top:0;background:#183c5b;color:#fff;padding:10px;text-align:right}
+#page-peak .peak-abm-report-table th:first-child,#page-peak .peak-abm-report-table td:first-child{text-align:left}
+#page-peak .peak-abm-report-table td{padding:9px 10px;border-bottom:1px solid #e8edf3;text-align:right}
+#page-peak .peak-abm-report-table tbody tr:nth-child(even){background:#f7fafc}
+#page-peak .peak-abm-report-table .peak-excess-row{background:#fff0e9!important}
+#page-peak .peak-abm-report-table .peak-excess-value{color:#bd3e18}
+#page-peak .peak-abm-report-table tfoot td{font-weight:900;background:#eaf1f8;color:#173653;border-top:2px solid #b7c9da}
+#page-peak .peak-manual-savebar{display:flex;justify-content:flex-end;align-items:center;gap:10px;padding:9px 13px;background:#f6f9fc;border-bottom:1px solid #e3eaf2}
 </style>
 <div class="peak-hero">
  <div><div class="eyebrow">Kerala · Planning Intelligence</div><h1>Peak Billing Planner</h1><p>SKU-wise demand · CFA allocation · Live SOH · ABM requirement</p></div>
@@ -392,6 +404,10 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 <div class="peak-table-card">
  <div class="peak-card-heading"><div><h3>SKU Group · CFA Planning Matrix</h3><small id="peakGroupSub">Select a period and calculate to load connected GSV, MBQ, CFA allocation and LIVE SOH data.</small></div><span class="peak-heading-tag">CBB · LIVE SOURCES</span></div>
  <div class="peak-table-scroll" id="peakMainTableWrap"><div class="empty">Select planning period and click Calculate Plan.</div></div>
+</div>
+<div class="peak-table-card">
+ <div class="peak-card-heading"><div><h3>ABM vs Monthly Total Indent · Excess Report</h3><small>All SKU Groups · Excess CBB and % highlighted where Final ABM exceeds Monthly Total Indent.</small></div><span class="peak-heading-tag">CBB · MONTHLY COMPARISON</span></div>
+ <div id="peakAbmExcessReport"><div class="empty">Calculate Plan ചെയ്താൽ report ഇവിടെ വരും.</div></div>
 </div>
 <div class="peak-table-card">
  <div class="peak-card-heading"><div><h3>Item-wise MRP & SOH Details</h3><small id="peakItemSub">Select a SKU Group above to view its mapped items.</small></div><span class="peak-heading-tag">ITEM MASTER + LIVE SOH</span></div>
@@ -2046,13 +2062,15 @@ function exportPeakExcel(mode){
  const add=(name,data)=>{const ws=XLSX.utils.aoa_to_sheet(data);ws['!cols']=Array.from({length:Math.max(1,...data.map(r=>r.length))},(_,i)=>({wch:Math.min(34,Math.max(12,...data.map(r=>String(r[i]??'').length+2)))}));XLSX.utils.book_append_sheet(wb,ws,name.slice(0,31));};
  const meta=[['Peak Billing Planner'],['Date Range',p.date+' to '+p.toDate],['From Date',p.date],['To Date',p.toDate],['Planning Days',p.days],['Historical GSV',p.hist.from+' to '+p.hist.to],['CFA',p.cfa],['Monthly Target ₹ Cr',document.getElementById('monthlySales').value],['Mid-month Target ₹ Cr',document.getElementById('midTarget').value],['Month-end Target ₹ Cr',document.getElementById('endTarget').value]];
  add('Summary',meta);
- cfas.forEach(c=>{const rs=p.rows.map(x=>({group:x.group,...peakGroupData(x.group,c,p.hist,p.days,p.date)}));add(c,[['SKU Group','Demand CBB','Usable SOH CBB','Confirmed Open TO CBB','Loading Required CBB','Manual Indent CBB','Monthly Allocated CBB'],...rs.map(x=>{const cap=peakMonthlyAllocated(x.group,c);return [x.group,x.demand??'No Data Available',x.soh??'No Data Available',x.to??'No Data Available',x.demand!==null&&x.soh!==null&&x.to!==null?Math.max(0,x.demand-x.soh-x.to):'No Data Available',peakManualMonthTotal(p.date.slice(0,7),c,x.group),cap===null?'No allocation':cap];})]);});
+ cfas.forEach(c=>{const rs=p.rows.map(x=>({group:x.group,...peakGroupData(x.group,c,p.hist,p.days,p.date)}));add(c,[['SKU Group','Demand CBB','Usable SOH CBB','Confirmed Open TO CBB','Calculated ABM CBB','Manual Qty CBB','Final ABM Requirement CBB','Monthly Allocated CBB'],...rs.map(x=>{const cap=peakMonthlyAllocated(x.group,c),manual=peakAbmManualValue(p.date.slice(0,7),c,x.group),calculated=x.demand!==null&&x.soh!==null&&x.to!==null?Math.max(0,x.demand-x.soh-x.to):null;return [x.group,x.demand??'No Data Available',x.soh??'No Data Available',x.to??'No Data Available',calculated??'No Data Available',manual,calculated===null?'No Data Available':calculated+manual,cap===null?'No allocation':cap];})]);});
+ const excessRows=p.rows.map(x=>{let final=0,valid=true;cfas.forEach(c=>{const d=x.cfaData[c]||{};if(d.abm===null||d.abm===undefined)valid=false;else final+=Number(d.abm)+peakAbmManualValue(p.date.slice(0,7),c,x.group);});const indent=peakNum(x.totalIndent),excess=valid&&indent!==null?Math.max(0,final-indent):null;return [x.group,indent??'No Data Available',valid?final:'No Data Available',excess??'No Data Available',excess!==null&&indent>0?(excess/indent*100).toFixed(1)+'%':'No Data Available'];});
+ add('ABM Excess Report',[['SKU Group','Monthly Total Indent CBB','Final ABM Requirement CBB','Excess CBB','Excess %'],...excessRows]);
  const daily=[['Date','CFA','Expected Billing CBB','Historical Month Samples']];cfas.forEach(c=>peakDailyBilling(c,p.date,p.days,p.hist).forEach(x=>daily.push([x.date,c,x.amount===null?'No Data Available':x.amount,x.samples])));add('Day-wise Billing',daily);if(mode==='all')add('Loading Summary',[['CFA','Total Loading Required CBB'],...cfas.map(c=>{const rs=p.rows.map(x=>peakGroupData(x.group,c,p.hist,p.days,p.date));return [c,rs.every(x=>x.demand!==null&&x.soh!==null&&x.to!==null)?rs.reduce((n,x)=>n+Math.max(0,x.demand-x.soh-x.to),0):'No Data Available'];})]);
  XLSX.writeFile(wb,'Peak_Billing_Planner_'+mode.toUpperCase()+'.xlsx',{compression:true});showToast('Peak Planner Excel export ready.');
 }
 document.getElementById('peakFromDate')?.addEventListener('change',updatePeakToDate);document.getElementById('peakToDate')?.addEventListener('change',updatePeakToDate);
 document.getElementById('peakManualReportMonth')?.addEventListener('change',renderPeakManualReport);document.getElementById('peakManualReportCfa')?.addEventListener('change',renderPeakManualReport);
-updatePeakTargetLabels();updatePeakToDate();const peakReportMonth=document.getElementById('peakManualReportMonth');if(peakReportMonth)peakReportMonth.value=peakISO(new Date()).slice(0,7);loadPeakManualEntries().then(()=>{if(peakPlanResult)renderPeakGroupRows();renderPeakManualReport();});
+updatePeakTargetLabels();updatePeakToDate();const peakReportMonth=document.getElementById('peakManualReportMonth');if(peakReportMonth)peakReportMonth.value=peakISO(new Date()).slice(0,7);loadPeakManualEntries().then(()=>{if(peakPlanResult)renderPeakGroupRows();renderPeakManualReport();});loadPeakAbmManual().then(()=>{if(peakPlanResult)renderPeakGroupRows();});
 
 /* Peak Billing Planner: compact source-linked CFA matrix. Existing source loaders and shared data APIs remain unchanged. */
 function peakHistory(date){
@@ -2230,14 +2248,71 @@ function calculatePeak(){
  peakRenderSkuFilter();renderPeakGroupRows();renderPeakItemDetails();
  showToast('Peak Billing Planner updated from GSV, MBQ allocation and LIVE SOH sources.');
 }
+let peakAbmManualData={};
+let peakAbmManualDrafts={};
+let peakAbmManualLoaded=false;
+function peakAbmManualKey(month,cfa,group){return [month,normalCfa(cfa),mbqSkuGroupKey(group)].join('|');}
+function peakAbmManualValue(month,cfa,group){
+ const key=peakAbmManualKey(month,cfa,group);
+ const raw=Object.prototype.hasOwnProperty.call(peakAbmManualDrafts,key)?peakAbmManualDrafts[key]:peakAbmManualData[key];
+ const n=Number(raw);
+ return Number.isFinite(n)&&n>=0?n:0;
+}
+function setPeakAbmManualDraft(month,cfa,group,value){
+ const key=peakAbmManualKey(month,cfa,group),raw=String(value??'').trim();
+ if(raw===''){peakAbmManualDrafts[key]=0;return;}
+ const qty=Number(raw);
+ if(Number.isFinite(qty)&&qty>=0)peakAbmManualDrafts[key]=qty;
+}
+async function loadPeakAbmManual(){
+ try{
+  const r=await fetch('/api/mbq/peak-abm-manual',{cache:'no-store'}),j=await r.json();
+  if(r.ok&&j.success&&j.data&&typeof j.data==='object'&&!Array.isArray(j.data)){peakAbmManualData=j.data;peakAbmManualLoaded=true;}
+ }catch(e){console.warn('Peak ABM manual quantities unavailable',e);}
+}
+async function savePeakAbmManual(){
+ if(!peakAbmManualLoaded){showToast('Shared Manual Qty data load ആയിട്ടില്ല. Refresh ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.');return;}
+ const entries=Object.entries(peakAbmManualDrafts);
+ if(!entries.length){showToast('Manual Qty മാറ്റങ്ങളില്ല.');return;}
+ try{
+  const r=await fetch('/api/mbq/peak-abm-manual',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:Object.fromEntries(entries)})});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok||!j.success)throw new Error(j.error||'Server save failed');
+  peakAbmManualData={...peakAbmManualData,...Object.fromEntries(entries)};
+  peakAbmManualDrafts={};
+  showToast('Manual Qty shared cloud storage-ൽ save ചെയ്തു.');
+  renderPeakGroupRows();
+ }catch(e){showToast('Manual Qty save ആയില്ല: '+e.message);}
+}
+function renderPeakAbmExcessReport(){
+ const host=document.getElementById('peakAbmExcessReport');if(!host)return;
+ if(!peakPlanResult){host.innerHTML='<div class="empty">Calculate Plan ചെയ്താൽ report ഇവിടെ വരും.</div>';return;}
+ const p=peakPlanResult,cfas=p.cfa==='ALL'?['TVD','PAY','ALU']:[p.cfa],month=p.date.slice(0,7);
+ const report=p.rows.map(x=>{
+  let final=0,valid=true,monthly=peakNum(x.totalIndent);
+  cfas.forEach(c=>{const d=x.cfaData[c]||{};if(d.abm===null||d.abm===undefined)valid=false;else final+=Number(d.abm)+peakAbmManualValue(month,c,x.group);});
+  const excess=valid&&monthly!==null?Math.max(0,final-monthly):null;
+  const pct=excess!==null&&monthly>0?excess/monthly*100:(excess===0&&monthly===0?0:null);
+  return {group:x.group,monthly,final:valid?final:null,excess,pct};
+ });
+ const fmt=v=>v===null?'No Data Available':peakFmt(v);
+ const total=(key)=>report.every(x=>x[key]!==null)?report.reduce((n,x)=>n+x[key],0):null;
+ const totalMonthly=total('monthly'),totalFinal=total('final'),totalExcess=total('excess');
+ const totalPct=totalMonthly>0&&totalExcess!==null?totalExcess/totalMonthly*100:(totalMonthly===0&&totalExcess===0?0:null);
+ const body=report.map(x=>{
+  const hot=x.excess!==null&&x.excess>0;
+  return '<tr class="'+(hot?'peak-excess-row':'')+'"><td class="sku">'+mbqEscape(x.group)+'</td><td>'+fmt(x.monthly)+'</td><td>'+fmt(x.final)+'</td><td><b class="'+(hot?'peak-excess-value':'')+'">'+(x.excess===null?'No Data Available':fmt(x.excess)+' CBB')+'</b></td><td><b class="'+(hot?'peak-excess-value':'')+'">'+(x.pct===null?'No Data Available':x.pct.toFixed(1)+'%')+'</b></td></tr>';
+ }).join('');
+ host.innerHTML='<div class="peak-abm-report-meta">'+month+' · '+(p.cfa==='ALL'?'All CFAs':p.cfa+' CFA')+' · '+report.length+' SKU Groups · Excess rows highlighted</div><div class="peak-table-scroll"><table class="peak-abm-report-table"><thead><tr><th>SKU GROUP</th><th>MONTHLY TOTAL INDENT CBB</th><th>FINAL ABM REQUIREMENT CBB</th><th>EXCESS CBB</th><th>EXCESS %</th></tr></thead><tbody>'+body+'</tbody><tfoot><tr><td>GRAND TOTAL</td><td>'+fmt(totalMonthly)+'</td><td>'+fmt(totalFinal)+'</td><td>'+fmt(totalExcess)+'</td><td>'+(totalPct===null?'No Data Available':totalPct.toFixed(1)+'%')+'</td></tr></tfoot></table></div>';
+}
 function renderPeakGroupRows(){
  const host=document.getElementById('peakMainTableWrap');if(!host)return;
  if(!peakPlanResult){host.innerHTML='<div class="empty">Select planning period and click Calculate Plan.</div>';return;}
  const p=peakPlanResult,selected=document.getElementById('peakSkuGroupFilter')?.value||'ALL';
  const data=p.rows.filter(x=>selected==='ALL'||mbqSkuGroupKey(x.group)===mbqSkuGroupKey(selected));
  const cfas=p.cfa==='ALL'?['TVD','PAY','ALU']:[p.cfa];
- const groupHead=cfas.map(c=>'<th colspan="5" class="'+c.toLowerCase()+'-head">'+c+' CFA</th>').join('');
- const subHead=cfas.map(c=>'<th class="sub-'+c.toLowerCase()+'">ALLOCATION IND</th><th class="sub-'+c.toLowerCase()+'">SOH &gt;60%</th><th class="sub-'+c.toLowerCase()+'">L2M AVG / PERIOD DEMAND CBB</th><th class="sub-'+c.toLowerCase()+'">CONFIRMED OPEN TO</th><th class="sub-'+c.toLowerCase()+'">ABM REQUIREMENT</th>').join('');
+ const groupHead=cfas.map(c=>'<th colspan="6" class="'+c.toLowerCase()+'-head">'+c+' CFA</th>').join('');
+ const subHead=cfas.map(c=>'<th class="sub-'+c.toLowerCase()+'">ALLOCATION IND</th><th class="sub-'+c.toLowerCase()+'">SOH &gt;60%</th><th class="sub-'+c.toLowerCase()+'">L2M AVG / PERIOD DEMAND CBB</th><th class="sub-'+c.toLowerCase()+'">CONFIRMED OPEN TO</th><th class="sub-'+c.toLowerCase()+'">ABM REQUIREMENT</th><th class="sub-'+c.toLowerCase()+'">MANUAL QTY CBB</th>').join('');
  const header='<thead><tr><th rowspan="2" class="common-head">SKU GROUP</th><th rowspan="2" class="common-head">TOTAL INDENT</th><th rowspan="2" class="common-head">CAT</th><th rowspan="2" class="common-head">PLANT SOH<br>HYD PLANT1</th>'+groupHead+'<th rowspan="2" class="total-head">TOTAL L2M AVG CBB</th></tr><tr>'+subHead+'</tr></thead>';
  const totalKeys={totalIndent:data.map(x=>peakNum(x.totalIndent)),plant:data.map(x=>peakNum(x.plant)),totalL2M:data.map(x=>peakNum(x.totalL2M))};
  const sumStrict=vals=>vals.length&&vals.every(v=>v!==null)?vals.reduce((a,b)=>a+b,0):null;
@@ -2246,16 +2321,24 @@ function renderPeakGroupRows(){
   const cells=cfas.map(c=>{
    const d=x.cfaData[c]||{};
    const alloc=d.allocation===null?'<span class="not-done">ALLOCATION NOT DONE</span>':peakFmt(d.allocation);
-   return '<td>'+alloc+'</td><td>'+peakDisplay(d.soh)+'</td><td class="num-demand">'+peakDisplay(d.demand,'CBB')+'</td><td>'+peakDisplay(d.openTo,'CBB')+'</td><td class="num-abm">'+peakDisplay(d.abm,'CBB')+'</td>';
+   const month=p.date.slice(0,7),manual=peakAbmManualValue(month,c,x.group),key=peakAbmManualKey(month,c,x.group);
+   const finalAbm=d.abm===null||d.abm===undefined?null:Number(d.abm)+manual;
+   const manualInput='<input class="peak-manual-input" type="number" min="0" step="1" value="'+manual+'" '+(!peakAbmManualLoaded?'disabled':'')+' aria-label="Manual Qty CBB for '+mbqEscape(x.group)+' '+c+'" onchange="setPeakAbmManualDraft(\''+month+'\',\''+c+'\',\''+mbqEscape(x.group).replaceAll("'","&#39;")+'\',this.value);renderPeakAbmExcessReport()" oninput="setPeakAbmManualDraft(\''+month+'\',\''+c+'\',\''+mbqEscape(x.group).replaceAll("'","&#39;")+'\',this.value);renderPeakAbmExcessReport()">';
+   return '<td>'+alloc+'</td><td>'+peakDisplay(d.soh)+'</td><td class="num-demand">'+peakDisplay(d.demand,'CBB')+'</td><td>'+peakDisplay(d.openTo,'CBB')+'</td><td class="num-abm">'+peakDisplay(finalAbm,'CBB')+'</td><td>'+manualInput+'</td>';
   }).join('');
   return '<tr><td>'+mbqEscape(x.group)+'</td><td>'+peakDisplay(x.totalIndent)+'</td><td style="text-align:center">'+catHtml+'</td><td>'+peakDisplay(x.plant,'CBB')+'</td>'+cells+'<td class="num-demand">'+peakDisplay(x.totalL2M,'CBB')+'</td></tr>';
  }).join('');
  const footCfas=cfas.map(c=>{
   const keys=['allocation','soh','demand','openTo','abm'];
-  return keys.map(k=>{const vals=data.map(x=>peakNum(x.cfaData[c]?.[k]));const v=sumStrict(vals);return '<td>'+peakDisplay(v,k==='allocation'?'CBB':(k==='soh'?'CBB':'CBB'))+'</td>';}).join('');
+  const cells=keys.map(k=>{const vals=data.map(x=>peakNum(x.cfaData[c]?.[k]));const v=sumStrict(vals);return '<td>'+peakDisplay(v,'CBB')+'</td>';}).join('');
+  const manualVals=data.map(x=>peakAbmManualValue(p.date.slice(0,7),c,x.group));
+  const manualTotal=manualVals.reduce((a,b)=>a+b,0);
+  const finalVals=data.map(x=>{const v=peakNum(x.cfaData[c]?.abm);return v===null?null:v+peakAbmManualValue(p.date.slice(0,7),c,x.group);});
+  return cells.replace(/<td>[^<]*<\/td>$/,'')+'<td>'+peakDisplay(sumStrict(finalVals),'CBB')+'</td><td>'+peakFmt(manualTotal)+' CBB</td>';
  }).join('');
  const totalRow='<tfoot><tr><td>GRAND TOTAL</td><td>'+peakDisplay(sumStrict(totalKeys.totalIndent),'CBB')+'</td><td>—</td><td>'+peakDisplay(sumStrict(totalKeys.plant),'CBB')+'</td>'+footCfas+'<td>'+peakDisplay(sumStrict(totalKeys.totalL2M),'CBB')+'</td></tr></tfoot>';
- host.innerHTML='<table class="peak-new-table">'+header+'<tbody>'+(body||'<tr><td colspan="'+(4+cfas.length*5+1)+'" class="empty">No SKU Group rows available for this filter.</td></tr>')+'</tbody>'+totalRow+'</table>';
+ host.innerHTML='<div class="peak-manual-savebar"><span style="font-size:11px;color:#52677e;margin-right:auto">Manual Qty is added to calculated ABM Requirement. Save to share it across users.</span><button class="btn primary" type="button" onclick="savePeakAbmManual()" '+(!peakAbmManualLoaded?'disabled':'')+'>Save Manual Qty</button></div><table class="peak-new-table">'+header+'<tbody>'+(body||'<tr><td colspan="'+(4+cfas.length*6+1)+'" class="empty">No SKU Group rows available for this filter.</td></tr>')+'</tbody>'+totalRow+'</table>';
+ renderPeakAbmExcessReport();
 }
 function renderPeakItemDetails(){
  const host=document.getElementById('peakItemDetails');if(!host)return;
