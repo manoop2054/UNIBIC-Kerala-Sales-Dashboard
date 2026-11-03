@@ -2077,8 +2077,15 @@ function peakGroupData(group,cfa,hist,days,date){
  if(!mbqSkuCodesByGroup.size)mbqBuildSkuGroupCodeIndex();
  const codes=[...(mbqSkuCodesByGroup.get(mbqSkuGroupKey(group))||[])];
  if(!codes.length)return {demand:null,soh:null,to:null,codes};
- const cfas=peakCfas(cfa),set=new Set(codes),codeMapped=mbqGsvRows.some(x=>set.has(mbqGsvNormCode(x.itemId))),gsv=mbqGsvRows.filter(x=>x.date>=hist.from&&x.date<=hist.to&&set.has(mbqGsvNormCode(x.itemId))&&cfas.includes(normalCfa(x.cfa)));
- const qty=gsv.length?gsv.reduce((n,x)=>n+(Number(x.quantity)||0),0):null;
+ const cfas=peakCfas(cfa),set=new Set(codes);
+ if(!peakDailyIndex)peakBuildDailyIndex();
+ const codeMapped=codes.some(code=>peakDailyIndex.itemCodes.has(code));
+ let historyTotal=0,historyFound=false;
+ for(let cursor=new Date(hist.from+'T00:00:00'),end=new Date(hist.to+'T00:00:00');cursor<=end;cursor.setDate(cursor.getDate()+1)){
+  const value=peakDailyQty(peakISO(cursor),cfas,codes);
+  if(value!==null){historyTotal+=value;historyFound=true;}
+ }
+ const qty=historyFound?historyTotal:null;
  const start=new Date(date+'T00:00:00');let demand=0,demandOk=true;
  for(let offset=0;offset<days;offset++){
   const target=new Date(start);target.setDate(target.getDate()+offset);const day=target.getDate(),monthValues=[];
