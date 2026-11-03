@@ -739,15 +739,25 @@ let mbqGsvTimer = null;
 function mbqSkuGroupKey(v){return String(v??"").normalize("NFKC").replace(/\uFFFD/g,"").replace(/[\p{Z}\s]+/gu," ").replace(/\p{Cf}/gu,"").replace(/\s+/g," ").trim().toUpperCase();}
 function mbqIsOfficialSkuGroup(v){const key=mbqSkuGroupKey(v);const official=window.mbqOfficialAssortmentGroupKeys;return !!key&&Array.isArray(official)&&official.includes(key);}
 function mbqGsvNormCode(v){return String(v??"").trim().toUpperCase().replace(/\s+/g,"");}
+let mbqGsvMonthlyIndex=null;
+function mbqBuildGsvMonthlyIndex(){
+ const byItemMonthCfa=new Map(),byItemMonth=new Map();
+ (Array.isArray(mbqGsvRows)?mbqGsvRows:[]).forEach(x=>{
+  const code=mbqGsvNormCode(x.itemId),month=String(x.month||""),cfa=normalCfa(x.cfa),qty=Number(x.quantity)||0;
+  if(!code||!month)return;
+  const key=code+"|"+month,cfKey=key+"|"+cfa;
+  byItemMonth.set(key,(byItemMonth.get(key)||0)+qty);
+  byItemMonthCfa.set(cfKey,(byItemMonthCfa.get(cfKey)||0)+qty);
+ });
+ mbqGsvMonthlyIndex={byItemMonth,byItemMonthCfa};
+}
 function mbqGsvItemMonth(code, month, cfa="DATA") {
-  const key=mbqGsvNormCode(code), mo=String(month||"").trim();
-  if(!key||!mo||!mbqGsvRows.length)return null;
-  const matching=mbqGsvRows.filter(x=>mbqGsvNormCode(x.itemId)===key&&x.month===mo);
-  if(!matching.length)return null;
-  const specific=cfa!=="DATA"&&cfa!=="ALL"?matching.filter(x=>normalCfa(x.cfa)===normalCfa(cfa)):[];
-  const chosen=(cfa==="DATA"||cfa==="ALL")?matching:specific;
-  if(!chosen.length)return null;
-  return chosen.reduce((s,x)=>s+(Number(x.quantity)||0),0);
+ const key=mbqGsvNormCode(code),mo=String(month||"").trim();
+ if(!key||!mo||!mbqGsvRows.length)return null;
+ if(!mbqGsvMonthlyIndex)mbqBuildGsvMonthlyIndex();
+ const map=(cfa==="DATA"||cfa==="ALL")?mbqGsvMonthlyIndex.byItemMonth:mbqGsvMonthlyIndex.byItemMonthCfa;
+ const lookupKey=(cfa==="DATA"||cfa==="ALL")?key+"|"+mo:key+"|"+mo+"|"+normalCfa(cfa);
+ return map.has(lookupKey)?map.get(lookupKey):null;
 }
 function mbqGsvGroupMonth(sku,cfa,month){
   const skuKey=mbqSkuGroupKey(sku);const codes=[...new Set(rows.filter(r=>mbqSkuGroupKey(r.sku)===skuKey).map(r=>mbqGsvNormCode(r.code)).filter(Boolean))];
@@ -805,6 +815,8 @@ async function loadMbqGsv(attempt=0){
     if(!response.ok||!result.success)throw new Error(result.detail||result.error||"GSV load failed");
     if(!Array.isArray(result.data)||result.data.length===0)throw new Error("GSV API returned no data rows");
     mbqGsvRows=result.data;
+    mbqGsvMonthlyIndex=null;
+    peakDailyIndex=null;
     setGsvConnectionStatus("connected","GSV Connected");
     mbqGsvMeta=result;
     mbqApplyGsvSales();
@@ -1891,7 +1903,16 @@ function peakISO(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2
 function peakHistory(){const m=mbqLastCompletedMonths(2),a=m[0],z=m[m.length-1],from=new Date(a.year,a.month-1,1),to=new Date(z.year,z.month,0);return {from:peakISO(from),to:peakISO(to),days:Math.round((to-from)/86400000)+1,months:m};}
 function updatePeakTargetLabels(){const m=Number(document.getElementById('monthlySales')?.value)||0,a=Number(document.getElementById('midTarget')?.value)||0,b=Number(document.getElementById('endTarget')?.value)||0;document.getElementById('peakMonthlyTarget').textContent='₹'+m.toFixed(1)+' Cr';document.getElementById('peakMidTarget').textContent='₹'+a.toFixed(1)+' Cr';document.getElementById('peakEndTarget').textContent='₹'+b.toFixed(1)+' Cr';const l=document.getElementById('lead')?.value;if(l)document.getElementById('peakLead').value=l;}
 function peakDateCovered(date){const coverage=mbqGsvMeta?.dateCoverage||{};return !!coverage.from&&!!coverage.to&&date>=coverage.from&&date<=coverage.to;}
-function peakDailyQty(date,cfas,codes){if(!peakDateCovered(date))return null;const codeSet=codes?new Set(codes):null;return mbqGsvRows.filter(x=>x.date===date&&cfas.includes(normalCfa(x.cfa))&&(!codeSet||codeSet.has(mbqGsvNormCode(x.itemId)))).reduce((sum,x)=>sum+(Number(x.quantity)||0),0);}
+function peakDailyQty(date,cfas,codes){
+ if(!peakDateCovered(date))return null;
+ if(!peakDailyIndex)peakBuildDailyIndex();
+ let total=0;
+ if(Array.isArray(codes)&&codes.length){
+  const codeSet=[...new Set(codes.map(mbqGsvNormCode).filter(Boolean))];
+  cfas.forEach(c=>codeSet.forEach(code=>{total+=peakDailyIndex.byCode.get(date+'|'+normalCfa(c)+'|'+code)||0;}));
+ }else cfas.forEach(c=>{total+=peakDailyIndex.byCfa.get(date+'|'+normalCfa(c))||0;});
+ return total;
+}
 let peakManualData={legacyEntries:{},submissions:[]};
 let peakManualDrafts={};
 let peakManualLoaded=false;
@@ -2165,15 +2186,15 @@ function peakHistory(date){
 }
 let peakDailyIndex=null;
 function peakBuildDailyIndex(){
- const byCode=new Map(),byCfa=new Map();
+ const byCode=new Map(),byCfa=new Map(),itemCodes=new Set();
  (Array.isArray(mbqGsvRows)?mbqGsvRows:[]).forEach(x=>{
   const date=String(x.date||''),cfa=normalCfa(x.cfa),code=mbqGsvNormCode(x.itemId),qty=Number(x.quantity)||0;
   if(!date||!cfa) return;
   const ck=date+'|'+cfa,ak=ck+'|'+code;
   byCfa.set(ck,(byCfa.get(ck)||0)+qty);
-  if(code)byCode.set(ak,(byCode.get(ak)||0)+qty);
+  if(code){byCode.set(ak,(byCode.get(ak)||0)+qty);itemCodes.add(code);}
  });
- peakDailyIndex={byCode,byCfa};
+ peakDailyIndex={byCode,byCfa,itemCodes};
 }
 function peakDailyQty(date,cfas,codes){
  if(!peakDateCovered(date))return null;
@@ -2188,7 +2209,7 @@ function peakDailyQty(date,cfas,codes){
 function peakGroupData(group,cfa,hist,days,date){
  const codes=[...new Set(rows.filter(r=>mbqSkuGroupKey(r.sku)===mbqSkuGroupKey(group)&&r.code).map(r=>mbqGsvNormCode(r.code)).filter(Boolean))];
  if(!codes.length)return {demand:null,soh:null,to:null,codes};
- const cfas=peakCfas(cfa),set=new Set(codes),codeMapped=mbqGsvRows.some(x=>set.has(mbqGsvNormCode(x.itemId)));
+ const cfas=peakCfas(cfa),set=new Set(codes);if(!peakDailyIndex)peakBuildDailyIndex();const codeMapped=codes.some(code=>peakDailyIndex.itemCodes.has(code));
  const start=new Date(date+'T00:00:00');let demand=0,demandOk=true;
  for(let offset=0;offset<days;offset++){
   const target=new Date(start);target.setDate(target.getDate()+offset);
