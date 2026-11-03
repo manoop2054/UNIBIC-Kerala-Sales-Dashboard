@@ -2165,34 +2165,86 @@ function peakShowBilling(group,cfa,kind){
  if(!p||!modal||!body)return;
  const codes=new Set(rows.filter(r=>mbqSkuGroupKey(r.sku)===mbqSkuGroupKey(group)&&r.code).map(r=>mbqGsvNormCode(r.code)).filter(Boolean));
  if(!codes.size){showToast("No GSV item mapping for this SKU Group.");return;}
- const cfas=cfa==="TOTAL"?["TVD","PAY","ALU"]:[normalCfa(cfa)],detail=[];
- for(let i=0;i<p.days;i++){
-  const dt=new Date(p.date+"T00:00:00");dt.setDate(dt.getDate()+i);
-  const planningDate=peakISO(dt),day=dt.getDate(),hist=peakHistory(planningDate);
-  hist.months.forEach(m=>{
-   if(day>new Date(m.year,m.month,0).getDate())return;
-   const billDate=peakISO(new Date(m.year,m.month-1,day));
-   cfas.forEach(cf=>{
-    const byDbr=new Map();
-    mbqGsvRows.forEach(x=>{
-     if(x.date!==billDate||normalCfa(x.cfa)!==cf||!codes.has(mbqGsvNormCode(x.itemId)))return;
-     const code=String(x.dbrCode||"").trim(),name=String(x.dbrName||"").trim(),key=code+"|"+name;
-     const v=byDbr.get(key)||{planningDate,month:m.label+" "+m.year,billDate,cfa:cf,code,name,qty:0};
-     v.qty+=Number(x.quantity)||0;byDbr.set(key,v);
-    });
-    if(byDbr.size)detail.push(...byDbr.values());
-    else detail.push({planningDate,month:m.label+" "+m.year,billDate,cfa:cf,code:"—",name:"No DBR billing rows",qty:0});
+ const cfas=cfa==="TOTAL"?["TVD","PAY","ALU"]:[normalCfa(cfa)],detail=[],daily=new Map(),monthTotals=new Map();
+ let dataComplete=true,displayTotal=0;
+ if(kind==="total"){
+  const months=p.hist&&Array.isArray(p.hist.months)?p.hist.months:[];
+  if(!months.length)dataComplete=false;
+  months.forEach(m=>{
+   const lastDay=new Date(m.year,m.month,0).getDate();
+   let monthTotal=0;
+   for(let day=1;day<=lastDay;day++){
+    const billDate=peakISO(new Date(m.year,m.month-1,day));
+    if(!peakDateCovered(billDate)){dataComplete=false;continue;}
+    const dayKey=m.label+" "+m.year+"|"+billDate;
+    daily.set(dayKey,{month:m.label+" "+m.year,billDate,qty:0});
+   }
+   monthTotals.set(m.label+" "+m.year,monthTotal);
+  });
+  if(dataComplete){
+   const dateMonth=new Map();
+   months.forEach(m=>{
+    const label=m.label+" "+m.year;
+    const lastDay=new Date(m.year,m.month,0).getDate();
+    for(let day=1;day<=lastDay;day++){
+     const billDate=peakISO(new Date(m.year,m.month-1,day));
+     dateMonth.set(billDate,label);
+    }
    });
+   const dbrTotals=new Map();
+   mbqGsvRows.forEach(x=>{
+    const billDate=String(x.date||""),monthLabel=dateMonth.get(billDate),cf=normalCfa(x.cfa);
+    if(!monthLabel||!cfas.includes(cf)||!codes.has(mbqGsvNormCode(x.itemId)))return;
+    const qty=Number(x.quantity)||0;
+    const dayKey=monthLabel+"|"+billDate,day=daily.get(dayKey);
+    if(day)day.qty+=qty;
+    monthTotals.set(monthLabel,(monthTotals.get(monthLabel)||0)+qty);
+    const code=String(x.dbrCode||"").trim(),name=String(x.dbrName||"").trim(),key=monthLabel+"|"+billDate+"|"+cf+"|"+code+"|"+name;
+    const item=dbrTotals.get(key)||{planningDate:"FULL MONTH L2M",month:monthLabel,billDate,cfa:cf,code,name,qty:0};
+    item.qty+=qty;dbrTotals.set(key,item);
+   });
+   detail.push(...dbrTotals.values());
+   const totals=[...monthTotals.values()];
+   displayTotal=totals.length&&totals.every(Number.isFinite)?totals.reduce((a,b)=>a+b,0)/totals.length:0;
+  }
+ }else{
+  for(let i=0;i<p.days;i++){
+   const dt=new Date(p.date+"T00:00:00");dt.setDate(dt.getDate()+i);
+   const planningDate=peakISO(dt),day=dt.getDate(),hist=peakHistory(planningDate);
+   hist.months.forEach(m=>{
+    if(day>new Date(m.year,m.month,0).getDate())return;
+    const billDate=peakISO(new Date(m.year,m.month-1,day));
+    cfas.forEach(cf=>{
+     const byDbr=new Map();
+     mbqGsvRows.forEach(x=>{
+      if(x.date!==billDate||normalCfa(x.cfa)!==cf||!codes.has(mbqGsvNormCode(x.itemId)))return;
+      const code=String(x.dbrCode||"").trim(),name=String(x.dbrName||"").trim(),key=code+"|"+name;
+      const v=byDbr.get(key)||{planningDate,month:m.label+" "+m.year,billDate,cfa:cf,code,name,qty:0};
+      v.qty+=Number(x.quantity)||0;byDbr.set(key,v);
+     });
+     if(byDbr.size)detail.push(...byDbr.values());
+     else detail.push({planningDate,month:m.label+" "+m.year,billDate,cfa:cf,code:"—",name:"No DBR billing rows",qty:0});
+    });
+   });
+  }
+  displayTotal=detail.reduce((a,x)=>a+x.qty,0);
+  detail.forEach(x=>{
+   const key=x.month+"|"+x.billDate,v=daily.get(key)||{month:x.month,billDate:x.billDate,qty:0};
+   v.qty+=x.qty;daily.set(key,v);
   });
  }
- const total=detail.reduce((a,x)=>a+x.qty,0);
- const bodyRows=detail.filter(x=>Number(x.qty)>0).map(x=>"<tr><td>"+mbqEscape(x.planningDate)+"</td><td>"+mbqEscape(x.month)+"</td><td>"+mbqEscape(x.billDate)+"</td><td>"+mbqEscape(x.cfa)+"</td><td>"+mbqEscape(x.name||"—")+"</td><td>"+mbqEscape(x.code||"—")+"</td><td>"+peakFmt(x.qty)+" CBB</td></tr>").join("");
  const scope=cfa==="TOTAL"?"All CFAs":cfa+" CFA";
- document.getElementById("peakBillingTitle").textContent=group+" · "+scope+" · "+kind;
- body.innerHTML="<div class='peak-billing-total'><span>Planning period: <b>"+p.date+" to "+p.toDate+"</b></span><span>Historical billed total: <b>"+peakFmt(total)+" CBB</b></span></div><div style='overflow:auto'><table><thead><tr><th>PLANNING DATE</th><th>HISTORICAL MONTH</th><th>GSV BILLING DATE</th><th>CFA</th><th>DBR NAME</th><th>DBR CODE</th><th>BILLED CBB</th></tr></thead><tbody>"+bodyRows+"</tbody></table></div>";
+ const summaryRows=dataComplete?[...daily.values()].filter(x=>x.qty>0).sort((a,b)=>a.billDate.localeCompare(b.billDate)).map(x=>"<tr><td>"+mbqEscape(x.month)+"</td><td>"+mbqEscape(x.billDate)+"</td><td style='text-align:right;font-weight:750'>"+peakFmt(x.qty)+" CBB</td></tr>").join(""):"";
+ const summaryTotal=dataComplete?[...daily.values()].reduce((a,x)=>a+x.qty,0):null;
+ const summaryHtml="<div style='margin:12px 0 14px;border:1px solid var(--line);border-radius:10px;overflow:hidden'><div style='padding:10px 12px;background:#f3f7fb;font-weight:800'>Date-wise Billing Summary</div>"+(dataComplete?"<div style='overflow:auto'><table><thead><tr><th>HISTORICAL MONTH</th><th>GSV BILLING DATE</th><th style='text-align:right'>TOTAL CBB</th></tr></thead><tbody>"+(summaryRows||"<tr><td colspan='3' class='empty'>No billing rows available.</td></tr>")+"</tbody><tfoot><tr><th colspan='2'>"+(kind==="total"?"Two-month billed total":"Date-wise billed total")+"</th><th style='text-align:right'>"+peakFmt(summaryTotal)+" CBB</th></tr></tfoot></table></div>":"<div class='empty'>No Data Available · GSV date coverage does not include the complete L2M months.</div>")+"</div>";
+ const bodyRows=dataComplete?detail.filter(x=>Number(x.qty)>0).sort((a,b)=>a.billDate.localeCompare(b.billDate)||a.cfa.localeCompare(b.cfa)||a.name.localeCompare(b.name)).map(x=>"<tr><td>"+mbqEscape(x.planningDate)+"</td><td>"+mbqEscape(x.month)+"</td><td>"+mbqEscape(x.billDate)+"</td><td>"+mbqEscape(x.cfa)+"</td><td>"+mbqEscape(x.name||"—")+"</td><td>"+mbqEscape(x.code||"—")+"</td><td>"+peakFmt(x.qty)+" CBB</td></tr>").join(""):"";
+ const totalLabel=kind==="total"?"L2M average billed":"Historical billed total";
+ const totalText=dataComplete?peakFmt(displayTotal)+" CBB":"No Data Available";
+ const periodText=kind==="total"?(p.hist.months||[]).map(m=>m.label+" "+m.year).join(" / "):p.date+" to "+p.toDate;
+ document.getElementById("peakBillingTitle").textContent=group+" · "+scope+" · "+(kind==="total"?"TOTAL L2M AVG CBB":kind);
+ body.innerHTML="<div class='peak-billing-total'><span>"+(kind==="total"?"Historical period":"Planning period")+": <b>"+mbqEscape(periodText)+"</b></span><span>"+totalLabel+": <b>"+totalText+"</b></span></div>"+summaryHtml+"<div style='font-weight:800;margin:10px 0'>DBR-wise Billing Details</div><div style='overflow:auto'><table><thead><tr><th>PLANNING DATE</th><th>HISTORICAL MONTH</th><th>GSV BILLING DATE</th><th>CFA</th><th>DBR NAME</th><th>DBR CODE</th><th>BILLED CBB</th></tr></thead><tbody>"+(bodyRows||"<tr><td colspan='7' class='empty'>"+(dataComplete?"No DBR billing rows available.":"No Data Available")+"</td></tr>")+"</tbody></table></div>";
  modal.style.display="flex";
 }
-
 function renderPeakGroupRows(){
  const host=document.getElementById('peakGroupRows');if(!host||!peakPlanResult)return;
  const p=peakPlanResult,month=p.date.slice(0,7),singleMonth=p.toDate.slice(0,7)===month,data=p.rows,shown=peakViewAll?data:data.slice(0,8);
