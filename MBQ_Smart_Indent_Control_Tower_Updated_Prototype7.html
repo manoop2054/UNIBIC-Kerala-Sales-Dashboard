@@ -2062,6 +2062,28 @@ function peakHistory(date){
  const from=peakISO(first),to=peakISO(new Date(second.getFullYear(),second.getMonth()+1,0));
  return {from,to,days:Math.round((new Date(to+'T00:00:00')-new Date(from+'T00:00:00'))/86400000)+1,months};
 }
+let peakDailyIndex=null;
+function peakBuildDailyIndex(){
+ const byCode=new Map(),byCfa=new Map();
+ (Array.isArray(mbqGsvRows)?mbqGsvRows:[]).forEach(x=>{
+  const date=String(x.date||''),cfa=normalCfa(x.cfa),code=mbqGsvNormCode(x.itemId),qty=Number(x.quantity)||0;
+  if(!date||!cfa) return;
+  const ck=date+'|'+cfa,ak=ck+'|'+code;
+  byCfa.set(ck,(byCfa.get(ck)||0)+qty);
+  if(code)byCode.set(ak,(byCode.get(ak)||0)+qty);
+ });
+ peakDailyIndex={byCode,byCfa};
+}
+function peakDailyQty(date,cfas,codes){
+ if(!peakDateCovered(date))return null;
+ if(!peakDailyIndex)peakBuildDailyIndex();
+ let total=0;
+ if(Array.isArray(codes)&&codes.length){
+  const codeSet=[...new Set(codes.map(mbqGsvNormCode).filter(Boolean))];
+  cfas.forEach(c=>codeSet.forEach(code=>{total+=peakDailyIndex.byCode.get(date+'|'+normalCfa(c)+'|'+code)||0;}));
+ }else cfas.forEach(c=>{total+=peakDailyIndex.byCfa.get(date+'|'+normalCfa(c))||0;});
+ return total;
+}
 function peakGroupData(group,cfa,hist,days,date){
  const codes=[...new Set(rows.filter(r=>mbqSkuGroupKey(r.sku)===mbqSkuGroupKey(group)&&r.code).map(r=>mbqGsvNormCode(r.code)).filter(Boolean))];
  if(!codes.length)return {demand:null,soh:null,to:null,codes};
@@ -2194,7 +2216,7 @@ function calculatePeak(){
  if(!Number.isInteger(days)||days<1||days>60){showToast('Date range 1–60 days ആയിരിക്കണം.');return;}
  if(!Array.isArray(mbqGsvRows)||!mbqGsvRows.length){showToast('GSV source data ലഭ്യമല്ല.');return;}
  if(!Array.isArray(allocationData)||!allocationData.length){try{buildAllocationData();}catch(e){console.warn('Peak allocation source unavailable',e);}}
- const hist=peakHistory(date),official=Array.isArray(sourceRows)?sourceRows.map(r=>String(r[0]||'').trim()).filter(Boolean):[];
+ peakBuildDailyIndex();const hist=peakHistory(date),official=Array.isArray(sourceRows)?sourceRows.map(r=>String(r[0]||'').trim()).filter(Boolean):[];
  const itemGroups=Array.isArray(rows)?rows.map(r=>String(r.sku||'').trim()).filter(Boolean):[];
  const groups=[...new Map([...official,...itemGroups].map(g=>[mbqSkuGroupKey(g),g])).values()].filter(g=>!Array.isArray(window.mbqOfficialAssortmentGroupKeys)||!window.mbqOfficialAssortmentGroupKeys.length||mbqIsOfficialSkuGroup(g)).sort((a,b)=>a.localeCompare(b));
  const cfas=['TVD','PAY','ALU'];
