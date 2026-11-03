@@ -2425,10 +2425,18 @@ async function savePeakAbmManual(){
 function renderPeakAbmExcessReport(){
  const host=document.getElementById('peakAbmExcessReport');if(!host)return;
  if(!peakPlanResult){host.innerHTML='<div class="empty">Calculate Plan ചെയ്താൽ report ഇവിടെ വരും.</div>';return;}
- const p=peakPlanResult,cfas=['TVD','PAY','ALU'],month=p.date.slice(0,7);
+ const p=peakPlanResult,allCfas=['TVD','PAY','ALU'],cfas=p.cfa==='ALL'?allCfas:[p.cfa],month=p.date.slice(0,7);
  const report=p.rows.map(x=>{
-  let final=0,valid=true,monthly=peakNum(x.totalIndent);
-  cfas.forEach(c=>{const d=x.cfaData[c]||{};if(d.abm===null||d.abm===undefined)valid=false;else final+=Number(d.abm)+peakAbmManualValue(month,c,x.group);});
+  let final=0,valid=true,monthly=null;
+  if(p.cfa==='ALL'){
+   monthly=peakNum(x.totalIndent);
+   cfas.forEach(c=>{const d=x.cfaData[c]||{};if(d.abm===null||d.abm===undefined)valid=false;else final+=Number(d.abm)+peakAbmManualValue(month,c,x.group);});
+  }else{
+   const c=cfas[0],d=x.cfaData[c]||{};
+   monthly=peakNum(d.allocation);
+   if(d.abm===null||d.abm===undefined)valid=false;
+   else final=Number(d.abm)+peakAbmManualValue(month,c,x.group);
+  }
   const excess=valid&&monthly!==null?Math.max(0,final-monthly):null;
   const pct=excess!==null&&monthly>0?excess/monthly*100:(excess===0&&monthly===0?0:null);
   return {group:x.group,monthly,final:valid?final:null,excess,pct};
@@ -2441,7 +2449,8 @@ function renderPeakAbmExcessReport(){
   const hot=x.excess!==null&&x.excess>0;
   return '<tr class="'+(hot?'peak-excess-row':'')+'"><td class="sku">'+mbqEscape(x.group)+'</td><td>'+fmt(x.monthly)+'</td><td>'+fmt(x.final)+'</td><td><b class="'+(hot?'peak-excess-value':'')+'">'+(x.excess===null?'No Data Available':fmt(x.excess)+' CBB')+'</b></td><td><b class="'+(hot?'peak-excess-value':'')+'">'+(x.pct===null?'No Data Available':x.pct.toFixed(1)+'%')+'</b></td></tr>';
  }).join('');
- host.innerHTML='<div class="peak-abm-report-meta">'+month+' · All CFAs · '+report.length+' SKU Groups · Excess rows highlighted</div><div class="peak-abm-report-scroll"><table class="peak-abm-report-table"><thead><tr><th>SKU GROUP</th><th>MONTHLY TOTAL INDENT CBB</th><th>FINAL ABM REQUIREMENT CBB</th><th>EXCESS CBB</th><th>EXCESS %</th></tr></thead><tbody>'+body+'</tbody><tfoot><tr><td>GRAND TOTAL</td><td>'+fmt(totalMonthly)+'</td><td>'+fmt(totalFinal)+'</td><td>'+fmt(totalExcess)+'</td><td>'+(totalPct===null?'No Data Available':totalPct.toFixed(1)+'%')+'</td></tr></tfoot></table></div>';
+ const scope=p.cfa==='ALL'?'All CFAs':p.cfa+' CFA';
+ host.innerHTML='<div class="peak-abm-report-meta">'+month+' · '+scope+' · '+report.length+' SKU Groups · Excess rows highlighted</div><div class="peak-abm-report-scroll"><table class="peak-abm-report-table"><thead><tr><th>SKU GROUP</th><th>MONTHLY '+(p.cfa==='ALL'?'TOTAL INDENT':'CFA ALLOCATION INDENT')+' CBB</th><th>FINAL ABM REQUIREMENT CBB</th><th>EXCESS CBB</th><th>EXCESS %</th></tr></thead><tbody>'+body+'</tbody><tfoot><tr><td>GRAND TOTAL</td><td>'+fmt(totalMonthly)+'</td><td>'+fmt(totalFinal)+'</td><td>'+fmt(totalExcess)+'</td><td>'+(totalPct===null?'No Data Available':totalPct.toFixed(1)+'%')+'</td></tr></tfoot></table></div>';
 }
 function renderPeakGroupRows(){
  const host=document.getElementById('peakMainTableWrap');if(!host)return;
