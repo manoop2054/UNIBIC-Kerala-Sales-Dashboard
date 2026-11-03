@@ -384,6 +384,7 @@ app.use("/api/mbq", async (req, res, next) => {
     const required = p.startsWith("/soh") ? ["stock"] :
       p.startsWith("/open-to") ? ["totracker"] :
       p.startsWith("/cfa-allocation") ? ["allocation"] :
+      p.startsWith("/peak") ? ["peak"] :
       p.startsWith("/master-workbook") ? ["excelview","settings"] :
       p.startsWith("/shared-upload") ? ["excelview","indent","allocation","settings"] :
       p.startsWith("/drafts") ? ["excelview","indent","settings"] :
