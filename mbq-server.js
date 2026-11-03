@@ -748,29 +748,73 @@ app.get("/api/mbq/peak-abm-manual", async (req, res) => {
     res.status(500).json({ success: false, error: "Could not load Peak ABM manual quantities" });
   }
 });
+app.get("/api/mbq/peak-abm-manual-history", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  if (!masterPool) return res.status(503).json({ success: false, error: "Shared MBQ storage is not configured" });
+  try {
+    const result = await masterPool.query("SELECT payload FROM public.mbq_shared_uploads WHERE category='peak-abm-manual-history'");
+    const history = result.rowCount && Array.isArray(result.rows[0].payload) ? result.rows[0].payload : [];
+    res.json({ success: true, history });
+  } catch (error) {
+    console.error("Peak ABM manual history read failed:", error.message);
+    res.status(500).json({ success: false, error: "Could not load Manual Qty history" });
+  }
+});
 app.put("/api/mbq/peak-abm-manual", express.json({ limit: "2mb" }), async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
   if (!masterPool) return res.status(503).json({ success: false, error: "Shared MBQ storage is not configured" });
   const data = req.body && req.body.data;
   if (!data || typeof data !== "object" || Array.isArray(data) || Object.keys(data).length > 2000) return res.status(400).json({ success: false, error: "Manual Qty data must be an object with at most 2000 entries" });
-  try {
-    for (const [key, value] of Object.entries(data)) {
-      if (key.length > 500 || !/^\d{4}-\d{2}\|(TVD|PAY|ALU)\|.+$/.test(key) || !Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > 100000000) {
-        return res.status(400).json({ success: false, error: "Invalid Peak ABM manual quantity entry" });
-      }
+  for (const [key, value] of Object.entries(data)) {
+    if (key.length > 500 || !/^\d{4}-\d{2}\|(TVD|PAY|ALU)\|.+$/.test(key) || !Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > 100000000) {
+      return res.status(400).json({ success: false, error: "Invalid Peak ABM manual quantity entry" });
     }
-    const current = await masterPool.query("SELECT payload FROM public.mbq_shared_uploads WHERE category='peak-abm-manual'");
+  }
+  const client = await masterPool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", ["peak-abm-manual-history"]);
+    const current = await client.query("SELECT payload FROM public.mbq_shared_uploads WHERE category='peak-abm-manual' FOR UPDATE");
     const prior = current.rowCount && current.rows[0].payload && typeof current.rows[0].payload === "object" ? current.rows[0].payload : {};
-    const payload = JSON.stringify({ ...prior, ...data });
-    if (Buffer.byteLength(payload, "utf8") > 2 * 1024 * 1024) return res.status(413).json({ success: false, error: "Peak ABM manual quantities exceed the 2 MB limit" });
-    await masterPool.query("INSERT INTO public.mbq_shared_uploads AS stored(category,file_name,payload,source_file_size,uploaded_at) VALUES('peak-abm-manual','Peak ABM Manual Quantities',$1::jsonb,$2,NOW()) ON CONFLICT(category) DO UPDATE SET payload=EXCLUDED.payload,source_file_size=EXCLUDED.source_file_size,uploaded_at=NOW()", [payload, Buffer.byteLength(payload, "utf8")]);
-    res.json({ success: true, count: Object.keys(data).length, savedAt: new Date().toISOString() });
+    const next = { ...prior, ...data };
+    const payload = JSON.stringify(next);
+    if (Buffer.byteLength(payload, "utf8") > 2 * 1024 * 1024) {
+      await client.query("ROLLBACK");
+      return res.status(413).json({ success: false, error: "Peak ABM manual quantities exceed the 2 MB limit" });
+    }
+    const accessPool = getAccessControlPool();
+    const actor = accessPool ? await resolveSession(accessPool, extractSessionToken(req.headers.cookie)) : null;
+    const actorName = actor ? String(actor.employeeName || actor.employee_name || actor.employeeId || actor.employee_id || "Authenticated User") : "Authenticated User";
+    const savedAt = new Date().toISOString();
+    const history = Object.entries(data).reduce((rows, [key, value]) => {
+      const oldValue = Object.prototype.hasOwnProperty.call(prior, key) && Number.isFinite(Number(prior[key])) ? Number(prior[key]) : null;
+      const newValue = Number(value);
+      if (oldValue === newValue) return rows;
+      const [month, cfa, ...groupParts] = key.split("|");
+      rows.push({ savedAt, user: actorName, month, cfa, skuGroup: groupParts.join("|"), previousQty: oldValue, newQty: newValue });
+      return rows;
+    }, []);
+    await client.query(
+      "INSERT INTO public.mbq_shared_uploads(category,file_name,payload,source_file_size,uploaded_at) VALUES('peak-abm-manual','Peak ABM Manual Quantities',$1::jsonb,$2,NOW()) ON CONFLICT(category) DO UPDATE SET payload=EXCLUDED.payload,source_file_size=EXCLUDED.source_file_size,uploaded_at=NOW()",
+      [payload, Buffer.byteLength(payload, "utf8")]
+    );
+    if (history.length) {
+      const historyJson = JSON.stringify(history);
+      await client.query(
+        "INSERT INTO public.mbq_shared_uploads AS stored(category,file_name,payload,source_file_size,uploaded_at) VALUES('peak-abm-manual-history','Peak ABM Manual Qty History',$1::jsonb,$2,NOW()) ON CONFLICT(category) DO UPDATE SET payload=(CASE WHEN jsonb_typeof(stored.payload)='array' THEN stored.payload ELSE '[]'::jsonb END) || EXCLUDED.payload,source_file_size=stored.source_file_size+EXCLUDED.source_file_size,uploaded_at=NOW()",
+        [historyJson, Buffer.byteLength(historyJson, "utf8")]
+      );
+    }
+    await client.query("COMMIT");
+    res.json({ success: true, count: Object.keys(data).length, historyCount: history.length, savedAt });
   } catch (error) {
+    try { await client.query("ROLLBACK"); } catch (_) {}
     console.error("Peak ABM manual quantity save failed:", error.message);
-    res.status(500).json({ success: false, error: "Could not save Peak ABM manual quantities" });
+    res.status(500).json({ success: false, error: "Could not save Peak ABM manual quantities and history" });
+  } finally {
+    client.release();
   }
 });
-
 app.get("/api/mbq/status", (req, res) => res.json({ service: "MBQ Smart Indent Dashboard", liveSohEndpoint: "/api/mbq/soh" }));
 
 app.get("/api/mbq/employee-db-check", async (req, res) => {
