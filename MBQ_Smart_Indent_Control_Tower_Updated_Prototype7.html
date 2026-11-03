@@ -405,6 +405,12 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 #page-peak .peak-abm-report-table .peak-excess-value{color:#bd3e18}
 #page-peak .peak-abm-report-table tfoot td{font-weight:900;background:#eaf1f8;color:#173653;border-top:2px solid #b7c9da}
 #page-peak .peak-manual-savebar{display:flex;justify-content:flex-end;align-items:center;gap:10px;padding:9px 13px;background:#f6f9fc;border-bottom:1px solid #e3eaf2}
+#page-peak .peak-manual-history-meta{padding:10px 14px;color:#53677e;font-size:11px;font-weight:700;background:#f5f8fc;border-bottom:1px solid #e3eaf2}
+#page-peak .peak-manual-history-scroll{width:100%;max-height:46vh;overflow:auto;padding:0 14px 12px}
+#page-peak .peak-manual-history-table{width:100%;min-width:900px;border-collapse:separate;border-spacing:0;font-size:11px;white-space:nowrap}
+#page-peak .peak-manual-history-table th{position:sticky;top:0;background:#244b68;color:#fff;padding:10px;text-align:left}
+#page-peak .peak-manual-history-table td{padding:9px 10px;border-bottom:1px solid #e8edf3}
+#page-peak .peak-manual-history-table tbody tr:nth-child(even){background:#f7fafc}
 /* Bottom report tables: consistent column alignment and controlled horizontal scrolling */
 #page-peak .peak-abm-report-scroll,#page-peak .peak-item-table-scroll{width:100%;max-width:100%;overflow:auto}
 #page-peak .peak-abm-report-scroll{max-height:64vh;padding:0 14px 12px}
@@ -459,6 +465,10 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 <div class="peak-table-card">
  <div class="peak-card-heading"><div><h3>ABM vs Monthly Total Indent · Excess Report</h3><small>All SKU Groups · Excess CBB and % highlighted where Final ABM exceeds Monthly Total Indent.</small></div><span class="peak-heading-tag">CBB · MONTHLY COMPARISON</span></div>
  <div id="peakAbmExcessReport"><div class="empty">Calculate Plan ചെയ്താൽ report ഇവിടെ വരും.</div></div>
+</div>
+<div class="peak-table-card">
+ <div class="peak-card-heading"><div><h3>Manual Qty History</h3><small>Every saved Manual Qty change · previous and new quantities with user and timestamp.</small></div><span class="peak-heading-tag">CLOUD AUDIT LOG</span></div>
+ <div id="peakAbmManualHistory"><div class="empty">Manual Qty History loading...</div></div>
 </div>
 <div class="peak-table-card">
  <div class="peak-card-heading"><div><h3>Export Planning Data</h3><small>Current selected period · source-linked values only</small></div><div class="peak-export-row"><button class="btn primary" onclick="exportPeakExcel('selected')">Export Selected CFA</button><button class="btn" onclick="exportPeakExcel('all')">Export All CFAs</button></div></div>
@@ -2269,7 +2279,7 @@ function exportPeakExcel(mode){
 }
 document.getElementById('peakFromDate')?.addEventListener('change',updatePeakToDate);document.getElementById('peakToDate')?.addEventListener('change',updatePeakToDate);
 document.getElementById('peakManualReportMonth')?.addEventListener('change',renderPeakManualReport);document.getElementById('peakManualReportCfa')?.addEventListener('change',renderPeakManualReport);
-updatePeakTargetLabels();updatePeakToDate();const peakReportMonth=document.getElementById('peakManualReportMonth');if(peakReportMonth)peakReportMonth.value=peakISO(new Date()).slice(0,7);loadPeakManualEntries().then(()=>{if(peakPlanResult)renderPeakGroupRows();renderPeakManualReport();});loadPeakAbmManual().then(()=>{if(peakPlanResult)renderPeakGroupRows();});
+updatePeakTargetLabels();updatePeakToDate();const peakReportMonth=document.getElementById('peakManualReportMonth');if(peakReportMonth)peakReportMonth.value=peakISO(new Date()).slice(0,7);loadPeakManualEntries().then(()=>{if(peakPlanResult)renderPeakGroupRows();renderPeakManualReport();});loadPeakAbmManual().then(()=>{if(peakPlanResult)renderPeakGroupRows();});loadPeakAbmManualHistory();
 
 /* Peak Billing Planner: compact source-linked CFA matrix. Existing source loaders and shared data APIs remain unchanged. */
 function peakHistory(date){
@@ -2446,6 +2456,7 @@ function calculatePeak(){
  showToast('Peak Billing Planner updated from GSV, MBQ allocation and LIVE SOH sources.');
 }
 let peakAbmManualData={};
+let peakAbmManualHistoryData=[];
 let peakAbmManualDrafts={};
 let peakAbmManualLoaded=false;
 function peakAbmManualKey(month,cfa,group){return [month,normalCfa(cfa),mbqSkuGroupKey(group)].join('|');}
@@ -2477,12 +2488,28 @@ async function savePeakAbmManual(){
   if(!r.ok||!j.success)throw new Error(j.error||'Server save failed');
   peakAbmManualData={...peakAbmManualData,...Object.fromEntries(entries)};
   peakAbmManualDrafts={};
-  showToast('Manual Qty shared cloud storage-ൽ save ചെയ്തു.');
+  await loadPeakAbmManualHistory();
+  showToast('Manual Qty shared cloud storage-ൽ save ചെയ്തു; History updated.');
   renderPeakGroupRows();
  }catch(e){showToast('Manual Qty save ആയില്ല: '+e.message);}
 }
+async function loadPeakAbmManualHistory(){
+ try{
+  const r=await fetch('/api/mbq/peak-abm-manual-history',{cache:'no-store'}),j=await r.json();
+  if(r.ok&&j.success&&Array.isArray(j.history)){peakAbmManualHistoryData=j.history;renderPeakAbmManualHistory();}
+ }catch(e){console.warn('Peak ABM manual history unavailable',e);}
+}
+function renderPeakAbmManualHistory(){
+ const host=document.getElementById('peakAbmManualHistory');if(!host)return;
+ const rows=Array.isArray(peakAbmManualHistoryData)?peakAbmManualHistoryData.slice().sort((a,b)=>String(b.savedAt||'').localeCompare(String(a.savedAt||''))):[];
+ if(!rows.length){host.innerHTML='<div class="empty">No Manual Qty changes recorded yet. Changes will appear here after Save.</div>';return;}
+ const fmt=v=>v===null||v===undefined?'—':peakFmt(Number(v));
+ const body=rows.map(x=>'<tr><td>'+mbqEscape(x.savedAt?new Date(x.savedAt).toLocaleString('en-IN'):'No Data Available')+'</td><td>'+mbqEscape(x.user||'Unknown User')+'</td><td>'+mbqEscape(x.month||'')+'</td><td>'+mbqEscape(x.cfa||'')+'</td><td class="sku">'+mbqEscape(x.skuGroup||'')+'</td><td style="text-align:right">'+fmt(x.previousQty)+'</td><td style="text-align:right"><b>'+fmt(x.newQty)+'</b></td></tr>').join('');
+ host.innerHTML='<div class="peak-manual-history-meta">'+rows.length+' saved changes · newest first · stored in shared cloud database</div><div class="peak-manual-history-scroll"><table class="peak-manual-history-table"><thead><tr><th>DATE / TIME</th><th>USER</th><th>MONTH</th><th>CFA</th><th>SKU GROUP</th><th>PREVIOUS QTY</th><th>NEW QTY</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+}
 function renderPeakAbmExcessReport(){
  const host=document.getElementById('peakAbmExcessReport');if(!host)return;
+ renderPeakAbmManualHistory();
  if(!peakPlanResult){host.innerHTML='<div class="empty">Calculate Plan ചെയ്താൽ report ഇവിടെ വരും.</div>';return;}
  const p=peakPlanResult,allCfas=['TVD','PAY','ALU'],cfas=p.cfa==='ALL'?allCfas:[p.cfa],month=p.date.slice(0,7);
  const report=p.rows.map(x=>{
