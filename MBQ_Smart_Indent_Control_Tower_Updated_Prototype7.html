@@ -2129,7 +2129,7 @@ function calculatePeak(){
  const sub=document.getElementById('peakSummarySub');if(sub)sub.textContent=cfa+' · '+date+' to '+toDate+' · '+days+' days';
  const groupSub=document.getElementById('peakGroupSub');if(groupSub)groupSub.textContent=cfa+' CFA · '+date+' to '+toDate+' · SKU-wise CBB';
  const target=document.getElementById('peakTargetComparison');if(target)target.textContent='Expected demand: '+fmt(allDemand)+' · Based on same calendar dates in previous 2 completed months.';
- renderPeakDailyRows(dailyForecast);renderPeakGroupRows();
+ renderPeakDailyRows(dailyForecast);peakRenderSkuFilter();renderPeakGroupRows();renderPeakItemDetails();
  const totalQty=peakPlanResult.rows.every(x=>x.historyQty!==undefined)?peakPlanResult.rows.reduce((n,x)=>n+(x.historyQty||0),0):null;
  const historyText=hist.months.map(m=>m.year+'-'+String(m.month).padStart(2,'0')).join(' and ');
  document.getElementById('peakHistoricalAnalysis').innerHTML='<p><b>Historical periods:</b> '+historyText+'</p><p><b>Historical quantity:</b> '+(totalQty===null?'No Data Available':peakFmt(totalQty)+' CBB')+'</p><p><b>Expected Billing:</b> '+fmt(bill)+' for '+days+' selected days.</p>';
