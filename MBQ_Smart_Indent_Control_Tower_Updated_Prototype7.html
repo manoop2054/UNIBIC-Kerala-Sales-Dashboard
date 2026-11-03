@@ -2385,7 +2385,7 @@ function calculatePeak(){
  const cfas=['TVD','PAY','ALU'];
  peakPlanResult={date,toDate,cfa,days,hist,rows:groups.map(group=>{
   const cfaData={};cfas.forEach(cf=>{cfaData[cf]=peakGroupCellData(group,cf,{date,toDate,cfa,days,hist});});
-  const demandValues=cfas.map(cf=>cfaData[cf].demand),totalL2M=demandValues.every(v=>v!==null)?demandValues.reduce((a,b)=>a+b,0):null;
+  const demandValues=cfas.map(cf=>cfaData[cf].demand),totalL2M=cfa==='ALL'?(demandValues.every(v=>v!==null)?demandValues.reduce((a,b)=>a+b,0):null):peakNum(cfaData[cfa]?.demand);
   return {group,totalIndent:mbqUploadedIndentForSku(group),cat:peakCategoryForGroup(group),plant:peakPlantSohForGroup(group),cfaData,totalL2M};
  })};
  const status=document.getElementById('peakConnectionStatus');if(status)status.textContent='GSV '+(mbqGsvRows.length?'CONNECTED':'UNAVAILABLE')+' · SOH '+(liveSohRows.length?'CONNECTED':'UNAVAILABLE');
