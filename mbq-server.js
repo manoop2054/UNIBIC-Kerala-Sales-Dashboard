@@ -770,8 +770,9 @@ app.put("/api/mbq/peak-abm-manual", express.json({ limit: "2mb" }), async (req, 
       return res.status(400).json({ success: false, error: "Invalid Peak ABM manual quantity entry" });
     }
   }
-  const client = await masterPool.connect();
+  let client;
   try {
+    client = await masterPool.connect();
     await client.query("BEGIN");
     await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", ["peak-abm-manual-history"]);
     const current = await client.query("SELECT payload FROM public.mbq_shared_uploads WHERE category='peak-abm-manual' FOR UPDATE");
@@ -782,8 +783,7 @@ app.put("/api/mbq/peak-abm-manual", express.json({ limit: "2mb" }), async (req, 
       await client.query("ROLLBACK");
       return res.status(413).json({ success: false, error: "Peak ABM manual quantities exceed the 2 MB limit" });
     }
-    const accessPool = getAccessControlPool();
-    const actor = accessPool ? await resolveSession(accessPool, extractSessionToken(req.headers.cookie)) : null;
+    const actor = req.mbqUser || null;
     const actorName = actor ? String(actor.employeeName || actor.employee_name || actor.employeeId || actor.employee_id || "Authenticated User") : "Authenticated User";
     const savedAt = new Date().toISOString();
     const history = Object.entries(data).reduce((rows, [key, value]) => {
@@ -808,11 +808,11 @@ app.put("/api/mbq/peak-abm-manual", express.json({ limit: "2mb" }), async (req, 
     await client.query("COMMIT");
     res.json({ success: true, count: Object.keys(data).length, historyCount: history.length, savedAt });
   } catch (error) {
-    try { await client.query("ROLLBACK"); } catch (_) {}
+    if (client) { try { await client.query("ROLLBACK"); } catch (_) {} }
     console.error("Peak ABM manual quantity save failed:", error.message);
     res.status(500).json({ success: false, error: "Could not save Peak ABM manual quantities and history" });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 app.get("/api/mbq/status", (req, res) => res.json({ service: "MBQ Smart Indent Dashboard", liveSohEndpoint: "/api/mbq/soh" }));
