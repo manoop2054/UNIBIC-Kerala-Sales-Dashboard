@@ -214,6 +214,8 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 #page-stock .table-wrap th:nth-child(3),#page-stock .table-wrap td:nth-child(3){text-align:left!important}
 #indentWorkspaceWrap th,#indentWorkspaceWrap td{text-align:center}
 #indentWorkspaceWrap td:nth-child(1),#indentWorkspaceWrap td:nth-child(2){text-align:left}
+/* Ensure employee tab permissions override the nav's display:flex rule. */
+.nav button[hidden]{display:none!important}
 </style>
 <style id="mbq-compact-layout-refinement">
 /* Dashboard-wide compact layout refinement: spacing and presentation only. */
