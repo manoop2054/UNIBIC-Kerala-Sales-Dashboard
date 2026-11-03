@@ -2385,7 +2385,7 @@ function calculatePeak(){
  const cfas=['TVD','PAY','ALU'];
  peakPlanResult={date,toDate,cfa,days,hist,rows:groups.map(group=>{
   const cfaData={};cfas.forEach(cf=>{cfaData[cf]=peakGroupCellData(group,cf,{date,toDate,cfa,days,hist});});
-  const demandValues=cfas.map(cf=>cfaData[cf].demand),totalL2M=cfa==='ALL'?(demandValues.every(v=>v!==null)?demandValues.reduce((a,b)=>a+b,0):null):peakNum(cfaData[cfa]?.demand);
+  const groupCodes=cfaData[peakCfas(cfa)[0]]?.codes||[],fullMonthCfas=peakCfas(cfa),fullMonthTotals=hist.months.map(m=>{if(!groupCodes.length||!peakDailyIndex||!groupCodes.some(code=>peakDailyIndex.itemCodes.has(code)))return null;let monthTotal=0;const lastDay=new Date(m.year,m.month,0).getDate();for(let day=1;day<=lastDay;day++){const dateKey=peakISO(new Date(m.year,m.month-1,day)),qty=peakDailyQty(dateKey,fullMonthCfas,groupCodes);if(qty===null)return null;monthTotal+=qty;}return monthTotal;}),totalL2M=fullMonthTotals.length&&fullMonthTotals.every(v=>v!==null)?fullMonthTotals.reduce((a,b)=>a+b,0)/fullMonthTotals.length:null;
   return {group,totalIndent:mbqUploadedIndentForSku(group),cat:peakCategoryForGroup(group),plant:peakPlantSohForGroup(group),cfaData,totalL2M};
  })};
  const status=document.getElementById('peakConnectionStatus');if(status)status.textContent='GSV '+(mbqGsvRows.length?'CONNECTED':'UNAVAILABLE')+' · SOH '+(liveSohRows.length?'CONNECTED':'UNAVAILABLE');
@@ -2467,7 +2467,7 @@ function renderPeakGroupRows(){
  const cfas=p.cfa==='ALL'?['TVD','PAY','ALU']:[p.cfa];
  const groupHead=cfas.map(c=>'<th colspan="6" class="'+c.toLowerCase()+'-head">'+c+' CFA</th>').join('');
  const subHead=cfas.map(c=>'<th class="sub-'+c.toLowerCase()+'">ALLOCATION IND</th><th class="sub-'+c.toLowerCase()+'">SOH &gt;60%</th><th class="sub-'+c.toLowerCase()+'">L2M AVG / PERIOD DEMAND CBB</th><th class="sub-'+c.toLowerCase()+'">CONFIRMED OPEN TO</th><th class="sub-'+c.toLowerCase()+'">ABM REQUIREMENT</th><th class="sub-'+c.toLowerCase()+'">MANUAL QTY CBB</th>').join('');
- const header='<thead><tr><th rowspan="2" class="common-head">SKU GROUP</th><th rowspan="2" class="common-head">TOTAL INDENT</th><th rowspan="2" class="common-head">CAT</th><th rowspan="2" class="common-head">PLANT SOH<br>HYD PLANT1</th>'+groupHead+'<th rowspan="2" class="total-head">TOTAL L2M AVG CBB</th></tr><tr>'+subHead+'</tr></thead>';
+ const header='<thead><tr><th rowspan="2" class="common-head">SKU GROUP</th><th rowspan="2" class="common-head">TOTAL INDENT</th><th rowspan="2" class="common-head">CAT</th><th rowspan="2" class="common-head">PLANT SOH<br>HYD PLANT1</th>'+groupHead+'<th rowspan="2" class="total-head">L2M AVG FULL MONTH SALES CBB</th></tr><tr>'+subHead+'</tr></thead>';
  const totalKeys={totalIndent:data.map(x=>peakNum(x.totalIndent)),plant:data.map(x=>peakNum(x.plant)),totalL2M:data.map(x=>peakNum(x.totalL2M))};
  const sumStrict=vals=>vals.length&&vals.every(v=>v!==null)?vals.reduce((a,b)=>a+b,0):null;
  const body=data.map(x=>{
@@ -2539,7 +2539,7 @@ function exportPeakExcel(mode){
  const data=p.rows.filter(x=>(category==='ALL'||String(x.cat||'').trim().toUpperCase()===category)&&(selected==='ALL'||mbqSkuGroupKey(x.group)===mbqSkuGroupKey(selected)));
  const summary=[['SKU GROUP','TOTAL INDENT','CAT','PLANT SOH']];
  cfas.forEach(c=>summary[0].push(c+' ALLOCATION IND',c+' SOH >60%',c+' L2M AVG / PERIOD DEMAND CBB',c+' CONFIRMED OPEN TO CBB',c+' ABM REQUIREMENT CBB'));
- summary[0].push('TOTAL L2M AVG CBB');
+ summary[0].push('L2M AVG FULL MONTH SALES CBB');
  data.forEach(x=>{
   const line=[x.group,x.totalIndent??'No Data Available',x.cat||'No Data Available',x.plant??'No Data Available'];
   cfas.forEach(c=>{const d=x.cfaData[c]||{};line.push(d.allocation===null?'ALLOCATION NOT DONE':d.allocation,d.soh??'No Data Available',d.demand??'No Data Available',d.openTo??'No Data Available',d.abm??'No Data Available');});
