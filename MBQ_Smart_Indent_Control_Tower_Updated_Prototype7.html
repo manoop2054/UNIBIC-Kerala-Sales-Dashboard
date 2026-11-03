@@ -740,6 +740,38 @@ function mbqSkuGroupKey(v){return String(v??"").normalize("NFKC").replace(/\uFFF
 function mbqIsOfficialSkuGroup(v){const key=mbqSkuGroupKey(v);const official=window.mbqOfficialAssortmentGroupKeys;return !!key&&Array.isArray(official)&&official.includes(key);}
 function mbqGsvNormCode(v){return String(v??"").trim().toUpperCase().replace(/\s+/g,"");}
 let mbqGsvMonthlyIndex=null;
+let mbqSkuCodesByGroup=new Map();
+let peakSohRowsByCode=new Map();
+let peakPlantSohByCode=new Map();
+function mbqBuildSkuGroupCodeIndex(){
+ const groups=new Map();
+ (Array.isArray(rows)?rows:[]).forEach(r=>{
+  const group=mbqSkuGroupKey(r.sku),code=mbqGsvNormCode(r.code);
+  if(!group||!code)return;
+  if(!groups.has(group))groups.set(group,new Set());
+  groups.get(group).add(code);
+ });
+ mbqSkuCodesByGroup=groups;
+}
+function peakBuildSohIndexes(){
+ const byCode=new Map(),plant=new Map();
+ (Array.isArray(liveSohRows)?liveSohRows:[]).forEach(raw=>{
+  const type=String(keyValue(raw,['TYPE','Type'])||'').trim().toUpperCase();
+  if(type&&type!=='SOH')return;
+  const code=mbqCodeKey(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']));
+  if(!code)return;
+  if(!byCode.has(code))byCode.set(code,[]);
+  byCode.get(code).push(raw);
+  const warehouse=String(keyValue(raw,['WAREHOUSE','Warehouse','Location','Location Name','LocationCode','Location Code'])||'').toUpperCase();
+  if(warehouse.includes('HYD PLANT1')){
+   const qty=Number(String(keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity'])??'').replace(/,/g,''));
+   const current=plant.get(code)||{found:false,total:0};
+   current.found=true;if(Number.isFinite(qty))current.total+=qty;
+   plant.set(code,current);
+  }
+ });
+ peakSohRowsByCode=byCode;peakPlantSohByCode=plant;
+}
 function mbqBuildGsvMonthlyIndex(){
  const byItemMonthCfa=new Map(),byItemMonth=new Map();
  (Array.isArray(mbqGsvRows)?mbqGsvRows:[]).forEach(x=>{
@@ -760,14 +792,17 @@ function mbqGsvItemMonth(code, month, cfa="DATA") {
  return map.has(lookupKey)?map.get(lookupKey):null;
 }
 function mbqGsvGroupMonth(sku,cfa,month){
-  const skuKey=mbqSkuGroupKey(sku);const codes=[...new Set(rows.filter(r=>mbqSkuGroupKey(r.sku)===skuKey).map(r=>mbqGsvNormCode(r.code)).filter(Boolean))];
-  if(!codes.length)return null;
-  const vals=codes.map(code=>mbqGsvItemMonth(code,month,cfa));
-  if(vals.every(v=>v===null))return null;
-  return vals.reduce((s,v)=>s+(Number(v)||0),0);
+  const skuKey=mbqSkuGroupKey(sku);
+  if(!mbqSkuCodesByGroup.size)mbqBuildSkuGroupCodeIndex();
+  const codes=mbqSkuCodesByGroup.get(skuKey);
+  if(!codes||!codes.size)return null;
+  let total=0,found=false;
+  codes.forEach(code=>{const value=mbqGsvItemMonth(code,month,cfa);if(value!==null){found=true;total+=Number(value)||0;}});
+  return found?total:null;
 }
 function mbqApplyGsvSales(){
   if(!mbqGsvRows.length)return;
+  mbqBuildSkuGroupCodeIndex();
   const history=mbqLastCompletedMonths(3);
   rows.forEach(r=>{
     const itemMonths=history.map(m=>mbqGsvItemMonth(r.code,m.year+"-"+String(m.month).padStart(2,"0"),"DATA"));
@@ -2039,7 +2074,8 @@ function exportPeakManualExcel(){
 }
 
 function peakGroupData(group,cfa,hist,days,date){
- const codes=[...new Set(rows.filter(r=>mbqSkuGroupKey(r.sku)===mbqSkuGroupKey(group)&&r.code).map(r=>mbqGsvNormCode(r.code)).filter(Boolean))];
+ if(!mbqSkuCodesByGroup.size)mbqBuildSkuGroupCodeIndex();
+ const codes=[...(mbqSkuCodesByGroup.get(mbqSkuGroupKey(group))||[])];
  if(!codes.length)return {demand:null,soh:null,to:null,codes};
  const cfas=peakCfas(cfa),set=new Set(codes),codeMapped=mbqGsvRows.some(x=>set.has(mbqGsvNormCode(x.itemId))),gsv=mbqGsvRows.filter(x=>x.date>=hist.from&&x.date<=hist.to&&set.has(mbqGsvNormCode(x.itemId))&&cfas.includes(normalCfa(x.cfa)));
  const qty=gsv.length?gsv.reduce((n,x)=>n+(Number(x.quantity)||0),0):null;
@@ -2262,18 +2298,12 @@ function peakCategoryForGroup(group){
 }
 function peakPlantSohForGroup(group){
  if(!Array.isArray(liveSohRows)||!liveSohRows.length)return null;
- const codes=new Set(rows.filter(r=>mbqSkuGroupKey(r.sku)===mbqSkuGroupKey(group)&&r.code).map(r=>mbqCodeKey(r.code)).filter(Boolean));
- if(!codes.size)return null;
+ if(!mbqSkuCodesByGroup.size)mbqBuildSkuGroupCodeIndex();
+ if(!peakPlantSohByCode.size)peakBuildSohIndexes();
+ const codes=mbqSkuCodesByGroup.get(mbqSkuGroupKey(group));
+ if(!codes||!codes.size)return null;
  let total=0,found=false;
- liveSohRows.forEach(raw=>{
-  const type=String(keyValue(raw,['TYPE','Type'])||'').trim().toUpperCase();if(type&&type!=='SOH')return;
-  const code=mbqCodeKey(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']));
-  const warehouse=String(keyValue(raw,['WAREHOUSE','Warehouse','Location','Location Name','LocationCode','Location Code'])||'').toUpperCase();
-  if(!codes.has(code)||!warehouse.includes('HYD PLANT1'))return;
-  found=true;
-  const qty=Number(String(keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity'])??'').replace(/,/g,''));
-  if(Number.isFinite(qty))total+=qty;
- });
+ codes.forEach(code=>{const value=peakPlantSohByCode.get(mbqCodeKey(code));if(value?.found){found=true;total+=value.total;}});
  return found?total:0;
 }
 function peakAllocationForGroup(group,cfa){
@@ -2283,15 +2313,17 @@ function peakAllocationForGroup(group,cfa){
 }
 function peakRawItemValue(code,candidates){
  const key=mbqCodeKey(code);
- for(const raw of (Array.isArray(liveSohRows)?liveSohRows:[])){
-  if(mbqCodeKey(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']))!==key)continue;
+ if(!peakSohRowsByCode.size)peakBuildSohIndexes();
+ for(const raw of (peakSohRowsByCode.get(key)||[])){
   const value=keyValue(raw,candidates);if(value!==''&&value!==null&&value!==undefined)return value;
  }
  return '';
 }
 function peakItemRowsForGroup(group){
  const items=new Map();
- rows.filter(r=>mbqSkuGroupKey(r.sku)===mbqSkuGroupKey(group)&&r.code).forEach(r=>{
+ const groupKey=mbqSkuGroupKey(group);
+ rows.forEach(r=>{
+  if(mbqSkuGroupKey(r.sku)!==groupKey||!r.code)return;
   const code=String(r.code||'').trim(),key=mbqCodeKey(code);if(!key)return;
   if(!items.has(key))items.set(key,{code,description:String(r.description||'').trim()});
  });
@@ -2305,16 +2337,9 @@ function peakItemRowsForGroup(group){
 }
 function peakPlantSohForCode(code){
  if(!Array.isArray(liveSohRows)||!liveSohRows.length)return null;
- const key=mbqCodeKey(code);let found=false,total=0;
- liveSohRows.forEach(raw=>{
-  const type=String(keyValue(raw,['TYPE','Type'])||'').trim().toUpperCase();if(type&&type!=='SOH')return;
-  const c=mbqCodeKey(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']));
-  const wh=String(keyValue(raw,['WAREHOUSE','Warehouse','Location','Location Name','LocationCode','Location Code'])||'').toUpperCase();
-  if(c!==key||!wh.includes('HYD PLANT1'))return;
-  found=true;const q=Number(String(keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity'])??'').replace(/,/g,''));
-  if(Number.isFinite(q))total+=q;
- });
- return found?total:0;
+ if(!peakPlantSohByCode.size)peakBuildSohIndexes();
+ const value=peakPlantSohByCode.get(mbqCodeKey(code));
+ return value?.found?value.total:0;
 }
 function peakRenderSkuFilter(){
  const select=document.getElementById('peakSkuGroupFilter');if(!select||!peakPlanResult)return;
@@ -2339,7 +2364,7 @@ function calculatePeak(){
  if(!Number.isInteger(days)||days<1||days>60){showToast('Date range 1–60 days ആയിരിക്കണം.');return;}
  if(!Array.isArray(mbqGsvRows)||!mbqGsvRows.length){showToast('GSV source data ലഭ്യമല്ല.');return;}
  if(!Array.isArray(allocationData)||!allocationData.length){try{buildAllocationData();}catch(e){console.warn('Peak allocation source unavailable',e);}}
- peakBuildDailyIndex();const hist=peakHistory(date),official=Array.isArray(sourceRows)?sourceRows.map(r=>String(r[0]||'').trim()).filter(Boolean):[];
+ mbqBuildSkuGroupCodeIndex();peakBuildSohIndexes();peakBuildDailyIndex();const hist=peakHistory(date),official=Array.isArray(sourceRows)?sourceRows.map(r=>String(r[0]||'').trim()).filter(Boolean):[];
  const itemGroups=Array.isArray(rows)?rows.map(r=>String(r.sku||'').trim()).filter(Boolean):[];
  const groups=[...new Map([...official,...itemGroups].map(g=>[mbqSkuGroupKey(g),g])).values()].filter(g=>!Array.isArray(window.mbqOfficialAssortmentGroupKeys)||!window.mbqOfficialAssortmentGroupKeys.length||mbqIsOfficialSkuGroup(g)).sort((a,b)=>a.localeCompare(b));
  const cfas=['TVD','PAY','ALU'];
