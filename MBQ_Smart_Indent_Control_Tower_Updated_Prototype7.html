@@ -2048,6 +2048,7 @@ function renderPeakDailyRows(data){
  if(groups.length)host.insertAdjacentHTML('beforeend','<div style="display:flex;justify-content:space-between;gap:12px;padding:10px 3px 2px;border-top:1px solid var(--line);font-weight:800"><span>Grand Total · All SKU Groups</span><span>'+(total===null?'No Data Available':peakFmt(total)+' CBB')+'</span></div>');
  const sub=document.getElementById('peakDailySub');if(sub)sub.textContent=p.cfa+' · '+p.date+' to '+p.toDate+' · '+groups.length+' SKU Groups · Expand for date-wise billing';
 }
+function peakCloseBilling(){const modal=document.getElementById("peakBillingModal");if(modal)modal.style.display="none";}
 function renderPeakGroupRows(){
  const host=document.getElementById('peakGroupRows');if(!host||!peakPlanResult)return;
  const p=peakPlanResult,month=p.date.slice(0,7),singleMonth=p.toDate.slice(0,7)===month,data=p.rows,shown=peakViewAll?data:data.slice(0,8);
