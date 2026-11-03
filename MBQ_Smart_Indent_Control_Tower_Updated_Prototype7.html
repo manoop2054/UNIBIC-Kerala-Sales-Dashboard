@@ -2097,7 +2097,7 @@ function peakShowBilling(group,cfa,kind){
   });
  }
  const total=detail.reduce((a,x)=>a+x.qty,0);
- const bodyRows=detail.map(x=>"<tr><td>"+mbqEscape(x.planningDate)+"</td><td>"+mbqEscape(x.month)+"</td><td>"+mbqEscape(x.billDate)+"</td><td>"+mbqEscape(x.cfa)+"</td><td>"+mbqEscape(x.name||"—")+"</td><td>"+mbqEscape(x.code||"—")+"</td><td>"+peakFmt(x.qty)+" CBB</td></tr>").join("");
+ const bodyRows=detail.filter(x=>Number(x.qty)>0).map(x=>"<tr><td>"+mbqEscape(x.planningDate)+"</td><td>"+mbqEscape(x.month)+"</td><td>"+mbqEscape(x.billDate)+"</td><td>"+mbqEscape(x.cfa)+"</td><td>"+mbqEscape(x.name||"—")+"</td><td>"+mbqEscape(x.code||"—")+"</td><td>"+peakFmt(x.qty)+" CBB</td></tr>").join("");
  const scope=cfa==="TOTAL"?"All CFAs":cfa+" CFA";
  document.getElementById("peakBillingTitle").textContent=group+" · "+scope+" · "+kind;
  body.innerHTML="<div class='peak-billing-total'><span>Planning period: <b>"+p.date+" to "+p.toDate+"</b></span><span>Historical billed total: <b>"+peakFmt(total)+" CBB</b></span></div><div style='overflow:auto'><table><thead><tr><th>PLANNING DATE</th><th>HISTORICAL MONTH</th><th>GSV BILLING DATE</th><th>CFA</th><th>DBR NAME</th><th>DBR CODE</th><th>BILLED CBB</th></tr></thead><tbody>"+bodyRows+"</tbody></table></div>";
