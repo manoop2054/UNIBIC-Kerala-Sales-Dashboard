@@ -1946,6 +1946,32 @@ function renderFlashSingle(){
  const note2=document.getElementById('flashGroupNote');
  if(note2)note2.textContent='Period Achievement = selected date-range billed ÷ indent × 100. Balance % = max(indent − period billed, 0) ÷ indent × 100. Billing uses GSV posting dates; verify source coverage and item/CFA mapping.';
 }
+function renderFlash(){
+ const select=document.getElementById('flashCfa'),host=document.getElementById('flashCompareContainer'),flash=document.getElementById('flashText'),note=document.getElementById('flashBillingNote'),summaryCard=document.getElementById('flashGroupSummary')?.closest('.card');
+ if(!select||select.value!=='COMPARE_3'){
+  if(host){host.style.display='none';host.innerHTML='';}
+  if(flash)flash.style.display='';
+  if(note)note.style.display='';
+  if(summaryCard)summaryCard.style.display='';
+  renderFlashSingle();
+  return;
+ }
+ const reports=[];
+ [['ALU','ALU CFA','flash-compare-alu'],['TVD','TVD CFA','flash-compare-tvd'],['PAY','PAY CFA','flash-compare-pay']].forEach(([key,label,cls])=>{
+  select.value=label;
+  renderFlashSingle();
+  reports.push({key,cls,text:flash?flash.innerText:''});
+ });
+ select.value='COMPARE_3';
+ window.mbqFlashCompareReports=reports;
+ if(flash)flash.style.display='none';
+ if(note)note.style.display='none';
+ if(summaryCard)summaryCard.style.display='none';
+ if(host){
+  host.style.display='grid';
+  host.innerHTML=reports.map(r=>'<section class="flash-compare-col '+r.cls+'"><h3>'+r.key+' CFA</h3><pre>'+mbqEscape(r.text)+'</pre></section>').join('');
+ }
+}
 function copyFlash(){let text=document.getElementById('flashText').innerText;navigator.clipboard?.writeText(text).then(()=>showToast('Flash text copied.')).catch(()=>showToast('Copy unavailable; select and copy the flash text.'))}
 function exportFlashGroupReport(){const table=document.querySelector('#flashGroupRows')?.closest('table');if(!table)return;const rows=[...table.querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(td=>'"'+td.innerText.replaceAll('"','""')+'"').join(',')).join('\n');const blob=new Blob([rows],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='UNIBIC_Group_Indent_vs_Billed.csv';a.click();URL.revokeObjectURL(url);showToast('Group-wise report exported.')}
 let peakPlanResult=null,peakViewAll=false;
