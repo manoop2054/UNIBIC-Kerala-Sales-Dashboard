@@ -836,7 +836,7 @@ function mbqApplyGsvSales(){
     sr.avg2m=vals.length===2&&vals.every(v=>v!==null)?vals.reduce((s,v)=>s+Number(v||0),0)/2:null;
   });
   renderWatch();renderSuggestions();renderStock();renderIndentWorkspace();renderIndent();mbqRefreshDashboardKpis();
-  allocationData=[];buildAllocationData();runCfaAllocation();renderDaysPlanner();renderFlash();
+  allocationData=[];buildAllocationData();runCfaAllocation();renderDaysPlanner();renderFlash();renderIndentReport();
 }
 function setGsvConnectionStatus(state,message){
   const pill=document.getElementById('gsvConnectionStatus');
@@ -1043,18 +1043,25 @@ function mbqIndentReportMonthKey(){
  if(!m)return '';const d=new Date(m[1]+' 1, '+m[2]);return Number.isNaN(d.getTime())?'':d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
 }
 function mbqIndentReportCodes(sku){
- const key=mbqSkuGroupKey(sku);
- return [...new Set(rows.filter(r=>mbqSkuGroupKey(r.sku)===key).map(r=>mbqGsvNormCode(r.code)).filter(Boolean))];
+ const key=mbqSkuGroupKey(sku),codes=new Set();
+ const add=(r,group,code)=>{if(mbqSkuGroupKey(group)===key){const value=mbqGsvNormCode(code);if(value)codes.add(value)}};
+ (Array.isArray(rows)?rows:[]).forEach(r=>add(r,r.sku,r.code));
+ (Array.isArray(allocationData)?allocationData:[]).forEach(r=>add(r,r.sku,r.code));
+ (Array.isArray(indentLines)?indentLines:[]).filter(r=>r.mode==='item').forEach(r=>add(r,r.sku,r.code));
+ if(!codes.size&&mbqSkuCodesByGroup instanceof Map){(mbqSkuCodesByGroup.get(key)||new Set()).forEach(code=>codes.add(mbqGsvNormCode(code)))}
+ return [...codes].filter(Boolean);
 }
 function mbqIndentReportBilling(sku,cfa,monthKey){
- const codes=new Set(mbqIndentReportCodes(sku));if(!codes.size||!mbqGsvRows.length||!monthKey)return {available:false,invoice:null,credit:null,net:null};
- const matched=mbqGsvRows.filter(x=>String(x.month||'')===monthKey&&(cfa==='ALL'||normalCfa(x.cfa)===cfa)&&codes.has(mbqGsvNormCode(x.itemId)));
- const monthExists=mbqGsvRows.some(x=>String(x.month||'')===monthKey&&(cfa==='ALL'||normalCfa(x.cfa)===cfa));
- if(!monthExists)return {available:false,invoice:null,credit:null,net:null};
- const net=matched.reduce((s,x)=>s+(Number(x.quantity)||0),0);
- const invoice=matched.reduce((s,x)=>s+Math.max(0,Number(x.quantity)||0),0);
- const credit=matched.reduce((s,x)=>s+Math.max(0,-(Number(x.quantity)||0)),0);
- return {available:true,invoice,credit,net};
+ const codes=new Set(mbqIndentReportCodes(sku));
+ if(!codes.size||!Array.isArray(mbqGsvRows)||!mbqGsvRows.length||!monthKey)return {available:false,invoice:null,credit:null,net:null};
+ const monthRows=mbqGsvRows.filter(x=>String(x.month||x.date||'').slice(0,7)===monthKey&&(cfa==='ALL'||normalCfa(x.cfa)===cfa));
+ if(!monthRows.length)return {available:false,invoice:null,credit:null,net:null};
+ const matched=monthRows.filter(x=>codes.has(mbqGsvNormCode(x.itemId)));
+ const net=matched.reduce((sum,x)=>sum+(Number(x.quantity)||0),0);
+ const gross=matched.reduce((sum,x)=>sum+Math.max(0,Number(x.quantity)||0),0);
+ const credit=matched.reduce((sum,x)=>sum+Math.max(0,-(Number(x.quantity)||0)),0);
+ // Report "Invoice Billed" is net billing after credit notes.
+ return {available:true,invoice:net,credit,gross,net};
 }
 function mbqIndentReportRows(){
  const map=new Map();
