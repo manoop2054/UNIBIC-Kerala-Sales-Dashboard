@@ -797,8 +797,7 @@ function mbqBuildGsvMonthlyIndex(){
 }
 function mbqGsvItemMonth(code, month, cfa="DATA") {
  const key=mbqGsvNormCode(code),mo=String(month||"").trim();
- if(!key||!mo||!mbqGsvRows.length)return null;
- if(!mbqGsvMonthlyIndex)mbqBuildGsvMonthlyIndex();
+ if(!key||!mo||!mbqGsvRows.length)return null; if(!mbqGsvMonthlyIndex)mbqBuildGsvMonthlyIndex();
  const map=(cfa==="DATA"||cfa==="ALL")?mbqGsvMonthlyIndex.byItemMonth:mbqGsvMonthlyIndex.byItemMonthCfa;
  const lookupKey=(cfa==="DATA"||cfa==="ALL")?key+"|"+mo:key+"|"+mo+"|"+normalCfa(cfa);
  return map.has(lookupKey)?map.get(lookupKey):null;
@@ -1597,8 +1596,7 @@ function mbqPlannerUsableSoh(cfa,code){
  return matched?(shelfSeen?total:null):0;
 }
 function mbqPlannerSalesQty(code,cfa,month){
- const codeKey=mbqGsvNormCode(code),monthRows=mbqGsvRows.filter(x=>x.month===month&&x.cfa===cfa);
- if(!codeKey||!monthRows.length)return null;
+ const codeKey=mbqGsvNormCode(code),monthRows=mbqGsvRows.filter(x=>x.month===month&&x.cfa===cfa); if(!codeKey||!monthRows.length)return null;
  return monthRows.filter(x=>mbqGsvNormCode(x.itemId)===codeKey).reduce((sum,x)=>sum+(Number(x.quantity)||0),0);
 }
 let daysPlannerRows=[];
@@ -2397,8 +2395,7 @@ function peakRawItemValue(code,candidates){
   const value=keyValue(raw,candidates);if(value!==''&&value!==null&&value!==undefined)return value;
  }
  return '';
-}
-function peakItemRowsForGroup(group){
+}function peakItemRowsForGroup(group){
  const items=new Map();
  const groupKey=mbqSkuGroupKey(group);
  rows.forEach(r=>{
@@ -2989,7 +2986,7 @@ function mbqRenderLoadedWorkbook(key,host,label){
   const reqIx=original.findIndex(h=>['REQ','REQUIRED','REQ LOADING','REQUIRED LOADING'].includes(String(h||'').trim().toUpperCase()));
   if(reqIx>=0)totalValues[String(original[reqIx]).trim().toUpperCase()]=sumCol(String(original[reqIx]).trim().toUpperCase());
   const totalRowHtml='<tr class="mbq-total-row" style="font-weight:800;background:var(--surface-2,#eef2f7);border-bottom:2px solid var(--line)">'+displayCols.map(({h,i})=>{const hu=String(original[i]||h).trim().toUpperCase();let v=Object.prototype.hasOwnProperty.call(totalValues,hu)?totalValues[hu]:null;if(i===skuIndex)return '<td>TOTAL</td>';if(v===null||v===undefined)return '<td></td>';const pct=['FC%','FR','S. TREND','S.TREND'].includes(hu);const display=pct?(Math.round(Number(v)*100+1e-9)).toLocaleString('en-IN')+'%':mbqExcelFmt(v,hu);return '<td>'+mbqEscape(display)+'</td>';}).join('')+'</tr>';
-  const body=shown.map(row=>{const vals=row.slice();const sku=skuIndex>=0?vals[skuIndex]:'';const prodCfg=mbqProductionSettings()[String(sku||'').trim()];if(prodCfg){const freqIx=original.findIndex(h=>String(h).trim().toUpperCase()==='PROD FREQ'),prodDaysIx=original.findIndex(h=>String(h).trim().toUpperCase()==='MBQ DAYS (BASED ON PROD FREQ)'),transitIx=original.findIndex(h=>String(h).trim().toUpperCase()==='TRANSIT DAYS'),daysIx=original.findIndex(h=>String(h).trim().toUpperCase()==='MBQ DAYS'),avgIxForMbq=original.findIndex(h=>String(h).trim().toUpperCase()==='L3M AVG SALES'),mbqIx=original.findIndex(h=>String(h).trim().toUpperCase()==='MBQ');if(freqIx>=0&&prodCfg.freq!=='')vals[freqIx]=prodCfg.freq;if(transitIx>=0&&prodCfg.transitDays!=='')vals[transitIx]=prodCfg.transitDays;const mappedProdDays=mbqProdDaysFromFreq(prodCfg.freq!==''?prodCfg.freq:vals[freqIx]);const uploadedProdDays=prodCfg.prodDays!==''&&prodCfg.prodDays!==undefined&&prodCfg.prodDays!==null?Number(prodCfg.prodDays):null;const pd=uploadedProdDays!==null&&Number.isFinite(uploadedProdDays)?uploadedProdDays:(mappedProdDays!==null?mappedProdDays:Number(vals[prodDaysIx])),td=prodCfg.transitDays!==''&&prodCfg.transitDays!==undefined&&prodCfg.transitDays!==null?Number(prodCfg.transitDays):Number(vals[transitIx]);if(prodDaysIx>=0&&pd!==null&&Number.isFinite(pd))vals[prodDaysIx]=pd;if(daysIx>=0&&Number.isFinite(pd)&&Number.isFinite(td)){vals[daysIx]=pd+td;if(mbqIx>=0&&avgIxForMbq>=0){const avg=Number(vals[avgIxForMbq]);vals[mbqIx]=Number.isFinite(avg)?(avg/30)*(pd+td):'No Data Available';}}}let indIx=original.findIndex(h=>String(h).trim().toUpperCase()==='IND');if(indIx<0)indIx=original.findIndex(h=>String(h).trim().toUpperCase()==='INDENT');const cfaInd=mbqCfaAllocatedIndentForSku(sku,key);if(indIx>=0)vals[indIx]=cfaInd;const clPoIx=original.findIndex(h=>String(h).trim().toUpperCase()==='CL PO'),openPoIx=original.findIndex(h=>String(h).trim().toUpperCase()==='OPEN PO');if(clPoIx>=0){const clPo=mbqExcelGroupPo(sku,key,'CLOSE');if(clPo!==null)vals[clPoIx]=clPo;}if(openPoIx>=0){const openPo=mbqExcelGroupPo(sku,key,'OPEN');if(openPo!==null)vals[openPoIx]=openPo;}if(monthIx.length>=3&&sku)monthIx.slice(0,3).forEach((x,j)=>{const v=mbqLoadedSalesValue(sku,key,history[j].month);vals[x.i]=v===null?'No Data Available':v;});const avgIx=original.map((h,i)=>({h:String(h).trim().toUpperCase(),i})).filter(x=>x.h==='L3M AVG SALES');if(avgIx.length&&sku){const monthly=history.map(m=>mbqLoadedSalesValue(sku,key,m.month));avgIx.forEach(x=>vals[x.i]=monthly.every(v=>v!==null)?monthly.reduce((a,b)=>a+b,0)/3:'No Data Available');}mbqRecalcWorkbookFormulaCells(original,vals);const groupToStatus=mbqGroupPlantToStatus(sku,key);return '<tr class="'+(groupToStatus==='out'?'plant-stockout-row':'')+'">'+displayCols.map(({h,i})=>{const hu=String(h).trim().toUpperCase(),v=vals[i];if(hu==='BG')return '<td>'+mbqBgCell(sku,v)+'</td>';let display=mbqExcelFmt(v,hu);if((hu==='CONTRI%'||hu==='CUM CONTRI%')&&v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v)))display=(Number(v)*100).toLocaleString('en-IN',{maximumFractionDigits:0})+'%';return '<td class="'+[mbqColourClass(hu,v,vals[original.findIndex(x=>String(x).trim().toUpperCase()==='CAT')]),(hu==='SHRT/EXC'?mbqShortCellClass(v):'')].filter(Boolean).join(' ')+'">'+mbqEscape(display)+'</td>';}).join('')+'</tr>';}).join('');
+  const body=shown.map(row=>{const vals=row.slice();const sku=skuIndex>=0?vals[skuIndex]:'';const prodCfg=mbqProductionSettings()[String(sku||'').trim()];if(prodCfg){const freqIx=original.findIndex(h=>String(h).trim().toUpperCase()==='PROD FREQ'),prodDaysIx=original.findIndex(h=>String(h).trim().toUpperCase()==='MBQ DAYS (BASED ON PROD FREQ)'),transitIx=original.findIndex(h=>String(h).trim().toUpperCase()==='TRANSIT DAYS'),daysIx=original.findIndex(h=>String(h).trim().toUpperCase()==='MBQ DAYS'),avgIxForMbq=original.findIndex(h=>String(h).trim().toUpperCase()==='L3M AVG SALES'),mbqIx=original.findIndex(h=>String(h).trim().toUpperCase()==='MBQ');if(freqIx>=0&&prodCfg.freq!=='')vals[freqIx]=prodCfg.freq;if(transitIx>=0&&prodCfg.transitDays!=='')vals[transitIx]=prodCfg.transitDays;const mappedProdDays=mbqProdDaysFromFreq(prodCfg.freq!==''?prodCfg.freq:vals[freqIx]);const uploadedProdDays=prodCfg.prodDays!==''&&prodCfg.prodDays!==undefined&&prodCfg.prodDays!==null?Number(prodCfg.prodDays):null;const pd=uploadedProdDays!==null&&Number.isFinite(uploadedProdDays)?uploadedProdDays:(mappedProdDays!==null?mappedProdDays:Number(vals[prodDaysIx])),td=prodCfg.transitDays!==''&&prodCfg.transitDays!==undefined&&prodCfg.transitDays!==null?Number(prodCfg.transitDays):Number(vals[transitIx]);if(prodDaysIx>=0&&pd!==null&&Number.isFinite(pd))vals[prodDaysIx]=pd;if(daysIx>=0&&Number.isFinite(pd)&&Number.isFinite(td)){vals[daysIx]=pd+td;if(mbqIx>=0&&avgIxForMbq>=0){const avg=Number(vals[avgIxForMbq]);vals[mbqIx]=Number.isFinite(avg)?(avg/30)*(pd+td):'No Data Available';}}}let indIx=original.findIndex(h=>String(h).trim().toUpperCase()==='IND');if(indIx<0)indIx=original.findIndex(h=>String(h).trim().toUpperCase()==='INDENT');const cfaInd=mbqCfaAllocatedIndentForSku(sku,key);if(indIx>=0)vals[indIx]=cfaInd;const clPoIx=original.findIndex(h=>String(h).trim().toUpperCase()==='CL PO'),openPoIx=original.findIndex(h=>String(h).trim().toUpperCase()==='OPEN PO');if(clPoIx>=0){const clPo=mbqExcelGroupPo(sku,key,'CLOSE');vals[clPoIx]=clPo===null?'No Data Available':clPo;}if(openPoIx>=0){const openPo=mbqExcelGroupPo(sku,key,'OPEN');vals[openPoIx]=openPo===null?'No Data Available':openPo;}if(monthIx.length>=3&&sku)monthIx.slice(0,3).forEach((x,j)=>{const v=mbqLoadedSalesValue(sku,key,history[j].month);vals[x.i]=v===null?'No Data Available':v;});const avgIx=original.map((h,i)=>({h:String(h).trim().toUpperCase(),i})).filter(x=>x.h==='L3M AVG SALES');if(avgIx.length&&sku){const monthly=history.map(m=>mbqLoadedSalesValue(sku,key,m.month));avgIx.forEach(x=>vals[x.i]=monthly.every(v=>v!==null)?monthly.reduce((a,b)=>a+b,0)/3:'No Data Available');}mbqRecalcWorkbookFormulaCells(original,vals);const groupToStatus=mbqGroupPlantToStatus(sku,key);return '<tr class="'+(groupToStatus==='out'?'plant-stockout-row':'')+'">'+displayCols.map(({h,i})=>{const hu=String(h).trim().toUpperCase(),v=vals[i];if(hu==='BG')return '<td>'+mbqBgCell(sku,v)+'</td>';let display=mbqExcelFmt(v,hu);if((hu==='CONTRI%'||hu==='CUM CONTRI%')&&v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v)))display=(Number(v)*100).toLocaleString('en-IN',{maximumFractionDigits:0})+'%';return '<td class="'+[mbqColourClass(hu,v,vals[original.findIndex(x=>String(x).trim().toUpperCase()==='CAT')]),(hu==='SHRT/EXC'?mbqShortCellClass(v):'')].filter(Boolean).join(' ')+'">'+mbqEscape(display)+'</td>';}).join('')+'</tr>';}).join('');
   const head='<thead><tr>'+displayCols.map(({h})=>'<th>'+mbqEscape(h)+'</th>').join('')+'</tr></thead>';
   host.innerHTML=kpis+'<div class="excel-status ready" style="margin:0 0 8px"><span class="dot"></span><span>Loaded '+mbqEscape(mbqWorkbookName)+' · SALES '+mbqSalesRows.length.toLocaleString('en-IN')+' rows · '+mbqEscape(history.map(m=>m.label).join(' · '))+' sales history · '+mbqEscape(label)+' · INDENT source '+mbqIndentRows.length.toLocaleString('en-IN')+' rows</span></div><div class="excel-table-wrap"><table class="excel-table">'+head+'<tbody>'+totalRowHtml+(body||'<tr><td colspan="'+headers.length+'" class="empty">No matching SKU groups.</td></tr>')+'</tbody></table></div>';return true;
 }
@@ -3197,8 +3194,7 @@ function mbqFindPoTable(wb){
         const out={};
         headers.forEach((h,i)=>{if(h&&!/^COLUMN_/.test(h))out[h]=values[i]===undefined?'':values[i];});
         // CFA is sourced from Pushed_Template_Id; preserve the original PO number independently.
-        if(!out.CFA&&out.PUSHED_TEMPLATE_ID)out.CFA=out.PUSHED_TEMPLATE_ID;
-        // Recalculate the report's reconciliation fields from its source quantities.
+        if(!out.CFA&&out.PUSHED_TEMPLATE_ID)out.CFA=out.PUSHED_TEMPLATE_ID;        // Recalculate the report's reconciliation fields from its source quantities.
         const poQty=Number(String(out.PO_QTY??'').replace(/,/g,'').trim());
         const invoiceQty=Number(String(out.INVOICE_QTY??'').replace(/,/g,'').trim());
         if(out.PO_QTY!==''&&out.PO_QTY!==undefined&&out.INVOICE_QTY!==''&&out.INVOICE_QTY!==undefined&&Number.isFinite(poQty)&&Number.isFinite(invoiceQty)){
@@ -3236,12 +3232,14 @@ async function loadMbqPoReport(event){
     if(uploadRevision!==mbqPoUploadRevision)return;
     if(!parsed)throw new Error('Required columns not detected. Expected PO Open/Close, PO Qty, Diff. Qty and PO/CFA identifiers.');
     const nextRows=parsed.rows,nextHeaders=parsed.headers,nextName=file.name;
+    if(uploadRevision!==mbqPoUploadRevision)return;
+    const sharedSaved=await mbqSaveSharedUpload('open-po-report',nextName,file.size,{rows:nextRows,headers:nextHeaders});
+    if(!sharedSaved)throw new Error('Shared save cancelled. The previous active report has been kept.');
+    if(uploadRevision!==mbqPoUploadRevision)return;
     mbqPoRecords=nextRows;mbqPoHeaders=nextHeaders;mbqPoFileName=nextName;
-    await mbqCacheSet('mbqPoCache',{rows:nextRows,headers:nextHeaders,name:nextName,loadedAt:new Date().toISOString()});
+    await mbqCacheSet('mbqPoCache',{rows:nextRows,headers:nextHeaders,name:nextName,loadedAt:new Date().toISOString(),shared:true});
     if(uploadRevision!==mbqPoUploadRevision)return;
-    try{await mbqSaveSharedUpload('open-po-report',nextName,file.size,{rows:nextRows,headers:nextHeaders});}catch(e){showToast('Shared Fill Rate Report save failed: '+e.message);}
-    if(uploadRevision!==mbqPoUploadRevision)return;
-    renderMbqPoPreview();showToast('Fill Rate Report loaded.');
+    renderMbqPoPreview();if(typeof renderMbqExcelView==='function')renderMbqExcelView();showToast('Fill Rate Report saved to shared storage and loaded.');
   }catch(e){if(uploadRevision===mbqPoUploadRevision)showToast('PO upload failed: '+(e.message||'Check the report format.'));}
   finally{input.disabled=false;}
 }
@@ -3307,22 +3305,27 @@ async function restoreMbqLocalData(){
     const book=await mbqCacheGet('mbqExcelCache');
     if(book&&book.sheets){mbqExcelSheets=book.sheets;mbqSalesRows=book.salesRows||[];mbqIndentRows=book.indentRows||[];mbqWorkbookName=book.name||'';if(status){status.classList.add('ready');status.innerHTML='<span class="dot"></span><span>Local copy only: '+mbqEscape(mbqWorkbookName)+' · not shared across devices</span>';}renderMbqExcelView();}
   }
-  const po=await mbqCacheGet('mbqPoCache');
-  if(poRevisionAtRestoreStart===mbqPoUploadRevision&&po&&po.rows){mbqPoRecords=po.rows;mbqPoHeaders=po.headers||[];mbqPoFileName=po.name||'';renderMbqPoPreview();}
   try{
     const sharedPo=await mbqGetSharedUpload('open-po-report');
-    // A user upload always wins over an older in-flight startup restore.
+    // Shared Cloudflare report is the only active PO source; never restore a browser-only PO cache.
     if(poRevisionAtRestoreStart!==mbqPoUploadRevision)return;
     if(sharedPo&&sharedPo.payload&&Array.isArray(sharedPo.payload.rows)){
       mbqPoRecords=sharedPo.payload.rows;mbqPoHeaders=sharedPo.payload.headers||[];mbqPoFileName=sharedPo.fileName||'';
       await mbqCacheSet('mbqPoCache',{rows:mbqPoRecords,headers:mbqPoHeaders,name:mbqPoFileName,loadedAt:sharedPo.uploadedAt,shared:true});
-      if(poRevisionAtRestoreStart===mbqPoUploadRevision)renderMbqPoPreview();
     }else{
       mbqPoRecords=[];mbqPoHeaders=[];mbqPoFileName='';
       await mbqCacheSet('mbqPoCache',{rows:[],headers:[],name:'',clearedAt:new Date().toISOString(),shared:true});
-      if(poRevisionAtRestoreStart===mbqPoUploadRevision)renderMbqPoPreview();
     }
-  }catch(e){console.warn('Shared Fill Rate Report restore unavailable:',e.message);}
+    if(poRevisionAtRestoreStart===mbqPoUploadRevision){renderMbqPoPreview();if(typeof renderMbqExcelView==='function')renderMbqExcelView();}
+  }catch(e){
+    console.warn('Shared Fill Rate Report restore unavailable:',e.message);
+    // A failed shared fetch must not expose stale PO quantities from IndexedDB or the workbook.
+    if(poRevisionAtRestoreStart===mbqPoUploadRevision){
+      mbqPoRecords=[];mbqPoHeaders=[];mbqPoFileName='';
+      await mbqCacheSet('mbqPoCache',{rows:[],headers:[],name:'',shared:false,loadError:String(e.message||e),clearedAt:new Date().toISOString()});
+      renderMbqPoPreview();if(typeof renderMbqExcelView==='function')renderMbqExcelView();
+    }
+  }
 }
 
 
