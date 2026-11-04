@@ -1864,7 +1864,7 @@ function printToReport(mode='details'){
  w.document.open();w.document.write(html);w.document.close();w.onload=()=>w.print();
 }
 function showPreviousIndent(){document.getElementById('prevIndentPanel').innerHTML='<strong>Previous month balance review</strong> Example loaded.';showToast('Previous indent review opened.')}
-function renderFlash(){
+function renderFlashSingle(){
  const today=new Date();
  const isoLocal=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
  const toEl=document.getElementById('flashToDate'),fromEl=document.getElementById('flashFromDate');
