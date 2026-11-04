@@ -1972,7 +1972,22 @@ function renderFlash(){
   host.innerHTML=reports.map(r=>'<section class="flash-compare-col '+r.cls+'"><h3>'+r.key+' CFA</h3><pre>'+mbqEscape(r.text)+'</pre></section>').join('');
  }
 }
-function copyFlash(){let text=document.getElementById('flashText').innerText;navigator.clipboard?.writeText(text).then(()=>showToast('Flash text copied.')).catch(()=>showToast('Copy unavailable; select and copy the flash text.'))}
+function copyFlash(){
+ const reports=window.mbqFlashCompareReports||[];
+ const isCompare=document.getElementById('flashCfa')?.value==='COMPARE_3';
+ const text=isCompare&&reports.length?reports.map(r=>r.text).join(String.fromCharCode(10,10)+'--------------------------------'+String.fromCharCode(10,10)):document.getElementById('flashText').innerText;
+ navigator.clipboard?.writeText(text).then(()=>showToast('Flash text copied.')).catch(()=>showToast('Copy unavailable; select and copy the flash text.'));
+}
+function exportFlashPdf(){
+ const reports=window.mbqFlashCompareReports||[];
+ if(document.getElementById('flashCfa')?.value!=='COMPARE_3'||reports.length!==3){showToast('Select Compare 3 CFAs to export the three-column colour PDF.');return;}
+ const from=document.getElementById('flashFromDate')?.value||'',to=document.getElementById('flashToDate')?.value||'';
+ const w=window.open('','_blank');if(!w){showToast('Allow the print popup to export the PDF.');return;}
+ const cards=reports.map(r=>'<section class="col '+r.cls+'"><h2>'+r.key+' CFA</h2><pre>'+mbqEscape(r.text)+'</pre></section>').join('');
+ const css='*{box-sizing:border-box}body{font:10px Arial,sans-serif;color:#18253b;margin:18px}.head{padding:14px 18px;margin-bottom:14px;background:linear-gradient(110deg,#12233f,#244d78 65%,#087f83);color:#fff;border-radius:10px}.head h1{font-size:17px;margin:0 0 5px}.head p{margin:0;color:#d5e5f7}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.col{border:1px solid;border-radius:9px;overflow:hidden;break-inside:avoid}.col h2{font-size:14px;margin:0;padding:10px}.col pre{font:8.5px/1.4 Arial,sans-serif;white-space:pre-wrap;overflow-wrap:anywhere;margin:0;padding:9px}.flash-compare-alu{background:#e8f1fa;border-color:#a8c5e3}.flash-compare-alu h2{background:#d7e7f7;color:#245b91}.flash-compare-tvd{background:#e9f4ea;border-color:#a9ceaf}.flash-compare-tvd h2{background:#d8ebdc;color:#28723d}.flash-compare-pay{background:#fff0e5;border-color:#e6bfa4}.flash-compare-pay h2{background:#ffe2cf;color:#a65320}@page{size:A4 landscape;margin:9mm}@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}';
+ const doc='<!doctype html><html><head><meta charset="utf-8"><title>UNIBIC Kerala Daily Indent Flash</title><style>'+css+'</style></head><body><header class="head"><h1>UNIBIC KERALA · DAILY INDENT FLASH</h1><p>Period: '+from+' to '+to+' · CFA comparison</p></header><main class="grid">'+cards+'</main><script>window.onload=function(){window.focus();window.print();};<\/script></body></html>';
+ w.document.open();w.document.write(doc);w.document.close();
+}
 function exportFlashGroupReport(){const table=document.querySelector('#flashGroupRows')?.closest('table');if(!table)return;const rows=[...table.querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(td=>'"'+td.innerText.replaceAll('"','""')+'"').join(',')).join('\n');const blob=new Blob([rows],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='UNIBIC_Group_Indent_vs_Billed.csv';a.click();URL.revokeObjectURL(url);showToast('Group-wise report exported.')}
 let peakPlanResult=null,peakViewAll=false;
 function peakFmt(v){return Number(v).toLocaleString('en-IN',{maximumFractionDigits:0});}
