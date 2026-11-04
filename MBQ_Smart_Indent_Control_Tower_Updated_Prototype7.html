@@ -1039,7 +1039,7 @@ function removeIndent(i){indentLines.splice(i,1);renderIndent();renderIndentWork
 function editIndentLine(i){const r=indentLines[i];if(!r)return;document.getElementById('indentMode').value=r.mode==='item'?'item':'group';changeIndentMode();if(r.mode==='item'){document.getElementById('entrySkuGroup').value=r.sku;renderIndentWorkspace();if(r.cfaKey)document.getElementById('entryCfa').value=r.cfaKey;const el=document.getElementById('itemqty-'+r.code+'-'+(r.cfaKey||'TVD'));if(el){el.value=r.qty;updateItemGap(el);el.scrollIntoView({behavior:'smooth',block:'center'})}showToast('Item line edit ചെയ്യാം; qty മാറ്റി Add Item അമർത്തുക.')}else{document.getElementById('entrySkuGroup').value=r.sku;document.getElementById('groupIndentQty').value=r.qty;document.getElementById('groupIndentNote').value=r.note||'';document.getElementById('groupQtyPanel').style.display='block';document.getElementById('groupNotePanel').style.display='block';document.getElementById('groupAddPanel').style.display='block';showToast('Group indent line edit ചെയ്യാം; save/update ചെയ്യുക.')}}
 
 function mbqIndentReportMonthKey(){
- const raw=String(document.getElementById('entryMonth')?.value||'').trim(),m=raw.match(/^([A-Za-z]+)\\s+(\\d{4})$/);
+ const raw=String(document.getElementById('entryMonth')?.value||'').trim(),m=raw.match(/^([A-Za-z]+)\s+(\d{4})$/);
  if(!m)return '';const d=new Date(m[1]+' 1, '+m[2]);return Number.isNaN(d.getTime())?'':d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
 }
 function mbqIndentReportCodes(sku){
