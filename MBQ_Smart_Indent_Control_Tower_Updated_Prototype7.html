@@ -3921,7 +3921,7 @@ function mbqExportTargetExcel(target,title){
    out.s={font:{name:'Aptos',sz:9,bold:st.fontWeight==='700'||Number(st.fontWeight)>=700,color:{rgb:fg||'24364B'}},alignment:{vertical:'center',horizontal:st.textAlign==='right'?'right':'left',wrapText:true}};
    if(bg&&bg!=='FFFFFF')out.s.fill={patternType:'solid',fgColor:{rgb:bg}};
    if(st.borderBottomWidth!=='0px')out.s.border={bottom:{style:'thin',color:{rgb:'D7E1ED'}}};
-  }));else for(let c=0;c<maxCols;c++){const x=ws[XLSX.utils.encode_cell({r:0,c})];if(x)x.s={fill:{patternType:'solid',fgColor:{rgb:'17365D'}},font:{name:'Aptos',bold:true,color:{rgb:'FFFFFF'},sz:10}};}
+  }));}else for(let c=0;c<maxCols;c++){const x=ws[XLSX.utils.encode_cell({r:0,c})];if(x)x.s={fill:{patternType:'solid',fgColor:{rgb:'17365D'}},font:{name:'Aptos',bold:true,color:{rgb:'FFFFFF'},sz:10}};}
   let base=String(name||'Report').replace(/[^A-Za-z0-9 ]/g,'').trim().slice(0,27)||'Report',sheet=base,n=2;while(wb.SheetNames.includes(sheet))sheet=(base.slice(0,24)+' '+n++).slice(0,31);
   XLSX.utils.book_append_sheet(wb,ws,sheet);added++;
  };
