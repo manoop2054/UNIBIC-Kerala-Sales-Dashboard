@@ -385,7 +385,7 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 }
 </style>
 <style id="mbq-cfa-filter-and-report-exports">
-.mbq-indent-cfa-filter{display:flex;align-items:center;gap:7px;padding:5px 9px;background:#fff;border:1px solid #d7e1ed;border-radius:9px;color:#29405e;font-size:12px}
+.mbq-indent-cfa-filter{position:relative;display:flex;align-items:center;gap:7px;padding:5px 9px;background:#fff;border:1px solid #d7e1ed;border-radius:9px;color:#29405e;font-size:12px}
 .mbq-indent-cfa-filter summary{cursor:pointer;list-style:none;font-weight:750;white-space:nowrap}.mbq-indent-cfa-filter summary::-webkit-details-marker{display:none}.mbq-indent-cfa-filter summary:after{content:" ▾";color:#64748b}
 .mbq-indent-cfa-options{position:absolute;z-index:30;display:grid;gap:8px;margin-top:8px;padding:11px 13px;background:#fff;border:1px solid #d7e1ed;border-radius:10px;box-shadow:0 12px 28px rgba(20,39,71,.16);min-width:155px}
 .mbq-indent-cfa-options label{display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:650}.mbq-indent-cfa-options input{accent-color:#1d4ed8}
@@ -3897,7 +3897,7 @@ document.getElementById('skuCount').textContent='Loading…';renderWatch();rende
 
 function mbqOpenReportExport(anchor,title,target,excelFn,pdfFn,jpgFn){
  const menu=document.getElementById('mbqReportExportMenu');if(!menu)return;
- window.mbqPendingReportExport={title:title||'Report',target:target||null,excel:typeof excelFn==='function'?excelFn:null,pdf:typeof pdfFn==='function'?pdfFn:null,jpg:typeof jpgFn==='function'?jpgFn:null};
+ window.mbqPendingReportExport={title:title||'Report',target:target||null,anchor:anchor,excel:typeof excelFn==='function'?excelFn:null,pdf:typeof pdfFn==='function'?pdfFn:null,jpg:typeof jpgFn==='function'?jpgFn:null};
  menu.style.display='block';const rect=anchor.getBoundingClientRect(),w=menu.offsetWidth||180,h=menu.offsetHeight||145;
  menu.style.left=Math.max(8,Math.min(window.innerWidth-w-8,rect.right-w))+'px';
  menu.style.top=(rect.bottom+h+8<window.innerHeight?rect.bottom+6:Math.max(8,rect.top-h-6))+'px';
@@ -3907,10 +3907,10 @@ function mbqRunReportExport(format){
  try{if(format==='excel'){if(cfg.excel)cfg.excel();else mbqExportTargetExcel(cfg.target,cfg.title);}else if(format==='pdf'){if(cfg.pdf)cfg.pdf();else mbqExportTargetPdf(cfg.target,cfg.title);}else if(format==='jpg'){if(cfg.jpg)cfg.jpg();else mbqExportTargetJpg(cfg.target,cfg.title);}}
  catch(e){console.error('Report export failed',e);showToast('Export failed: '+(e.message||'Please retry'));}
 }
-document.addEventListener('click',function(e){const menu=document.getElementById('mbqReportExportMenu');if(menu&&menu.style.display==='block'&&!menu.contains(e.target)&&!e.target.closest('[onclick*="mbqOpenReportExport"]'))menu.style.display='none';});
+document.addEventListener('click',function(e){const menu=document.getElementById('mbqReportExportMenu');if(menu&&menu.style.display==='block'&&!menu.contains(e.target)&&!(window.mbqPendingReportExport&&window.mbqPendingReportExport.anchor&&window.mbqPendingReportExport.anchor.contains(e.target)))menu.style.display='none';});
 function mbqExportTargetExcel(target,title){
  if(!window.XLSX){showToast('Excel library loading. Refresh ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.');return;}
- const root=target?document.querySelector(target):null;if(!root){showToast('Export data area unavailable.');return;}
+ let root=target?document.querySelector(target):null;if(root&&(root.tagName==='TBODY'||root.tagName==='TR'))root=root.closest('table')||root;if(!root){showToast('Export data area unavailable.');return;}
  const wb=XLSX.utils.book_new();let added=0,tables=root.matches&&root.matches('table')?[root]:[...root.querySelectorAll('table')];
  const addSheet=(name,rows,table)=>{
   if(!rows.length||rows.every(r=>r.every(v=>!String(v??'').trim())))return;
@@ -3932,7 +3932,7 @@ function mbqExportTargetExcel(target,title){
  XLSX.writeFile(wb,String(title||'Report').replace(/[^A-Za-z0-9]+/g,'_')+'_Colour.xlsx',{compression:true});showToast('Colour Excel report downloaded.');
 }
 function mbqExportTargetPdf(target,title){
- const root=target?document.querySelector(target):null;if(!root){showToast('PDF report area unavailable.');return;}
+ let root=target?document.querySelector(target):null;if(root&&(root.tagName==='TBODY'||root.tagName==='TR'))root=root.closest('table')||root;if(!root){showToast('PDF report area unavailable.');return;}
  const w=window.open('','_blank');if(!w){showToast('PDF export ചെയ്യാൻ print popup അനുവദിക്കുക.');return;}
  const clone=root.cloneNode(true);clone.querySelectorAll('button,input,select,textarea').forEach(x=>x.remove());
  const css='*{box-sizing:border-box}body{font:10px Arial,sans-serif;color:#18253b;margin:14px}table{border-collapse:collapse;width:100%;font-size:9px}th,td{border:1px solid #cbd5e1;padding:5px;text-align:left;white-space:normal}th{background:#e8eef7}pre{white-space:pre-wrap;overflow-wrap:anywhere}.report-scroll,.table-wrap,.excel-table-wrap{max-height:none!important;overflow:visible!important}@page{size:A4 landscape;margin:8mm}@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}';
@@ -3943,7 +3943,7 @@ function mbqLoadHtml2Canvas(){
  return new Promise((resolve,reject)=>{const existing=document.querySelector('script[data-mbq-html2canvas="1"]');if(existing){existing.addEventListener('load',()=>window.html2canvas?resolve(window.html2canvas):reject(new Error('Image capture library unavailable')),{once:true});existing.addEventListener('error',()=>reject(new Error('Could not load image capture library')),{once:true});return;}const script=document.createElement('script');script.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';script.dataset.mbqHtml2canvas='1';script.onload=()=>window.html2canvas?resolve(window.html2canvas):reject(new Error('Image capture library unavailable'));script.onerror=()=>reject(new Error('Could not load image capture library'));document.head.appendChild(script);});
 }
 async function mbqExportTargetJpg(target,title){
- const root=target?document.querySelector(target):null;if(!root){showToast('JPG report area unavailable.');return;}
+ let root=target?document.querySelector(target):null;if(root&&(root.tagName==='TBODY'||root.tagName==='TR'))root=root.closest('table')||root;if(!root){showToast('JPG report area unavailable.');return;}
  let wrap=null;try{const capture=await mbqLoadHtml2Canvas(),clone=root.cloneNode(true);wrap=document.createElement('div');clone.querySelectorAll('button,input,select,textarea').forEach(x=>x.remove());const width=Math.max(root.scrollWidth,root.clientWidth,760);wrap.style.cssText='position:fixed;left:-100000px;top:0;z-index:-1;background:#fff;width:'+width+'px;padding:18px';clone.style.cssText+=';width:'+Math.max(400,width-36)+'px;max-width:none;max-height:none;height:auto;overflow:visible;background:#fff';clone.querySelectorAll('.report-scroll,.table-wrap,.excel-table-wrap').forEach(x=>{x.style.maxHeight='none';x.style.overflow='visible';});wrap.appendChild(clone);document.body.appendChild(wrap);const canvas=await capture(clone,{scale:2,backgroundColor:'#fff',useCORS:true,windowWidth:width,scrollX:0,scrollY:0});const a=document.createElement('a');a.href=canvas.toDataURL('image/jpeg',.94);a.download=String(title||'Report').replace(/[^A-Za-z0-9]+/g,'_')+'.jpg';a.click();showToast('JPG report downloaded.');}catch(e){console.error('JPG export failed',e);showToast('JPG export failed: '+(e.message||'Please retry'));}finally{if(wrap&&wrap.parentNode)wrap.parentNode.removeChild(wrap);}
 }
 function mbqToExportData(mode){
