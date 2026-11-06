@@ -3439,12 +3439,19 @@ renderIndent=function(){mbqReportOriginalRenderIndent();renderIndentReport();};
 const mbqReportOriginalRenderAlloc=renderAlloc;
 renderAlloc=function(){mbqReportOriginalRenderAlloc();renderIndentReport();};
 
-restoreMbqLocalData();
+let mbqAuthenticatedDataLoadStarted=false;
+function mbqStartAuthenticatedDataLoad(){
+ if(mbqAuthenticatedDataLoadStarted)return;
+ mbqAuthenticatedDataLoadStarted=true;
+ restoreMbqLocalData();
+ loadCloudProductionSettings();
+ loadLiveSoh();
+ loadMbqGsv();
+ loadToRecords().then(()=>{renderToTracker();if(typeof renderDaysPlanner==='function')renderDaysPlanner()});
+}
+function mbqResetAuthenticatedDataLoad(){mbqAuthenticatedDataLoadStarted=false;}
 applyPlanningRulesToForm();
-loadCloudProductionSettings();
-loadLiveSoh();
-loadMbqGsv();
-loadToRecords().then(()=>{renderToTracker();if(typeof renderDaysPlanner==='function')renderDaysPlanner()});document.getElementById('skuCount').textContent='Loading…';renderWatch();renderSuggestions();renderStock();renderIndent();renderDrafts();changeIndentMode();buildAllocationData();runCfaAllocation();renderFlash();
+document.getElementById('skuCount').textContent='Loading…';renderWatch();renderSuggestions();renderStock();renderIndent();renderDrafts();changeIndentMode();buildAllocationData();runCfaAllocation();renderFlash();
 </script>
 
 <script>
@@ -3574,6 +3581,7 @@ loadToRecords().then(()=>{renderToTracker();if(typeof renderDaysPlanner==='funct
     document.body.classList.add('mbq-authenticated');
     gate.hidden=true;
     if(typeof window.mbqApplyUserAccess==='function')window.mbqApplyUserAccess(user);
+    if(typeof window.mbqStartAuthenticatedDataLoad==='function')window.mbqStartAuthenticatedDataLoad();
     const id=document.getElementById('mbqEmployeeIdDisplay');
     if(id)id.textContent=(user.employeeName||'Employee')+' · '+(user.maskedEmployeeId||'');
   }
@@ -3585,6 +3593,7 @@ loadToRecords().then(()=>{renderToTracker();if(typeof renderDaysPlanner==='funct
   async function logout(){
     try{await request('/api/mbq/auth/logout',{method:'POST'});}catch(_){}
     document.body.classList.remove('mbq-authenticated');
+    if(typeof window.mbqResetAuthenticatedDataLoad==='function')window.mbqResetAuthenticatedDataLoad();
     gate.hidden=false;formWrap.style.display='block';pending.style.display='none';form.reset();msg.textContent='';
   }
   document.getElementById('mbqPendingLogout')?.addEventListener('click',logout);
