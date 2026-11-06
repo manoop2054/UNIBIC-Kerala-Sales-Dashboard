@@ -2207,7 +2207,9 @@ async function sharedGetDataset(dataset){
     const rows=[];
     for(let ri=2;ri<matrix.length;ri++){
       const cells=matrix[ri]||[];
-      if(!cells.some(v=>String(v??'').trim()!==''))continue;
+      // Exclude area subtotals / grand totals and blank trailing rows.
+      // Only employee-level TBI records belong in target aggregation.
+      if(!String(cells[idIdx]??'').trim()||!String(cells[nameIdx]??'').trim())continue;
       const row={};
       headers.forEach((h,i)=>row[h]=cells[i]??'');
       row.REGION=cfg.region;
