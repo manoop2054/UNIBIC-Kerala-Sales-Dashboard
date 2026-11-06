@@ -5914,6 +5914,12 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     return isFinite(n)?n:0;
   }
   function tmVal(r,head){
+    // Retain the former Target Working calculation: BTG = max(0, Q2 Target - Q2 Achievement).
+    if(head==='BTG'){
+      const target=r?.Q2TGT,achievement=r?.['Q2 Ach'];
+      if(target===undefined||target===null||String(target).trim()===''||achievement===undefined||achievement===null||String(achievement).trim()==='')return '';
+      return Math.max(0,tmNum(target)-tmNum(achievement));
+    }
     if(typeof twTargetValue==='function') return twTargetValue(r,head);
     const aliases={
       'REGION':['REGION'],'AREA':['AREA'],'Anchor Zone':['Anchor Zone'],
