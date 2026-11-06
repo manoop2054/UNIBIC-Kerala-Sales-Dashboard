@@ -9459,7 +9459,7 @@ document.querySelectorAll('.nav button[data-tab="clmanagement"]').forEach(b=>b.a
     count.textContent=rows.length.toLocaleString('en-IN')+' of '+all.length.toLocaleString('en-IN')+' imported rows · '+ordered.length+' source / mapped columns';
     if(!rows.length){table.querySelector('thead').innerHTML='';table.querySelector('tbody').innerHTML='<tr><td class="muted">No matching rows. Clear filters or upload a source workbook.</td></tr>';return;}
     table.querySelector('thead').innerHTML='<tr>'+ordered.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr>';
-    table.querySelector('tbody').innerHTML=rows.map(r=>'<tr>'+ordered.map(h=>'<td title="'+esc(r[h]??'')+'">'+esc(r[h]??'No Data Available')+'</td>').join('')+'</tr>').join('');
+    table.querySelector('tbody').innerHTML=rows.map(r=>'<tr>'+ordered.map(h=>{const v=r[h];const shown=v===null||v===undefined||String(v).trim()===''?'No Data Available':v;return '<td title="'+esc(shown)+'">'+esc(shown)+'</td>';}).join('')+'</tr>').join('');
   }
   window.addEventListener('unibic:targets-updated',render);
   filterIds.forEach(id=>document.getElementById(id)?.addEventListener('change',render));
