@@ -2212,14 +2212,15 @@ async function sharedGetDataset(dataset){
       headers.forEach((h,i)=>row[h]=cells[i]??'');
       row.REGION=cfg.region;
       row.AREA=String(cells[areaIdx]??'').trim();
-      row['Anchor Zone']=zoneIdx>=0?String(cells[zoneIdx]??'').trim():'';
+      row['Anchor Zone']=zoneIdx>=0&&String(cells[zoneIdx]??'').trim()?String(cells[zoneIdx]).trim():'No Data Available';
       row['TBI ID']=String(cells[idIdx]??'').trim();
       row['TBI Name']=String(cells[nameIdx]??'').trim();
-      row['CUSTOMER CODE']='';
-      row['CUSTOMER NAME']='';
+      row['CUSTOMER CODE']='No Data Available';
+      row['CUSTOMER NAME']='No Data Available';
+      row['Region']=cfg.region;row['Area']=row.AREA;row['Customer Code']='No Data Available';row['Customer Name']='No Data Available';
       row.__region=row.REGION;row.__area=row.AREA;row.__anchorZone=row['Anchor Zone'];
       row.__tbiId=row['TBI ID'];row.__tbiName=row['TBI Name'];
-      row.__customerCode='';row.__customerName='';
+      row.__customerCode='No Data Available';row.__customerName='No Data Available';
       row.__sourceRegion=cfg.region;row.__sourceFile=fileName;row.__sourceSheet=cfg.sheet;row.__sourceColumnCount=headers.length;
       // Translate source month target columns to the existing Executive target field convention.
       monthAliases.forEach(([short,long])=>{
@@ -2233,7 +2234,7 @@ async function sharedGetDataset(dataset){
       rows.push(row);
     }
     if(!rows.length)throw new Error('No populated TBI data rows were found.');
-    return {rows,headers:[...new Set(['REGION','AREA','Anchor Zone','TBI ID','TBI Name','CUSTOMER CODE','CUSTOMER NAME',...headers,...monthAliases.map(([m])=>m+' MC Tgt 26'),'Q2TGT','Q2 Ach','Q2 Ach %'])]};
+    return {rows,headers:[...new Set(['Region','Area','Anchor Zone','TBI ID','TBI Name','Customer Code','Customer Name',...headers,...monthAliases.map(([m])=>m+' MC Tgt 26'),'Q2TGT','Q2 Ach','Q2 Ach %'])]};
   }
   async function loadWorkbook(cfg,file){
     setStatus(cfg,'Reading '+file.name+'…',false);
@@ -9473,7 +9474,7 @@ document.querySelectorAll('.nav button[data-tab="clmanagement"]').forEach(b=>b.a
     if(!table)return;
     const rows=filtered(),all=Array.isArray(window.targets)?window.targets:[];
     const heads=(window.targetHeaders||[]).filter(h=>h&&!String(h).startsWith('__'));
-    const ordered=[...new Set(['REGION','AREA','Anchor Zone','TBI ID','TBI Name','CUSTOMER CODE','CUSTOMER NAME',...heads])];
+    const ordered=[...new Set(['Region','Area','Anchor Zone','TBI ID','TBI Name','Customer Code','Customer Name',...heads])];
     count.textContent=rows.length.toLocaleString('en-IN')+' of '+all.length.toLocaleString('en-IN')+' imported rows · '+ordered.length+' source / mapped columns';
     if(!rows.length){table.querySelector('thead').innerHTML='';table.querySelector('tbody').innerHTML='<tr><td class="muted">No matching rows. Clear filters or upload a source workbook.</td></tr>';return;}
     table.querySelector('thead').innerHTML='<tr>'+ordered.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr>';
@@ -9484,7 +9485,7 @@ document.querySelectorAll('.nav button[data-tab="clmanagement"]').forEach(b=>b.a
   exportBtn?.addEventListener('click',()=>{
     const rows=filtered();if(!rows.length){alert('No filtered TBI rows to export.');return;}
     if(typeof XLSX==='undefined'){alert('Excel library is not available.');return;}
-    const heads=[...new Set(['REGION','AREA','Anchor Zone','TBI ID','TBI Name','CUSTOMER CODE','CUSTOMER NAME',...(window.targetHeaders||[]).filter(h=>h&&!String(h).startsWith('__'))])];
+    const heads=[...new Set(['Region','Area','Anchor Zone','TBI ID','TBI Name','Customer Code','Customer Name',...(window.targetHeaders||[]).filter(h=>h&&!String(h).startsWith('__'))])];
     const data=rows.map(r=>Object.fromEntries(heads.map(h=>[h,r[h]??''])));
     const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data),'TBI Complete Data');
     XLSX.writeFile(wb,'UNIBIC_TBI_Complete_Data.xlsx');
