@@ -6003,7 +6003,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
 
   function tmHasValue(v){return v!==null&&v!==undefined&&String(v).trim()!==''&&String(v).trim()!=='No Data Available';}
   function tmSum(rows,head){let total=0,found=false;rows.forEach(r=>{const v=tmVal(r,head);if(tmHasValue(v)){const n=tmNum(v);if(Number.isFinite(n)){total+=n;found=true;}}});return found?total:null;}
-  function tmMoneyOrNA(v){return v===null?'No Data Available':tmMoney(v);}
+  function tmMoneyOrNA(v){return v===null?'No Data Available':tmMoney(v*100000);}
   function tmCbbOrNA(v){return v===null?'No Data Available':tmCbb(v);}
   function tmRender(){
     const rows=tmFiltered();
