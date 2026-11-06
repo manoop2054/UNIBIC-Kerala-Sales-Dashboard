@@ -2230,7 +2230,7 @@ async function sharedGetDataset(dataset){
       const q2t=index(['Q2 Tgt','Q2TGT']);if(q2t>=0)row.Q2TGT=cells[q2t]??'';
       const q2a=index(['Q2 Ach']);if(q2a>=0)row['Q2 Ach']=cells[q2a]??'';
       const octAch=index(['Oct MC Ach']);if(octAch>=0)row['Oct MC Ach']=cells[octAch]??'';
-      const q2pct=index(['% Ach','Q2 Ach %']);if(q2pct>=0)row['Q2 Ach %']=cells[q2pct]??'';
+      if(q2a>=0){const q2pct=rawHeaderNames.findIndex((h,i)=>i>q2a&&String(h??'').trim()==='%');if(q2pct>=0)row['Q2 Ach %']=cells[q2pct]??'';}
       rows.push(row);
     }
     if(!rows.length)throw new Error('No populated TBI data rows were found.');
@@ -2259,7 +2259,7 @@ async function sharedGetDataset(dataset){
     }catch(e){console.warn('Target cache could not be saved locally:',e);}
     updateRegister(targets);
     if(typeof renderAll==='function')renderAll();
-    if(typeof tmWire==='function')tmWire();
+    window.dispatchEvent(new Event('unibic:targets-updated'));
     setStatus(cfg,'Uploaded & shared · '+parsed.rows.length.toLocaleString('en-IN')+' rows',true);
     document.getElementById('tmDataSearch')?.dispatchEvent(new Event('input'));
     if(typeof toast==='function')toast(cfg.label+' TBI Trend uploaded and shared successfully');
@@ -2281,6 +2281,7 @@ async function sharedGetDataset(dataset){
     window.targetHeaders=Array.isArray(result.data.headers)?result.data.headers:[];
     updateRegister(targets);
     if(typeof renderAll==='function')renderAll();
+    window.dispatchEvent(new Event('unibic:targets-updated'));
   }).catch(err=>console.warn('Shared TBI target restore unavailable:',err));
 })();
 function dateVal(v){
@@ -6000,67 +6001,44 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     });
   }
 
+  function tmHasValue(v){return v!==null&&v!==undefined&&String(v).trim()!==''&&String(v).trim()!=='No Data Available';}
+  function tmSum(rows,head){let total=0,found=false;rows.forEach(r=>{const v=tmVal(r,head);if(tmHasValue(v)){const n=tmNum(v);if(Number.isFinite(n)){total+=n;found=true;}}});return found?total:null;}
+  function tmMoneyOrNA(v){return v===null?'No Data Available':tmMoney(v);}
+  function tmCbbOrNA(v){return v===null?'No Data Available':tmCbb(v);}
   function tmRender(){
     const rows=tmFiltered();
-    let q2t=0,q2a=0,q2btg=0,oct=0,nov=0,dec=0,octC=0,novC=0,decC=0;
-    rows.forEach(r=>{
-      q2t+=tmNum(tmVal(r,'Q2TGT'));
-      q2a+=tmNum(tmVal(r,'Q2 Ach'));
-      q2btg+=tmNum(tmVal(r,'BTG'));
-      oct+=tmNum(tmVal(r,'Oct MC Tgt 26'));
-      nov+=tmNum(tmVal(r,'Plan NOV MC-26'));
-      dec+=tmNum(tmVal(r,'Plan Dec MC-26'));
-      octC+=tmNum(tmVal(r,'Oct MC CBB Tgt 26'));
-      novC+=tmNum(tmVal(r,'Nov CBB'));
-      decC+=tmNum(tmVal(r,'Dec CBB'));
-    });
-    const ach=q2t?q2a/q2t*100:0;
-
+    const q2t=tmSum(rows,'Q2TGT'),q2a=tmSum(rows,'Q2 Ach'),q2btg=tmSum(rows,'BTG');
+    const oct=tmSum(rows,'Oct MC Tgt 26'),nov=tmSum(rows,'Plan NOV MC-26'),dec=tmSum(rows,'Plan Dec MC-26');
+    const octC=tmSum(rows,'Oct MC CBB Tgt 26'),novC=tmSum(rows,'Nov CBB'),decC=tmSum(rows,'Dec CBB');
+    const ach=q2t!==null&&q2a!==null&&q2t>0?q2a/q2t*100:null;
     document.getElementById('tmKpis').innerHTML=[
-      ['Target Rows',rows.length.toLocaleString('en-IN')],
-      ['Q2 Target',tmMoney(q2t)],
-      ['Q2 Achievement',tmMoney(q2a)],
-      ['Q2 Ach %',ach.toFixed(1)+'%'],
-      ['Q2 BTG',tmMoney(q2btg)],
-      ['Oct Target 26',tmMoney(oct)],
-      ['Nov Target 26',tmMoney(nov)],
-      ['Dec Target 26',tmMoney(dec)]
+      ['Target Rows',rows.length.toLocaleString('en-IN')],['Q2 Target',tmMoneyOrNA(q2t)],['Q2 Achievement',tmMoneyOrNA(q2a)],
+      ['Q2 Ach %',ach===null?'No Data Available':ach.toFixed(1)+'%'],['Q2 BTG',tmMoneyOrNA(q2btg)],
+      ['Oct Target 26',tmMoneyOrNA(oct)],['Nov Target 26',tmMoneyOrNA(nov)],['Dec Target 26',tmMoneyOrNA(dec)]
     ].map(x=>'<div class="kpi"><span>'+x[0]+'</span><b>'+x[1]+'</b></div>').join('');
-
     document.getElementById('tmQ2').innerHTML=
-      '<div class="minirow"><span>Q2 Target</span><b>'+tmMoney(q2t)+'</b></div>'+
-      '<div class="minirow"><span>Q2 Achievement</span><b>'+tmMoney(q2a)+'</b></div>'+
-      '<div class="minirow"><span>Achievement %</span><b>'+ach.toFixed(1)+'%</b></div>'+
-      '<div class="bar"><i style="width:'+Math.min(100,Math.max(0,ach))+'%"></i></div>'+
-      '<div class="minirow"><span>BTG</span><b>'+tmMoney(q2btg)+'</b></div>';
-
+      '<div class="minirow"><span>Q2 Target</span><b>'+tmMoneyOrNA(q2t)+'</b></div>'+
+      '<div class="minirow"><span>Q2 Achievement</span><b>'+tmMoneyOrNA(q2a)+'</b></div>'+
+      '<div class="minirow"><span>Achievement %</span><b>'+(ach===null?'No Data Available':ach.toFixed(1)+'%')+'</b></div>'+
+      (ach===null?'':'<div class="bar"><i style="width:'+Math.min(100,Math.max(0,ach))+'%"></i></div>')+
+      '<div class="minirow"><span>BTG</span><b>'+tmMoneyOrNA(q2btg)+'</b></div>';
     document.getElementById('tmQ3').innerHTML=
-      '<div class="minirow"><span>Oct MC Target / CBB</span><b>'+tmMoney(oct)+' / '+tmCbb(octC)+'</b></div>'+
-      '<div class="minirow"><span>Nov MC Target / CBB</span><b>'+tmMoney(nov)+' / '+tmCbb(novC)+'</b></div>'+
-      '<div class="minirow"><span>Dec MC Target / CBB</span><b>'+tmMoney(dec)+' / '+tmCbb(decC)+'</b></div>';
-
-    const attention=rows.map(r=>({
-      name:String(tmVal(r,'CUSTOMER NAME')||tmVal(r,'TBI Name')||'Unspecified'),
-      btg:tmNum(tmVal(r,'BTG'))
-    })).filter(x=>x.btg>0).sort((a,b)=>b.btg-a.btg).slice(0,7);
-
-    document.getElementById('tmAttention').innerHTML=
-      attention.map((x,i)=>'<div class="minirow"><span>'+(i+1)+'. '+esc(x.name)+'</span><b>'+tmMoney(x.btg)+'</b></div>').join('')||
-      '<div class="empty">No positive BTG in selection</div>';
-
-    const rank=rows.map(r=>{
-      const tgt=tmNum(tmVal(r,'Q2TGT')), achv=tmNum(tmVal(r,'Q2 Ach'));
-      return {name:String(tmVal(r,'CUSTOMER NAME')||tmVal(r,'TBI Name')||'Unspecified'),ach:achv,tgt:tgt};
-    }).filter(x=>x.tgt>0).sort((a,b)=>(b.ach/b.tgt)-(a.ach/a.tgt)).slice(0,10);
-
-    document.getElementById('tmRanking').innerHTML=
-      rank.map((x,i)=>'<div class="minirow"><span>'+(i+1)+'. '+esc(x.name)+'</span><b>'+((x.ach/x.tgt*100).toFixed(1))+'%</b></div>').join('')||
-      '<div class="empty">No target data</div>';
-
-    const mx=Math.max(oct,nov,dec,1);
-    document.getElementById('tmMonths').innerHTML=[
-      ['October',oct,octC],['November',nov,novC],['December',dec,decC]
-    ].map(x=>'<div style="margin-bottom:10px"><div class="minirow"><span>'+x[0]+'</span><b>'+tmMoney(x[1])+' / '+tmCbb(x[2])+'</b></div><div class="bar"><i style="width:'+Math.min(100,x[1]/mx*100)+'%"></i></div></div>').join('');
+      '<div class="minirow"><span>Oct MC Target / CBB</span><b>'+tmMoneyOrNA(oct)+' / '+tmCbbOrNA(octC)+'</b></div>'+
+      '<div class="minirow"><span>Nov MC Target / CBB</span><b>'+tmMoneyOrNA(nov)+' / '+tmCbbOrNA(novC)+'</b></div>'+
+      '<div class="minirow"><span>Dec MC Target / CBB</span><b>'+tmMoneyOrNA(dec)+' / '+tmCbbOrNA(decC)+'</b></div>';
+    const attention=rows.map(r=>{const v=tmVal(r,'BTG');return{name:String(tmVal(r,'CUSTOMER NAME')||tmVal(r,'TBI Name')||'Unspecified'),btg:tmHasValue(v)?tmNum(v):null};})
+      .filter(x=>x.btg!==null&&x.btg>0).sort((a,b)=>b.btg-a.btg).slice(0,7);
+    document.getElementById('tmAttention').innerHTML=attention.length
+      ?attention.map((x,i)=>'<div class="minirow"><span>'+(i+1)+'. '+esc(x.name)+'</span><b>'+tmMoney(x.btg)+'</b></div>').join('')
+      :'<div class="empty">No Data Available</div>';
+    const rank=rows.map(r=>{const tv=tmVal(r,'Q2TGT'),av=tmVal(r,'Q2 Ach');return{name:String(tmVal(r,'CUSTOMER NAME')||tmVal(r,'TBI Name')||'Unspecified'),ach:tmHasValue(av)?tmNum(av):null,tgt:tmHasValue(tv)?tmNum(tv):null};})
+      .filter(x=>x.tgt!==null&&x.ach!==null&&x.tgt>0).sort((a,b)=>(b.ach/b.tgt)-(a.ach/a.tgt)).slice(0,10);
+    document.getElementById('tmRanking').innerHTML=rank.length
+      ?rank.map((x,i)=>'<div class="minirow"><span>'+(i+1)+'. '+esc(x.name)+'</span><b>'+((x.ach/x.tgt*100).toFixed(1))+'%</b></div>').join('')
+      :'<div class="empty">No Data Available</div>';
+    const mx=Math.max(oct||0,nov||0,dec||0,1);
+    document.getElementById('tmMonths').innerHTML=[['October',oct,octC],['November',nov,novC],['December',dec,decC]]
+      .map(x=>'<div style="margin-bottom:10px"><div class="minirow"><span>'+x[0]+'</span><b>'+tmMoneyOrNA(x[1])+' / '+tmCbbOrNA(x[2])+'</b></div>'+(x[1]===null?'':'<div class="bar"><i style="width:'+Math.min(100,x[1]/mx*100)+'%"></i></div>')+'</div>').join('');
   }
 
   function tmWire(){
@@ -6126,6 +6104,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     tmRender();
   }
 
+  window.addEventListener('unibic:targets-updated',()=>{tmWire();});
   let lastCount=-1;
   setInterval(()=>{
     if(Array.isArray(targets)&&targets.length&&targets.length!==lastCount){
@@ -9480,6 +9459,7 @@ document.querySelectorAll('.nav button[data-tab="clmanagement"]').forEach(b=>b.a
     table.querySelector('thead').innerHTML='<tr>'+ordered.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr>';
     table.querySelector('tbody').innerHTML=rows.map(r=>'<tr>'+ordered.map(h=>'<td title="'+esc(r[h]??'')+'">'+esc(r[h]??'No Data Available')+'</td>').join('')+'</tr>').join('');
   }
+  window.addEventListener('unibic:targets-updated',render);
   filterIds.forEach(id=>document.getElementById(id)?.addEventListener('change',render));
   ['tmSelectAll','tmClearAll'].forEach(id=>document.getElementById(id)?.addEventListener('click',()=>setTimeout(render,0)));
   search?.addEventListener('input',render);
