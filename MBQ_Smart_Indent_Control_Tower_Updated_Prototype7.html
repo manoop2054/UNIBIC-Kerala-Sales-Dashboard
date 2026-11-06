@@ -283,6 +283,107 @@ body:not(.mbq-authenticated)>.app{display:none!important}
   .card-body{padding-left:11px;padding-right:11px}
 }
 </style>
+
+<style id="mbq-responsive-device-layout">
+/* Responsive presentation only — no data, calculation, API, or navigation logic changes. */
+@media (max-width: 1100px) {
+  .content { padding-left:16px; padding-right:16px; }
+  .kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .two { grid-template-columns:minmax(0,1fr); }
+  .report-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .excel-stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .excel-hero { gap:14px; }
+  .form-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 700px) {
+  .app { display:block; min-width:0; }
+  .sidebar { width:100%; padding:10px 10px 8px; }
+  .brand { padding:2px 5px 10px; gap:9px; }
+  .brand .logo { width:34px; height:34px; }
+  .nav-label { display:none; }
+  .nav { flex-direction:row; flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden; gap:6px; padding:9px 0 3px; -webkit-overflow-scrolling:touch; scrollbar-width:thin; }
+  .nav button { flex:0 0 auto; min-height:42px; padding:10px 12px; border-radius:9px; white-space:nowrap; font-size:12px; }
+  .nav button.active { box-shadow:inset 0 -3px #20c5b8; }
+  .sidebar-foot { display:none; }
+  .main { width:100%; min-width:0; }
+  .topbar { height:auto; min-height:54px; padding:9px 12px; align-items:flex-start; flex-wrap:wrap; }
+  .crumb { padding-top:5px; }
+  .top-right { flex:1 1 100%; min-width:0; display:flex; flex-wrap:wrap; gap:7px; align-items:center; }
+  .top-right .select { min-height:38px; }
+  .user { overflow-wrap:anywhere; }
+  .content { width:100%; max-width:none; padding:14px 11px 24px; }
+  .page-head { display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
+  .page-head h1 { font-size:21px; line-height:1.25; }
+  .page-head p { font-size:12px; }
+  .actions { width:100%; margin-top:2px; gap:7px; }
+  .btn { min-height:40px; padding:10px 12px; }
+  .grid { min-width:0; }
+  .kpis { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .kpi { padding:12px 11px; }
+  .kpi .value { font-size:20px; overflow-wrap:anywhere; }
+  .kpi .label { font-size:10px; }
+  .two { grid-template-columns:minmax(0,1fr); gap:10px; }
+  .peak-list { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .card-head { padding:13px 12px 9px; align-items:flex-start; }
+  .card-body { padding:0 12px 13px; }
+  .filters { padding:0 12px 11px; }
+  .filters input,.filters select { flex:1 1 135px; min-width:0; max-width:100%; min-height:39px; }
+  .table-wrap,.excel-table-wrap,#linkedItemsPanel,#indentWorkspaceWrap { max-width:100%; }
+  .table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .table-wrap table { min-width:700px; }
+  .form-grid { grid-template-columns:minmax(0,1fr); gap:10px; padding:13px; }
+  .field.full { grid-column:1; }
+  .field input,.field select,.field textarea { min-height:40px; font-size:14px; }
+  .report-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+  .report-tile { padding:12px; min-width:0; }
+  .report-tile p { min-height:0; }
+  .excel-workspace { gap:11px; }
+  .excel-hero { padding:15px; border-radius:13px; }
+  .excel-hero h2 { font-size:18px; line-height:1.25; }
+  .excel-hero p { font-size:11px; }
+  .excel-toolbar { gap:8px; align-items:stretch; }
+  .excel-toolbar .field { min-width:calc(50% - 5px); flex:1 1 calc(50% - 5px); }
+  .excel-toolbar input,.excel-toolbar select { min-height:40px; font-size:13px; }
+  .excel-stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .excel-stat { padding:11px; }
+  .excel-stat strong { font-size:17px; }
+  .excel-table-wrap { max-height:60vh; overflow:auto; -webkit-overflow-scrolling:touch; }
+  .excel-table { min-width:max-content; }
+  .excel-table th,.excel-table td { padding:8px 9px; font-size:10.5px; }
+  #indentWorkspaceWrap { max-height:58vh; overflow:auto; -webkit-overflow-scrolling:touch; }
+  #indentWorkspaceWrap table { min-width:1180px; }
+  #linkedItemsPanel { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  #linkedItemsPanel table { min-width:600px; }
+  .mbq-trend-kpis { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+  .mbq-trend-kpi { padding:9px 7px; min-width:0; }
+  .mbq-trend-kpi .k-label { font-size:9px; }
+  .mbq-trend-kpi .k-value { font-size:18px; overflow-wrap:anywhere; }
+  .mbq-trend-kpi .k-foot { font-size:9px; }
+  .flash { padding:12px; font-size:10px; overflow-wrap:anywhere; }
+  .toast { left:12px; right:12px; bottom:12px; text-align:center; }
+}
+@media (max-width: 420px) {
+  .content { padding-left:9px; padding-right:9px; }
+  .page-head h1 { font-size:19px; }
+  .kpi .value { font-size:18px; }
+  .peak-list { grid-template-columns:minmax(0,1fr); }
+  .report-grid { grid-template-columns:minmax(0,1fr); }
+  .excel-toolbar .field { min-width:100%; flex-basis:100%; }
+  .excel-stat { padding:9px; }
+  .excel-stat small { font-size:9px; }
+  .excel-stat strong { font-size:15px; }
+  .mbq-trend-kpi .k-value { font-size:16px; }
+  .top-right { gap:6px; }
+  .gsv-connection { font-size:10px; padding:6px 8px; }
+}
+@media (min-width: 701px) and (max-width: 1100px) {
+  .sidebar { width:190px; padding:14px 10px; }
+  .nav button { padding:9px 9px; font-size:11.5px; }
+  .content { padding:15px 14px 24px; }
+  .page-head h1 { font-size:22px; }
+  .excel-table-wrap { max-height:62vh; }
+}
+</style>
 </head>
 <body><div id="mbqLoginGate"><div class="mbq-login-card"><div class="mbq-login-brand">UNIBIC · EMPLOYEE ACCESS</div><div id="mbqLoginFormWrap"><h1>MBQ Smart Indent</h1><p>Sign in using your existing UNIBIC Dashboard Employee ID and password.</p><form id="mbqLoginForm"><label for="mbqEmployeeId">Employee ID</label><input id="mbqEmployeeId" name="employee_id" autocomplete="username" required><label for="mbqEmployeePassword">Password</label><input id="mbqEmployeePassword" name="password" type="password" autocomplete="current-password" required><button id="mbqLoginButton" type="submit">Login</button><div id="mbqLoginMessage" role="alert"></div></form></div><div id="mbqAccessPending"><h1>Access not assigned yet</h1><p id="mbqPendingMessage">Your MBQ tab access has not been assigned by Super Admin.</p><button type="button" id="mbqPendingLogout">Logout</button></div></div></div><div class="app"><aside class="sidebar"><div class="brand"><div class="logo">MB</div><div><strong>SMART INDENT</strong><small>Kerala · CFA Replenishment</small></div></div><div class="nav-label">WORKSPACE</div><nav class="nav" id="nav"><button class="active" data-page="overview"><span>◫</span>Overview Dashboard</button><button data-page="indent"><span>＋</span>Monthly Indent Entry</button><button data-page="suggest"><span>✦</span>AI Suggested Indent</button><button data-page="stock"><span>▦</span>CFA-wise Stock</button><button data-page="totracker"><span>⇄</span>Open TO Tracker</button><button data-page="advanced"><span>✦</span>Advanced Controls</button><button data-page="allocation"><span>⇄</span>CFA Allocation</button><button data-page="peak"><span>◷</span>Peak Billing Planner</button><button data-page="loading"><span>▤</span>CFA Loading Plan</button><button data-page="flash"><span>◉</span>Daily WhatsApp Flash</button><button data-page="reports"><span>⇩</span>Reports & Export</button><button data-page="excelview"><span>▤</span>MBQ Excel View</button><button data-page="settings"><span>⚙</span>Master Data & Settings</button></nav><div class="sidebar-foot"><span class="dot"></span>MBQ workspace<br><br>Data will appear after the relevant source is connected.</div></aside>
 <main class="main"><header class="topbar"><div class="crumb">Workspace / <b id="crumb">Overview Dashboard</b></div><div class="top-right"><div id="gsvConnectionStatus" class="gsv-connection loading" role="status" aria-live="polite"><span class="gsv-dot"></span><span id="gsvConnectionLabel">GSV Loading</span></div><select class="select" id="month" onchange="renderMbqExcelView()"><option>November 2026</option><option>October 2026</option><option>December 2026</option></select><select class="select" id="cfa"><option>All CFAs</option><option>TVD CFA</option><option>PAY CFA</option><option>ALU CFA</option></select><div class="user" id="mbqEmployeeIdDisplay">Employee</div><button class="mbq-logout-link" id="mbqLogoutButton" type="button">Logout</button></div></header><div class="content">
