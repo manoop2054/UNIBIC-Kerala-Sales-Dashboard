@@ -2023,7 +2023,7 @@ setTimeout(()=>{
         </div>
       </div>
       <div id="tmDataCount" class="muted" style="font-size:11px;margin:8px 0">No source rows loaded</div>
-      <div class="tablewrap" style="max-height:360px;overflow:auto">
+      <div class="tablewrap" style="max-height:340px;overflow:auto">
         <table id="tmAllDataTable" style="min-width:1400px"><thead></thead><tbody><tr><td class="muted">Upload the Kerala and/or Tamil Nadu TBI workbook to view all source details.</td></tr></tbody></table>
       </div>
     </div>
@@ -2056,7 +2056,7 @@ setTimeout(()=>{
 </div>
 <div class="card" id="uploadTbiPreview" style="margin-top:14px">
   <div class="cardhead" style="flex-wrap:wrap;gap:8px"><div><h3>Imported TBI Excel Preview</h3><span class="muted" style="font-size:11px">Independent search · all imported columns and rows</span></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input id="uploadTbiSearch" type="search" placeholder="Search TBI / Area / any Excel field..." style="min-width:240px;padding:8px 10px;border:1px solid #d7e0ec;border-radius:8px"><button class="smallbtn" id="uploadTbiExport">Export filtered source</button><span id="uploadTbiCount" class="muted" style="font-size:11px">No source rows loaded</span></div></div>
-  <div class="tablewrap" style="max-height:360px;overflow:auto;border:1px solid #e1e8f0;border-radius:9px">
+  <div class="tablewrap" style="max-height:340px;overflow:auto;border:1px solid #e1e8f0;border-radius:9px">
     <table id="uploadTbiTable" style="min-width:1200px"><thead></thead><tbody><tr><td class="muted">Upload a TBI workbook to preview imported details.</td></tr></tbody></table>
   </div>
 </div>
@@ -2263,9 +2263,8 @@ async function sharedGetDataset(dataset){
       });
       const q2t=index(['Q2 Tgt','Q2TGT']);if(q2t>=0)row.Q2TGT=cells[q2t]??'';
       const q2a=index(['Q2 Ach']);if(q2a>=0)row['Q2 Ach']=cells[q2a]??'';
-      const q2pct=index(['%']);
       if(q2t>=0&&q2a>=0){
-        const pctIx=rawHeaderNames.findIndex((h,i)=>i>q2a&&i<q2a+4&&norm(h)==='%');
+        const pctIx=rawHeaderNames.findIndex((h,i)=>i>q2a&&i<q2a+4&&String(h??'').trim()==='%');
         if(pctIx>=0)row['Q2 Ach %']=cells[pctIx]??'';
       }
       const octAch=index(['Oct MC Ach']);if(octAch>=0)row['Oct MC Ach']=cells[octAch]??'';
@@ -6168,8 +6167,14 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
           'CUSTOMER NAME':tmVal(r,'CUSTOMER NAME'),
           Q2TGT:tmVal(r,'Q2TGT'),
           'Q2 Ach':tmVal(r,'Q2 Ach'),
+          'Q2 Ach %':tmVal(r,'Q2 Ach %'),
           BTG:tmVal(r,'BTG'),
           'Oct MC Tgt 26':tmVal(r,'Oct MC Tgt 26'),
+          'Oct MC Ach':tmVal(r,'Oct MC Ach'),
+          'Oct MC Ach %':tmVal(r,'Oct MC Ach %'),
+          'Oct LSPC TGT':tmVal(r,'Oct LSPC TGT'),
+          'Oct LSPC ACH':tmVal(r,'Oct LSPC ACH'),
+          'Oct LSPC Ach %':tmVal(r,'Oct LSPC Ach %'),
           'Plan NOV MC-26':tmVal(r,'Plan NOV MC-26'),
           'Plan Dec MC-26':tmVal(r,'Plan Dec MC-26')
         }));
