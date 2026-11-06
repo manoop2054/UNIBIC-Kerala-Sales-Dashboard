@@ -1966,6 +1966,7 @@ setTimeout(()=>{
       <span>Filtered management view — detailed 39-column Target Working remains in Monthly Upload / Report Center.</span>
     </div>
 
+    <div class="field" style="margin:10px 0 12px;max-width:460px"><label>Quick Search · TBI / Area / Anchor Zone / Source Values</label><input id="tmQuickSearch" type="search" placeholder="Search management results..." style="width:100%;padding:9px 11px;border:1px solid #d7e0ec;border-radius:9px"></div>
     <div class="filters">
       <div class="field"><label>REGION</label><select id="tmRegion" multiple size="4"></select></div>
       <div class="field"><label>AREA</label><select id="tmArea" multiple size="4"></select></div>
@@ -1984,11 +1985,11 @@ setTimeout(()=>{
 
     <div class="grid2" style="margin-top:14px">
       <div class="card">
-        <div class="cardhead"><h3>Q2 Performance</h3><span>Target / Achievement / BTG</span></div>
+        <div class="cardhead"><h3>Q2 Performance</h3><span>July–September · source aggregate or monthly roll-up</span></div>
         <div id="tmQ2"></div>
       </div>
       <div class="card">
-        <div class="cardhead"><h3>Q3 Planning</h3><span>October / November / December</span></div>
+        <div class="cardhead"><h3>Q3 Progress</h3><span>October available · November / December not supplied</span></div>
         <div id="tmQ3"></div>
       </div>
     </div>
@@ -1999,11 +2000,15 @@ setTimeout(()=>{
         <div id="tmAttention"></div>
       </div>
       <div class="card">
-        <div class="cardhead"><h3>Performance Ranking</h3><span>Top achievement %</span></div>
+        <div class="cardhead"><h3>Q2 Achievement Ranking</h3><span>Top 10 TBI by Q2 achievement</span></div>
         <div id="tmRanking"></div>
       </div>
     </div>
 
+    <div class="card" style="margin-top:14px">
+      <div class="cardhead"><h3>LSPC Performance · Month-wise</h3><span>Target / Achievement / Achievement % from uploaded Excel</span></div>
+      <div id="tmLspc"></div>
+    </div>
     <div class="card" style="margin-top:14px">
       <div class="cardhead"><h3>Monthly Target Plan</h3><span>MC target / CBB target</span></div>
       <div id="tmMonths"></div>
@@ -2050,7 +2055,7 @@ setTimeout(()=>{
   <div class="tablewrap"><table><thead><tr><th>Source</th><th>File</th><th>Worksheet</th><th>Rows</th><th>Columns</th><th>Status</th></tr></thead><tbody id="uploadTable"><tr><td colspan="6" class="muted">No TBI workbook uploaded yet.</td></tr></tbody></table></div>
 </div>
 <div class="card" id="uploadTbiPreview" style="margin-top:14px">
-  <div class="cardhead" style="flex-wrap:wrap;gap:8px"><div><h3>Imported TBI Excel Preview</h3><span class="muted" style="font-size:11px">Same combined Kerala + Tamil Nadu data used by Target Management</span></div><span id="uploadTbiCount" class="muted" style="font-size:11px">No source rows loaded</span></div>
+  <div class="cardhead" style="flex-wrap:wrap;gap:8px"><div><h3>Imported TBI Excel Preview</h3><span class="muted" style="font-size:11px">Independent search · all imported columns and rows</span></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input id="uploadTbiSearch" type="search" placeholder="Search TBI / Area / any Excel field..." style="min-width:240px;padding:8px 10px;border:1px solid #d7e0ec;border-radius:8px"><button class="smallbtn" id="uploadTbiExport">Export filtered source</button><span id="uploadTbiCount" class="muted" style="font-size:11px">No source rows loaded</span></div></div>
   <div class="tablewrap" style="max-height:360px;overflow:auto;border:1px solid #e1e8f0;border-radius:9px">
     <table id="uploadTbiTable" style="min-width:1200px"><thead></thead><tbody><tr><td class="muted">Upload a TBI workbook to preview imported details.</td></tr></tbody></table>
   </div>
@@ -2230,19 +2235,46 @@ async function sharedGetDataset(dataset){
       row.__tbiId=row['TBI ID'];row.__tbiName=row['TBI Name'];
       row.__customerCode='No Data Available';row.__customerName='No Data Available';
       row.__sourceRegion=cfg.region;row.__sourceFile=fileName;row.__sourceSheet=cfg.sheet;row.__sourceColumnCount=headers.length;
-      // Translate source month target columns to the existing Executive target field convention.
+      // Map monthly MC fields from the actual workbook headings.
       monthAliases.forEach(([short,long])=>{
         const ix=findHeader(rawHeaderNames,[long+' TGT',short+' TGT']);
         if(ix>=0)row[short+' MC Tgt 26']=cells[ix]??'';
+        let achIx=findHeader(rawHeaderNames,[long+' MC Ach',short+' MC Ach']);
+        if(achIx<0){
+          const prefix=norm(long+' MC Ach');
+          achIx=rawHeaderNames.findIndex(h=>norm(h).startsWith(prefix));
+        }
+        if(achIx>=0)row[short+' MC Ach']=cells[achIx]??'';
+      });
+      // LSPC columns repeat once per month. Map each occurrence by month so
+      // the management calculations can use the correct month, not the first duplicate.
+      const occurrenceIndex=(aliases,occurrence)=>{
+        const wanted=aliases.map(norm),matches=[];
+        rawHeaderNames.forEach((h,i)=>{if(wanted.includes(norm(h)))matches.push(i);});
+        return matches[occurrence]??-1;
+      };
+      monthAliases.forEach(([short],mi)=>{
+        const lT=occurrenceIndex(['LSPC TGT'],mi);
+        const lA=occurrenceIndex(['LSPC ACH'],mi);
+        const lP=occurrenceIndex(['% LSPC Ach','% Ach Lspc'],mi);
+        if(lT>=0)row[short+' LSPC TGT']=cells[lT]??'';
+        if(lA>=0)row[short+' LSPC ACH']=cells[lA]??'';
+        if(lP>=0)row[short+' LSPC Ach %']=cells[lP]??'';
       });
       const q2t=index(['Q2 Tgt','Q2TGT']);if(q2t>=0)row.Q2TGT=cells[q2t]??'';
       const q2a=index(['Q2 Ach']);if(q2a>=0)row['Q2 Ach']=cells[q2a]??'';
+      const q2pct=index(['%']);
+      if(q2t>=0&&q2a>=0){
+        const pctIx=rawHeaderNames.findIndex((h,i)=>i>q2a&&i<q2a+4&&norm(h)==='%');
+        if(pctIx>=0)row['Q2 Ach %']=cells[pctIx]??'';
+      }
       const octAch=index(['Oct MC Ach']);if(octAch>=0)row['Oct MC Ach']=cells[octAch]??'';
-      if(q2a>=0){const q2pct=rawHeaderNames.findIndex((h,i)=>i>q2a&&String(h??'').trim()==='%');if(q2pct>=0)row['Q2 Ach %']=cells[q2pct]??'';}
+      const octPct=index(['Oct MC Ach %']);if(octPct>=0)row['Oct MC Ach %']=cells[octPct]??'';
       rows.push(row);
     }
     if(!rows.length)throw new Error('No populated TBI data rows were found.');
-    return {rows,headers:[...new Set(['Region','Area','Anchor Zone','TBI ID','TBI Name','Customer Code','Customer Name',...headers,...monthAliases.map(([m])=>m+' MC Tgt 26'),'Q2TGT','Q2 Ach','Q2 Ach %'])]};
+    const mappedHeaders=monthAliases.flatMap(([m])=>[m+' MC Tgt 26',m+' MC Ach',m+' LSPC TGT',m+' LSPC ACH',m+' LSPC Ach %']);
+    return {rows,headers:[...new Set(['Region','Area','Anchor Zone','TBI ID','TBI Name','Customer Code','Customer Name',...headers,...mappedHeaders,'Q2TGT','Q2 Ach','Q2 Ach %','Oct MC Ach','Oct MC Ach %'])]};
   }
   async function loadWorkbook(cfg,file){
     setStatus(cfg,'Reading '+file.name+'…',false);
@@ -5919,12 +5951,23 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     const n=Number(String(v).replace(/,/g,'').replace(/[₹%]/g,'').trim());
     return isFinite(n)?n:0;
   }
+  function tmHasValue(v){return v!==null&&v!==undefined&&String(v).trim()!==''&&String(v).trim()!=='No Data Available';}
+  function tmQuarterMetric(r,type){
+    const explicit=type==='target'?r?.Q2TGT:r?.['Q2 Ach'];
+    if(tmHasValue(explicit))return tmNum(explicit);
+    const keys=type==='target'?['Jul MC Tgt 26','Aug MC Tgt 26','Sep MC Tgt 26']:['Jul MC Ach','Aug MC Ach','Sep MC Ach'];
+    let total=0,found=false;
+    keys.forEach(k=>{if(tmHasValue(r?.[k])){total+=tmNum(r[k]);found=true;}});
+    return found?total:null;
+  }
   function tmVal(r,head){
-    // Retain the former Target Working calculation: BTG = max(0, Q2 Target - Q2 Achievement).
+    if(head==='Q2TGT'){const v=tmQuarterMetric(r,'target');return v===null?'':v;}
+    if(head==='Q2 Ach'){const v=tmQuarterMetric(r,'ach');return v===null?'':v;}
+    // Q2 BTG is calculated from the source Q2 aggregate, or from July–September values where needed.
     if(head==='BTG'){
-      const target=r?.Q2TGT,achievement=r?.['Q2 Ach'];
-      if(target===undefined||target===null||String(target).trim()===''||achievement===undefined||achievement===null||String(achievement).trim()==='')return '';
-      return Math.max(0,tmNum(target)-tmNum(achievement));
+      const target=tmQuarterMetric(r,'target'),achievement=tmQuarterMetric(r,'ach');
+      if(target===null||achievement===null)return '';
+      return Math.max(0,target-achievement);
     }
     if(typeof twTargetValue==='function') return twTargetValue(r,head);
     const aliases={
@@ -5980,6 +6023,8 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
       const s=tmSelected(id);
       if(s.length) rows=rows.filter(r=>tmMatches(r,key,s));
     });
+    const q=String(document.getElementById('tmQuickSearch')?.value||'').trim().toLowerCase();
+    if(q)rows=rows.filter(r=>Object.entries(r).some(([k,v])=>!k.startsWith('__')&&String(v??'').toLowerCase().includes(q)));
     return rows;
   }
   function tmOptions(){
@@ -6015,46 +6060,63 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     });
   }
 
-  function tmHasValue(v){return v!==null&&v!==undefined&&String(v).trim()!==''&&String(v).trim()!=='No Data Available';}
   function tmSum(rows,head){let total=0,found=false;rows.forEach(r=>{const v=tmVal(r,head);if(tmHasValue(v)){const n=tmNum(v);if(Number.isFinite(n)){total+=n;found=true;}}});return found?total:null;}
   function tmMoneyOrNA(v){return v===null?'No Data Available':tmMoney(v*100000);}
   function tmCbbOrNA(v){return v===null?'No Data Available':tmCbb(v);}
   function tmRender(){
     const rows=tmFiltered();
     const q2t=tmSum(rows,'Q2TGT'),q2a=tmSum(rows,'Q2 Ach'),q2btg=tmSum(rows,'BTG');
-    const oct=tmSum(rows,'Oct MC Tgt 26'),nov=tmSum(rows,'Plan NOV MC-26'),dec=tmSum(rows,'Plan Dec MC-26');
-    const octC=tmSum(rows,'Oct MC CBB Tgt 26'),novC=tmSum(rows,'Nov CBB'),decC=tmSum(rows,'Dec CBB');
-    const ach=q2t!==null&&q2a!==null&&q2t>0?q2a/q2t*100:null;
+    const oct=tmSum(rows,'Oct MC Tgt 26'),octAch=tmSum(rows,'Oct MC Ach');
+    const nov=tmSum(rows,'Plan NOV MC-26'),dec=tmSum(rows,'Plan Dec MC-26');
+    const octPct=oct!==null&&oct>0&&octAch!==null?octAch/oct*100:null;
+    const q2Pct=q2t!==null&&q2a!==null&&q2t>0?q2a/q2t*100:null;
+    const lspcOctT=tmSum(rows,'Oct LSPC TGT'),lspcOctA=tmSum(rows,'Oct LSPC ACH');
+    const lspcOctP=lspcOctT!==null&&lspcOctA!==null&&lspcOctT>0?lspcOctA/lspcOctT*100:null;
     document.getElementById('tmKpis').innerHTML=[
-      ['Target Rows',rows.length.toLocaleString('en-IN')],['Q2 Target',tmMoneyOrNA(q2t)],['Q2 Achievement',tmMoneyOrNA(q2a)],
-      ['Q2 Ach %',ach===null?'No Data Available':ach.toFixed(1)+'%'],['Q2 BTG',tmMoneyOrNA(q2btg)],
-      ['Oct Target 26',tmMoneyOrNA(oct)],['Nov Target 26',tmMoneyOrNA(nov)],['Dec Target 26',tmMoneyOrNA(dec)]
+      ['Filtered TBI Rows',rows.length.toLocaleString('en-IN')],['Q2 Target',tmMoneyOrNA(q2t)],['Q2 Achievement',tmMoneyOrNA(q2a)],
+      ['Q2 Ach %',q2Pct===null?'No Data Available':q2Pct.toFixed(1)+'%'],['Q2 BTG',tmMoneyOrNA(q2btg)],
+      ['Oct MC Target',tmMoneyOrNA(oct)],['Oct MC Achievement',tmMoneyOrNA(octAch)],['Oct MC Ach %',octPct===null?'No Data Available':octPct.toFixed(1)+'%'],
+      ['Oct LSPC TGT',tmMoneyOrNA(lspcOctT)],['Oct LSPC ACH',tmMoneyOrNA(lspcOctA)],['Oct LSPC Ach %',lspcOctP===null?'No Data Available':lspcOctP.toFixed(1)+'%']
     ].map(x=>'<div class="kpi"><span>'+x[0]+'</span><b>'+x[1]+'</b></div>').join('');
     document.getElementById('tmQ2').innerHTML=
       '<div class="minirow"><span>Q2 Target</span><b>'+tmMoneyOrNA(q2t)+'</b></div>'+
       '<div class="minirow"><span>Q2 Achievement</span><b>'+tmMoneyOrNA(q2a)+'</b></div>'+
-      '<div class="minirow"><span>Achievement %</span><b>'+(ach===null?'No Data Available':ach.toFixed(1)+'%')+'</b></div>'+
-      (ach===null?'':'<div class="bar"><i style="width:'+Math.min(100,Math.max(0,ach))+'%"></i></div>')+
+      '<div class="minirow"><span>Achievement %</span><b>'+(q2Pct===null?'No Data Available':q2Pct.toFixed(1)+'%')+'</b></div>'+
+      (q2Pct===null?'':'<div class="bar"><i style="width:'+Math.min(100,Math.max(0,q2Pct))+'%"></i></div>')+
       '<div class="minirow"><span>BTG</span><b>'+tmMoneyOrNA(q2btg)+'</b></div>';
     document.getElementById('tmQ3').innerHTML=
-      '<div class="minirow"><span>Oct MC Target / CBB</span><b>'+tmMoneyOrNA(oct)+' / '+tmCbbOrNA(octC)+'</b></div>'+
-      '<div class="minirow"><span>Nov MC Target / CBB</span><b>'+tmMoneyOrNA(nov)+' / '+tmCbbOrNA(novC)+'</b></div>'+
-      '<div class="minirow"><span>Dec MC Target / CBB</span><b>'+tmMoneyOrNA(dec)+' / '+tmCbbOrNA(decC)+'</b></div>';
+      '<div class="minirow"><span>October MC Target</span><b>'+tmMoneyOrNA(oct)+'</b></div>'+
+      '<div class="minirow"><span>October MC Achievement</span><b>'+tmMoneyOrNA(octAch)+'</b></div>'+
+      '<div class="minirow"><span>October MC Ach % · Q3 available progress</span><b>'+(octPct===null?'No Data Available':octPct.toFixed(1)+'%')+'</b></div>'+
+      (octPct===null?'':'<div class="bar"><i style="width:'+Math.min(100,Math.max(0,octPct))+'%"></i></div>')+
+      '<div class="minirow"><span>November target / achievement</span><b>No Data Available</b></div>'+
+      '<div class="minirow"><span>December target / achievement</span><b>No Data Available</b></div>';
     const attention=rows.map(r=>{const v=tmVal(r,'BTG');return{name:String(tmVal(r,'CUSTOMER NAME')||tmVal(r,'TBI Name')||'Unspecified'),btg:tmHasValue(v)?tmNum(v):null};})
       .filter(x=>x.btg!==null&&x.btg>0).sort((a,b)=>b.btg-a.btg).slice(0,7);
     document.getElementById('tmAttention').innerHTML=attention.length
-      ?attention.map((x,i)=>'<div class="minirow"><span>'+(i+1)+'. '+esc(x.name)+'</span><b>'+tmMoney(x.btg)+'</b></div>').join('')
+      ?attention.map((x,i)=>'<div class="minirow"><span>'+(i+1)+'. '+esc(x.name)+'</span><b>'+tmMoney(x.btg*100000)+'</b></div>').join('')
       :'<div class="empty">No Data Available</div>';
-    const rank=rows.map(r=>{const tv=tmVal(r,'Q2TGT'),av=tmVal(r,'Q2 Ach');return{name:String(tmVal(r,'CUSTOMER NAME')||tmVal(r,'TBI Name')||'Unspecified'),ach:tmHasValue(av)?tmNum(av):null,tgt:tmHasValue(tv)?tmNum(tv):null};})
+    const rank=rows.map(r=>{const tv=tmQuarterMetric(r,'target'),av=tmQuarterMetric(r,'ach');return{name:String(tmVal(r,'TBI Name')||'Unspecified'),ach:av,tgt:tv};})
       .filter(x=>x.tgt!==null&&x.ach!==null&&x.tgt>0).sort((a,b)=>(b.ach/b.tgt)-(a.ach/a.tgt)).slice(0,10);
     document.getElementById('tmRanking').innerHTML=rank.length
       ?rank.map((x,i)=>'<div class="minirow"><span>'+(i+1)+'. '+esc(x.name)+'</span><b>'+((x.ach/x.tgt*100).toFixed(1))+'%</b></div>').join('')
       :'<div class="empty">No Data Available</div>';
-    const mx=Math.max(oct||0,nov||0,dec||0,1);
-    document.getElementById('tmMonths').innerHTML=[['October',oct,octC],['November',nov,novC],['December',dec,decC]]
-      .map(x=>'<div style="margin-bottom:10px"><div class="minirow"><span>'+x[0]+'</span><b>'+tmMoneyOrNA(x[1])+' / '+tmCbbOrNA(x[2])+'</b></div>'+(x[1]===null?'':'<div class="bar"><i style="width:'+Math.min(100,x[1]/mx*100)+'%"></i></div>')+'</div>').join('');
+    const lspcMonths=[['Apr','April'],['May','May'],['Jun','June'],['Jul','July'],['Aug','August'],['Sep','September'],['Oct','October']];
+    const lspcRows=lspcMonths.map(([key,label])=>{
+      const t=tmSum(rows,key+' LSPC TGT'),a=tmSum(rows,key+' LSPC ACH'),p=t!==null&&a!==null&&t>0?a/t*100:null;
+      return {label,t,a,p};
+    });
+    const lspcTable='<div class="tablewrap" style="max-height:300px;overflow:auto"><table style="min-width:520px;width:100%"><thead><tr><th>Month</th><th>LSPC TGT</th><th>LSPC ACH</th><th>Ach %</th></tr></thead><tbody>'+
+      lspcRows.map(x=>'<tr><td>'+x.label+'</td><td>'+tmMoneyOrNA(x.t)+'</td><td>'+tmMoneyOrNA(x.a)+'</td><td>'+(x.p===null?'No Data Available':x.p.toFixed(1)+'%')+'</td></tr>').join('')+
+      '</tbody></table></div>';
+    document.getElementById('tmLspc').innerHTML=lspcTable;
+    const mx=Math.max(oct||0,1);
+    document.getElementById('tmMonths').innerHTML=
+      '<div class="minirow"><span>October MC Target / Achievement</span><b>'+tmMoneyOrNA(oct)+' / '+tmMoneyOrNA(octAch)+'</b></div>'+
+      (oct===null?'':'<div class="bar"><i style="width:'+Math.min(100,oct/mx*100)+'%"></i></div>')+
+      '<div class="minirow"><span>November MC Target / Achievement</span><b>No Data Available</b></div>'+
+      '<div class="minirow"><span>December MC Target / Achievement</span><b>No Data Available</b></div>';
   }
-
   function tmWire(){
     if(!Array.isArray(targets)||!targets.length) return;
     tmOptions();
@@ -6065,6 +6127,8 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
         e.addEventListener('change',()=>{tmOptions();tmRender();});
       }
     });
+    const quick=document.getElementById('tmQuickSearch');
+    if(quick&&!quick.dataset.tmWired){quick.dataset.tmWired='1';quick.addEventListener('input',tmRender);}
     const sa=document.getElementById('tmSelectAll');
     if(sa&&!sa.dataset.tmWired){
       sa.dataset.tmWired='1';
@@ -9477,15 +9541,31 @@ document.querySelectorAll('.nav button[data-tab="clmanagement"]').forEach(b=>b.a
     // Monthly Upload also previews the same filtered dataset in a compact, independently scrollable panel.
     const upTable=document.getElementById('uploadTbiTable'),upCount=document.getElementById('uploadTbiCount');
     if(upTable){
-      if(upCount)upCount.textContent=rows.length.toLocaleString('en-IN')+' filtered rows · '+ordered.length+' columns';
-      upTable.querySelector('thead').innerHTML=rows.length?'<tr>'+ordered.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr>':'';
-      upTable.querySelector('tbody').innerHTML=rows.length?rows.map(r=>'<tr>'+ordered.map(h=>{const v=r[h],shown=v===null||v===undefined||String(v).trim()===''?'No Data Available':v;return '<td title="'+esc(shown)+'">'+esc(shown)+'</td>';}).join('')+'</tr>').join(''):'<tr><td class="muted">Upload a TBI workbook to preview imported details.</td></tr>';
+      const upSearch=String(document.getElementById('uploadTbiSearch')?.value||'').trim().toLowerCase();
+      const upRows=all.filter(r=>!upSearch||Object.entries(r).some(([k,v])=>!k.startsWith('__')&&String(v??'').toLowerCase().includes(upSearch)));
+      if(upCount)upCount.textContent=upRows.length.toLocaleString('en-IN')+' of '+all.length.toLocaleString('en-IN')+' rows · '+ordered.length+' columns';
+      upTable.querySelector('thead').innerHTML=upRows.length?'<tr>'+ordered.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr>':'';
+      upTable.querySelector('tbody').innerHTML=upRows.length?upRows.map(r=>'<tr>'+ordered.map(h=>{const v=r[h],shown=v===null||v===undefined||String(v).trim()===''?'No Data Available':v;return '<td title="'+esc(shown)+'">'+esc(shown)+'</td>';}).join('')+'</tr>').join(''):'<tr><td class="muted">No matching rows. Clear the search or upload a workbook.</td></tr>';
     }
   }
   window.addEventListener('unibic:targets-updated',render);
   filterIds.forEach(id=>document.getElementById(id)?.addEventListener('change',render));
   ['tmSelectAll','tmClearAll'].forEach(id=>document.getElementById(id)?.addEventListener('click',()=>setTimeout(render,0)));
   search?.addEventListener('input',render);
+  const uploadSearch=document.getElementById('uploadTbiSearch');
+  const uploadExport=document.getElementById('uploadTbiExport');
+  uploadSearch?.addEventListener('input',render);
+  uploadExport?.addEventListener('click',()=>{
+    const rows=(Array.isArray(window.targets)?window.targets:[]);
+    const q=String(uploadSearch?.value||'').trim().toLowerCase();
+    const filteredRows=rows.filter(r=>!q||Object.entries(r).some(([k,v])=>!k.startsWith('__')&&String(v??'').toLowerCase().includes(q)));
+    if(!filteredRows.length){alert('No matching TBI source rows to export.');return;}
+    if(typeof XLSX==='undefined'){alert('Excel library is not available.');return;}
+    const heads=[...new Set(['Region','Area','Anchor Zone','TBI ID','TBI Name','Customer Code','Customer Name',...(window.targetHeaders||[]).filter(h=>h&&!String(h).startsWith('__'))])];
+    const data=filteredRows.map(r=>Object.fromEntries(heads.map(h=>[h,r[h]??''])));
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data),'TBI Upload Data');
+    XLSX.writeFile(wb,'UNIBIC_TBI_Upload_Filtered.xlsx');
+  });
   exportBtn?.addEventListener('click',()=>{
     const rows=filtered();if(!rows.length){alert('No filtered TBI rows to export.');return;}
     if(typeof XLSX==='undefined'){alert('Excel library is not available.');return;}
