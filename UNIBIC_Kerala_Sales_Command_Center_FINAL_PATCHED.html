@@ -2018,7 +2018,7 @@ setTimeout(()=>{
         </div>
       </div>
       <div id="tmDataCount" class="muted" style="font-size:11px;margin:8px 0">No source rows loaded</div>
-      <div class="tablewrap" style="max-height:620px;overflow:auto">
+      <div class="tablewrap" style="max-height:360px;overflow:auto">
         <table id="tmAllDataTable" style="min-width:1400px"><thead></thead><tbody><tr><td class="muted">Upload the Kerala and/or Tamil Nadu TBI workbook to view all source details.</td></tr></tbody></table>
       </div>
     </div>
@@ -2048,6 +2048,12 @@ setTimeout(()=>{
 <div class="card" style="margin-top:14px">
   <div class="cardhead"><h3>Upload Register</h3><span>File-wise status and imported record count</span></div>
   <div class="tablewrap"><table><thead><tr><th>Source</th><th>File</th><th>Worksheet</th><th>Rows</th><th>Columns</th><th>Status</th></tr></thead><tbody id="uploadTable"><tr><td colspan="6" class="muted">No TBI workbook uploaded yet.</td></tr></tbody></table></div>
+</div>
+<div class="card" id="uploadTbiPreview" style="margin-top:14px">
+  <div class="cardhead" style="flex-wrap:wrap;gap:8px"><div><h3>Imported TBI Excel Preview</h3><span class="muted" style="font-size:11px">Same combined Kerala + Tamil Nadu data used by Target Management</span></div><span id="uploadTbiCount" class="muted" style="font-size:11px">No source rows loaded</span></div>
+  <div class="tablewrap" style="max-height:360px;overflow:auto;border:1px solid #e1e8f0;border-radius:9px">
+    <table id="uploadTbiTable" style="min-width:1200px"><thead></thead><tbody><tr><td class="muted">Upload a TBI workbook to preview imported details.</td></tr></tbody></table>
+  </div>
 </div>
 <div class="card" style="margin-top:14px;background:#f8fbff">
   <b>Data handling</b>
@@ -9463,9 +9469,18 @@ document.querySelectorAll('.nav button[data-tab="clmanagement"]').forEach(b=>b.a
     const heads=(window.targetHeaders||[]).filter(h=>h&&!String(h).startsWith('__'));
     const ordered=[...new Set(['Region','Area','Anchor Zone','TBI ID','TBI Name','Customer Code','Customer Name',...heads])];
     count.textContent=rows.length.toLocaleString('en-IN')+' of '+all.length.toLocaleString('en-IN')+' imported rows · '+ordered.length+' source / mapped columns';
-    if(!rows.length){table.querySelector('thead').innerHTML='';table.querySelector('tbody').innerHTML='<tr><td class="muted">No matching rows. Clear filters or upload a source workbook.</td></tr>';return;}
-    table.querySelector('thead').innerHTML='<tr>'+ordered.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr>';
-    table.querySelector('tbody').innerHTML=rows.map(r=>'<tr>'+ordered.map(h=>{const v=r[h];const shown=v===null||v===undefined||String(v).trim()===''?'No Data Available':v;return '<td title="'+esc(shown)+'">'+esc(shown)+'</td>';}).join('')+'</tr>').join('');
+    if(!rows.length){table.querySelector('thead').innerHTML='';table.querySelector('tbody').innerHTML='<tr><td class="muted">No matching rows. Clear filters or upload a source workbook.</td></tr>';}
+    else {
+      table.querySelector('thead').innerHTML='<tr>'+ordered.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr>';
+      table.querySelector('tbody').innerHTML=rows.map(r=>'<tr>'+ordered.map(h=>{const v=r[h];const shown=v===null||v===undefined||String(v).trim()===''?'No Data Available':v;return '<td title="'+esc(shown)+'">'+esc(shown)+'</td>';}).join('')+'</tr>').join('');
+    }
+    // Monthly Upload also previews the same filtered dataset in a compact, independently scrollable panel.
+    const upTable=document.getElementById('uploadTbiTable'),upCount=document.getElementById('uploadTbiCount');
+    if(upTable){
+      if(upCount)upCount.textContent=rows.length.toLocaleString('en-IN')+' filtered rows · '+ordered.length+' columns';
+      upTable.querySelector('thead').innerHTML=rows.length?'<tr>'+ordered.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr>':'';
+      upTable.querySelector('tbody').innerHTML=rows.length?rows.map(r=>'<tr>'+ordered.map(h=>{const v=r[h],shown=v===null||v===undefined||String(v).trim()===''?'No Data Available':v;return '<td title="'+esc(shown)+'">'+esc(shown)+'</td>';}).join('')+'</tr>').join(''):'<tr><td class="muted">Upload a TBI workbook to preview imported details.</td></tr>';
+    }
   }
   window.addEventListener('unibic:targets-updated',render);
   filterIds.forEach(id=>document.getElementById(id)?.addEventListener('change',render));
