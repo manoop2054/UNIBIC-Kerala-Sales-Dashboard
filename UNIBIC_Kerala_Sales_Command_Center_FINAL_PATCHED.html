@@ -9481,6 +9481,7 @@ document.querySelectorAll('.nav button[data-tab="clmanagement"]').forEach(b=>b.a
     table.querySelector('tbody').innerHTML=rows.map(r=>'<tr>'+ordered.map(h=>'<td title="'+esc(r[h]??'')+'">'+esc(r[h]??'No Data Available')+'</td>').join('')+'</tr>').join('');
   }
   filterIds.forEach(id=>document.getElementById(id)?.addEventListener('change',render));
+  ['tmSelectAll','tmClearAll'].forEach(id=>document.getElementById(id)?.addEventListener('click',()=>setTimeout(render,0)));
   search?.addEventListener('input',render);
   exportBtn?.addEventListener('click',()=>{
     const rows=filtered();if(!rows.length){alert('No filtered TBI rows to export.');return;}
