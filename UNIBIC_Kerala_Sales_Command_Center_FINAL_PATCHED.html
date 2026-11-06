@@ -1747,7 +1747,7 @@ setTimeout(()=>{
 </style>
 <style id="cl-management-styles">
 #clmanagement .clm-intro{color:#64748b;margin:0 0 14px}#clmanagement .clm-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px}#clmanagement .clm-toolbar .field{min-width:260px;flex:1}#clmanagement .clm-customer-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}#clmanagement .clm-customer-card{border:1px solid #dbe5f0;border-radius:12px;background:#fff;overflow:hidden;min-width:0}#clmanagement .clm-card-head{padding:12px 14px;background:#eef5fc;border-bottom:1px solid #dbe5f0;display:flex;gap:10px;align-items:center;justify-content:space-between}#clmanagement .clm-card-head h3{margin:0;font-size:15px;color:#17365d}#clmanagement .clm-card-body{padding:14px}#clmanagement .clm-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}#clmanagement .clm-fields .field{min-width:0}#clmanagement .clm-fields input,#clmanagement .clm-fields select{width:100%;box-sizing:border-box}#clmanagement .clm-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}#clmanagement .clm-kpi{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:9px}#clmanagement .clm-kpi small{display:block;color:#64748b;font-size:10px;text-transform:uppercase}#clmanagement .clm-kpi b{display:block;margin-top:4px;overflow-wrap:anywhere}#clmanagement .clm-bill-wrap{overflow:auto;margin-top:10px}#clmanagement .clm-bill-table{border-collapse:collapse;width:100%;font-size:11px;white-space:nowrap}#clmanagement .clm-bill-table th,#clmanagement .clm-bill-table td{border:1px solid #dbe5f0;padding:6px 7px;text-align:left}#clmanagement .clm-bill-table th{background:#f1f5f9;color:#334155}#clmanagement .clm-notice{padding:10px 12px;border:1px solid #f3d7a4;background:#fff9e9;color:#7c4a03;border-radius:8px;margin:10px 0;font-size:12px}#clmanagement .clm-status{font-size:12px;color:#475569}#clmanagement .clm-btn{border:0;border-radius:7px;padding:9px 12px;background:#1769e0;color:white;cursor:pointer;font-weight:600}#clmanagement .clm-btn.secondary{background:#e2e8f0;color:#1e293b}@media(max-width:850px){#clmanagement .clm-customer-grid{grid-template-columns:1fr}}@media(max-width:520px){#clmanagement .clm-fields{grid-template-columns:1fr}#clmanagement .clm-kpis{grid-template-columns:1fr}}
-</style></head>
+</style><style>#targetWorking{display:none!important}#tmAllDataTable th{position:sticky;top:0;background:#eef4fb;z-index:1;white-space:nowrap}#tmAllDataTable td{white-space:nowrap;max-width:280px;overflow:hidden;text-overflow:ellipsis}#tmAllDetails .tablewrap{border:1px solid #e1e8f0;border-radius:10px}</style></head>
 <body><div class="app">
 <aside class="sidebar"><div class="brand"><div class="brandmark">U</div><div><b>UNIBIC</b><small>KERALA SALES COMMAND CENTER</small></div></div>
 <nav class="nav">
@@ -2009,455 +2009,50 @@ setTimeout(()=>{
       <div id="tmMonths"></div>
     </div>
   </div>
+    <div class="card" id="tmAllDetails" style="margin-top:16px">
+      <div class="cardhead" style="flex-wrap:wrap;gap:10px">
+        <div><h3>Complete TBI Excel Data</h3><span class="muted" style="font-size:11px">All imported source columns and rows, respecting the filters above</span></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input id="tmDataSearch" type="search" placeholder="Search all columns..." style="min-width:220px;padding:9px 11px;border:1px solid #d7e0ec;border-radius:9px">
+          <button class="smallbtn" id="tmExportAllData">Export all filtered fields</button>
+        </div>
+      </div>
+      <div id="tmDataCount" class="muted" style="font-size:11px;margin:8px 0">No source rows loaded</div>
+      <div class="tablewrap" style="max-height:620px;overflow:auto">
+        <table id="tmAllDataTable" style="min-width:1400px"><thead></thead><tbody><tr><td class="muted">Upload the Kerala and/or Tamil Nadu TBI workbook to view all source details.</td></tr></tbody></table>
+      </div>
+    </div>
 </section><section id="admincenter" class="section"><h2 class="sectiontitle">&#128737; Admin Center</h2><p class="subhead">Manage Employee Master, account status, passwords, tab/report permissions and Region/Area/Anchor Zone scope. Changes are saved through the authenticated backend.</p><div class="card" style="padding:0;overflow:hidden"><iframe title="Employee Access Management" src="/admin-center-preview" style="display:block;width:100%;height:1600px;border:0;background:#f3f7fc" loading="lazy"></iframe></div></section>
-<section id="upload" class="section"><h2 class="sectiontitle">&#128228; Monthly Upload / Data Management</h2><p class="subhead">Load Anchor-wise Target Excel only. Sales data remains connected to the active GSV source; no duplicate Primary Sales upload is required.</p><div class="uploadbox"><b>&#127919; Anchor-wise Target Excel</b><div class="muted" style="font-size:10px;margin-top:6px">Flexible fields supported: Month, Year, Anchor/AnchorName, Target GSV / Target / GSV.</div><input id="targetFile" type="file" accept=".xlsx,.xls,.csv"></div><div class="card" style="margin-top:14px"><div class="cardhead"><h3>Loaded Monthly Files</h3><button class="smallbtn" id="clearUploads">Clear uploaded target session data</button></div><div class="tablewrap"><table><thead><tr><th>Type</th><th>File</th><th>Rows</th><th>Status</th></tr></thead><tbody id="uploadTable"></tbody></table></div></div><div class="card" id="targetWorking" style="margin-top:14px">
-  <div class="cardhead">
-    <h3>&#127919; Target Working</h3>
-    <span>Target Planning / Achievement / Drilldown</span>
+<section id="upload" class="section">
+<h2 class="sectiontitle">&#128228; Monthly Upload / Data Management</h2>
+<p class="subhead">Upload the Kerala and Tamil Nadu TBI Trend workbooks separately. Both files are combined as one target dataset while retaining their original Excel fields. GSV sales data continues to use the existing connected source.</p>
+<div class="grid2" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
+  <div class="card" style="border-top:4px solid #1769e0">
+    <div class="cardhead"><h3>🇮🇳 Kerala TBI Trend</h3><span class="pill">Source 1</span></div>
+    <p class="muted" style="font-size:12px">Upload the KL TBI Trend workbook. The KL worksheet and its second-row headings are read automatically.</p>
+    <input id="uploadKLFile" type="file" accept=".xlsx,.xls,.xlsm">
+    <div id="uploadKLStatus" class="muted" style="font-size:11px;margin-top:9px">Waiting for Kerala Excel</div>
   </div>
-
-  <div class="filters" style="margin-top:12px">
-    <div class="field"><label for="twRegion">REGION</label><select id="twRegion" multiple size="2" aria-label="Region multi-selector"><option value="SOUTH TN">SOUTH TN</option><option value="SOUTH-KL">SOUTH-KL</option></select><div class="muted" style="font-size:9px;margin-top:4px">Select one or both regions; clear selection for all.</div></div>
-    <div class="field"><label>AREA</label><select id="twArea" multiple size="4"></select></div>
-    <div class="field"><label>Anchor Zone</label><select id="twAnchorZone" multiple size="4"></select></div>
-    <div class="field"><label>TBI ID</label><select id="twTbiId" multiple size="4"></select></div>
-    <div class="field"><label>TBI Name</label><select id="twTbiName" multiple size="4"></select></div>
-    <div class="field"><label>CUSTOMER CODE</label><select id="twCustomerCode" multiple size="4"></select></div>
-    <div class="field"><label>CUSTOMER NAME</label><select id="twCustomerName" multiple size="4"></select></div>
+  <div class="card" style="border-top:4px solid #159a6a">
+    <div class="cardhead"><h3>🇮🇳 Tamil Nadu TBI Trend</h3><span class="pill">Source 2</span></div>
+    <p class="muted" style="font-size:12px">Upload the TN TBI Trend workbook. The TBI Trend worksheet and its second-row headings are read automatically.</p>
+    <input id="uploadTNFile" type="file" accept=".xlsx,.xls,.xlsm">
+    <div id="uploadTNStatus" class="muted" style="font-size:11px;margin-top:9px">Waiting for Tamil Nadu Excel</div>
   </div>
-
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">
-    <button class="smallbtn" id="twSelectAll">Select All</button>
-    <button class="smallbtn" id="twClearAll">Clear All</button>
-    <button class="smallbtn" id="twExport">Export Target Working</button>
-  </div>
-
-  <div id="twKpis" class="kpis" style="margin-bottom:14px"></div>
-
-  <div class="card" style="margin-bottom:14px">
-    <div class="cardhead">
-      <h3>&#127919; Target Performance Dashboard</h3>
-      <span>Dynamic to selected Target Working filters</span>
-    </div>
-
-    <div id="twMonthCards" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px"></div>
-
-    <div style="display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:12px;margin-top:12px">
-      <div class="card" style="margin:0">
-        <div class="cardhead">
-          <h3>&#128202; Q2 / Q3 Performance</h3>
-          <span>Target → Achievement → BTG</span>
-        </div>
-        <div id="twSummary" class="tablewrap"></div>
-      </div>
-
-      <div class="card" style="margin:0">
-        <div class="cardhead">
-          <h3>&#128200; Q3 Planning</h3>
-          <span>Oct → Nov → Dec</span>
-        </div>
-        <div id="twQ3Plan" style="padding:10px"></div>
-      </div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-top:12px">
-      <div class="card" style="margin:0">
-        <div class="cardhead">
-          <h3>Ã°Å¸Ââ€  Customer Coverage</h3>
-          <span>Selected target rows</span>
-        </div>
-        <div id="twCoverage" style="padding:10px"></div>
-      </div>
-
-      <div class="card" style="margin:0">
-        <div class="cardhead">
-          <h3>âš ï¸ Attention / BTG</h3>
-          <span>Highest target gap</span>
-        </div>
-        <div id="twAttention" style="padding:10px"></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="cardhead">
-      <h3>Target Working Detail</h3>
-      <span>Filtered Target Excel rows</span>
-    </div>
-    <div class="tablewrap" style="overflow-x:auto">
-      <table id="twTable" style="min-width:2400px">
-        <thead id="twHead"></thead>
-        <tbody id="twBody"></tbody>
-      </table>
-    </div>
+  <div class="card" style="border-top:4px solid #8b5cf6">
+    <div class="cardhead"><h3>Customer Master Excel</h3><span class="pill">Source 3 · Pending</span></div>
+    <p class="muted" style="font-size:12px">Customer Code and Customer Name mapping will be configured after the third workbook is provided and its headings are checked.</p>
+    <div class="uploadbox" style="background:#f7f5ff;border:1px dashed #a78bfa;color:#6d5aa8;text-align:center;padding:16px">Customer Master upload slot reserved — awaiting workbook</div>
   </div>
 </div>
-
-<script>
-(function(){
-  const TW_HEAD=[
-    'REGION','AREA','Anchor Zone','TBI ID','TBI Name',
-    'CUSTOMER CODE','CUSTOMER NAME',
-    'JUL PRI PLAN','JUL NET PRI',
-    'AUG PRI PLAN','AUG NET PRI',
-    'SEP PRI PLAN','Sept MC Ach','SEPT BTG','Sept Ach %',
-    'Q2TGT','Q2 Ach','BTG','Q2 Ach %',
-    '',
-    'Oct MC LY','Nov MC LY','DecMC LY','Q3 25-26 Ach',
-    'Oct MC 25 (5-10 Pri)','Nov MC 25 (5-10 Pri)','DecMC 25 (5-10 Pri)',
-    'Q3 (5-10 CBB) Ach',
-    '',
-    'Oct MC 25 (5-10 CBB)','Nov MC 25 (5-10 CBB)','DecMC 25 (5-10 CBB)',
-    'Q3 (5-10 CBB) Ach',
-    'Oct MC Tgt 26','Oct MC CBB Tgt 26',
-    'Plan NOV MC-26','Nov CBB',
-    'Plan Dec MC-26','Dec CBB'
-  ];
-
-  const TW_FILTERS=[
-    ['twRegion','__region'],
-    ['twArea','__area'],
-    ['twAnchorZone','__anchorZone'],
-    ['twTbiId','__tbiId'],
-    ['twTbiName','__tbiName'],
-    ['twCustomerCode','__customerCode'],
-    ['twCustomerName','__customerName']
-  ];
-
-  function twEsc(v){
-    return String(v??'')
-      .replace(/&/g,'&amp;')
-      .replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;')
-      .replace(/"/g,'&quot;');
-  }
-
-  function twNum(v){
-    if(typeof num==='function') return num(v);
-    const n=Number(String(v??'').replace(/,/g,'').replace(/[₹%]/g,'').trim());
-    return Number.isFinite(n)?n:0;
-  }
-
-  function twMoney(v){
-    const n=twNum(v);
-    return n.toLocaleString('en-IN',{maximumFractionDigits:2});
-  }
-
-  function twFormatValue(head,value){
-    if(value===null||value===undefined||String(value).trim()==='') return '';
-    const text=String(value).trim();
-    // Keep identifiers and descriptive fields exactly as supplied by Excel.
-    if(['REGION','AREA','Anchor Zone','TBI ID','TBI Name','CUSTOMER CODE','CUSTOMER NAME'].includes(head)) return text;
-    const n=typeof value==='number'?value:Number(text.replace(/,/g,'').replace(/₹/g,'').replace(/%/g,'').trim());
-    if(!Number.isFinite(n)) return text;
-    // Percent columns are stored as ratios in the source (e.g. 0.9495 => 95%).
-    if(head==='Sept Ach %'||head==='Q2 Ach %'){
-      const pct=text.includes('%')?n:(Math.abs(n)<=1?n*100:n);
-      return Math.round(pct)+'%';
-    }
-    return n.toFixed(2);
-  }
-
-  function twTargetValue(r,head){
-    const aliases={
-      'REGION':['REGION','Region'],
-      'AREA':['AREA','Area'],
-      'Anchor Zone':['Anchor Zone','AnchorZone','ANCHOR ZONE'],
-      'TBI ID':['TBI ID','TBIID'],
-      'TBI Name':['TBI Name','TBIName'],
-      'CUSTOMER CODE':['CUSTOMER CODE','Customer Code'],
-      'CUSTOMER NAME':['CUSTOMER NAME','Customer Name'],
-      'JUL PRI PLAN':['JUL PRI PLAN','JUL  PRI PLAN'],
-      'JUL NET PRI':['JUL NET PRI','JUL NET  PRI'],
-      'AUG PRI PLAN':['AUG PRI PLAN','AUG  PRI PLAN'],
-      'AUG NET PRI':['AUG NET PRI','AUG NET  PRI'],
-      'SEP PRI PLAN':['SEP PRI PLAN','SEP  PRI PLAN'],
-      'Sept MC Ach':['Sept MC Ach','SEP MC ACH'],
-      'SEPT BTG':['SEPT BTG','Sept BTG'],
-      'Sept Ach %':['Sept Ach %','SEPT ACH %'],
-      'Q2TGT':['Q2TGT','Q2 TGT'],
-      'Q2 Ach':['Q2 Ach','Q2 ACH'],
-      'BTG':['BTG'],
-      'Q2 Ach %':['Q2 Ach %','Q2 ACH %'],
-      'Oct MC LY':['Oct MC LY'],
-      'Nov MC LY':['Nov MC LY'],
-      'DecMC LY':['DecMC LY','Dec MC LY'],
-      'Q3 25-26 Ach':['Q3 25-26 Ach'],
-      'Oct MC 25 (5-10 Pri)':['Oct MC 25 (5-10 Pri)'],
-      'Nov MC 25 (5-10 Pri)':['Nov MC 25 (5-10 Pri)'],
-      'DecMC 25 (5-10 Pri)':['DecMC 25 (5-10 Pri)'],
-      'Q3 (5-10 CBB) Ach':['Q3 (5-10 CBB) Ach'],
-      'Oct MC 25 (5-10 CBB)':['Oct MC 25 (5-10 CBB)'],
-      'Nov MC 25 (5-10 CBB)':['Nov MC 25 (5-10 CBB)'],
-      'DecMC 25 (5-10 CBB)':['DecMC 25 (5-10 CBB)'],
-      'Oct MC Tgt 26':['Oct MC Tgt 26'],
-      'Oct MC CBB Tgt 26':['Oct MC CBB Tgt 26'],
-      'Plan NOV MC-26':['Plan NOV MC-26'],
-      'Nov CBB':['Nov CBB'],
-      'Plan Dec MC-26':['Plan Dec MC-26'],
-      'Dec CBB':['Dec CBB']
-    };
-    const a=aliases[head]||[head];
-    for(const k of a){
-      if(r[k]!==undefined && r[k]!==null && r[k]!=='') return r[k];
-    }
-    const f={
-      'REGION':'__region','AREA':'__area','Anchor Zone':'__anchorZone',
-      'TBI ID':'__tbiId','TBI Name':'__tbiName',
-      'CUSTOMER CODE':'__customerCode','CUSTOMER NAME':'__customerName',
-      'Oct MC Tgt 26':'__octTarget','Oct MC CBB Tgt 26':'__octCbb',
-      'Plan NOV MC-26':'__novTarget','Nov CBB':'__novCbb',
-      'Plan Dec MC-26':'__decTarget','Dec CBB':'__decCbb'
-    };
-    return f[head] ? r[f[head]] : '';
-  }
-
-  function twRows(){
-    if(Array.isArray(window.targets)) return window.targets;
-    if(typeof targets!=='undefined' && Array.isArray(targets)) return targets;
-    return [];
-  }
-
-  function twSelected(id){
-    const el=document.getElementById(id);
-    if(!el) return [];
-    return Array.from(el.selectedOptions).map(x=>x.value);
-  }
-
-  function twMatches(r,field,vals){
-    if(!vals.length) return true;
-    const actual=String(r[field]??'');
-    if(field==='__region'){ const norm=v=>String(v??'').trim().toUpperCase().replace(/[\s-]+/g,''); return vals.some(v=>norm(v)===norm(actual)); }
-    return vals.includes(actual);
-  }
-
-  function twFiltered(){
-    let rows=twRows();
-    TW_FILTERS.forEach(([id,field])=>{
-      const vals=twSelected(id);
-      rows=rows.filter(r=>twMatches(r,field,vals));
-    });
-    return rows;
-  }
-
-  function twSetOptions(id,values,keep){
-    const el=document.getElementById(id);
-    if(!el) return;
-    const old=keep||[];
-    const vals=[...new Set(values.map(v=>String(v??'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
-    el.innerHTML=vals.map(v=>'<option value="'+twEsc(v)+'">'+twEsc(v)+'</option>').join('');
-    Array.from(el.options).forEach(o=>{o.selected=old.includes(o.value)});
-  }
-
-  function twPopulate(){
-    let base=twRows();
-    TW_FILTERS.forEach(([id,field],i)=>{
-      if(id==='twRegion') return; // Keep the fixed Region multi-selector options.
-      const vals=twSelected(id);
-      if(i>0){
-        base=twRows();
-        TW_FILTERS.slice(0,i).forEach(([pid,pfield])=>{
-          const pv=twSelected(pid);
-          base=base.filter(r=>twMatches(r,pfield,pv));
-        });
-      }
-      twSetOptions(id,base.map(r=>r[field]),vals);
-    });
-  }
-
-  function twRender(){
-    const rows=twFiltered();
-
-    const sum=(head)=>rows.reduce((s,r)=>s+twNum(twTargetValue(r,head)),0);
-    const pct=(a,t)=>t?(a/t*100):0;
-
-    const q2t=sum('Q2TGT');
-    const q2a=sum('Q2 Ach');
-    const q2p=pct(q2a,q2t);
-    const q2btg=Math.max(0,q2t-q2a);
-
-    const julT=sum('JUL PRI PLAN');
-    const julA=sum('JUL NET PRI');
-    const julP=pct(julA,julT);
-
-    const augT=sum('AUG PRI PLAN');
-    const augA=sum('AUG NET PRI');
-    const augP=pct(augA,augT);
-
-    const sepT=sum('SEP PRI PLAN');
-    const sepA=sum('Sept MC Ach');
-    const sepP=pct(sepA,sepT);
-
-    const oct=sum('Oct MC Tgt 26');
-    const nov=sum('Plan NOV MC-26');
-    const dec=sum('Plan Dec MC-26');
-    const q3Plan=oct+nov+dec;
-
-    const octCbb=sum('Oct MC CBB Tgt 26');
-    const novCbb=sum('Nov CBB');
-    const decCbb=sum('Dec CBB');
-    const q3Cbb=octCbb+novCbb+decCbb;
-
-    const k=document.getElementById('twKpis');
-    if(k) k.innerHTML=
-      '<div class="minirow"><span>&#127919; Target Rows</span><b>'+rows.length.toLocaleString('en-IN')+'</b></div>'+
-      '<div class="minirow"><span>Q2 Target</span><b>'+twMoney(q2t)+'</b></div>'+
-      '<div class="minirow"><span>Q2 Achievement</span><b>'+twMoney(q2a)+'</b></div>'+
-      '<div class="minirow"><span>Q2 Ach %</span><b>'+q2p.toFixed(1)+'%</b></div>'+
-      '<div class="minirow"><span>Q2 BTG</span><b>'+twMoney(q2btg)+'</b></div>'+
-      '<div class="minirow"><span>Q3 Plan 26</span><b>'+twMoney(q3Plan)+'</b></div>'+
-      '<div class="minirow"><span>Q3 CBB Plan</span><b>'+twMoney(q3Cbb)+'</b></div>';
-
-    const mc=document.getElementById('twMonthCards');
-    if(mc){
-      const card=(month,t,a,p,label)=>{
-        const cl=p>=100?'#168a4a':p>=80?'#d28a00':'#c0392b';
-        return '<div style="border:1px solid rgba(0,0,0,.10);border-radius:12px;padding:14px;background:linear-gradient(135deg,rgba(255,255,255,.98),rgba(245,248,252,.92));box-shadow:0 3px 12px rgba(0,0,0,.06)">'+
-          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">'+
-          '<b style="font-size:16px">'+month+'</b>'+
-          '<b style="font-size:17px;color:'+cl+'">'+p.toFixed(1)+'%</b></div>'+
-          '<div style="font-size:11px;opacity:.70">Target</div>'+
-          '<div style="font-size:18px;font-weight:700;margin-bottom:7px">'+twMoney(t)+'</div>'+
-          '<div style="height:7px;border-radius:20px;background:#e9edf2;overflow:hidden">'+
-          '<div style="height:100%;width:'+Math.min(100,Math.max(0,p))+'%;background:'+cl+';border-radius:20px"></div></div>'+
-          '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px">'+
-          '<span>Achievement <b>'+twMoney(a)+'</b></span>'+
-          '<span>'+label+'</span></div></div>';
-      };
-
-      mc.innerHTML=
-        card('JUL',julT,julA,julP,'Net PRI')+
-        card('AUG',augT,augA,augP,'Net PRI')+
-        card('SEP',sepT,sepA,sepP,'MC Ach');
-    }
-
-    const sm=document.getElementById('twSummary');
-    if(sm) sm.innerHTML=
-      '<table><thead><tr><th>Metric</th><th>Target</th><th>Achievement</th><th>BTG</th><th>Ach %</th></tr></thead><tbody>'+
-      '<tr><td><b>Q2</b></td><td>'+twMoney(q2t)+'</td><td>'+twMoney(q2a)+'</td><td>'+twMoney(q2btg)+'</td><td><b>'+q2p.toFixed(1)+'%</b></td></tr>'+
-      '<tr><td>JUL</td><td>'+twMoney(julT)+'</td><td>'+twMoney(julA)+'</td><td>'+twMoney(Math.max(0,julT-julA))+'</td><td>'+julP.toFixed(1)+'%</td></tr>'+
-      '<tr><td>AUG</td><td>'+twMoney(augT)+'</td><td>'+twMoney(augA)+'</td><td>'+twMoney(Math.max(0,augT-augA))+'</td><td>'+augP.toFixed(1)+'%</td></tr>'+
-      '<tr><td>SEP</td><td>'+twMoney(sepT)+'</td><td>'+twMoney(sepA)+'</td><td>'+twMoney(Math.max(0,sepT-sepA))+'</td><td>'+sepP.toFixed(1)+'%</td></tr>'+
-      '<tr><td><b>Oct-Dec Plan 26</b></td><td>'+twMoney(q3Plan)+'</td><td>-</td><td>-</td><td>-</td></tr>'+
-      '</tbody></table>';
-
-    const q3=document.getElementById('twQ3Plan');
-    if(q3){
-      const bar=(name,val,total)=>{
-        const p=total?val/total*100:0;
-        return '<div style="margin:10px 0">'+
-          '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><b>'+name+'</b><span>'+twMoney(val)+'</span></div>'+
-          '<div style="height:8px;background:#e9edf2;border-radius:20px;overflow:hidden"><div style="width:'+Math.min(100,Math.max(0,p))+'%;height:100%;background:#1976a8;border-radius:20px"></div></div>'+
-          '</div>';
-      };
-
-      q3.innerHTML=
-        bar('October 2026',oct,q3Plan)+
-        bar('November 2026',nov,q3Plan)+
-        bar('December 2026',dec,q3Plan)+
-        '<div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid rgba(0,0,0,.08)"><b>Q3 Total Plan</b><b>'+twMoney(q3Plan)+'</b></div>'+
-        '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:12px"><span>Q3 CBB Plan</span><b>'+twMoney(q3Cbb)+'</b></div>';
-    }
-
-    const coverage=document.getElementById('twCoverage');
-    if(coverage){
-      const customers=new Set(rows.map(r=>String(twTargetValue(r,'CUSTOMER NAME')||'').trim()).filter(Boolean)).size;
-      const tbi=new Set(rows.map(r=>String(twTargetValue(r,'TBI ID')||'').trim()).filter(Boolean)).size;
-      const anchors=new Set(rows.map(r=>String(twTargetValue(r,'Anchor Zone')||'').trim()).filter(Boolean)).size;
-
-      coverage.innerHTML=
-        '<div class="minirow"><span>Customers</span><b>'+customers.toLocaleString('en-IN')+'</b></div>'+
-        '<div class="minirow"><span>TBI / Owners</span><b>'+tbi.toLocaleString('en-IN')+'</b></div>'+
-        '<div class="minirow"><span>Anchor Zones</span><b>'+anchors.toLocaleString('en-IN')+'</b></div>'+
-        '<div class="minirow"><span>Q3 Plan</span><b>'+twMoney(q3Plan)+'</b></div>'+
-        '<div class="minirow"><span>Q3 CBB</span><b>'+twMoney(q3Cbb)+'</b></div>';
-    }
-
-    const attention=document.getElementById('twAttention');
-    if(attention){
-      const ranked=rows.map(r=>{
-        const name=String(twTargetValue(r,'CUSTOMER NAME')||'').trim()||'Unassigned';
-        const t=twNum(twTargetValue(r,'Q2TGT'));
-        const a=twNum(twTargetValue(r,'Q2 Ach'));
-        return {name,t,a,btg:Math.max(0,t-a)};
-      }).filter(x=>x.t>0).sort((a,b)=>b.btg-a.btg).slice(0,5);
-
-      attention.innerHTML=ranked.length
-        ? ranked.map((x,i)=>
-          '<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.07)">'+
-          '<span><b>'+(i+1)+'. '+twEsc(x.name)+'</b><br><small>Q2 Target: '+twMoney(x.t)+'</small></span>'+
-          '<b style="color:#c0392b">'+twMoney(x.btg)+'</b></div>'
-        ).join('')
-        : '<div class="empty">No Q2 target-gap data available.</div>';
-    }
-
-    const h=document.getElementById('twHead');
-    const b=document.getElementById('twBody');
-    if(!h||!b) return;
-
-    h.innerHTML='<tr>'+TW_HEAD.map(x=>'<th>'+twEsc(x)+'</th>').join('')+'</tr>';
-
-    b.innerHTML=rows.map(r=>{
-      return '<tr>'+TW_HEAD.map(head=>{
-        if(head==='') return '<td></td>';
-        const v=twTargetValue(r,head);
-        return '<td>'+twEsc(twFormatValue(head,v))+'</td>';
-      }).join('')+'</tr>';
-    }).join('') ||
-    '<tr><td colspan="'+TW_HEAD.length+'" class="empty">No Target Working rows for selected filters.</td></tr>';
-  }
-  function twRefresh(){
-    twPopulate();
-    twRender();
-  }
-
-  TW_FILTERS.forEach(([id])=>{
-    const el=document.getElementById(id);
-    if(el) el.addEventListener('change',twRefresh);
-  });
-
-  const sa=document.getElementById('twSelectAll');
-  if(sa) sa.addEventListener('click',function(){
-    TW_FILTERS.forEach(([id])=>{
-      const el=document.getElementById(id);
-      if(!el) return;
-      Array.from(el.options).forEach(o=>o.selected=true);
-    });
-    twRender();
-  });
-
-  const ca=document.getElementById('twClearAll');
-  if(ca) ca.addEventListener('click',function(){
-    TW_FILTERS.forEach(([id])=>{
-      const el=document.getElementById(id);
-      if(!el) return;
-      Array.from(el.options).forEach(o=>o.selected=false);
-    });
-    twRefresh();
-  });
-
-  const ex=document.getElementById('twExport');
-  if(ex) ex.addEventListener('click',function(){
-    const rows=twFiltered();
-    if(!rows.length){alert('No Target Working rows to export.');return}
-    const data=rows.map(r=>{
-      const o={};
-      TW_HEAD.forEach((h,i)=>{o[h||('BLANK_'+(i+1))]=twTargetValue(r,h)});
-      return o;
-    });
-    if(typeof XLSX==='undefined'){alert('Excel library is not available.');return}
-    const ws=XLSX.utils.json_to_sheet(data);
-    const wb=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb,ws,'Target Working');
-    XLSX.writeFile(wb,'UNIBIC_Target_Working.xlsx');
-  });
-
-  const tf=document.getElementById('targetFile');
-  if(tf) tf.addEventListener('change',function(){setTimeout(twRefresh,700)});
-
-  setTimeout(twRefresh,1000);
-})();
-</script>
+<div class="card" style="margin-top:14px">
+  <div class="cardhead"><h3>Upload Register</h3><span>File-wise status and imported record count</span></div>
+  <div class="tablewrap"><table><thead><tr><th>Source</th><th>File</th><th>Worksheet</th><th>Rows</th><th>Columns</th><th>Status</th></tr></thead><tbody id="uploadTable"><tr><td colspan="6" class="muted">No TBI workbook uploaded yet.</td></tr></tbody></table></div>
+</div>
+<div class="card" style="margin-top:14px;background:#f8fbff">
+  <b>Data handling</b>
+  <p class="muted" style="font-size:11px;margin:6px 0 0">Original source headings and values are retained. Region is identified from the uploaded file. Customer Code / Customer Name and Kerala Anchor Zone remain blank until a matching source is available; no values are inferred.</p>
+</div>
 </section>
 <div class="footer" style="padding:15px 2px;color:#8493a8;font-size:9px">GSV API: /api/gsv • LIVE SOH API: /api/live-soh • Auto refresh: 15 minutes • <span id="last">Last refresh: -</span></div>
 </main></div><div id="toast" class="toast"></div>
@@ -2552,337 +2147,144 @@ async function sharedGetDataset(dataset){
 }
 /* ===== END SHARED EXCEL UPLOAD API ===== */
 
-/* ===== TARGET EXCEL UPLOAD FIX ===== */
+/* ===== KERALA + TAMIL NADU TBI SOURCE UPLOAD ===== */
 (function(){
-  const fileInput=document.getElementById('targetFile');
-  const uploadTable=document.getElementById('uploadTable');
-  const clearBtn=document.getElementById('clearUploads');
-
-  function targetNum(v){
-    if(v===null||v===undefined||v==='') return 0;
-    if(typeof v==='number') return isFinite(v)?v:0;
-    const n=Number(String(v).replace(/,/g,'').replace(/[₹$]/g,'').trim());
-    return isFinite(n)?n:0;
+  const configs=[
+    {id:'uploadKLFile',region:'SOUTH-KL',label:'Kerala',sheet:'KL',status:'uploadKLStatus'},
+    {id:'uploadTNFile',region:'SOUTH TN',label:'Tamil Nadu',sheet:'TBI Trend',status:'uploadTNStatus'}
+  ];
+  const monthAliases=[
+    ['Apr','April'],['May','May'],['Jun','June'],['Jul','July'],
+    ['Aug','AUG'],['Sep','Sept'],['Oct','Oct']
+  ];
+  const norm=s=>String(s??'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+  const escHtml=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  function setStatus(cfg,msg,ok){
+    const el=document.getElementById(cfg.status);
+    if(el){el.textContent=msg;el.style.color=ok?'#13865c':'#64748b';}
   }
-
-  function targetMonthFromHeader(h){
-    const s=String(h||'').toLowerCase();
-    if(s.includes('jul')) return 'Jul';
-    if(s.includes('aug')) return 'Aug';
-    if(s.includes('sep')) return 'Sep';
-    if(s.includes('oct')) return 'Oct';
-    if(s.includes('nov')) return 'Nov';
-    if(s.includes('dec')) return 'Dec';
-    return '';
-  }
-
-  function targetKey(v){return String(v??'').replace(/[\r\n]+/g,' ').replace(/[^\S\r\n]+/g,' ').trim().toUpperCase()}
-  function normalizeTargetRows(rows,headers){
-    const src=Array.isArray(rows)?rows:[];
-    if(!src.length)return [];
-
-    const keys=Object.keys(src[0]||{});
-    const actualHeaders=keys.map(k=>String(src[0]?.[k]??'').replace(/[\r\n]+/g,' ').trim());
-
-    const dataRows=src.slice(1);
-    const out=[];
-
-    dataRows.forEach((r,rowIndex)=>{
-      const x={};
-
-      keys.forEach((k,i)=>{
-        const h=actualHeaders[i];
-        if(h)x[h]=r?.[k]??'';
-      });
-
-      const get=(name)=>{
-        const wanted=targetKey(name);
-        const actual=Object.keys(x).find(k=>targetKey(k)===wanted);
-        return actual!==undefined?x[actual]:'';
-      };
-
-      x.__rowNo=rowIndex+2;
-      x.__region=String(get('REGION')??'').trim();
-      x.__area=String(get('AREA')??'').trim();
-      x.__anchorZone=String(get('Anchor Zone')??'').trim();
-      x.__tbiId=String(get('TBI ID')??'').trim();
-      x.__tbiName=String(get('TBI Name')??'').trim();
-      x.__customerCode=String(get('CUSTOMER CODE')??'').trim();
-      x.__customerName=String(get('CUSTOMER NAME')??'').trim();
-
-      x.__octTarget=targetNum(get('Oct MC Tgt 26'));
-      x.__octCbb=targetNum(get('Oct MC CBB Tgt 26'));
-      x.__novTarget=targetNum(get('Plan NOV MC-26'));
-      x.__novCbb=targetNum(get('Nov CBB'));
-      x.__decTarget=targetNum(get('Plan Dec MC-26'));
-      x.__decCbb=targetNum(get('Dec CBB'));
-
-      x.__q2Target=targetNum(get('Q2TGT'));
-      x.__q2Ach=targetNum(get('Q2 Ach'));
-      x.__btg=targetNum(get('BTG'));
-      x.__q2AchPct=targetNum(get('Q2 Ach %'));
-
-      x.__totalTarget=x.__octTarget+x.__novTarget+x.__decTarget;
-      x.__totalCbb=x.__octCbb+x.__novCbb+x.__decCbb;
-
-      x.__months=[];
-      if(x.__octTarget||x.__octCbb)x.__months.push('Oct');
-      if(x.__novTarget||x.__novCbb)x.__months.push('Nov');
-      if(x.__decTarget||x.__decCbb)x.__months.push('Dec');
-
-      if(
-        x.__region ||
-        x.__area ||
-        x.__anchorZone ||
-        x.__tbiId ||
-        x.__tbiName ||
-        x.__customerCode ||
-        x.__customerName
-      ){
-        out.push(x);
-      }
+  function updateRegister(rows){
+    const body=document.getElementById('uploadTable');
+    if(!body)return;
+    const groups=new Map();
+    (rows||[]).forEach(r=>{
+      const key=r.__sourceRegion||'';
+      if(!key)return;
+      const g=groups.get(key)||{file:r.__sourceFile||'Uploaded workbook',sheet:r.__sourceSheet||'',rows:0,cols:r.__sourceColumnCount||0};
+      g.rows++;groups.set(key,g);
     });
-
-    return out;
+    if(!groups.size){body.innerHTML='<tr><td colspan="6" class="muted">No TBI workbook uploaded yet.</td></tr>';return;}
+    body.innerHTML=[...groups.entries()].map(([region,g])=>'<tr><td>'+escHtml(region)+'</td><td>'+escHtml(g.file)+'</td><td>'+escHtml(g.sheet)+'</td><td>'+g.rows.toLocaleString('en-IN')+'</td><td>'+g.cols+'</td><td><span class="pill green">Shared & loaded</span></td></tr>').join('');
+    configs.forEach(cfg=>{
+      const g=groups.get(cfg.region);
+      setStatus(cfg,g?('Loaded · '+g.rows.toLocaleString('en-IN')+' rows · '+g.cols+' columns'):'Waiting for '+cfg.label+' Excel',!!g);
+    });
   }
-  function showUpload(file,rows,status){
-    if(!uploadTable)return;
-
-    uploadTable.innerHTML=
-      '<tr><td>Target</td><td>'+esc(file.name)+'</td><td>'+
-      rows.length.toLocaleString('en-IN')+
-      '</td><td><span class="pill green">'+esc(status)+'</span></td></tr>';
+  function findHeader(headers,aliases){
+    const wanted=aliases.map(norm);
+    return headers.findIndex(h=>wanted.includes(norm(h)));
   }
-
-  async function loadTargetRows(file,headers,rows){
-    console.log('TARGET DEBUG headers:',headers); console.log('TARGET DEBUG raw rows:',rows.length,rows.slice(0,3)); const parsed=normalizeTargetRows(rows,headers); console.log('TARGET DEBUG parsed rows:',parsed.length,parsed.slice(0,3));
-
-    if(!parsed.length){
-      showUpload(file,[], 'No valid target rows');
-      console.warn('Target upload: no valid rows');
-      return;
+  function toNum(v){
+    if(v===null||v===undefined||String(v).trim()==='')return 0;
+    const n=Number(String(v).replace(/,/g,'').replace(/[₹%]/g,'').trim());
+    return Number.isFinite(n)?n:0;
+  }
+  function makeRows(matrix,cfg,fileName){
+    if(!matrix||matrix.length<3)throw new Error('The workbook does not contain the expected heading row and data.');
+    const headerRow=matrix[1]||[];
+    const used=new Map(),headers=headerRow.map((v,i)=>{
+      const base=String(v??'').trim()||('Column '+(i+1));
+      const count=(used.get(base)||0)+1;used.set(base,count);
+      return count===1?base:base+' ('+count+')';
+    });
+    const rawHeaderNames=headerRow.map((v,i)=>String(v??'').trim()||('Column '+(i+1)));
+    const index=(names)=>findHeader(rawHeaderNames,names);
+    const areaIdx=index(['Area','AREA']);
+    const zoneIdx=index(['Anchor Zone','AnchorZone']);
+    const idIdx=index(['Employee_Id','Employee ID','TBI ID']);
+    const nameIdx=index(['Employee_Name','Employee Name','TBI Name']);
+    if(areaIdx<0||idIdx<0||nameIdx<0)throw new Error('Required source headings were not found (Area / Employee_Id / Employee_Name).');
+    const rows=[];
+    for(let ri=2;ri<matrix.length;ri++){
+      const cells=matrix[ri]||[];
+      // Exclude area subtotals / grand totals and blank trailing rows.
+      // Only employee-level TBI records belong in target aggregation.
+      if(!String(cells[idIdx]??'').trim()||!String(cells[nameIdx]??'').trim())continue;
+      const row={};
+      headers.forEach((h,i)=>row[h]=cells[i]??'');
+      row.REGION=cfg.region;
+      row.AREA=String(cells[areaIdx]??'').trim();
+      row['Anchor Zone']=zoneIdx>=0&&String(cells[zoneIdx]??'').trim()?String(cells[zoneIdx]).trim():'No Data Available';
+      row['TBI ID']=String(cells[idIdx]??'').trim();
+      row['TBI Name']=String(cells[nameIdx]??'').trim();
+      row['CUSTOMER CODE']='No Data Available';
+      row['CUSTOMER NAME']='No Data Available';
+      row['Region']=cfg.region;row['Area']=row.AREA;row['Customer Code']='No Data Available';row['Customer Name']='No Data Available';
+      row.__region=row.REGION;row.__area=row.AREA;row.__anchorZone=row['Anchor Zone'];
+      row.__tbiId=row['TBI ID'];row.__tbiName=row['TBI Name'];
+      row.__customerCode='No Data Available';row.__customerName='No Data Available';
+      row.__sourceRegion=cfg.region;row.__sourceFile=fileName;row.__sourceSheet=cfg.sheet;row.__sourceColumnCount=headers.length;
+      // Translate source month target columns to the existing Executive target field convention.
+      monthAliases.forEach(([short,long])=>{
+        const ix=findHeader(rawHeaderNames,[long+' TGT',short+' TGT']);
+        if(ix>=0)row[short+' MC Tgt 26']=cells[ix]??'';
+      });
+      const q2t=index(['Q2 Tgt','Q2TGT']);if(q2t>=0)row.Q2TGT=cells[q2t]??'';
+      const q2a=index(['Q2 Ach']);if(q2a>=0)row['Q2 Ach']=cells[q2a]??'';
+      const octAch=index(['Oct MC Ach']);if(octAch>=0)row['Oct MC Ach']=cells[octAch]??'';
+      if(q2a>=0){const q2pct=rawHeaderNames.findIndex((h,i)=>i>q2a&&String(h??'').trim()==='%');if(q2pct>=0)row['Q2 Ach %']=cells[q2pct]??'';}
+      rows.push(row);
     }
-
-    let sharedResult;
-    try{
-      sharedResult = await sharedSaveDataset('target', file.name, parsed, headers);
-      if(!sharedResult){
-        if(typeof toast==='function') toast('Target upload cancelled; shared data was not changed');
-        return;
-      }
-    }catch(sharedError){
-      console.error('Shared Target upload failed:', sharedError);
-      alert('Target Excel was NOT shared. '+(sharedError.message||sharedError)+'\nThe previous shared Target data is unchanged. Please check the PIN/network and retry.');
-      return;
-    }
-
-    targets=parsed;
-
+    if(!rows.length)throw new Error('No populated TBI data rows were found.');
+    return {rows,headers:[...new Set(['Region','Area','Anchor Zone','TBI ID','TBI Name','Customer Code','Customer Name',...headers,...monthAliases.map(([m])=>m+' MC Tgt 26'),'Q2TGT','Q2 Ach','Q2 Ach %'])]};
+  }
+  async function loadWorkbook(cfg,file){
+    setStatus(cfg,'Reading '+file.name+'…',false);
+    const buffer=await file.arrayBuffer();
+    const wb=XLSX.read(new Uint8Array(buffer),{type:'array',cellDates:true});
+    const sheetName=wb.SheetNames.includes(cfg.sheet)?cfg.sheet:null;
+    if(!sheetName)throw new Error('Expected worksheet "'+cfg.sheet+'" was not found. Available sheets: '+wb.SheetNames.join(', '));
+    const matrix=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,defval:'',raw:true});
+    const parsed=makeRows(matrix,cfg,file.name);
+    // Keep the other region's already uploaded records; replace only this region.
+    const retained=(Array.isArray(targets)?targets:[]).filter(r=>r&&r.__sourceRegion&&r.__sourceRegion!==cfg.region);
+    const combined=retained.concat(parsed.rows);
+    const allHeaders=[...new Set([...(window.targetHeaders||[]),...parsed.headers])];
+    const saved=await sharedSaveDataset('target',file.name,combined,allHeaders);
+    if(!saved)throw new Error('Upload was cancelled; existing shared data was not changed.');
+    targets=combined;window.targets=targets;window.targetHeaders=allHeaders;
     try{
       localStorage.setItem('UNIBIC_TARGET_ROWS',JSON.stringify(targets));
-      localStorage.setItem('UNIBIC_TARGET_HEADERS',JSON.stringify(headers));
+      localStorage.setItem('UNIBIC_TARGET_HEADERS',JSON.stringify(allHeaders));
       localStorage.setItem('UNIBIC_TARGET_FILE',file.name);
       localStorage.setItem('UNIBIC_TARGET_UPLOADED',new Date().toISOString());
-    }catch(e){
-      console.warn('Target local save failed',e);
-    }
-
-    window.targetHeaders=headers;
-
-    showUpload(file,parsed,'Loaded');
-
-    if(typeof renderTargetWorking==='function'){
-      renderTargetWorking();
-    }
-
-    if(typeof renderAll==='function'){
-      renderAll();
-    }
-
-    if(typeof toast==='function'){
-      toast('Target Excel loaded successfully');
-    }
-
-    console.log(
-      'Target Excel loaded:',
-      file.name,
-      parsed.length,
-      'rows',
-      headers.length,
-      'columns'
-    );
+    }catch(e){console.warn('Target cache could not be saved locally:',e);}
+    updateRegister(targets);
+    if(typeof renderAll==='function')renderAll();
+    window.dispatchEvent(new Event('unibic:targets-updated'));
+    setStatus(cfg,'Uploaded & shared · '+parsed.rows.length.toLocaleString('en-IN')+' rows',true);
+    document.getElementById('tmDataSearch')?.dispatchEvent(new Event('input'));
+    if(typeof toast==='function')toast(cfg.label+' TBI Trend uploaded and shared successfully');
   }
-
-  if(fileInput){
-    fileInput.addEventListener('change',function(){
-      const file=this.files&&this.files[0];
-      if(!file)return;
-
-      try{
-        const reader=new FileReader();
-
-        reader.onload=function(e){
-          try{
-            let wb;
-
-            if(/\.csv$/i.test(file.name)){
-              const text=new TextDecoder().decode(
-                new Uint8Array(e.target.result)
-              );
-              wb=XLSX.read(text,{type:'string'});
-            }else{
-              wb=XLSX.read(
-                new Uint8Array(e.target.result),
-                {type:'array'}
-              );
-            }
-
-            const ws=wb.Sheets[wb.SheetNames[0]];
-
-            /*
-             * header:1 is intentional.
-             * It preserves the original Excel column order,
-             * duplicate/blank columns and exact heading text.
-             */
-            const matrix=XLSX.utils.sheet_to_json(ws,{
-              header:1,
-              defval:'',
-              raw:true
-            });
-            console.log('TARGET DEBUG sheet:',ws); console.log('TARGET DEBUG matrix first 3 rows:',matrix.slice(0,3));
-
-            if(!matrix.length){
-              showUpload(file,[],'Empty Excel');
-              return;
-            }
-
-            const headerRow=matrix[0]||[];
-
-            const headers=headerRow.map((h,i)=>{
-              const original=String(h??'');
-              return original.trim() || ('__BLANK_COLUMN_'+(i+1));
-            });
-
-            const rows=[];
-
-            for(let i=1;i<matrix.length;i++){
-              const arr=matrix[i]||[];
-              const obj={};
-
-              headers.forEach((h,j)=>{
-                obj[h]=arr[j]??'';
-              });
-
-              rows.push(obj);
-            }
-
-            loadTargetRows(file,headers,rows).catch(err=>{console.error('Target shared upload failed:',err);alert('Target upload failed: '+(err.message||err));});
-
-          }catch(err){
-            console.error('Target Excel parse failed:',err);
-            showUpload(file,[],'Load failed');
-
-            if(typeof toast==='function'){
-              toast('Target Excel load failed');
-            }
-          }
-        };
-
-        reader.readAsArrayBuffer(file);
-
-      }catch(err){
-        console.error('Target upload failed:',err);
-      }
+  configs.forEach(cfg=>{
+    const input=document.getElementById(cfg.id);
+    if(input)input.addEventListener('change',async function(){
+      const file=this.files&&this.files[0];if(!file)return;
+      try{await loadWorkbook(cfg,file);}
+      catch(err){console.error(cfg.label+' TBI upload failed:',err);setStatus(cfg,'Upload failed · '+(err.message||err),false);alert(cfg.label+' Excel upload failed. '+(err.message||err)+'\nThe previous shared dataset remains unchanged.');}
     });
-  }
-
-  if(clearBtn){
-    clearBtn.addEventListener('click',function(){
-      targets=[];
-
-      try{
-        localStorage.removeItem('UNIBIC_TARGET_ROWS');
-        localStorage.removeItem('UNIBIC_TARGET_HEADERS');
-        localStorage.removeItem('UNIBIC_TARGET_FILE');
-        localStorage.removeItem('UNIBIC_TARGET_UPLOADED');
-      }catch(e){}
-
-      window.targetHeaders=[];
-
-      if(uploadTable){
-        uploadTable.innerHTML='';
-      }
-
-      if(fileInput){
-        fileInput.value='';
-      }
-
-      if(typeof renderTargetWorking==='function'){
-        renderTargetWorking();
-      }
-
-      if(typeof renderAll==='function'){
-        renderAll();
-      }
-
-      if(typeof toast==='function'){
-        toast('Target session data cleared');
-      }
-    });
-  }
-
-  /*
-   * Restore target data saved in this browser session.
-   */
-  try{
-    const saved=localStorage.getItem('UNIBIC_TARGET_ROWS');
-    const savedHeaders=localStorage.getItem('UNIBIC_TARGET_HEADERS');
-    const savedFile=localStorage.getItem('UNIBIC_TARGET_FILE');
-
-    if(saved){
-      const parsed=JSON.parse(saved);
-
-      if(Array.isArray(parsed)){
-        targets=parsed;
-      }
-    }
-
-    if(savedHeaders){
-      window.targetHeaders=JSON.parse(savedHeaders);
-    }else{
-      window.targetHeaders=[];
-    }
-
-    if(uploadTable && targets.length){
-      uploadTable.innerHTML=
-        '<tr><td>Target</td><td>'+
-        esc(savedFile||'Saved Target Excel')+
-        '</td><td>'+
-        targets.length.toLocaleString('en-IN')+
-        '</td><td><span class="pill green">Restored</span></td></tr>';
-    }
-
-  }catch(e){
-    console.warn('Saved target restore failed',e);
-  }
-
-  /* Prefer the shared server copy when available, so every viewer sees the latest upload. */
+  });
+  // Restore the combined shared source; old single-file target records are not treated as TBI source data.
   sharedGetDataset('target').then(result=>{
-    if(!result.uploaded || !result.data || !Array.isArray(result.data.rows)) return;
-    targets=result.data.rows;
+    if(!result.uploaded||!result.data||!Array.isArray(result.data.rows))return;
+    const restored=result.data.rows.filter(r=>r&&r.__sourceRegion);
+    if(!restored.length)return;
+    targets=restored;window.targets=targets;
     window.targetHeaders=Array.isArray(result.data.headers)?result.data.headers:[];
-    try{
-      localStorage.setItem('UNIBIC_TARGET_ROWS',JSON.stringify(targets));
-      localStorage.setItem('UNIBIC_TARGET_HEADERS',JSON.stringify(window.targetHeaders));
-      localStorage.setItem('UNIBIC_TARGET_FILE',result.filename||'Shared Target Excel');
-      localStorage.setItem('UNIBIC_TARGET_UPLOADED',result.uploaded_at||new Date().toISOString());
-    }catch(e){console.warn('Shared Target local cache failed:',e)}
-    if(uploadTable){
-      uploadTable.innerHTML='<tr><td>Target</td><td>'+esc(result.filename||'Shared Target Excel')+'</td><td>'+targets.length.toLocaleString('en-IN')+'</td><td><span class="pill green">Shared</span></td></tr>';
-    }
-    const twRefreshTrigger=document.getElementById('twRegion'); if(twRefreshTrigger) twRefreshTrigger.dispatchEvent(new Event('change'));
-    if(typeof renderAll==='function') renderAll();
-  }).catch(e=>console.warn('Shared Target restore unavailable; keeping browser copy:',e));
+    updateRegister(targets);
+    if(typeof renderAll==='function')renderAll();
+    window.dispatchEvent(new Event('unibic:targets-updated'));
+  }).catch(err=>console.warn('Shared TBI target restore unavailable:',err));
 })();
 function dateVal(v){
   if(v===null||v===undefined||v==='') return null;
@@ -6512,6 +5914,12 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     return isFinite(n)?n:0;
   }
   function tmVal(r,head){
+    // Retain the former Target Working calculation: BTG = max(0, Q2 Target - Q2 Achievement).
+    if(head==='BTG'){
+      const target=r?.Q2TGT,achievement=r?.['Q2 Ach'];
+      if(target===undefined||target===null||String(target).trim()===''||achievement===undefined||achievement===null||String(achievement).trim()==='')return '';
+      return Math.max(0,tmNum(target)-tmNum(achievement));
+    }
     if(typeof twTargetValue==='function') return twTargetValue(r,head);
     const aliases={
       'REGION':['REGION'],'AREA':['AREA'],'Anchor Zone':['Anchor Zone'],
@@ -6601,67 +6009,44 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     });
   }
 
+  function tmHasValue(v){return v!==null&&v!==undefined&&String(v).trim()!==''&&String(v).trim()!=='No Data Available';}
+  function tmSum(rows,head){let total=0,found=false;rows.forEach(r=>{const v=tmVal(r,head);if(tmHasValue(v)){const n=tmNum(v);if(Number.isFinite(n)){total+=n;found=true;}}});return found?total:null;}
+  function tmMoneyOrNA(v){return v===null?'No Data Available':tmMoney(v*100000);}
+  function tmCbbOrNA(v){return v===null?'No Data Available':tmCbb(v);}
   function tmRender(){
     const rows=tmFiltered();
-    let q2t=0,q2a=0,q2btg=0,oct=0,nov=0,dec=0,octC=0,novC=0,decC=0;
-    rows.forEach(r=>{
-      q2t+=tmNum(tmVal(r,'Q2TGT'));
-      q2a+=tmNum(tmVal(r,'Q2 Ach'));
-      q2btg+=tmNum(tmVal(r,'BTG'));
-      oct+=tmNum(tmVal(r,'Oct MC Tgt 26'));
-      nov+=tmNum(tmVal(r,'Plan NOV MC-26'));
-      dec+=tmNum(tmVal(r,'Plan Dec MC-26'));
-      octC+=tmNum(tmVal(r,'Oct MC CBB Tgt 26'));
-      novC+=tmNum(tmVal(r,'Nov CBB'));
-      decC+=tmNum(tmVal(r,'Dec CBB'));
-    });
-    const ach=q2t?q2a/q2t*100:0;
-
+    const q2t=tmSum(rows,'Q2TGT'),q2a=tmSum(rows,'Q2 Ach'),q2btg=tmSum(rows,'BTG');
+    const oct=tmSum(rows,'Oct MC Tgt 26'),nov=tmSum(rows,'Plan NOV MC-26'),dec=tmSum(rows,'Plan Dec MC-26');
+    const octC=tmSum(rows,'Oct MC CBB Tgt 26'),novC=tmSum(rows,'Nov CBB'),decC=tmSum(rows,'Dec CBB');
+    const ach=q2t!==null&&q2a!==null&&q2t>0?q2a/q2t*100:null;
     document.getElementById('tmKpis').innerHTML=[
-      ['Target Rows',rows.length.toLocaleString('en-IN')],
-      ['Q2 Target',tmMoney(q2t)],
-      ['Q2 Achievement',tmMoney(q2a)],
-      ['Q2 Ach %',ach.toFixed(1)+'%'],
-      ['Q2 BTG',tmMoney(q2btg)],
-      ['Oct Target 26',tmMoney(oct)],
-      ['Nov Target 26',tmMoney(nov)],
-      ['Dec Target 26',tmMoney(dec)]
+      ['Target Rows',rows.length.toLocaleString('en-IN')],['Q2 Target',tmMoneyOrNA(q2t)],['Q2 Achievement',tmMoneyOrNA(q2a)],
+      ['Q2 Ach %',ach===null?'No Data Available':ach.toFixed(1)+'%'],['Q2 BTG',tmMoneyOrNA(q2btg)],
+      ['Oct Target 26',tmMoneyOrNA(oct)],['Nov Target 26',tmMoneyOrNA(nov)],['Dec Target 26',tmMoneyOrNA(dec)]
     ].map(x=>'<div class="kpi"><span>'+x[0]+'</span><b>'+x[1]+'</b></div>').join('');
-
     document.getElementById('tmQ2').innerHTML=
-      '<div class="minirow"><span>Q2 Target</span><b>'+tmMoney(q2t)+'</b></div>'+
-      '<div class="minirow"><span>Q2 Achievement</span><b>'+tmMoney(q2a)+'</b></div>'+
-      '<div class="minirow"><span>Achievement %</span><b>'+ach.toFixed(1)+'%</b></div>'+
-      '<div class="bar"><i style="width:'+Math.min(100,Math.max(0,ach))+'%"></i></div>'+
-      '<div class="minirow"><span>BTG</span><b>'+tmMoney(q2btg)+'</b></div>';
-
+      '<div class="minirow"><span>Q2 Target</span><b>'+tmMoneyOrNA(q2t)+'</b></div>'+
+      '<div class="minirow"><span>Q2 Achievement</span><b>'+tmMoneyOrNA(q2a)+'</b></div>'+
+      '<div class="minirow"><span>Achievement %</span><b>'+(ach===null?'No Data Available':ach.toFixed(1)+'%')+'</b></div>'+
+      (ach===null?'':'<div class="bar"><i style="width:'+Math.min(100,Math.max(0,ach))+'%"></i></div>')+
+      '<div class="minirow"><span>BTG</span><b>'+tmMoneyOrNA(q2btg)+'</b></div>';
     document.getElementById('tmQ3').innerHTML=
-      '<div class="minirow"><span>Oct MC Target / CBB</span><b>'+tmMoney(oct)+' / '+tmCbb(octC)+'</b></div>'+
-      '<div class="minirow"><span>Nov MC Target / CBB</span><b>'+tmMoney(nov)+' / '+tmCbb(novC)+'</b></div>'+
-      '<div class="minirow"><span>Dec MC Target / CBB</span><b>'+tmMoney(dec)+' / '+tmCbb(decC)+'</b></div>';
-
-    const attention=rows.map(r=>({
-      name:String(tmVal(r,'CUSTOMER NAME')||tmVal(r,'TBI Name')||'Unspecified'),
-      btg:tmNum(tmVal(r,'BTG'))
-    })).filter(x=>x.btg>0).sort((a,b)=>b.btg-a.btg).slice(0,7);
-
-    document.getElementById('tmAttention').innerHTML=
-      attention.map((x,i)=>'<div class="minirow"><span>'+(i+1)+'. '+esc(x.name)+'</span><b>'+tmMoney(x.btg)+'</b></div>').join('')||
-      '<div class="empty">No positive BTG in selection</div>';
-
-    const rank=rows.map(r=>{
-      const tgt=tmNum(tmVal(r,'Q2TGT')), achv=tmNum(tmVal(r,'Q2 Ach'));
-      return {name:String(tmVal(r,'CUSTOMER NAME')||tmVal(r,'TBI Name')||'Unspecified'),ach:achv,tgt:tgt};
-    }).filter(x=>x.tgt>0).sort((a,b)=>(b.ach/b.tgt)-(a.ach/a.tgt)).slice(0,10);
-
-    document.getElementById('tmRanking').innerHTML=
-      rank.map((x,i)=>'<div class="minirow"><span>'+(i+1)+'. '+esc(x.name)+'</span><b>'+((x.ach/x.tgt*100).toFixed(1))+'%</b></div>').join('')||
-      '<div class="empty">No target data</div>';
-
-    const mx=Math.max(oct,nov,dec,1);
-    document.getElementById('tmMonths').innerHTML=[
-      ['October',oct,octC],['November',nov,novC],['December',dec,decC]
-    ].map(x=>'<div style="margin-bottom:10px"><div class="minirow"><span>'+x[0]+'</span><b>'+tmMoney(x[1])+' / '+tmCbb(x[2])+'</b></div><div class="bar"><i style="width:'+Math.min(100,x[1]/mx*100)+'%"></i></div></div>').join('');
+      '<div class="minirow"><span>Oct MC Target / CBB</span><b>'+tmMoneyOrNA(oct)+' / '+tmCbbOrNA(octC)+'</b></div>'+
+      '<div class="minirow"><span>Nov MC Target / CBB</span><b>'+tmMoneyOrNA(nov)+' / '+tmCbbOrNA(novC)+'</b></div>'+
+      '<div class="minirow"><span>Dec MC Target / CBB</span><b>'+tmMoneyOrNA(dec)+' / '+tmCbbOrNA(decC)+'</b></div>';
+    const attention=rows.map(r=>{const v=tmVal(r,'BTG');return{name:String(tmVal(r,'CUSTOMER NAME')||tmVal(r,'TBI Name')||'Unspecified'),btg:tmHasValue(v)?tmNum(v):null};})
+      .filter(x=>x.btg!==null&&x.btg>0).sort((a,b)=>b.btg-a.btg).slice(0,7);
+    document.getElementById('tmAttention').innerHTML=attention.length
+      ?attention.map((x,i)=>'<div class="minirow"><span>'+(i+1)+'. '+esc(x.name)+'</span><b>'+tmMoney(x.btg)+'</b></div>').join('')
+      :'<div class="empty">No Data Available</div>';
+    const rank=rows.map(r=>{const tv=tmVal(r,'Q2TGT'),av=tmVal(r,'Q2 Ach');return{name:String(tmVal(r,'CUSTOMER NAME')||tmVal(r,'TBI Name')||'Unspecified'),ach:tmHasValue(av)?tmNum(av):null,tgt:tmHasValue(tv)?tmNum(tv):null};})
+      .filter(x=>x.tgt!==null&&x.ach!==null&&x.tgt>0).sort((a,b)=>(b.ach/b.tgt)-(a.ach/a.tgt)).slice(0,10);
+    document.getElementById('tmRanking').innerHTML=rank.length
+      ?rank.map((x,i)=>'<div class="minirow"><span>'+(i+1)+'. '+esc(x.name)+'</span><b>'+((x.ach/x.tgt*100).toFixed(1))+'%</b></div>').join('')
+      :'<div class="empty">No Data Available</div>';
+    const mx=Math.max(oct||0,nov||0,dec||0,1);
+    document.getElementById('tmMonths').innerHTML=[['October',oct,octC],['November',nov,novC],['December',dec,decC]]
+      .map(x=>'<div style="margin-bottom:10px"><div class="minirow"><span>'+x[0]+'</span><b>'+tmMoneyOrNA(x[1])+' / '+tmCbbOrNA(x[2])+'</b></div>'+(x[1]===null?'':'<div class="bar"><i style="width:'+Math.min(100,x[1]/mx*100)+'%"></i></div>')+'</div>').join('');
   }
 
   function tmWire(){
@@ -6727,6 +6112,7 @@ document.addEventListener('DOMContentLoaded',loadLiveData);</script><script>
     tmRender();
   }
 
+  window.addEventListener('unibic:targets-updated',()=>{tmWire();});
   let lastCount=-1;
   setInterval(()=>{
     if(Array.isArray(targets)&&targets.length&&targets.length!==lastCount){
@@ -10053,4 +9439,49 @@ window.addEventListener('unibic:gsv-data-loaded',render);document.getElementById
 document.querySelectorAll('.nav button[data-tab="clmanagement"]').forEach(b=>b.addEventListener('click',render));render();clmCheckRole().then(()=>{if(clmCanUpload)clmLoadShared();});
 })();
 </script>
-</body></html>
+<script>
+/* Complete imported TBI source table — scoped to Target Management only. */
+(function(){
+  const search=document.getElementById('tmDataSearch');
+  const table=document.getElementById('tmAllDataTable');
+  const count=document.getElementById('tmDataCount');
+  const exportBtn=document.getElementById('tmExportAllData');
+  const filterIds=['tmRegion','tmArea','tmAnchorZone','tmTbiId','tmTbiName','tmCustomerCode','tmCustomerName'];
+  const esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  function selected(id){const e=document.getElementById(id);return e?Array.from(e.selectedOptions).map(o=>o.value):[];}
+  function filtered(){
+    let rows=Array.isArray(window.targets)?window.targets:[];
+    const fields=['__region','__area','__anchorZone','__tbiId','__tbiName','__customerCode','__customerName'];
+    filterIds.forEach((id,i)=>{const vals=selected(id);if(vals.length)rows=rows.filter(r=>vals.includes(String(r[fields[i]]??'')));});
+    const q=String(search?.value||'').trim().toLowerCase();
+    if(q)rows=rows.filter(r=>Object.entries(r).some(([k,v])=>!k.startsWith('__')&&String(v??'').toLowerCase().includes(q)));
+    return rows;
+  }
+  function render(){
+    if(!table)return;
+    const rows=filtered(),all=Array.isArray(window.targets)?window.targets:[];
+    const heads=(window.targetHeaders||[]).filter(h=>h&&!String(h).startsWith('__'));
+    const ordered=[...new Set(['Region','Area','Anchor Zone','TBI ID','TBI Name','Customer Code','Customer Name',...heads])];
+    count.textContent=rows.length.toLocaleString('en-IN')+' of '+all.length.toLocaleString('en-IN')+' imported rows · '+ordered.length+' source / mapped columns';
+    if(!rows.length){table.querySelector('thead').innerHTML='';table.querySelector('tbody').innerHTML='<tr><td class="muted">No matching rows. Clear filters or upload a source workbook.</td></tr>';return;}
+    table.querySelector('thead').innerHTML='<tr>'+ordered.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr>';
+    table.querySelector('tbody').innerHTML=rows.map(r=>'<tr>'+ordered.map(h=>{const v=r[h];const shown=v===null||v===undefined||String(v).trim()===''?'No Data Available':v;return '<td title="'+esc(shown)+'">'+esc(shown)+'</td>';}).join('')+'</tr>').join('');
+  }
+  window.addEventListener('unibic:targets-updated',render);
+  filterIds.forEach(id=>document.getElementById(id)?.addEventListener('change',render));
+  ['tmSelectAll','tmClearAll'].forEach(id=>document.getElementById(id)?.addEventListener('click',()=>setTimeout(render,0)));
+  search?.addEventListener('input',render);
+  exportBtn?.addEventListener('click',()=>{
+    const rows=filtered();if(!rows.length){alert('No filtered TBI rows to export.');return;}
+    if(typeof XLSX==='undefined'){alert('Excel library is not available.');return;}
+    const heads=[...new Set(['Region','Area','Anchor Zone','TBI ID','TBI Name','Customer Code','Customer Name',...(window.targetHeaders||[]).filter(h=>h&&!String(h).startsWith('__'))])];
+    const data=rows.map(r=>Object.fromEntries(heads.map(h=>[h,r[h]??''])));
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data),'TBI Complete Data');
+    XLSX.writeFile(wb,'UNIBIC_TBI_Complete_Data.xlsx');
+  });
+  let previous=-1;
+  setInterval(()=>{const n=Array.isArray(window.targets)?window.targets.length:0;if(n!==previous){previous=n;render();}},1200);
+  search?.addEventListener('input',render);
+  setTimeout(render,1000);
+})();
+</script></body></html>
