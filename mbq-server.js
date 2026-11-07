@@ -796,7 +796,7 @@ app.put("/api/mbq/peak-abm-manual", express.json({ limit: "2mb" }), async (req, 
   const data = req.body && req.body.data;
   if (!data || typeof data !== "object" || Array.isArray(data) || Object.keys(data).length > 2000) return res.status(400).json({ success: false, error: "Manual Qty data must be an object with at most 2000 entries" });
   for (const [key, value] of Object.entries(data)) {
-    if (key.length > 500 || !/^\d{4}-\d{2}\|(TVD|PAY|ALU)\|.+$/.test(key) || !Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > 100000000) {
+    if (key.length > 500 || !/^\d{4}-\d{2}\|(TVD|PAY|ALU)\|.+$/.test(key) || !Number.isFinite(Number(value)) || Math.abs(Number(value)) > 100000000) {
       return res.status(400).json({ success: false, error: "Invalid Peak ABM manual quantity entry" });
     }
   }
