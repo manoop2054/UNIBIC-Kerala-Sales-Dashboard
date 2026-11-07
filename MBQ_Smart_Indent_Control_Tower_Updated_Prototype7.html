@@ -2815,7 +2815,7 @@ function renderPeakGroupRows(){
    const month=p.date.slice(0,7),manual=peakAbmManualValue(month,c,x.group),key=peakAbmManualKey(month,c,x.group);
    const finalAbm=d.abm===null||d.abm===undefined?null:Number(d.abm)+manual;
    const manualInput='<input class="peak-manual-input" type="number" min="0" step="1" value="'+manual+'" '+(!peakAbmManualLoaded?'disabled':'')+' aria-label="Manual Qty CBB for '+mbqEscape(x.group)+' '+c+'" data-group="'+encodeURIComponent(x.group)+'" onchange="setPeakAbmManualDraft(\''+month+'\',\''+c+'\',decodeURIComponent(this.dataset.group),this.value);renderPeakAbmExcessReport()" oninput="setPeakAbmManualDraft(\''+month+'\',\''+c+'\',decodeURIComponent(this.dataset.group),this.value);renderPeakAbmExcessReport()">';
-   return '<td>'+alloc+'</td><td>'+peakDisplay(d.soh)+'</td><td class="num-demand">'+peakDisplay(d.demand,'CBB')+'<button class="peak-billing-view" type="button" onclick="peakShowBilling(decodeURIComponent(&quot;'+encodeURIComponent(x.group)+'&quot;),&quot;'+c+'&quot;,&quot;period&quot;)">VIEW</button></td><td>'+peakDisplay(d.openTo,'CBB')+'</td><td class="num-abm">'+peakDisplay(finalAbm,'CBB')+'</td><td>'+manualInput+'</td>';
+   return '<td>'+alloc+'</td><td>'+peakDisplay(d.soh)+'<button class="peak-billing-view" type="button" onclick="peakShowGroupSoh(decodeURIComponent(&quot;'+encodeURIComponent(x.group)+'&quot;),&quot;'+c+'&quot;)">VIEW</button></td><td class="num-demand">'+peakDisplay(d.demand,'CBB')+'<button class="peak-billing-view" type="button" onclick="peakShowBilling(decodeURIComponent(&quot;'+encodeURIComponent(x.group)+'&quot;),&quot;'+c+'&quot;,&quot;period&quot;)">VIEW</button></td><td>'+peakDisplay(d.openTo,'CBB')+'</td><td class="num-abm">'+peakDisplay(finalAbm,'CBB')+'</td><td>'+manualInput+'</td>';
   }).join('');
   return '<tr><td>'+mbqEscape(x.group)+'</td><td>'+peakDisplay(x.totalIndent)+'</td><td style="text-align:center">'+catHtml+'</td><td>'+peakDisplay(x.plant,'CBB')+'</td>'+cells+'<td class="num-demand">'+peakDisplay(x.totalL2M,'CBB')+'<button class="peak-billing-view" type="button" onclick="peakShowBilling(decodeURIComponent(&quot;'+encodeURIComponent(x.group)+'&quot;),&quot;'+(p.cfa==='ALL'?'TOTAL':p.cfa)+'&quot;,&quot;total&quot;)">VIEW</button></td></tr>';
  }).join('');
@@ -2864,6 +2864,40 @@ function peakShowSoh(code){
  const title=document.getElementById('peakSohTitle');if(title)title.textContent='Item '+code+' · Warehouse-wise SOH';
  const fmt=v=>v===null?'No Data Available':peakFmt(v);
  body.innerHTML='<div class="peak-modal-summary"><span>Item Code: <b>'+mbqEscape(code)+'</b></span><span>Total SOH: <b>'+peakFmt(total)+' CBB</b></span><span>Warehouse rows: <b>'+items.length+'</b></span></div><div style="overflow:auto"><table><thead><tr><th>WAREHOUSE / CFA</th><th>MRP</th><th>SOH CBB</th><th>REMAINING SHELF LIFE</th><th>SHELF-LIFE BUCKET</th></tr></thead><tbody>'+(items.length?items.map(x=>'<tr><td>'+mbqEscape(x.warehouse)+'</td><td>'+(x.mrp===''?'No Data Available':'₹'+mbqEscape(x.mrp))+'</td><td>'+fmt(x.qty)+'</td><td>'+(x.shelf===null?'No Data Available':peakFmt(x.shelf)+'%')+'</td><td>'+mbqEscape(x.bucket)+'</td></tr>').join(''):'<tr><td colspan="5" class="empty">No LIVE SOH rows found for this item.</td></tr>')+'</tbody></table></div>';
+ modal.style.display='flex';
+}
+function peakShowGroupSoh(group,cfa){
+ const modal=document.getElementById('peakSohModal'),body=document.getElementById('peakSohModalBody');if(!modal||!body)return;
+ const mapped=peakItemRowsForGroup(group),codes=new Map();
+ mapped.forEach(it=>{const code=String(it.code||'').trim(),key=mbqCodeKey(code);if(key)codes.set(key,{code,description:it.description||''});});
+ const selectedCfa=normalCfa(cfa),items=[];
+ const dateText=value=>{
+  if(value===null||value===undefined||String(value).trim()==='')return 'No Data Available';
+  if(value instanceof Date&&!Number.isNaN(value.getTime()))return value.toLocaleDateString('en-IN');
+  if(typeof value==='number'&&Number.isFinite(value)&&value>20000&&value<80000){const d=new Date(Date.UTC(1899,11,30)+value*86400000);return Number.isNaN(d.getTime())?'No Data Available':d.toLocaleDateString('en-IN',{timeZone:'UTC'});}
+  return String(value).trim();
+ };
+ (Array.isArray(liveSohRows)?liveSohRows:[]).forEach(raw=>{
+  const type=String(keyValue(raw,['TYPE','Type'])||'').trim().toUpperCase();if(type&&type!=='SOH')return;
+  const codeRaw=keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']),codeKey=mbqCodeKey(codeRaw),mappedItem=codes.get(codeKey);if(!mappedItem)return;
+  const warehouse=String(keyValue(raw,['WAREHOUSE','Warehouse','Location','Location Name','LocationCode','Location Code'])||'Unmapped').trim();
+  if(normalCfa(warehouse)!==selectedCfa)return;
+  const shelfRaw=keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%']);
+  const shelf=Number(String(shelfRaw??'').replace('%','').replace(/,/g,''));
+  if(shelfRaw===''||shelfRaw===null||shelfRaw===undefined||!Number.isFinite(shelf)||shelf<60)return;
+  const qtyRaw=keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity']);
+  const qty=Number(String(qtyRaw??'').replace(/,/g,''));
+  const batch=keyValue(raw,['BATCH','BATCH NO','BATCH NUMBER','BATCHCODE','LOT','LOT NO','LOT NUMBER']);
+  const mfd=keyValue(raw,['MFD','MFD DATE','MFG DATE','MANUFACTURING DATE','DATE OF MANUFACTURE','PRODUCTION DATE']);
+  const exp=keyValue(raw,['EXP','EXP DATE','EXPIRY DATE','EXPIRATION DATE','DATE OF EXPIRY','BEST BEFORE']);
+  items.push({code:mappedItem.code,description:mappedItem.description,warehouse,batch:batch??'',mfd:dateText(mfd),exp:dateText(exp),shelf,qty:Number.isFinite(qty)?qty:null});
+ });
+ items.sort((a,b)=>a.code.localeCompare(b.code)||a.warehouse.localeCompare(b.warehouse)||(a.shelf??Infinity)-(b.shelf??Infinity));
+ const total=items.reduce((n,x)=>n+(Number(x.qty)||0),0),totalAvailable=items.length>0&&items.every(x=>x.qty!==null);
+ const title=document.getElementById('peakSohTitle');if(title)title.textContent=group+' · '+cfa+' CFA · SOH >60% details';
+ const fmt=v=>v===null?'No Data Available':peakFmt(v);
+ const rows=items.map(x=>'<tr><td>'+mbqEscape(x.code)+'</td><td style="white-space:normal;min-width:160px">'+mbqEscape(x.description||'No Data Available')+'</td><td>'+mbqEscape(x.warehouse)+'</td><td>'+(x.batch?mbqEscape(x.batch):'No Data Available')+'</td><td>'+mbqEscape(x.mfd)+'</td><td>'+mbqEscape(x.exp)+'</td><td>'+peakFmt(x.shelf)+'%</td><td>'+fmt(x.qty)+'</td></tr>').join('');
+ body.innerHTML='<div class="peak-modal-summary"><span>SKU Group: <b>'+mbqEscape(group)+'</b></span><span>CFA: <b>'+mbqEscape(cfa)+'</b></span><span>Eligible SOH: <b>'+(totalAvailable?peakFmt(total)+' CBB':'No Data Available')+'</b></span><span>Batch rows: <b>'+items.length+'</b></span></div><div style="overflow:auto"><table><thead><tr><th>ITEM CODE</th><th>ITEM DESCRIPTION</th><th>WAREHOUSE</th><th>BATCH / LOT</th><th>MFD DATE</th><th>EXP DATE</th><th>BALANCE SHELF LIFE %</th><th>SOH CBB</th></tr></thead><tbody>'+(rows||'<tr><td colspan="8" class="empty">No LIVE SOH batch rows with remaining shelf life ≥60% found for this SKU Group / CFA.</td></tr>')+'</tbody></table></div><div class="small-note">Only source rows with remaining shelf life ≥60% are included. MFD / EXP are shown only when those fields exist in the uploaded LIVE SOH data.</div>';
  modal.style.display='flex';
 }
 function peakCloseSoh(){const modal=document.getElementById('peakSohModal');if(modal)modal.style.display='none';}
