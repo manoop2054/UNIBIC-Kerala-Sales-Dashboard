@@ -4037,6 +4037,29 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
  const advPeriod=()=>{const latest=advGsvLatest();if(!latest)return null;const end=new Date(latest+'T00:00:00');const start=new Date(end);start.setDate(start.getDate()-29);const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');return {from:iso(start),to:latest,days:30};};
  const advTable=(headers,records)=>'<div class="table-wrap"><table><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+(records.length?records.map(r=>'<tr>'+r.map(v=>'<td>'+v+'</td>').join('')+'</tr>').join(''):'<tr><td colspan="'+headers.length+'" class="empty">No Data Available — required source rows are not present.</td></tr>')+'</tbody></table></div>';
  const advPanel=(key,title,sub,status,body)=>{const t=document.getElementById('mbqAdvPanelTitle'),s=document.getElementById('mbqAdvPanelSub'),b=document.getElementById('mbqAdvPanel'),p=document.getElementById('mbqAdvPanelStatus');if(t)t.textContent=title;if(s)s.textContent=sub;if(b)b.innerHTML=body;if(p)p.textContent=status;};
+ const advPoReport=()=>{
+  if(!Array.isArray(mbqPoRecords)||!mbqPoRecords.length)return '<div class="callout">Uploaded Fill Rate Report: No Data Available.</div>';
+  const byCfa=new Map(),seen=new Set();let totalPo=0,totalInv=0,detail=0,duplicates=0;
+  mbqPoRecords.forEach(r=>{
+   if(String(mbqPoVal(r,['CHAIN'])||'').trim().toUpperCase()==='GRAND TOTAL')return;
+   const po=String(mbqPoVal(r,['PO_NUMBER'])||'').trim(),invoice=String(mbqPoVal(r,['ERP_INVOICE_NO'])||'').trim(),article=String(mbqPoVal(r,['ARTICLE_CODE','FG_CODE'])||'').trim(),cfa=normalCfa(mbqPoVal(r,['CFA'])),dbr=String(mbqPoVal(r,['SHIP_TO_CODE'])||'').trim(),sku=String(mbqPoVal(r,['SKU_GROUP'])||'').trim();
+   if(!po||!article||!['ALU','PAY','TVD'].includes(cfa))return;
+   const key=[po,invoice,article,cfa,dbr,sku].join('|');
+   if(seen.has(key)){duplicates++;return;}seen.add(key);
+   const pq=mbqFrNum(mbqPoVal(r,['PO_QTY'])),iq=mbqFrNum(mbqPoVal(r,['INVOICE_QTY']));
+   totalPo+=pq;totalInv+=iq;detail++;
+   const a=byCfa.get(cfa)||{po:0,invoice:0,open:0,closed:0,lines:0};
+   a.po+=pq;a.invoice+=iq;a.lines++;
+   const status=String(mbqPoVal(r,['PO_OPEN_CLOSE'])||'').trim().toUpperCase();
+   if(status==='OPEN')a.open+=pq;if(status==='CLOSE'||status==='CLOSED')a.closed+=pq;
+   byCfa.set(cfa,a);
+  });
+  if(duplicates)return '<div class="callout">PO vs Invoice summary withheld: '+duplicates+' duplicate composite line key(s) were detected. Please validate the uploaded report before aggregation.</div>';
+  const rate=totalPo>0?totalInv/totalPo*100:null;
+  const lines=[...byCfa.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([c,a])=>[advEsc(c),advFmt(a.po),advFmt(a.invoice),a.po>0?(a.invoice/a.po*100).toFixed(1)+'%':'—',advFmt(a.open),advFmt(a.closed),advFmt(a.lines)]);
+  return '<h4 style="margin:14px 0 8px">Uploaded Fill Rate Report · PO vs Invoice (separate KPI)</h4><div class="grid kpis"><div class="card kpi"><div class="label">PO Quantity</div><div class="value">'+advFmt(totalPo)+' CBB</div></div><div class="card kpi"><div class="label">Invoice Quantity</div><div class="value">'+advFmt(totalInv)+' CBB</div></div><div class="card kpi"><div class="label">PO vs Invoice Rate</div><div class="value">'+(rate===null?'No Data Available':rate.toFixed(1)+'%')+'</div></div><div class="card kpi"><div class="label">Validated Detail Lines</div><div class="value">'+advFmt(detail)+'</div></div></div>'+advTable(['CFA','PO CBB','Invoice CBB','PO vs Invoice %','Open PO CBB','Closed PO CBB','Lines'],lines)+'<div class="small-note">Source: '+advEsc(mbqPoFileName||'Uploaded Fill Rate Report')+'. Grand Total row excluded. Composite key: PO + ERP Invoice + Article + CFA + Ship-To + SKU Group. Duplicate keys are not double-counted; if detected, the aggregate is withheld.</div>';
+ };
+
  window.mbqAdvOpen=function(key){
   const period=advPeriod(),alloc=advAlloc(),codesByGroup=new Map();(Array.isArray(rows)?rows:[]).forEach(r=>{const k=String(r.sku||'').trim();if(k&&r.code){if(!codesByGroup.has(k))codesByGroup.set(k,new Set());codesByGroup.get(k).add(mbqGsvNormCode(r.code));}});
   if(key==='stockout'){
@@ -4060,13 +4083,19 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
    const rules=localStorage.getItem('MBQ_ADVANCED_REORDER_RULES');advPanel(key,'Safety Stock & Reorder Point','Formula reference only; no approved persistent CFA-item rule source is connected.','RULES UNAVAILABLE','<div class="callout"><b>No Data Available</b><br>Item-level minimum stock and safety-stock values are not configured in a verified shared source. No local-only settings are saved.</div><p>Reorder Point = average daily demand × approved lead time + approved safety stock.</p><p>Lead-time demand can be calculated from GSV, but the final reorder point is withheld until approved lead-time and safety-stock rules are stored centrally.</p>');return;
   }
   if(key==='fillrate'){
-   if(!alloc.length||!mbqGsvRows.length){advPanel(key,'Indent-to-Billing & Fill Rate','Requires CFA allocation and GSV billing for the same month.','SOURCE MISSING','<div class="callout">No Data Available — CFA allocation or GSV is missing.</div>');return;}
-   const now=new Date(),month=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'),monthRows=mbqGsvRows.filter(x=>String(x.month||'')===month);if(!monthRows.length){advPanel(key,'Indent-to-Billing & Fill Rate','Current-month GSV billing rows are not present in the connected source.','BILLING UNAVAILABLE','<div class="callout">No Data Available — GSV has no rows for '+advEsc(month)+'. A missing month is not treated as zero billing.</div>');return;}const out=[];let totalIndent=0,totalBill=0,matched=0;
-   const by=new Map();alloc.forEach(a=>{const k=normalCfa(a.cfaKey||a.cfa)+'|'+mbqGsvNormCode(a.code);by.set(k,(by.get(k)||0)+(Number(a.allocation)||0));});
-   by.forEach((indent,k)=>{const parts=k.split('|'),cfa=parts[0],code=parts[1],bill=mbqGsvRows.filter(x=>normalCfa(x.cfa)===cfa&&mbqGsvNormCode(x.itemId)===code&&String(x.month||'')===month).reduce((s,x)=>s+(Number(x.quantity)||0),0);totalIndent+=indent;totalBill+=bill;matched++;out.push([advEsc(cfa),advEsc(code),advFmt(indent),advFmt(bill),indent>0?(bill/indent*100).toFixed(1)+'%':'—',advFmt(indent-bill)]);});
-   const rate=totalIndent>0?totalBill/totalIndent*100:null;
-   const poNote=Array.isArray(mbqPoRecords)&&mbqPoRecords.length?'Uploaded Fill Rate Report is loaded ('+advFmt(mbqPoRecords.length)+' detail rows); PO vs Invoice is a separate measure and is not substituted for indent fill rate.':'Uploaded Fill Rate Report is not currently loaded.';
-   advPanel(key,'Indent-to-Billing & Fill Rate','Current month '+month+' · GSV billed quantity ÷ CFA allocated indent.','LIVE SOURCES','<div class="grid kpis"><div class="card kpi"><div class="label">CFA Allocated Indent</div><div class="value">'+advFmt(totalIndent)+' CBB</div></div><div class="card kpi"><div class="label">GSV Billed</div><div class="value">'+advFmt(totalBill)+' CBB</div></div><div class="card kpi"><div class="label">Billing Fill Rate</div><div class="value">'+(rate===null?'No Data Available':rate.toFixed(1)+'%')+'</div></div><div class="card kpi"><div class="label">Actual Supply Fill Rate</div><div class="value">No Data Available</div><div class="sub">GRN / actual supplied CBB not verified</div></div></div>'+advTable(['CFA','FG Code','Allocated IND','GSV Billed CBB','Billing Fill Rate','Balance CBB'],out)+'<div class="small-note">'+advEsc(poNote)+' Actual Supply Fill Rate = GRN / supplied CBB ÷ CFA allocated indent; blank GRN_QTY is not treated as zero supply.</div>');return;
+   const poHtml=advPoReport();
+   let billingHtml='<div class="callout"><b>Billing Fill Rate: No Data Available</b><br>Requires same-period CFA allocation and GSV billing rows.</div>';
+   if(alloc.length&&mbqGsvRows.length){
+    const now=new Date(),month=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'),monthRows=mbqGsvRows.filter(x=>String(x.month||'')===month);
+    if(monthRows.length){
+     const by=new Map();alloc.forEach(a=>{const k=normalCfa(a.cfaKey||a.cfa)+'|'+mbqGsvNormCode(a.code);by.set(k,(by.get(k)||0)+(Number(a.allocation)||0));});
+     const out=[];let totalIndent=0,totalBill=0;
+     by.forEach((indent,k)=>{const parts=k.split('|'),cfa=parts[0],code=parts[1],bill=monthRows.filter(x=>normalCfa(x.cfa)===cfa&&mbqGsvNormCode(x.itemId)===code).reduce((s,x)=>s+(Number(x.quantity)||0),0);totalIndent+=indent;totalBill+=bill;out.push([advEsc(cfa),advEsc(code),advFmt(indent),advFmt(bill),indent>0?(bill/indent*100).toFixed(1)+'%':'—',advFmt(indent-bill)]);});
+     const rate=totalIndent>0?totalBill/totalIndent*100:null;
+     billingHtml='<h4 style="margin:14px 0 8px">CFA Allocation vs GSV Billing · '+month+'</h4><div class="grid kpis"><div class="card kpi"><div class="label">CFA Allocated Indent</div><div class="value">'+advFmt(totalIndent)+' CBB</div></div><div class="card kpi"><div class="label">GSV Billed</div><div class="value">'+advFmt(totalBill)+' CBB</div></div><div class="card kpi"><div class="label">Billing Fill Rate</div><div class="value">'+(rate===null?'No Data Available':rate.toFixed(1)+'%')+'</div></div><div class="card kpi"><div class="label">Actual Supply Fill Rate</div><div class="value">No Data Available</div><div class="sub">GRN / actual supplied CBB not verified</div></div></div>'+advTable(['CFA','FG Code','Allocated IND','GSV Billed CBB','Billing Fill Rate','Balance CBB'],out);
+    }else{billingHtml='<div class="callout"><b>Billing Fill Rate: No Data Available</b><br>GSV has no rows for '+advEsc(month)+'. A missing month is not treated as zero billing.</div>';}
+   }
+   advPanel(key,'Indent-to-Billing & Fill Rate','Three distinct measures: GSV Billing vs CFA Allocation; PO vs Invoice; Actual Supply vs Allocation.','SOURCE REVIEW',billingHtml+poHtml+'<div class="small-note">Actual Supply Fill Rate = verified GRN / supplied CBB ÷ CFA allocated indent. GRN_QTY is blank in the uploaded report, so actual supply is not calculated.</div>');return;
   }
   if(key==='previous'){advPanel(key,'Previous Indent Pending Review','Previous-month approved indent and matching fulfilment are required.','SOURCE UNAVAILABLE','<div class="callout"><b>No Data Available</b><br>The currently connected Sales Head indent and CFA allocation represent the active planning period. A verified prior-month indent snapshot plus prior-month supply/billing reconciliation is not available, so no previous-month balance is inferred.</div>');return;}
   if(key==='transfer'){
