@@ -2967,29 +2967,41 @@ function mbqRebuildAssortmentItemRows(){
 async function loadLiveSoh(){
   const tbody=document.getElementById('stockRows');
   if(tbody)tbody.innerHTML='<tr><td colspan="8" class="empty">LIVE SOH workbook load cheyyunnu…</td></tr>';
-  try{
-    const response=await fetch('/api/mbq/soh',{cache:'no-store'});
-    const payload=await response.json();
-    if(!response.ok||payload.success!==true)throw new Error(payload.detail||payload.error||('HTTP '+response.status));
-    if(!Array.isArray(payload.data))throw new Error('API response has no data array');
-    liveSohRows=payload.data;mbqRebuildAssortmentItemRows();refreshMbqLiveStockViews();if(mbqGsvRows.length)mbqApplyGsvSales();
-    liveSohMeta={sheet:payload.sheet||'LIVE STOCK REPORT',loadedAt:payload.loadedAt||'',count:payload.rows||payload.data.length};
-    liveSohError='';
-    const cfas=['ALU','PAY','TVD'];
-    const select=document.getElementById('stockCfa');
-    if(select){
-      const previous=select.value;
-      select.innerHTML='<option value="all">All 3 CFAs</option>'+cfas.map(c=>'<option value="'+c+'">'+c+' CFA</option>').join('');
-      if(cfas.includes(previous))select.value=previous;
+  const maxAttempts=4;
+  for(let attempt=0;attempt<maxAttempts;attempt++){
+    try{
+      const response=await fetch('/api/mbq/soh',{cache:'no-store',credentials:'same-origin'});
+      const payload=await response.json().catch(()=>({}));
+      if(response.status===202||payload.loading)throw new Error('LIVE SOH workbook is still processing; retrying.');
+      if(!response.ok||payload.success!==true)throw new Error(payload.detail||payload.error||('HTTP '+response.status));
+      if(!Array.isArray(payload.data))throw new Error('API response has no data array');
+      liveSohRows=payload.data;mbqRebuildAssortmentItemRows();refreshMbqLiveStockViews();if(mbqGsvRows.length)mbqApplyGsvSales();
+      liveSohMeta={sheet:payload.sheet||'LIVE STOCK REPORT',loadedAt:payload.loadedAt||'',count:payload.rows||payload.data.length};
+      liveSohError='';
+      const cfas=['ALU','PAY','TVD'];
+      const select=document.getElementById('stockCfa');
+      if(select){
+        const previous=select.value;
+        select.innerHTML='<option value="all">All 3 CFAs</option>'+cfas.map(c=>'<option value="'+c+'">'+c+' CFA</option>').join('');
+        if(cfas.includes(previous))select.value=previous;
+      }
+      renderStock();mbqRefreshDashboardKpis();
+      console.log('MBQ LIVE SOH API loaded:',liveSohRows.length,'rows; CFAs:',cfas.join(', '));renderMbqExcelView();if(typeof renderDaysPlanner==='function')renderDaysPlanner();
+      return true;
+    }catch(error){
+      liveSohRows=[];
+      liveSohError=String(error&&error.message||error||'Unknown error');
+      if(attempt<maxAttempts-1){
+        console.warn('MBQ LIVE SOH load attempt '+(attempt+1)+' failed; retrying:',liveSohError);
+        await new Promise(resolve=>setTimeout(resolve,1500*Math.pow(2,attempt)));
+        continue;
+      }
+      console.error('MBQ LIVE SOH UI load failed after '+maxAttempts+' attempts:',error);
+      renderStock();mbqRefreshDashboardKpis();
+      return false;
     }
-    renderStock();mbqRefreshDashboardKpis();
-    console.log('MBQ LIVE SOH API loaded:',liveSohRows.length,'rows; CFAs:',cfas.join(', '));renderMbqExcelView();if(typeof renderDaysPlanner==='function')renderDaysPlanner();
-  }catch(error){
-    liveSohRows=[];
-    liveSohError=String(error&&error.message||error||'Unknown error');
-    console.error('MBQ LIVE SOH UI load failed:',error);
-    renderStock();
   }
+  return false;
 }
 async function fetchGitHubAssortment(){
  try{
@@ -3021,7 +3033,8 @@ async function fetchGitHubAssortment(){
   window.mbqOfficialAssortmentGroupKeys=Array.from(addedGroups.keys());
   window.mbqAssortmentLoaded=true;
   mbqRebuildAssortmentItemRows();
-  mbqRestoreSharedSalesHeadUpload().then(()=>mbqApplyPendingSalesHeadUpload());
+  await mbqRestoreSharedSalesHeadUpload();
+  mbqApplyPendingSalesHeadUpload();
   const groupSelect=document.getElementById("entrySkuGroup");
   if(groupSelect)groupSelect.innerHTML='<option value="">All (എല്ലാ SKU Groups-ഉം ഒരുമിച്ച് കാണിക്കുക)</option>'+Array.from(addedGroups.values()).map(g=>'<option value="'+escapeHtml(g)+'">'+escapeHtml(g)+'</option>').join("");
   renderIndentWorkspace();renderIndent();renderWatch();renderSuggestions();renderStock();renderMbqExcelView();mbqRefreshDashboardKpis();
@@ -3030,7 +3043,7 @@ async function fetchGitHubAssortment(){
   showToast("GitHub Kerala Assortment Master loaded · "+addedGroups.size+" SKU Groups.");
  }catch(e){console.warn("Assortment load failed:",e);showToast("GitHub Assortment load cheyyan kazhinjilla!");mbqRefreshDashboardKpis();}
 }
-fetchGitHubAssortment();
+window.mbqAssortmentLoadPromise=fetchGitHubAssortment();
 /* MBQ Excel View: read only the official CFA sheets, retain the existing dashboard features. */
 let mbqExcelSheets = {};
 let mbqSalesRows = [];
@@ -3602,16 +3615,32 @@ const mbqReportOriginalRenderAlloc=renderAlloc;
 renderAlloc=function(){mbqReportOriginalRenderAlloc();renderIndentReport();};
 
 let mbqAuthenticatedDataLoadStarted=false;
+let mbqAuthenticatedDataLoadPromise=null;
 function mbqStartAuthenticatedDataLoad(){
- if(mbqAuthenticatedDataLoadStarted)return;
+ if(mbqAuthenticatedDataLoadPromise)return mbqAuthenticatedDataLoadPromise;
+ if(mbqAuthenticatedDataLoadStarted)return Promise.resolve();
  mbqAuthenticatedDataLoadStarted=true;
- restoreMbqLocalData();
- loadCloudProductionSettings();
- loadLiveSoh();
- loadMbqGsv();
- loadToRecords().then(()=>{renderToTracker();if(typeof renderDaysPlanner==='function')renderDaysPlanner()});
+ ['ovMonthlyPlan','ovStockReadiness','ovLeadTime','ovPeakTarget'].forEach(id=>mbqSetKpi(id,'Loading…'));
+ mbqSetKpi('ovMonthlyPlanSub','Loading Sales Head / working indent values…');
+ mbqSetKpi('ovStockReadinessSub','Connecting to LIVE SOH…');
+ mbqAuthenticatedDataLoadPromise=(async()=>{
+  const assortmentReady=window.mbqAssortmentLoadPromise||Promise.resolve();
+  const jobs=await Promise.allSettled([
+   restoreMbqLocalData(),
+   loadCloudProductionSettings(),
+   loadLiveSoh(),
+   assortmentReady
+  ]);
+  jobs.forEach((result,index)=>{if(result.status==='rejected')console.warn('MBQ initial data load task '+index+' failed:',result.reason);});
+  mbqApplyPendingSalesHeadUpload();
+  mbqRefreshDashboardKpis();
+  loadMbqGsv();
+  loadToRecords().then(()=>{renderToTracker();if(typeof renderDaysPlanner==='function')renderDaysPlanner();}).catch(error=>console.warn('MBQ Open TO initial load failed:',error));
+  console.info('MBQ initial dashboard data load completed',{sohRows:liveSohRows.length,assortmentReady:!!window.mbqAssortmentLoaded,salesHeadGroups:sourceRows.filter(r=>r[1]!==null&&r[1]!==undefined&&String(r[1]).trim()!=='').length});
+ })().catch(error=>{console.error('MBQ initial dashboard data load failed:',error);mbqRefreshDashboardKpis();});
+ return mbqAuthenticatedDataLoadPromise;
 }
-function mbqResetAuthenticatedDataLoad(){mbqAuthenticatedDataLoadStarted=false;}
+function mbqResetAuthenticatedDataLoad(){mbqAuthenticatedDataLoadStarted=false;mbqAuthenticatedDataLoadPromise=null;}
 applyPlanningRulesToForm();
 document.getElementById('skuCount').textContent='Loading…';renderWatch();renderSuggestions();renderStock();renderIndent();renderDrafts();changeIndentMode();buildAllocationData();runCfaAllocation();renderFlash();
 </script>
