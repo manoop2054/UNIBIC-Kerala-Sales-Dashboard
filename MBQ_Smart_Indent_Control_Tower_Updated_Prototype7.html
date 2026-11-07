@@ -2573,8 +2573,8 @@ function exportPeakExcel(mode){
  const add=(name,data)=>{const ws=XLSX.utils.aoa_to_sheet(data);ws['!cols']=Array.from({length:Math.max(1,...data.map(r=>r.length))},(_,i)=>({wch:Math.min(34,Math.max(12,...data.map(r=>String(r[i]??'').length+2)))}));XLSX.utils.book_append_sheet(wb,ws,name.slice(0,31));};
  const meta=[['Peak Billing Planner'],['Date Range',p.date+' to '+p.toDate],['From Date',p.date],['To Date',p.toDate],['Planning Days',p.days],['Historical GSV',p.hist.from+' to '+p.hist.to],['CFA',p.cfa],['Monthly Target ₹ Cr',document.getElementById('monthlySales').value],['Mid-month Target ₹ Cr',document.getElementById('midTarget').value],['Month-end Target ₹ Cr',document.getElementById('endTarget').value]];
  add('Summary',meta);
- cfas.forEach(c=>{const rs=p.rows.map(x=>({group:x.group,...peakGroupData(x.group,c,p.hist,p.days,p.date)}));add(c,[['SKU Group','Demand CBB','Usable SOH CBB','Confirmed Open TO CBB','Calculated ABM CBB','Manual Qty CBB','Final ABM Requirement CBB','Monthly Allocated CBB'],...rs.map(x=>{const cap=peakMonthlyAllocated(x.group,c),manual=peakAbmManualValue(p.date.slice(0,7),c,x.group),calculated=x.demand!==null&&x.soh!==null&&x.to!==null?Math.max(0,x.demand-x.soh-x.to):null;return [x.group,x.demand??'No Data Available',x.soh??'No Data Available',x.to??'No Data Available',calculated??'No Data Available',manual,calculated===null?'No Data Available':calculated+manual,cap===null?'No allocation':cap];})]);});
- const excessRows=p.rows.map(x=>{let final=0,valid=true;['TVD','PAY','ALU'].forEach(c=>{const d=x.cfaData[c]||{};if(d.abm===null||d.abm===undefined)valid=false;else final+=Number(d.abm)+peakAbmManualValue(p.date.slice(0,7),c,x.group);});const indent=peakNum(x.totalIndent),excess=valid&&indent!==null?Math.max(0,final-indent):null;return [x.group,indent??'No Data Available',valid?final:'No Data Available',excess??'No Data Available',excess!==null&&indent>0?(excess/indent*100).toFixed(1)+'%':'No Data Available'];});
+ cfas.forEach(c=>{const rs=p.rows.map(x=>({group:x.group,...peakGroupData(x.group,c,p.hist,p.days,p.date)}));add(c,[['SKU Group','Demand CBB','Usable SOH CBB','Confirmed Open TO CBB','Calculated ABM CBB','Manual Qty Adjustment (+ / −) CBB','Final ABM Requirement CBB','Monthly Allocated CBB'],...rs.map(x=>{const cap=peakMonthlyAllocated(x.group,c),manual=peakAbmManualValue(p.date.slice(0,7),c,x.group),calculated=x.demand!==null&&x.soh!==null&&x.to!==null?Math.max(0,x.demand-x.soh-x.to):null;return [x.group,x.demand??'No Data Available',x.soh??'No Data Available',x.to??'No Data Available',calculated??'No Data Available',manual,calculated===null?'No Data Available':Math.max(0,calculated+manual),cap===null?'No allocation':cap];})]);});
+ const excessRows=p.rows.map(x=>{let final=0,valid=true;['TVD','PAY','ALU'].forEach(c=>{const d=x.cfaData[c]||{};if(d.abm===null||d.abm===undefined)valid=false;else final+=Math.max(0,Number(d.abm)+peakAbmManualValue(p.date.slice(0,7),c,x.group));});const indent=peakNum(x.totalIndent),excess=valid&&indent!==null?Math.max(0,final-indent):null;return [x.group,indent??'No Data Available',valid?final:'No Data Available',excess??'No Data Available',excess!==null&&indent>0?(excess/indent*100).toFixed(1)+'%':'No Data Available'];});
  add('ABM Excess Report',[['SKU Group','Monthly Total Indent CBB','Final ABM Requirement CBB','Excess CBB','Excess %'],...excessRows]);
  const daily=[['Date','CFA','Expected Billing CBB','Historical Month Samples']];cfas.forEach(c=>peakDailyBilling(c,p.date,p.days,p.hist).forEach(x=>daily.push([x.date,c,x.amount===null?'No Data Available':x.amount,x.samples])));add('Day-wise Billing',daily);if(mode==='all')add('Loading Summary',[['CFA','Total Loading Required CBB'],...cfas.map(c=>{const rs=p.rows.map(x=>peakGroupData(x.group,c,p.hist,p.days,p.date));return [c,rs.every(x=>x.demand!==null&&x.soh!==null&&x.to!==null)?rs.reduce((n,x)=>n+Math.max(0,x.demand-x.soh-x.to),0):'No Data Available'];})]);
  XLSX.writeFile(wb,'Peak_Billing_Planner_'+mode.toUpperCase()+'.xlsx',{compression:true});showToast('Peak Planner Excel export ready.');
@@ -2765,13 +2765,13 @@ function peakAbmManualValue(month,cfa,group){
  const key=peakAbmManualKey(month,cfa,group);
  const raw=Object.prototype.hasOwnProperty.call(peakAbmManualDrafts,key)?peakAbmManualDrafts[key]:peakAbmManualData[key];
  const n=Number(raw);
- return Number.isFinite(n)&&n>=0?n:0;
+ return Number.isFinite(n)?n:0;
 }
 function setPeakAbmManualDraft(month,cfa,group,value){
  const key=peakAbmManualKey(month,cfa,group),raw=String(value??'').trim();
  if(raw===''){peakAbmManualDrafts[key]=0;return;}
  const qty=Number(raw);
- if(Number.isFinite(qty)&&qty>=0)peakAbmManualDrafts[key]=qty;
+ if(Number.isFinite(qty)&&Math.abs(qty)<=100000000)peakAbmManualDrafts[key]=qty;
 }
 async function loadPeakAbmManual(){
  try{
@@ -2817,12 +2817,12 @@ function renderPeakAbmExcessReport(){
   let final=0,valid=true,monthly=null;
   if(p.cfa==='ALL'){
    monthly=peakNum(x.totalIndent);
-   cfas.forEach(c=>{const d=x.cfaData[c]||{};if(d.abm===null||d.abm===undefined)valid=false;else final+=Number(d.abm)+peakAbmManualValue(month,c,x.group);});
+   cfas.forEach(c=>{const d=x.cfaData[c]||{};if(d.abm===null||d.abm===undefined)valid=false;else final+=Math.max(0,Number(d.abm)+peakAbmManualValue(month,c,x.group));});
   }else{
    const c=cfas[0],d=x.cfaData[c]||{};
    monthly=peakNum(d.allocation);
    if(d.abm===null||d.abm===undefined)valid=false;
-   else final=Number(d.abm)+peakAbmManualValue(month,c,x.group);
+   else final=Math.max(0,Number(d.abm)+peakAbmManualValue(month,c,x.group));
   }
   const excess=valid&&monthly!==null?Math.max(0,final-monthly):null;
   const pct=excess!==null&&monthly>0?excess/monthly*100:(excess===0&&monthly===0?0:null);
@@ -2846,7 +2846,7 @@ function renderPeakGroupRows(){
  const data=p.rows.filter(x=>(category==='ALL'||String(x.cat||'').trim().toUpperCase()===category)&&(selected==='ALL'||mbqSkuGroupKey(x.group)===mbqSkuGroupKey(selected)));
  const cfas=p.cfa==='ALL'?['TVD','PAY','ALU']:[p.cfa];
  const groupHead=cfas.map(c=>'<th colspan="6" class="'+c.toLowerCase()+'-head">'+c+' CFA</th>').join('');
- const subHead=cfas.map(c=>'<th class="sub-'+c.toLowerCase()+'">ALLOCATION IND</th><th class="sub-'+c.toLowerCase()+'">SOH &gt;60%</th><th class="sub-'+c.toLowerCase()+'">L2M AVG / PERIOD DEMAND CBB</th><th class="sub-'+c.toLowerCase()+'">CONFIRMED OPEN TO</th><th class="sub-'+c.toLowerCase()+'">ABM REQUIREMENT</th><th class="sub-'+c.toLowerCase()+'">MANUAL QTY CBB</th>').join('');
+ const subHead=cfas.map(c=>'<th class="sub-'+c.toLowerCase()+'">ALLOCATION IND</th><th class="sub-'+c.toLowerCase()+'">SOH &gt;60%</th><th class="sub-'+c.toLowerCase()+'">L2M AVG / PERIOD DEMAND CBB</th><th class="sub-'+c.toLowerCase()+'">CONFIRMED OPEN TO</th><th class="sub-'+c.toLowerCase()+'">ABM REQUIREMENT</th><th class="sub-'+c.toLowerCase()+'">MANUAL QTY ADJUSTMENT (+ / −) CBB</th>').join('');
  const header='<thead><tr><th rowspan="2" class="common-head">SKU GROUP</th><th rowspan="2" class="common-head">TOTAL INDENT</th><th rowspan="2" class="common-head">CAT</th><th rowspan="2" class="common-head">PLANT SOH<br>HYD PLANT1</th>'+groupHead+'<th rowspan="2" class="total-head">L2M AVG FULL MONTH SALES CBB</th></tr><tr>'+subHead+'</tr></thead>';
  const totalKeys={totalIndent:data.map(x=>peakNum(x.totalIndent)),plant:data.map(x=>peakNum(x.plant)),totalL2M:data.map(x=>peakNum(x.totalL2M))};
  const sumStrict=vals=>vals.length&&vals.every(v=>v!==null)?vals.reduce((a,b)=>a+b,0):null;
@@ -2856,8 +2856,8 @@ function renderPeakGroupRows(){
    const d=x.cfaData[c]||{};
    const alloc=d.allocation===null?'<span class="not-done">ALLOCATION NOT DONE</span>':peakFmt(d.allocation);
    const month=p.date.slice(0,7),manual=peakAbmManualValue(month,c,x.group),key=peakAbmManualKey(month,c,x.group);
-   const finalAbm=d.abm===null||d.abm===undefined?null:Number(d.abm)+manual;
-   const manualInput='<input class="peak-manual-input" type="number" min="0" step="1" value="'+manual+'" '+(!peakAbmManualLoaded?'disabled':'')+' aria-label="Manual Qty CBB for '+mbqEscape(x.group)+' '+c+'" data-group="'+encodeURIComponent(x.group)+'" onchange="setPeakAbmManualDraft(\''+month+'\',\''+c+'\',decodeURIComponent(this.dataset.group),this.value);renderPeakAbmExcessReport()" oninput="setPeakAbmManualDraft(\''+month+'\',\''+c+'\',decodeURIComponent(this.dataset.group),this.value);renderPeakAbmExcessReport()">';
+   const finalAbm=d.abm===null||d.abm===undefined?null:Math.max(0,Number(d.abm)+manual);
+   const manualInput='<input class="peak-manual-input" type="number" step="1" value="'+manual+'" '+(!peakAbmManualLoaded?'disabled':'')+' aria-label="Manual Qty Adjustment CBB for '+mbqEscape(x.group)+' '+c+'" data-group="'+encodeURIComponent(x.group)+'" onchange="setPeakAbmManualDraft(\''+month+'\',\''+c+'\',decodeURIComponent(this.dataset.group),this.value);renderPeakAbmExcessReport()" oninput="setPeakAbmManualDraft(\''+month+'\',\''+c+'\',decodeURIComponent(this.dataset.group),this.value);renderPeakAbmExcessReport()">';
    return '<td>'+alloc+'</td><td>'+peakDisplay(d.soh)+'<button class="peak-billing-view" type="button" onclick="peakShowGroupSoh(decodeURIComponent(&quot;'+encodeURIComponent(x.group)+'&quot;),&quot;'+c+'&quot;)">VIEW</button></td><td class="num-demand">'+peakDisplay(d.demand,'CBB')+'<button class="peak-billing-view" type="button" onclick="peakShowBilling(decodeURIComponent(&quot;'+encodeURIComponent(x.group)+'&quot;),&quot;'+c+'&quot;,&quot;period&quot;)">VIEW</button></td><td>'+peakDisplay(d.openTo,'CBB')+'</td><td class="num-abm">'+peakDisplay(finalAbm,'CBB')+'</td><td>'+manualInput+'</td>';
   }).join('');
   return '<tr><td>'+mbqEscape(x.group)+'</td><td>'+peakDisplay(x.totalIndent)+'</td><td style="text-align:center">'+catHtml+'</td><td>'+peakDisplay(x.plant,'CBB')+'</td>'+cells+'<td class="num-demand">'+peakDisplay(x.totalL2M,'CBB')+'<button class="peak-billing-view" type="button" onclick="peakShowBilling(decodeURIComponent(&quot;'+encodeURIComponent(x.group)+'&quot;),&quot;'+(p.cfa==='ALL'?'TOTAL':p.cfa)+'&quot;,&quot;total&quot;)">VIEW</button></td></tr>';
@@ -2867,11 +2867,11 @@ function renderPeakGroupRows(){
   const cells=keys.map(k=>{const vals=data.map(x=>peakNum(x.cfaData[c]?.[k]));const v=sumStrict(vals);return '<td>'+peakDisplay(v,'CBB')+'</td>';}).join('');
   const manualVals=data.map(x=>peakAbmManualValue(p.date.slice(0,7),c,x.group));
   const manualTotal=manualVals.reduce((a,b)=>a+b,0);
-  const finalVals=data.map(x=>{const v=peakNum(x.cfaData[c]?.abm);return v===null?null:v+peakAbmManualValue(p.date.slice(0,7),c,x.group);});
+  const finalVals=data.map(x=>{const v=peakNum(x.cfaData[c]?.abm);return v===null?null:Math.max(0,v+peakAbmManualValue(p.date.slice(0,7),c,x.group));});
   return cells.replace(/<td>[^<]*<\/td>$/,'')+'<td>'+peakDisplay(sumStrict(finalVals),'CBB')+'</td><td>'+peakFmt(manualTotal)+' CBB</td>';
  }).join('');
  const totalRow='<tfoot><tr><td>GRAND TOTAL</td><td>'+peakDisplay(sumStrict(totalKeys.totalIndent),'CBB')+'</td><td>—</td><td>'+peakDisplay(sumStrict(totalKeys.plant),'CBB')+'</td>'+footCfas+'<td>'+peakDisplay(sumStrict(totalKeys.totalL2M),'CBB')+'</td></tr></tfoot>';
- host.innerHTML='<div class="peak-manual-savebar"><span style="font-size:11px;color:#52677e;margin-right:auto">Manual Qty is added to calculated ABM Requirement. Save to share it across users.</span><button class="btn primary" type="button" onclick="savePeakAbmManual()" '+(!peakAbmManualLoaded?'disabled':'')+'>Save Manual Qty</button></div><table class="peak-new-table">'+header+'<tbody>'+(body||'<tr><td colspan="'+(4+cfas.length*6+1)+'" class="empty">No SKU Group rows available for this filter.</td></tr>')+'</tbody>'+totalRow+'</table>';
+ host.innerHTML='<div class="peak-manual-savebar"><span style="font-size:11px;color:#52677e;margin-right:auto">Manual Qty Adjustment (+ / −) is applied to calculated ABM Requirement. Save to share it across users.</span><button class="btn primary" type="button" onclick="savePeakAbmManual()" '+(!peakAbmManualLoaded?'disabled':'')+'>Save Manual Qty</button></div><table class="peak-new-table">'+header+'<tbody>'+(body||'<tr><td colspan="'+(4+cfas.length*6+1)+'" class="empty">No SKU Group rows available for this filter.</td></tr>')+'</tbody>'+totalRow+'</table>';
  renderPeakAbmExcessReport();
 }
 function renderPeakItemDetails(){
