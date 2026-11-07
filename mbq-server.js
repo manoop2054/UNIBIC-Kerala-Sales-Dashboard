@@ -716,9 +716,12 @@ app.post("/api/mbq/peak-manual-indent", express.json({ limit: "10mb" }), async (
     seen.add(group);
     rows.push({ group, qty });
   }
+  const actor=req.mbqUser||{};
   const submission = {
     id: Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10),
-    month, cfa, fromDate, toDate, submissionDate, rows, submittedAt: new Date().toISOString()
+    month, cfa, fromDate, toDate, submissionDate, rows, submittedAt: new Date().toISOString(),
+    employeeId:String(actor.employeeId||actor.employee_id||""),employeeName:String(actor.employeeName||actor.employee_name||"").slice(0,200),
+    submittedByRole:String(actor.role||"").toUpperCase(),editHistory:[]
   };
   try {
     const json = JSON.stringify(submission);
@@ -737,6 +740,32 @@ app.post("/api/mbq/peak-manual-indent", express.json({ limit: "10mb" }), async (
   }
 });
 
+app.put("/api/mbq/peak-manual-indent/:submissionId", express.json({ limit: "10mb" }), async (req,res) => {
+  res.setHeader("Cache-Control","no-store");
+  const actor=req.mbqUser||{},role=String(actor.role||"").toUpperCase();
+  if(!["ADMIN","SUPER_ADMIN"].includes(role)) return res.status(403).json({success:false,error:"Only Admin or Super Admin can edit saved manual indents."});
+  if(!masterPool) return res.status(503).json({success:false,error:"Shared MBQ storage is not configured"});
+  const id=String(req.params.submissionId||""),incoming=req.body&&req.body.rows;
+  if(!id||!Array.isArray(incoming)||!incoming.length||incoming.length>2000) return res.status(400).json({success:false,error:"Valid submission rows are required."});
+  const seen=new Set(),rows=[];
+  for(const row of incoming){const group=String(row&&row.group||"").trim(),qty=Number(row&&row.qty);if(!group||group.length>200||!Number.isFinite(qty)||qty<=0||seen.has(group))return res.status(400).json({success:false,error:"Invalid or duplicate SKU Group quantity."});seen.add(group);rows.push({group,qty});}
+  const client=await masterPool.connect();
+  try{
+    await client.query("BEGIN");
+    const current=await client.query("SELECT payload FROM public.mbq_shared_uploads WHERE category='peak-manual-indent' FOR UPDATE");
+    const payload=current.rowCount&&current.rows[0].payload&&typeof current.rows[0].payload==="object"?current.rows[0].payload:{};
+    const submissions=Array.isArray(payload.submissions)?payload.submissions:[];
+    const index=submissions.findIndex(x=>String(x.id||"")===id);
+    if(index<0){await client.query("ROLLBACK");return res.status(404).json({success:false,error:"Saved submission not found."});}
+    const prior=submissions[index];if(prior.legacy){await client.query("ROLLBACK");return res.status(400).json({success:false,error:"Legacy entries cannot be edited."});}
+    const editedAt=new Date().toISOString(),employeeId=String(actor.employeeId||actor.employee_id||""),employeeName=String(actor.employeeName||actor.employee_name||"").slice(0,200);
+    submissions[index]={...prior,rows,editedAt,editedByEmployeeId:employeeId,editedByEmployeeName:employeeName,editHistory:[...(Array.isArray(prior.editHistory)?prior.editHistory:[]),{editedAt,employeeId,employeeName,role,previousRows:prior.rows||[],newRows:rows}]};
+    const next={legacyEntries:payload.legacyEntries&&typeof payload.legacyEntries==="object"?payload.legacyEntries:{},submissions},json=JSON.stringify(next);
+    await client.query("UPDATE public.mbq_shared_uploads SET payload=$1::jsonb,source_file_size=$2,uploaded_at=NOW() WHERE category='peak-manual-indent'",[json,Buffer.byteLength(json,"utf8")]);
+    await client.query("COMMIT");res.json({success:true,submission:submissions[index],data:next});
+  }catch(error){try{await client.query("ROLLBACK");}catch(_){}console.error("Peak Planner manual-indent edit failed:",error.message);res.status(500).json({success:false,error:"Could not update saved manual indent."});}
+  finally{client.release();}
+});
 app.get("/api/mbq/peak-abm-manual", async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
   if (!masterPool) return res.status(503).json({ success: false, error: "Shared MBQ storage is not configured" });
