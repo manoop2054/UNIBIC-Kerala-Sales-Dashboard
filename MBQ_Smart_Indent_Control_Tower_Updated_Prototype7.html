@@ -2887,9 +2887,9 @@ function peakShowGroupSoh(group,cfa){
   if(shelfRaw===''||shelfRaw===null||shelfRaw===undefined||!Number.isFinite(shelf)||shelf<60)return;
   const qtyRaw=keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity']);
   const qty=Number(String(qtyRaw??'').replace(/,/g,''));
-  const batch=keyValue(raw,['BATCH','BATCH NO','BATCH NUMBER','BATCHCODE','LOT','LOT NO','LOT NUMBER']);
-  const mfd=keyValue(raw,['MFD','MFD DATE','MFG DATE','MANUFACTURING DATE','DATE OF MANUFACTURE','PRODUCTION DATE']);
-  const exp=keyValue(raw,['EXP','EXP DATE','EXPIRY DATE','EXPIRATION DATE','DATE OF EXPIRY','BEST BEFORE']);
+  const batch=keyValue(raw,['BATCHNO','BATCH NO','BATCH','BATCH NUMBER','BATCHCODE','LOT','LOT NO','LOT NUMBER']);
+  const mfd=keyValue(raw,['MFG','MFG DATE','MFD','MFD DATE','MANUFACTURING DATE','DATE OF MANUFACTURE','PRODUCTION DATE']);
+  const exp=keyValue(raw,['EXPIRY_DATE','EXPIRY DATE','EXP DATE','EXP','EXPIRATION DATE','DATE OF EXPIRY','BEST BEFORE']);
   items.push({code:mappedItem.code,description:mappedItem.description,warehouse,batch:batch??'',mfd:dateText(mfd),exp:dateText(exp),shelf,qty:Number.isFinite(qty)?qty:null});
  });
  items.sort((a,b)=>a.code.localeCompare(b.code)||a.warehouse.localeCompare(b.warehouse)||(a.shelf??Infinity)-(b.shelf??Infinity));
