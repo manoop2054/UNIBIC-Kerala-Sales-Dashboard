@@ -2890,23 +2890,32 @@ function renderPeakItemDetails(){
  host.innerHTML=items.length?'<div class="peak-item-table-scroll"><table class="peak-item-table"><thead><tr><th>ITEM CODE</th><th>ITEM DESCRIPTION</th><th>MRP</th>'+cfaHeaders+'<th>PLANT SOH</th><th>SOH DETAILS</th></tr></thead><tbody>'+body+'</tbody></table></div>':'<div class="empty">Selected SKU Group-ന് item mapping ലഭ്യമല്ല.</div>';
 }
 function peakShowSoh(code){
+ peakSohActiveItemCode=String(code||'').trim();
+ peakRenderSohDetails(peakSohActiveItemCode,'ALL');
+}
+let peakSohActiveItemCode='';
+function peakRenderSohDetails(code,filter){
  const modal=document.getElementById('peakSohModal'),body=document.getElementById('peakSohModalBody');if(!modal||!body)return;
  const key=mbqCodeKey(code),items=[];
  (Array.isArray(liveSohRows)?liveSohRows:[]).forEach(raw=>{
   const type=String(keyValue(raw,['TYPE','Type'])||'').trim().toUpperCase();if(type&&type!=='SOH')return;
   if(mbqCodeKey(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']))!==key)return;
   const warehouse=String(keyValue(raw,['WAREHOUSE','Warehouse','Location','Location Name','LocationCode','Location Code'])||'Unmapped').trim();
+  const cfa=normalCfa(warehouse);
+  if(filter&&filter!=='ALL'&&cfa!==filter)return;
   const qtyRaw=keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity']),qty=Number(String(qtyRaw??'').replace(/,/g,''));
   const shelfRaw=keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%']),shelf=Number(String(shelfRaw??'').replace('%','').replace(/,/g,''));
   const bucket=!Number.isFinite(shelf)?'Shelf life unavailable':shelf<=0?'Expired':shelf<11?'≤10%':shelf<30?'11–29%':shelf<60?'30–59%':'≥60%';
   const mrpRaw=keyValue(raw,['MRP','M.R.P','MRP VALUE','UNIT MRP']);
-  items.push({warehouse,qty:Number.isFinite(qty)?qty:null,shelf:Number.isFinite(shelf)?shelf:null,bucket,mrp:mrpRaw});
+  items.push({warehouse,cfa,qty:Number.isFinite(qty)?qty:null,shelf:Number.isFinite(shelf)?shelf:null,bucket,mrp:mrpRaw});
  });
  items.sort((a,b)=>a.warehouse.localeCompare(b.warehouse)||(a.shelf??Infinity)-(b.shelf??Infinity));
  const total=items.reduce((n,x)=>n+(x.qty||0),0);
  const title=document.getElementById('peakSohTitle');if(title)title.textContent='Item '+code+' · Warehouse-wise SOH';
  const fmt=v=>v===null?'No Data Available':peakFmt(v);
- body.innerHTML='<div class="peak-modal-summary"><span>Item Code: <b>'+mbqEscape(code)+'</b></span><span>Total SOH: <b>'+peakFmt(total)+' CBB</b></span><span>Warehouse rows: <b>'+items.length+'</b></span></div><div style="overflow:auto"><table><thead><tr><th>WAREHOUSE / CFA</th><th>MRP</th><th>SOH CBB</th><th>REMAINING SHELF LIFE</th><th>SHELF-LIFE BUCKET</th></tr></thead><tbody>'+(items.length?items.map(x=>'<tr><td>'+mbqEscape(x.warehouse)+'</td><td>'+(x.mrp===''?'No Data Available':'₹'+mbqEscape(x.mrp))+'</td><td>'+fmt(x.qty)+'</td><td>'+(x.shelf===null?'No Data Available':peakFmt(x.shelf)+'%')+'</td><td>'+mbqEscape(x.bucket)+'</td></tr>').join(''):'<tr><td colspan="5" class="empty">No LIVE SOH rows found for this item.</td></tr>')+'</tbody></table></div>';
+ const rows=items.map(x=>'<tr><td>'+mbqEscape(x.cfa)+'</td><td>'+mbqEscape(x.warehouse)+'</td><td>'+(x.mrp===''?'No Data Available':'₹'+mbqEscape(x.mrp))+'</td><td>'+fmt(x.qty)+'</td><td>'+(x.shelf===null?'No Data Available':peakFmt(x.shelf)+'%')+'</td><td>'+mbqEscape(x.bucket)+'</td></tr>').join('');
+ const selected=filter||'ALL';
+ body.innerHTML='<div class="peak-modal-summary"><span>Item Code: <b>'+mbqEscape(code)+'</b></span><span>Total SOH: <b>'+peakFmt(total)+' CBB</b></span><span>Warehouse rows: <b>'+items.length+'</b></span></div><div class="form-grid" style="margin:10px 0 14px"><div class="field"><label for="peakSohCfaFilter">CFA Filter</label><select id="peakSohCfaFilter" onchange="peakRenderSohDetails(peakSohActiveItemCode,this.value)"><option value="ALL" '+(selected==='ALL'?'selected':'')+'>All CFAs / Warehouses</option><option value="TVD" '+(selected==='TVD'?'selected':'')+'>TVD</option><option value="PAY" '+(selected==='PAY'?'selected':'')+'>PAY</option><option value="ALU" '+(selected==='ALU'?'selected':'')+'>ALU</option></select></div></div><div style="overflow:auto"><table><thead><tr><th>CFA</th><th>WAREHOUSE</th><th>MRP</th><th>SOH CBB</th><th>REMAINING SHELF LIFE</th><th>SHELF-LIFE BUCKET</th></tr></thead><tbody>'+(rows||'<tr><td colspan="6" class="empty">No LIVE SOH rows found for this item / selected CFA.</td></tr>')+'</tbody></table></div>';
  modal.style.display='flex';
 }
 function peakShowGroupSoh(group,cfa){
