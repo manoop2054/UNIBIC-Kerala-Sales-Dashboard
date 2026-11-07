@@ -2336,18 +2336,40 @@ function renderPeakManualReport(){
  if(summary)summary.innerHTML=rows.length?rows.map(x=>'<tr><td>'+mbqEscape(x.cfa)+'</td><td class="sku">'+mbqEscape(x.group)+'</td><td>'+(x.allocated===null?'No Data Available':peakFmt(x.allocated))+'</td><td>'+peakFmt(x.manual)+'</td><td><b class="'+(x.excess>0?'negative':'positive')+'">'+(x.excess===null?'No Data Available':peakFmt(x.excess))+'</b></td><td>'+(x.excessPct===null?'No Data Available':x.excessPct.toFixed(1)+'%')+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No allocation or manual indent records for this month.</td></tr>';
  const history=document.getElementById('peakManualHistoryRows');
  const historyRows=[];
- records.forEach(s=>(Array.isArray(s.rows)?s.rows:[]).forEach(r=>historyRows.push({date:s.submissionDate||'',saved:s.submittedAt||'',cfa:s.cfa||'',period:(s.fromDate||'')+' – '+(s.toDate||''),group:r.group||'',qty:Number(r.qty)||0,legacy:!!s.legacy})));
+ const role=String(window.mbqCurrentUser?.role||'').toUpperCase(),canEdit=['ADMIN','SUPER_ADMIN'].includes(role);
+ records.forEach(s=>(Array.isArray(s.rows)?s.rows:[]).forEach(r=>historyRows.push({id:s.id||'',date:s.submissionDate||'',saved:s.submittedAt||'',cfa:s.cfa||'',period:(s.fromDate||'')+' – '+(s.toDate||''),group:r.group||'',qty:Number(r.qty)||0,employee:s.employeeName||'Not recorded',employeeId:s.employeeId||'',edited:s.editedAt||'',legacy:!!s.legacy,editable:canEdit&&!s.legacy&&!!s.id})));
  historyRows.sort((a,b)=>(b.saved||b.date).localeCompare(a.saved||a.date));
- if(history)history.innerHTML=historyRows.length?historyRows.map(x=>'<tr><td>'+mbqEscape(x.date)+(x.legacy?' · legacy':'')+'</td><td>'+mbqEscape(x.cfa)+'</td><td>'+mbqEscape(x.period)+'</td><td class="sku">'+mbqEscape(x.group)+'</td><td>'+peakFmt(x.qty)+'</td><td>'+mbqEscape(x.saved?new Date(x.saved).toLocaleString('en-IN'):'Existing saved entry')+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No submissions saved for this month.</td></tr>';
+ if(history)history.innerHTML=historyRows.length?historyRows.map(x=>'<tr><td>'+mbqEscape(x.date)+(x.legacy?' · legacy':'')+'</td><td>'+mbqEscape(x.employee)+(x.employeeId?' · '+mbqEscape(x.employeeId):'')+'</td><td>'+mbqEscape(x.cfa)+'</td><td>'+mbqEscape(x.period)+'</td><td class="sku">'+mbqEscape(x.group)+'</td><td>'+peakFmt(x.qty)+'</td><td>'+mbqEscape(x.saved?new Date(x.saved).toLocaleString('en-IN'):'Existing saved entry')+(x.edited?' · Edited '+mbqEscape(new Date(x.edited).toLocaleString('en-IN')):'')+'</td><td>'+(x.editable?'<button type="button" class="btn secondary small" onclick="editPeakManualSubmission(\\''+mbqEscape(x.id)+'\\')">Edit</button>':'—')+'</td></tr>').join(''):'<tr><td colspan="8" class="empty">No submissions saved for this month.</td></tr>';
  const sub=document.getElementById('peakManualReportSub');if(sub)sub.textContent=(month||'Select month')+' · '+(filter==='ALL'?'All CFAs':filter)+' · '+records.length+' submissions';
+}
+async function editPeakManualSubmission(id){
+ const role=String(window.mbqCurrentUser?.role||'').toUpperCase();
+ if(!['ADMIN','SUPER_ADMIN'].includes(role)){showToast('Edit permission Admin / Super Admin-ന് മാത്രം.');return;}
+ const sub=peakManualRecords().find(x=>x.id===id&&!x.legacy);
+ if(!sub){showToast('ഈ submission edit ചെയ്യാൻ ലഭ്യമല്ല.');return;}
+ const rows=[];
+ for(const row of (sub.rows||[])){
+  const answer=window.prompt('SKU Group: '+row.group+'\\nCurrent CBB: '+row.qty+'\\nNew CBB enter ചെയ്യുക:',String(row.qty));
+  if(answer===null)return;
+  const qty=Number(answer);
+  if(!Number.isFinite(qty)||qty<=0){showToast('Valid positive CBB quantity നൽകുക.');return;}
+  rows.push({group:String(row.group),qty});
+ }
+ try{
+  const r=await fetch('/api/mbq/peak-manual-indent/'+encodeURIComponent(id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows})});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok||!j.success)throw new Error(j.error||'Edit failed');
+  peakManualData=peakManualNormalize(j.data);renderPeakManualReport();renderPeakGroupRows();
+  showToast('Manual Indent update ചെയ്തു; edit history രേഖപ്പെടുത്തി.');
+ }catch(e){showToast('Edit save ആയില്ല: '+e.message);}
 }
 function exportPeakManualExcel(){
  if(!window.XLSX){showToast('Excel library loading. Refresh ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.');return;}
  const month=document.getElementById('peakManualReportMonth')?.value||'',filter=document.getElementById('peakManualReportCfa')?.value||'ALL',cfas=peakCfas(filter);
  if(!Array.isArray(allocationData)||!allocationData.length){try{buildAllocationData();}catch(e){console.warn('Manual indent export allocation source unavailable',e);}}
  const records=peakManualRecords().filter(s=>String(s.month||'')===month&&cfas.includes(normalCfa(s.cfa)));
- const history=[['Submission Date','Saved At','CFA','Month','Period From','Period To','SKU Group','Manual Indent CBB']];
- records.forEach(s=>(Array.isArray(s.rows)?s.rows:[]).forEach(r=>history.push([s.submissionDate||'',s.submittedAt||'',s.cfa||'',s.month||'',s.fromDate||'',s.toDate||'',r.group||'',Number(r.qty)||0])));
+ const history=[['Submission Date','Saved At','Employee Name','Employee ID','CFA','Month','Period From','Period To','SKU Group','Manual Indent CBB','Last Edited At']];
+ records.forEach(s=>(Array.isArray(s.rows)?s.rows:[]).forEach(r=>history.push([s.submissionDate||'',s.submittedAt||'',s.employeeName||'Not recorded',s.employeeId||'',s.cfa||'',s.month||'',s.fromDate||'',s.toDate||'',r.group||'',Number(r.qty)||0,s.editedAt||''])));
  const summary=[['CFA','SKU Group','Monthly Allocated CBB','Total Manual Indent CBB','Excess CBB','Excess %']];
  const map=new Map();
  (Array.isArray(allocationData)?allocationData:[]).forEach(x=>{const c=normalCfa(x.cfaKey||x.cfa),g=String(x.sku||'').trim();if(g&&cfas.includes(c))map.set(c+'|'+mbqSkuGroupKey(g),{c,g});});
@@ -3841,6 +3863,7 @@ document.getElementById('skuCount').textContent='Loading…';renderWatch();rende
     return {response,data};
   }
   function showDashboard(user){
+    window.mbqCurrentUser=user||null;
     document.body.classList.add('mbq-authenticated');
     gate.hidden=true;
     if(typeof window.mbqApplyUserAccess==='function')window.mbqApplyUserAccess(user);
@@ -3855,6 +3878,7 @@ document.getElementById('skuCount').textContent='Loading…';renderWatch();rende
   }
   async function logout(){
     try{await request('/api/mbq/auth/logout',{method:'POST'});}catch(_){}
+    window.mbqCurrentUser=null;
     document.body.classList.remove('mbq-authenticated');
     if(typeof window.mbqResetAuthenticatedDataLoad==='function')window.mbqResetAuthenticatedDataLoad();
     gate.hidden=false;formWrap.style.display='block';pending.style.display='none';form.reset();msg.textContent='';
