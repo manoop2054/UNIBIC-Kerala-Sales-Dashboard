@@ -214,6 +214,51 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 #page-stock .table-wrap th:nth-child(3),#page-stock .table-wrap td:nth-child(3){text-align:left!important}
 #indentWorkspaceWrap th,#indentWorkspaceWrap td{text-align:center}
 #indentWorkspaceWrap td:nth-child(1),#indentWorkspaceWrap td:nth-child(2){text-align:left}
+/* Monthly Indent Entry — aligned, colorful SKU group table */
+#indentWorkspaceWrap.group-mode table{
+  width:100%!important;min-width:1120px!important;table-layout:fixed!important;
+  border-collapse:separate!important;border-spacing:0!important;
+  border:1px solid #d6e2ef;border-radius:10px;overflow:hidden;
+}
+#indentWorkspaceWrap.group-mode thead th{
+  padding:13px 10px!important;text-align:center!important;vertical-align:middle!important;
+  white-space:normal!important;line-height:1.35;font-size:10px!important;
+  font-weight:850!important;letter-spacing:.35px;color:#fff!important;
+  border-right:1px solid #ffffff38!important;border-bottom:1px solid #c8d8e8!important;
+  box-shadow:none!important;
+}
+#indentWorkspaceWrap.group-mode thead th:nth-child(1){width:21%;background:#17365d!important}
+#indentWorkspaceWrap.group-mode thead th:nth-child(2){width:18%;background:#087f8c!important}
+#indentWorkspaceWrap.group-mode thead th:nth-child(3){width:16%;background:#3266b5!important}
+#indentWorkspaceWrap.group-mode thead th:nth-child(4){width:24%;background:#6554a4!important}
+#indentWorkspaceWrap.group-mode thead th:nth-child(5){width:21%;background:#16765b!important}
+#indentWorkspaceWrap.group-mode tbody td{
+  padding:11px 10px!important;text-align:center!important;vertical-align:middle!important;
+  white-space:normal!important;line-height:1.4;font-size:11px!important;
+  color:#24364b;border-right:1px solid #dfe7f0!important;
+  border-bottom:1px solid #dfe7f0!important;background:#fff;
+}
+#indentWorkspaceWrap.group-mode tbody tr:nth-child(even) td{background:#f1f6fb!important}
+#indentWorkspaceWrap.group-mode tbody tr:hover td{background:#e4f5f4!important}
+#indentWorkspaceWrap.group-mode tbody td:first-child{
+  text-align:left!important;font-weight:800!important;color:#17365d!important;
+  background:#eaf1fa!important;padding-left:16px!important;
+}
+#indentWorkspaceWrap.group-mode tbody tr:nth-child(even) td:first-child{background:#e2ebf7!important}
+#indentWorkspaceWrap.group-mode tbody td:last-child,
+#indentWorkspaceWrap.group-mode thead th:last-child{border-right:0!important}
+#indentWorkspaceWrap.group-mode tbody tr:last-child td{border-bottom:0!important}
+#indentWorkspaceWrap.group-mode .group-indent-input{
+  display:block!important;width:125px!important;max-width:100%!important;
+  margin:0 auto!important;text-align:center!important;font-weight:800!important;
+  color:#17365d!important;background:#f7fbff!important;
+  border:1px solid #9db8d6!important;border-radius:8px!important;
+  padding:9px 10px!important;box-shadow:inset 0 1px 2px #17365d0d;
+}
+#indentWorkspaceWrap.group-mode .group-indent-input:focus{
+  outline:2px solid #54b9b2!important;outline-offset:1px;background:#fff!important;
+}
+
 /* Ensure employee tab permissions override the nav's display:flex rule. */
 .nav button[hidden]{display:none!important}
 
