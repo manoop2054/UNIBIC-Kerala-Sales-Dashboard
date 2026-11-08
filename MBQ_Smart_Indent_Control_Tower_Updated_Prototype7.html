@@ -3321,7 +3321,7 @@ function installTabExcelButtons(){
 installTabExcelButtons();
 
 const mbqDistributorAnalysisState={rows:[],skuRows:[],currentFrom:'',currentTo:'',previousFrom:'',previousTo:'',distributors:[]};
-function mbqDistDateParts(v){const m=String(v||'').match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);return m?{y:Number(m[1]),m:Number(m[2]),d:Number(m[3])}:null}
+function mbqDistDateParts(v){const m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?{y:Number(m[1]),m:Number(m[2]),d:Number(m[3])}:null}
 function mbqDistDateString(y,m,d){return String(y).padStart(4,'0')+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0')}
 function mbqDistPreviousMonthRange(from,to){
  const a=mbqDistDateParts(from),b=mbqDistDateParts(to);if(!a||!b)return null;
@@ -3556,7 +3556,7 @@ async function loadMbqWorkbook(event){
   try{
     if(file.size>25*1024*1024)throw new Error('Master Excel file limit is 25 MB.');
     const pin=prompt('Shared Master Excel upload PIN (4 digits):');if(pin===null)return;
-    if(!/^\\d{4}$/.test(String(pin).trim()))throw new Error('Enter the 4-digit upload PIN.');
+    if(!/^\d{4}$/.test(String(pin).trim()))throw new Error('Enter the 4-digit upload PIN.');
     const bytes=await file.arrayBuffer();const wb=XLSX.read(bytes,{type:'array',cellDates:true});
     const next={};['DATA','ALU','PAY','TVD'].forEach(k=>{const d=mbqSheetData(wb,k);if(d)next[k]=d;});
     if(!next.DATA)throw new Error('Required DATA sheet (All CFA) was not found or has no SKU GROUP header.');
@@ -3621,7 +3621,7 @@ function mbqRecalcContributionRows(sheet){
   const source=(sheet.rows||[]).filter(row=>skuIx>=0&&!isTotal(row)&&mbqIsOfficialSkuGroup(row[skuIx]));
   const merged=new Map(),other=[];
   const additive=new Set(['IND','INDENT','CL PO','OPEN PO','SOH<60%','SOH>60%','PLANT SOH','SALES','NXT 10D']);
-  headers.forEach((h,i)=>{if(/^(JUL|AUG|SEP|OCT|NOV|DEC|JAN|FEB|MAR|APR|MAY|JUN)(\\s+\\d{4})?$/.test(norm(h)))additive.add(norm(h));});
+  headers.forEach((h,i)=>{if(/^(JUL|AUG|SEP|OCT|NOV|DEC|JAN|FEB|MAR|APR|MAY|JUN)(\\s+\d{4})?$/.test(norm(h)))additive.add(norm(h));});
   source.forEach(raw=>{
     const row=raw.slice(),sku=skuIx>=0?String(row[skuIx]??'').trim():'';
     if(!sku){other.push(row);return;}
