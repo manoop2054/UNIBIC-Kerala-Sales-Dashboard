@@ -606,8 +606,37 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 /* Peak Billing Planner: keep the six CFA column headings on a clean white background */
 #page-peak .peak-new-table thead tr:nth-child(2) th[class^="sub-"]{background:#fff!important;color:#183451!important;border-right:1px solid #dbe4ef!important;border-bottom:1px solid #dbe4ef!important;font-weight:800!important}
 </style>
+
+<style id="mbq-distributor-performance-style">
+#page-distributor .dist-filter-grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:12px}
+#page-distributor .dist-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+#page-distributor .dist-field label{font-size:10px;font-weight:800;color:#66758b;letter-spacing:.5px;text-transform:uppercase}
+#page-distributor .dist-field input,#page-distributor .dist-field select{width:100%;min-width:0;border:1px solid #dce4ef;border-radius:9px;padding:10px 11px;background:#fff;color:#18253b;font:12px Inter,Segoe UI,Arial,sans-serif}
+#page-distributor .dist-kpis{grid-template-columns:repeat(6,minmax(0,1fr));margin:14px 0}
+#page-distributor .dist-kpi{padding:14px 15px}
+#page-distributor .dist-kpi .value{font-size:21px;overflow-wrap:anywhere}
+#page-distributor .dist-kpi .sub{line-height:1.45}
+#page-distributor .dist-table-wrap{overflow:auto;max-width:100%}
+#page-distributor table{width:100%;border-collapse:separate;border-spacing:0;white-space:nowrap;font-size:11px}
+#page-distributor th{background:#f1f5fa;color:#52627a;text-align:left;font-size:10px;letter-spacing:.35px;text-transform:uppercase;padding:11px 10px;border-bottom:1px solid #dce4ef;position:sticky;top:0;z-index:1}
+#page-distributor td{padding:10px;border-bottom:1px solid #edf1f6;color:#26364c}
+#page-distributor tbody tr:nth-child(even){background:#fafbfd}
+#page-distributor .dist-num{text-align:right;font-variant-numeric:tabular-nums}
+#page-distributor .dist-status{display:inline-flex;padding:4px 8px;border-radius:99px;font-size:9px;font-weight:800}
+#page-distributor .dist-status.drop{background:#fee8e8;color:#b42332}
+#page-distributor .dist-status.growth{background:#e4f7ed;color:#13764e}
+#page-distributor .dist-status.stable{background:#edf2f8;color:#52627a}
+#page-distributor .dist-status.new{background:#e6efff;color:#2457b7}
+#page-distributor .dist-status.none{background:#f1f3f6;color:#667085}
+#page-distributor .dist-period-note{font-size:11px;color:#68788f;padding:9px 11px;background:#f5f8fc;border:1px solid #e4eaf2;border-radius:9px;margin-top:10px}
+#page-distributor .dist-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#page-distributor .dist-empty{padding:22px;text-align:center;color:#7b8798;font-size:12px}
+@media(max-width:1200px){#page-distributor .dist-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:850px){#page-distributor .dist-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){#page-distributor .dist-filter-grid,#page-distributor .dist-kpis{grid-template-columns:1fr}}
+</style>
 </head>
-<body><div id="mbqLoginGate"><div class="mbq-login-card"><div class="mbq-login-brand">UNIBIC · EMPLOYEE ACCESS</div><div id="mbqLoginFormWrap"><h1>MBQ Smart Indent</h1><p>Sign in using your existing UNIBIC Dashboard Employee ID and password.</p><form id="mbqLoginForm"><label for="mbqEmployeeId">Employee ID</label><input id="mbqEmployeeId" name="employee_id" autocomplete="username" required><label for="mbqEmployeePassword">Password</label><input id="mbqEmployeePassword" name="password" type="password" autocomplete="current-password" required><button id="mbqLoginButton" type="submit">Login</button><div id="mbqLoginMessage" role="alert"></div></form></div><div id="mbqAccessPending"><h1>Access not assigned yet</h1><p id="mbqPendingMessage">Your MBQ tab access has not been assigned by Super Admin.</p><button type="button" id="mbqPendingLogout">Logout</button></div></div></div><div class="app"><aside class="sidebar"><div class="brand"><div class="logo">MB</div><div><strong>SMART INDENT</strong><small>Kerala · CFA Replenishment</small></div></div><div class="nav-label">WORKSPACE</div><nav class="nav" id="nav"><button class="active" data-page="overview"><span>◫</span>Overview Dashboard</button><button data-page="indent"><span>＋</span>Monthly Indent Entry</button><button data-page="suggest"><span>✦</span>AI Suggested Indent</button><button data-page="stock"><span>▦</span>CFA-wise Stock</button><button data-page="totracker"><span>⇄</span>Open TO Tracker</button><button data-page="advanced"><span>✦</span>Advanced Controls</button><button data-page="allocation"><span>⇄</span>CFA Allocation</button><button data-page="peak"><span>◷</span>Peak Billing Planner</button><button data-page="loading"><span>▤</span>CFA Loading Plan</button><button data-page="flash"><span>◉</span>Daily WhatsApp Flash</button><button data-page="reports"><span>⇩</span>Reports & Export</button><button data-page="excelview"><span>▤</span>MBQ Excel View</button><button data-page="settings"><span>⚙</span>Master Data & Settings</button></nav><div class="sidebar-foot"><span class="dot"></span>MBQ workspace<br><br>Data will appear after the relevant source is connected.</div></aside>
+<body><div id="mbqLoginGate"><div class="mbq-login-card"><div class="mbq-login-brand">UNIBIC · EMPLOYEE ACCESS</div><div id="mbqLoginFormWrap"><h1>MBQ Smart Indent</h1><p>Sign in using your existing UNIBIC Dashboard Employee ID and password.</p><form id="mbqLoginForm"><label for="mbqEmployeeId">Employee ID</label><input id="mbqEmployeeId" name="employee_id" autocomplete="username" required><label for="mbqEmployeePassword">Password</label><input id="mbqEmployeePassword" name="password" type="password" autocomplete="current-password" required><button id="mbqLoginButton" type="submit">Login</button><div id="mbqLoginMessage" role="alert"></div></form></div><div id="mbqAccessPending"><h1>Access not assigned yet</h1><p id="mbqPendingMessage">Your MBQ tab access has not been assigned by Super Admin.</p><button type="button" id="mbqPendingLogout">Logout</button></div></div></div><div class="app"><aside class="sidebar"><div class="brand"><div class="logo">MB</div><div><strong>SMART INDENT</strong><small>Kerala · CFA Replenishment</small></div></div><div class="nav-label">WORKSPACE</div><nav class="nav" id="nav"><button class="active" data-page="overview"><span>◫</span>Overview Dashboard</button><button data-page="indent"><span>＋</span>Monthly Indent Entry</button><button data-page="suggest"><span>✦</span>AI Suggested Indent</button><button data-page="stock"><span>▦</span>CFA-wise Stock</button><button data-page="totracker"><span>⇄</span>Open TO Tracker</button><button data-page="advanced"><span>✦</span>Advanced Controls</button><button data-page="allocation"><span>⇄</span>CFA Allocation</button><button data-page="distributor"><span>▥</span>Distributor Performance</button><button data-page="peak"><span>◷</span>Peak Billing Planner</button><button data-page="loading"><span>▤</span>CFA Loading Plan</button><button data-page="flash"><span>◉</span>Daily WhatsApp Flash</button><button data-page="reports"><span>⇩</span>Reports & Export</button><button data-page="excelview"><span>▤</span>MBQ Excel View</button><button data-page="settings"><span>⚙</span>Master Data & Settings</button></nav><div class="sidebar-foot"><span class="dot"></span>MBQ workspace<br><br>Data will appear after the relevant source is connected.</div></aside>
 <main class="main"><header class="topbar"><div class="crumb">Workspace / <b id="crumb">Overview Dashboard</b></div><div class="top-right"><div id="gsvConnectionStatus" class="gsv-connection loading" role="status" aria-live="polite"><span class="gsv-dot"></span><span id="gsvConnectionLabel">GSV Loading</span></div><select class="select" id="month" onchange="renderMbqExcelView()"><option>November 2026</option><option>October 2026</option><option>December 2026</option></select><select class="select" id="cfa"><option>All CFAs</option><option>TVD CFA</option><option>PAY CFA</option><option>ALU CFA</option></select><div class="user" id="mbqEmployeeIdDisplay">Employee</div><button class="mbq-logout-link" id="mbqLogoutButton" type="button">Logout</button></div></header><div class="content">
 <section class="section active" id="page-overview">
 <div class="page-head"><div><div class="eyebrow">Planning intelligence · Kerala</div><h1>Smart Indent Command Center</h1><p>One view for MBQ, CFA stock, replenishment and peak-billing readiness.</p></div><div class="actions"><button class="btn" onclick="showToast('Summary uses the connected GSV, LIVE SOH and approved planning sources.')">↗ View summary</button><button class="btn primary" onclick="go('suggest')">✦ Generate indent suggestion</button></div></div>
@@ -883,6 +912,41 @@ body:not(.mbq-authenticated)>.app{display:none!important}
       <div class="notice" style="margin-top:12px">Open/Closed PO CBB are calculated from the uploaded PO report. Invoice CBB and Fill Rate use connected GSV billing for the current month; Invoice CBB is not taken from the uploaded report.</div>
     </div>
   </div>
+</section>
+
+
+<section class="section" id="page-distributor">
+ <div class="page-head">
+  <div><div class="eyebrow">Sales intelligence · Kerala</div><h1>Distributor Performance Analysis</h1><p>Identify distributors with billing drops, growth and SKU-level purchase changes using connected GSV.</p></div>
+  <div class="actions"><button class="btn" type="button" onclick="renderDistributorPerformance()">↻ Refresh Analysis</button><button class="btn primary" type="button" onclick="mbqOpenReportExport(this,'Distributor Performance Analysis','#page-distributor')">⇩ Export Report</button></div>
+ </div>
+ <div class="notice">CBB Quantity determines Sales Drop / Growth status. GSV Amount is shown as a parallel value comparison. No sample or estimated sales values are used.</div>
+ <div class="card" style="padding:16px;margin-bottom:14px">
+  <div class="dist-section-head"><div><h3 style="margin:0 0 4px">Analysis Filters</h3><small class="small-note">Select a date range; the system compares the same dates in the previous month.</small></div><button class="btn" type="button" onclick="resetDistributorFilters()">Reset Filters</button></div>
+  <div class="dist-filter-grid" style="margin-top:14px">
+   <div class="dist-field"><label for="distFromDate">From Date</label><input id="distFromDate" type="date" onchange="renderDistributorPerformance()"></div>
+   <div class="dist-field"><label for="distToDate">To Date</label><input id="distToDate" type="date" onchange="renderDistributorPerformance()"></div>
+   <div class="dist-field"><label for="distCfaFilter">CFA</label><select id="distCfaFilter" onchange="renderDistributorPerformance()"><option value="all">All CFAs</option><option value="TVD">TVD CFA</option><option value="PAY">PAY CFA</option><option value="ALU">ALU CFA</option></select></div>
+   <div class="dist-field"><label for="distStatusFilter">Performance Status</label><select id="distStatusFilter" onchange="renderDistributorPerformance()"><option value="all">All Status</option><option value="drop">Sales Drop</option><option value="growth">Growing</option><option value="stable">Stable</option><option value="new">New Billing</option></select></div>
+  </div>
+  <div class="dist-period-note" id="distComparisonLabel">Comparison period will appear after GSV is loaded.</div>
+ </div>
+ <div class="grid dist-kpis">
+  <div class="card kpi dist-kpi"><div class="label">Total Distributors</div><div class="value" id="distKpiTotal">No Data Available</div><div class="sub">In selected CFA / period</div></div>
+  <div class="card kpi dist-kpi"><div class="label">Sales Drop</div><div class="value negative" id="distKpiDrop">No Data Available</div><div class="sub">CBB lower than previous month</div></div>
+  <div class="card kpi dist-kpi"><div class="label">Growing</div><div class="value positive" id="distKpiGrowth">No Data Available</div><div class="sub">CBB higher than previous month</div></div>
+  <div class="card kpi dist-kpi"><div class="label">Current CBB</div><div class="value" id="distKpiCbb">No Data Available</div><div class="sub" id="distKpiCbbSub">Selected period billing</div></div>
+  <div class="card kpi dist-kpi"><div class="label">Current GSV Amount</div><div class="value" id="distKpiGsv">No Data Available</div><div class="sub">Selected period value</div></div>
+  <div class="card kpi dist-kpi"><div class="label">Highest Purchase</div><div class="value" id="distKpiTop">No Data Available</div><div class="sub" id="distKpiTopSub">By current CBB</div></div>
+ </div>
+ <div class="card" style="margin-bottom:14px">
+  <div class="card-head"><div><h3>Distributor-wise Performance</h3><small>Current month vs previous month · CBB drives the status</small></div><span class="pill blue" id="distRowsCount">No Data Available</span></div>
+  <div class="dist-table-wrap"><table id="distPerformanceTable"><thead><tr><th>CFA</th><th>Distributor Code</th><th>Distributor Name</th><th class="dist-num">Previous CBB</th><th class="dist-num">Current CBB</th><th class="dist-num">CBB Change</th><th class="dist-num">CBB Change %</th><th class="dist-num">Previous GSV</th><th class="dist-num">Current GSV</th><th class="dist-num">GSV Change %</th><th>Status</th></tr></thead><tbody id="distPerformanceRows"><tr><td colspan="11" class="dist-empty">Loading GSV data…</td></tr></tbody></table></div>
+ </div>
+ <div class="card">
+  <div class="card-head"><div><h3>SKU-wise Purchase Analysis</h3><small>Find which products each distributor is buying more or less</small></div><div class="dist-field" style="min-width:220px"><label for="distSkuDistributor">Distributor</label><select id="distSkuDistributor" onchange="renderDistributorSkuTable()"><option value="all">All Distributors</option></select></div></div>
+  <div class="dist-table-wrap"><table id="distSkuTable"><thead><tr><th>Item Code</th><th>Item Description</th><th class="dist-num">Previous CBB</th><th class="dist-num">Current CBB</th><th class="dist-num">CBB Change</th><th class="dist-num">CBB Change %</th><th class="dist-num">Previous GSV</th><th class="dist-num">Current GSV</th><th>Status</th></tr></thead><tbody id="distSkuRows"><tr><td colspan="9" class="dist-empty">No Data Available</td></tr></tbody></table></div>
+ </div>
 </section>
 
 <section class="section" id="page-settings"><div class="card" id="mbqEmployeeAccessCard" style="display:none;margin-bottom:16px"><div class="card-head"><h3>MBQ Employee Access Management</h3><small>Super Admin only · Assign MBQ tabs and Excel upload rights</small><button class="btn" type="button" id="mbqRefreshAccess">Refresh employees</button></div><p class="small-note">Employee ID and password remain managed in the main UNIBIC Dashboard. These settings apply only to MBQ. Region, Area and Anchor restrictions are not used here.</p><div class="form-grid"><div class="field"><label for="mbqAccessEmployee">Active employee</label><select id="mbqAccessEmployee"><option value="">Loading employees…</option></select></div><div class="field"><label>Excel Upload permission</label><label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="mbqAccessUpload" style="width:auto"> Allow Excel Upload</label></div></div><div id="mbqAccessTabs" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin:14px 0"></div><div class="actions" style="justify-content:flex-end"><span class="small-note" id="mbqAccessStatus"></span><button class="btn primary" type="button" id="mbqSaveAccess">Save MBQ Access</button></div></div><div class="page-head"><div><div class="eyebrow">Configuration</div><h1>Master Data & Settings</h1><p>Configure business rules that drive recommendations. Keep assumptions transparent.</p></div><div class="actions"><button class="btn primary" type="button" onclick="savePlanningRules()">Save settings</button></div></div><div class="card" style="margin-bottom:14px"><div class="card-head"><h3>SKU Group Production Frequency</h3><small>Frequency changes can be updated per SKU Group</small><button class="btn primary" onclick="saveProductionFrequency()">Save production settings</button></div><p class="small-note">PROD FREQ = ഒരു മാസത്തിൽ ആ SKU Group എത്ര തവണ production ചെയ്യും. MBQ DAYS (BASED on PROD FREQ), TRANSIT DAYS എന്നിവ കൂടി ഉപയോഗിച്ച് MBQ DAYS, MBQ വീണ്ടും കണക്കാക്കും. Workbook-ൽ ലഭ്യമല്ലാത്ത values സ്വയം കെട്ടിച്ചമയ്ക്കില്ല.</p><div class="actions" style="justify-content:flex-start;flex-wrap:wrap;margin:12px 0"><button class="btn" type="button" onclick="downloadProductionTemplate()">Download Excel Template</button><label class="btn" for="productionSettingsFile" style="cursor:pointer">Upload Excel</label><input id="productionSettingsFile" type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="previewProductionSettingsUpload(this)"><button class="btn primary" type="button" id="applyProductionUploadBtn" onclick="applyProductionSettingsUpload()" disabled>Apply Uploaded Settings</button><span class="small-note" id="productionUploadStatus">Excel/CSV upload · preview and validate before saving</span></div><div class="table-wrap" id="productionUploadPreviewWrap" style="display:none;margin-bottom:14px"><table><thead><tr><th>SKU GROUP</th><th>PROD FREQ / MONTH</th><th>MBQ DAYS BASED ON PROD FREQ</th><th>TRANSIT DAYS</th><th>Validation</th></tr></thead><tbody id="productionUploadPreviewRows"></tbody></table></div><div class="table-wrap"><table><thead><tr><th>SKU GROUP</th><th>PROD FREQ / MONTH</th><th>MBQ DAYS BASED ON PROD FREQ</th><th>TRANSIT DAYS</th></tr></thead><tbody id="productionFrequencyRows"><tr><td colspan="4" class="empty">SKU Groups loading…</td></tr></tbody></table></div><div class="small-note" id="productionFrequencyStatus">Saved settings apply in this browser and recalculate MBQ Excel View.</div></div><div class="card"><div class="card-head"><h3>Planning rules</h3><small>Review with business owner before go-live</small></div><div class="form-grid"><div class="field"><label>Default plant lead time</label><select id="planningLeadTime"><option value="4" selected>4 days</option><option value="5">5 days</option><option value="6">6 days</option></select></div><div class="field"><label>Primary indent prediction basis</label><select><option selected>Last 2 months</option><option>Last 3 months (trend views only)</option></select></div><div class="field"><label>Primary planning unit</label><select><option selected>CBO / Cases</option><option>Units</option><option>Value (₹)</option></select></div><div class="field"><label>Stock threshold rule</label><select><option>Needs confirmation</option><option>Cover days</option><option>Remaining shelf-life %</option></select></div><div class="field"><label>Mid-month window default</label><input id="planningMidWindow" value="14th–15th" readonly></div><div class="field"><label>Month-end window default</label><input id="planningEndWindow" value="Last 2 days of each month" readonly></div><div class="field"><label>Mid-month billing target (CBB)</label><input id="planningMidTarget" type="number" min="0" step="1" placeholder="Enter target CBB"></div><div class="field"><label>Month-end billing target (CBB)</label><input id="planningEndTarget" type="number" min="0" step="1" placeholder="Enter target CBB"></div><div class="field full"><label>Validation checklist</label><textarea>Confirm year/month mapping in SALES data; confirm meaning of SOH threshold; confirm CBO/case/pallet conversions; confirm whether daily flash uses order entry, invoice billing or dispatched sales; confirm source refresh procedure.</textarea></div><div class="field full"><button class="btn primary" type="button" onclick="savePlanningRules()">Save Planning Rules</button><small id="planningRulesStatus" class="small-note">Lead time defaults to 4 days. Peak targets are entered manually in CBB.</small></div></div></div></section>
@@ -1210,7 +1274,7 @@ async function loadMbqGsv(attempt=0){
     mbqApplyGsvSales();
     const pill=[...document.querySelectorAll("#page-indent .excel-pill")].find(el=>el.textContent.includes("GSV source status pending"));
     if(pill)pill.textContent="Sales / Billing · GSV linked · "+Number(result.matchedRows||0).toLocaleString("en-IN")+" rows";
-    mbqRefreshDashboardKpis();if(typeof renderDaysPlanner==='function')renderDaysPlanner();console.info("MBQ GSV connected",{rows:result.rows,aggregateRows:result.aggregateRows,detected:result.detected});
+    mbqRefreshDashboardKpis();if(typeof renderDaysPlanner==='function')renderDaysPlanner();if(typeof renderDistributorPerformance==='function')renderDistributorPerformance();console.info("MBQ GSV connected",{rows:result.rows,aggregateRows:result.aggregateRows,detected:result.detected});
     showToast("GSV Billing data linked. Matched "+Number(result.matchedRows||0).toLocaleString("en-IN")+" source rows.");
   }catch(error){
     console.error("MBQ GSV load failed",error);
@@ -3255,7 +3319,89 @@ function installTabExcelButtons(){
  });
 }
 installTabExcelButtons();
-function go(page){document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById('page-'+page).classList.add('active');document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));let active=document.querySelector(`#nav button[data-page="${page}"]`);document.getElementById('crumb').textContent=active?active.innerText.replace(/^\S+\s*/, '').trim():page;if(page==='stock'){const stockWrap=document.querySelector('#page-stock .table-wrap');if(stockWrap)stockWrap.scrollLeft=0;}if(page==='settings')renderProductionFrequencySettings();if(page==='loading')renderDaysPlanner();window.scrollTo({top:0,behavior:'smooth'})}
+
+const mbqDistributorAnalysisState={rows:[],skuRows:[],currentFrom:'',currentTo:'',previousFrom:'',previousTo:'',distributors:[]};
+function mbqDistDateParts(v){const m=String(v||'').match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);return m?{y:Number(m[1]),m:Number(m[2]),d:Number(m[3])}:null}
+function mbqDistDateString(y,m,d){return String(y).padStart(4,'0')+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0')}
+function mbqDistPreviousMonthRange(from,to){
+ const a=mbqDistDateParts(from),b=mbqDistDateParts(to);if(!a||!b)return null;
+ const py=a.m===1?a.y-1:a.y,pm=a.m===1?12:a.m-1,days=new Date(Date.UTC(py,pm,0)).getUTCDate();
+ const start=Math.min(a.d,days),end=Math.min(b.d,days);
+ return {from:mbqDistDateString(py,pm,start),to:mbqDistDateString(py,pm,end)};
+}
+function mbqDistFmt(v){return Number(v||0).toLocaleString('en-IN',{maximumFractionDigits:0})}
+function mbqDistMoney(v){return '₹'+Number(v||0).toLocaleString('en-IN',{maximumFractionDigits:0})}
+function mbqDistPct(cur,prev){if(!(prev>0))return cur>0?'New':'—';return ((cur-prev)/prev*100).toFixed(1)+'%'}
+function mbqDistStatus(cur,prev){if(prev>0&&cur<prev)return 'drop';if(prev>0&&cur>prev)return 'growth';if(!(prev>0)&&cur>0)return 'new';if(prev===cur)return 'stable';return 'none'}
+function mbqDistStatusHtml(status){const labels={drop:'Sales Drop',growth:'Growing',new:'New Billing',stable:'Stable',none:'No Sales'};return '<span class="dist-status '+status+'">'+(labels[status]||'No Sales')+'</span>'}
+function mbqDistSet(id,value){const el=document.getElementById(id);if(el)el.textContent=value}
+function mbqDistDefaultDates(){
+ const from=document.getElementById('distFromDate'),to=document.getElementById('distToDate');if(!from||!to||from.value||to.value)return;
+ const now=new Date(),end=new Date(now.getFullYear(),now.getMonth(),now.getDate()-1),start=new Date(now.getFullYear(),now.getMonth(),1);
+ const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+ from.value=iso(start);to.value=iso(end<start?now:end);
+}
+function resetDistributorFilters(){
+ const c=document.getElementById('distCfaFilter'),st=document.getElementById('distStatusFilter'),d=document.getElementById('distSkuDistributor');
+ if(c)c.value='all';if(st)st.value='all';if(d)d.value='all';
+ const f=document.getElementById('distFromDate'),t=document.getElementById('distToDate');if(f)f.value='';if(t)t.value='';
+ mbqDistDefaultDates();renderDistributorPerformance();
+}
+function mbqDistAggregate(from,to,cfa){
+ const map=new Map(),items=new Map(),raw=Array.isArray(mbqGsvRows)?mbqGsvRows:[];
+ const include=(r)=>{const date=String(r.date||'').slice(0,10),cf=normalCfa(r.cfa);return date>=from&&date<=to&&(cfa==='all'||cf===cfa)};
+ raw.forEach(r=>{
+  if(!include(r))return;
+  const cf=normalCfa(r.cfa),code=String(r.dbrCode||'').trim(),name=String(r.dbrName||'').trim(),id=code||name||'Unknown Distributor',key=cf+'|'+id;
+  const q=Number(r.quantity)||0,a=Number(r.amount)||0,item=String(r.itemId||'').trim();
+  let d=map.get(key);if(!d){d={key,cfa:cf,code:code||'—',name:name||code||'Unknown Distributor',cbb:0,gsv:0,gsvAvailable:false};map.set(key,d);}
+  d.cbb+=q;d.gsv+=a;if(r.amountAvailable!==false)d.gsvAvailable=true;
+  if(item){const skey=key+'|'+item;let x=items.get(skey);if(!x){x={key:skey,distKey:key,cfa:cf,itemId:item,cbb:0,gsv:0,gsvAvailable:false};items.set(skey,x);}x.cbb+=q;x.gsv+=a;if(r.amountAvailable!==false)x.gsvAvailable=true;}
+ });
+ return {distributors:map,items};
+}
+function mbqDistDescription(itemId){
+ const key=mbqCodeKey(itemId);
+ const fromRows=Array.isArray(rows)?rows.find(x=>mbqCodeKey(x.code)===key&&x.description):null;
+ if(fromRows&&fromRows.description)return String(fromRows.description);
+ const fromSoh=Array.isArray(liveSohRows)?liveSohRows.find(x=>mbqCodeKey(keyValue(x,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']))===key):null;
+ return fromSoh?String(keyValue(fromSoh,['DESCRIPTION','Description','Item Description','Product Name','Item Name'])||itemId):itemId;
+}
+function renderDistributorPerformance(){
+ mbqDistDefaultDates();
+ const from=document.getElementById('distFromDate')?.value||'',to=document.getElementById('distToDate')?.value||'',cfa=document.getElementById('distCfaFilter')?.value||'all',statusFilter=document.getElementById('distStatusFilter')?.value||'all';
+ if(!Array.isArray(mbqGsvRows)||!mbqGsvRows.length){mbqDistSet('distComparisonLabel',mbqGsvLoading?'GSV data is loading…':'No Data Available — connected GSV rows are required.');mbqDistSet('distRowsCount','No Data Available');['distKpiTotal','distKpiDrop','distKpiGrowth','distKpiCbb','distKpiGsv','distKpiTop'].forEach(id=>mbqDistSet(id,'No Data Available'));document.getElementById('distPerformanceRows').innerHTML='<tr><td colspan="11" class="dist-empty">'+(mbqGsvLoading?'Loading GSV data…':'No Data Available — GSV not connected.')+'</td></tr>';document.getElementById('distSkuRows').innerHTML='<tr><td colspan="9" class="dist-empty">No Data Available</td></tr>';return;}
+ const a=mbqDistDateParts(from),b=mbqDistDateParts(to);
+ if(!a||!b||from>to||a.y!==b.y||a.m!==b.m){mbqDistSet('distComparisonLabel','Please select a valid From / To range within the same calendar month.');document.getElementById('distPerformanceRows').innerHTML='<tr><td colspan="11" class="dist-empty">Select valid dates within one month.</td></tr>';document.getElementById('distSkuRows').innerHTML='<tr><td colspan="9" class="dist-empty">Select valid dates within one month.</td></tr>';mbqDistSet('distRowsCount','Invalid Date Range');return;}
+ const prev=mbqDistPreviousMonthRange(from,to);if(!prev)return;
+ mbqDistributorAnalysisState.currentFrom=from;mbqDistributorAnalysisState.currentTo=to;mbqDistributorAnalysisState.previousFrom=prev.from;mbqDistributorAnalysisState.previousTo=prev.to;
+ mbqDistSet('distComparisonLabel','Current: '+from+' to '+to+'  |  Previous month: '+prev.from+' to '+prev.to+'  |  Sales Drop / Growth status is based on CBB Quantity.');
+ const current=mbqDistAggregate(from,to,cfa),previous=mbqDistAggregate(prev.from,prev.to,cfa),keys=new Set([...current.distributors.keys(),...previous.distributors.keys()]);
+ const data=[...keys].map(key=>{const x=current.distributors.get(key)||{},p=previous.distributors.get(key)||{};const cur=Number(x.cbb)||0,old=Number(p.cbb)||0,curG=Number(x.gsv)||0,oldG=Number(p.gsv)||0;return {key,cfa:x.cfa||p.cfa,code:x.code||p.code||'—',name:x.name||p.name||'Unknown Distributor',current:cur,previous:old,delta:cur-old,pct:mbqDistPct(cur,old),currentGsv:curG,previousGsv:oldG,gsvPct:mbqDistPct(curG,oldG),gsvAvailable:!!(x.gsvAvailable||p.gsvAvailable),status:mbqDistStatus(cur,old)};});
+ mbqDistributorAnalysisState.rows=data;
+ const filtered=data.filter(x=>statusFilter==='all'||x.status===statusFilter);
+ const drops=data.filter(x=>x.status==='drop').length,growth=data.filter(x=>x.status==='growth').length,totalCbb=data.reduce((z,x)=>z+x.current,0),totalGsv=data.reduce((z,x)=>z+x.currentGsv,0);
+ const top=[...data].filter(x=>x.current>0).sort((x,y)=>y.current-x.current)[0];
+ mbqDistSet('distKpiTotal',mbqDistFmt(data.length));mbqDistSet('distKpiDrop',mbqDistFmt(drops));mbqDistSet('distKpiGrowth',mbqDistFmt(growth));mbqDistSet('distKpiCbb',mbqDistFmt(totalCbb));mbqDistSet('distKpiCbbSub','Previous period: '+mbqDistFmt(data.reduce((z,x)=>z+x.previous,0))+' CBB');mbqDistSet('distKpiGsv',data.some(x=>x.gsvAvailable)?mbqDistMoney(totalGsv):'No Data Available');mbqDistSet('distKpiTop',top?top.name:'No Data Available');mbqDistSet('distKpiTopSub',top?top.cfa+' CFA · '+mbqDistFmt(top.current)+' CBB':'No current billing');
+ mbqDistSet('distRowsCount',filtered.length+' distributors');
+ const body=document.getElementById('distPerformanceRows');
+ if(!filtered.length){body.innerHTML='<tr><td colspan="11" class="dist-empty">No Data Available for the selected filters.</td></tr>';}
+ else{filtered.sort((x,y)=>{const rank={drop:0,new:1,growth:2,stable:3,none:4};return (rank[x.status]??5)-(rank[y.status]??5)||y.current-x.current;});body.innerHTML=filtered.map(x=>'<tr><td>'+mbqEscape(x.cfa)+'</td><td>'+mbqEscape(x.code)+'</td><td>'+mbqEscape(x.name)+'</td><td class="dist-num">'+mbqDistFmt(x.previous)+'</td><td class="dist-num"><b>'+mbqDistFmt(x.current)+'</b></td><td class="dist-num">'+(x.delta>0?'+':'')+mbqDistFmt(x.delta)+'</td><td class="dist-num">'+x.pct+'</td><td class="dist-num">'+(x.gsvAvailable?mbqDistMoney(x.previousGsv):'No Data Available')+'</td><td class="dist-num">'+(x.gsvAvailable?mbqDistMoney(x.currentGsv):'No Data Available')+'</td><td class="dist-num">'+(x.gsvAvailable?x.gsvPct:'No Data Available')+'</td><td>'+mbqDistStatusHtml(x.status)+'</td></tr>').join('');}
+ const distSel=document.getElementById('distSkuDistributor'),oldSel=distSel?.value||'all';
+ if(distSel){const opts=[...data].sort((x,y)=>x.name.localeCompare(y.name)).map(x=>'<option value="'+mbqEscape(x.key)+'">'+mbqEscape(x.cfa+' · '+x.name+' ('+x.code+')')+'</option>').join('');distSel.innerHTML='<option value="all">All Distributors</option>'+opts;distSel.value=[...distSel.options].some(o=>o.value===oldSel)?oldSel:'all';}
+ const itemKeys=new Set([...current.items.keys(),...previous.items.keys()]),skuRows=[...itemKeys].map(key=>{const x=current.items.get(key)||{},p=previous.items.get(key)||{},itemId=x.itemId||p.itemId;const cv=Number(x.cbb)||0,pv=Number(p.cbb)||0,cg=Number(x.gsv)||0,pg=Number(p.gsv)||0;return {key,distKey:x.distKey||p.distKey,cfa:x.cfa||p.cfa,itemId,description:mbqDistDescription(itemId),current:cv,previous:pv,delta:cv-pv,pct:mbqDistPct(cv,pv),currentGsv:cg,previousGsv:pg,gsvAvailable:!!(x.gsvAvailable||p.gsvAvailable),status:mbqDistStatus(cv,pv)};});
+ mbqDistributorAnalysisState.skuRows=skuRows;renderDistributorSkuTable();
+}
+function renderDistributorSkuTable(){
+ const body=document.getElementById('distSkuRows');if(!body)return;
+ const selected=document.getElementById('distSkuDistributor')?.value||'all';
+ let data=mbqDistributorAnalysisState.skuRows||[];if(selected!=='all')data=data.filter(x=>x.distKey===selected);
+ if(!data.length){body.innerHTML='<tr><td colspan="9" class="dist-empty">No Data Available for the selected distributor / date range.</td></tr>';return;}
+ data=[...data].sort((a,b)=>b.current-a.current);
+ body.innerHTML=data.slice(0,500).map(x=>'<tr><td>'+mbqEscape(x.itemId)+'</td><td>'+mbqEscape(x.description)+'</td><td class="dist-num">'+mbqDistFmt(x.previous)+'</td><td class="dist-num"><b>'+mbqDistFmt(x.current)+'</b></td><td class="dist-num">'+(x.delta>0?'+':'')+mbqDistFmt(x.delta)+'</td><td class="dist-num">'+x.pct+'</td><td class="dist-num">'+(x.gsvAvailable?mbqDistMoney(x.previousGsv):'No Data Available')+'</td><td class="dist-num">'+(x.gsvAvailable?mbqDistMoney(x.currentGsv):'No Data Available')+'</td><td>'+mbqDistStatusHtml(x.status)+'</td></tr>').join('');
+}
+
+function go(page){document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById('page-'+page).classList.add('active');document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));let active=document.querySelector(`#nav button[data-page="${page}"]`);document.getElementById('crumb').textContent=active?active.innerText.replace(/^\S+\s*/, '').trim():page;if(page==='stock'){const stockWrap=document.querySelector('#page-stock .table-wrap');if(stockWrap)stockWrap.scrollLeft=0;}if(page==='settings')renderProductionFrequencySettings();if(page==='loading')renderDaysPlanner();if(page==='distributor')renderDistributorPerformance();window.scrollTo({top:0,behavior:'smooth'})}
 document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>go(b.dataset.page)));
 document.getElementById('entrySkuGroup').innerHTML='<option value="">All (എല്ലാ SKU Groups-ഉം ഒരുമിച്ച് കാണിക്കുക)</option>'+sourceRows.map(r=>`<option value="${r[0]}">${r[0]}</option>`) .join('');mbqRefreshDashboardKpis();
 document.getElementById('entryMrp').innerHTML='<option value="all">All MRP</option>'+[...new Set(rows.map(r=>r.mrp))].sort((a,b)=>a-b).map(v=>`<option value="${v}">₹${v}</option>`).join('');
