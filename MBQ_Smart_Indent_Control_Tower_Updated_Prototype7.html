@@ -950,7 +950,7 @@ body:not(.mbq-authenticated)>.app{display:none!important}
   <div class="dist-table-wrap"><table id="distPerformanceTable"><thead><tr><th>CFA</th><th>Distributor Code</th><th>Distributor Name</th><th class="dist-num">Previous CBB</th><th class="dist-num">Current CBB</th><th class="dist-num">CBB Change</th><th class="dist-num">CBB Change %</th><th class="dist-num">Previous GSV</th><th class="dist-num">Current GSV</th><th class="dist-num">GSV Change %</th><th>Status</th></tr></thead><tbody id="distPerformanceRows"><tr><td colspan="11" class="dist-empty">Loading GSV data…</td></tr></tbody></table></div>
  </div>
  <div class="card">
-  <div class="card-head"><div><h3>SKU-wise Purchase Analysis</h3><small>Find which products each distributor is buying more or less</small></div><div class="dist-field" style="min-width:220px"><label for="distSkuDistributor">Distributor</label><select id="distSkuDistributor" onchange="renderDistributorSkuTable()"><option value="all">All Distributors</option></select></div></div>
+  <div class="card-head"><div><h3>SKU-wise Purchase Analysis</h3><small>Find which products each distributor is buying more or less</small></div><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end"><div class="dist-field" style="min-width:220px"><label for="distSkuDistributor">Distributor</label><select id="distSkuDistributor" onchange="renderDistributorSkuTable()"><option value="all">All Distributors</option></select></div><div class="dist-field" style="min-width:190px"><label for="distSkuStatusFilter">Performance Status</label><select id="distSkuStatusFilter" onchange="renderDistributorSkuTable()"><option value="all">All Status</option><option value="drop">Sales Drop</option><option value="growth">Growing</option><option value="stable">Stable</option><option value="new">New Billing</option></select></div></div></div>
   <div class="dist-table-wrap"><table id="distSkuTable"><thead><tr><th>Item Code</th><th>Item Description</th><th class="dist-num">Previous CBB</th><th class="dist-num">Current CBB</th><th class="dist-num">CBB Change</th><th class="dist-num">CBB Change %</th><th class="dist-num">Previous GSV</th><th class="dist-num">Current GSV</th><th>Status</th></tr></thead><tbody id="distSkuRows"><tr><td colspan="9" class="dist-empty">No Data Available</td></tr></tbody></table></div>
  </div>
 </section>
@@ -3347,8 +3347,8 @@ function mbqDistDefaultDates(){
  from.value=iso(start);to.value=iso(end<start?now:end);
 }
 function resetDistributorFilters(){
- const c=document.getElementById('distCfaFilter'),st=document.getElementById('distStatusFilter'),d=document.getElementById('distSkuDistributor');
- if(c)c.value='all';if(st)st.value='all';if(d)d.value='all';
+ const c=document.getElementById('distCfaFilter'),st=document.getElementById('distStatusFilter'),d=document.getElementById('distSkuDistributor'),ss=document.getElementById('distSkuStatusFilter');
+ if(c)c.value='all';if(st)st.value='all';if(d)d.value='all';if(ss)ss.value='all';
  const f=document.getElementById('distFromDate'),t=document.getElementById('distToDate');if(f)f.value='';if(t)t.value='';
  mbqDistDefaultDates();renderDistributorPerformance();
 }
@@ -3401,8 +3401,8 @@ function renderDistributorPerformance(){
 }
 function renderDistributorSkuTable(){
  const body=document.getElementById('distSkuRows');if(!body)return;
- const selected=document.getElementById('distSkuDistributor')?.value||'all';
- let data=mbqDistributorAnalysisState.skuRows||[];if(selected!=='all')data=data.filter(x=>x.distKey===selected);
+ const selected=document.getElementById('distSkuDistributor')?.value||'all',status=document.getElementById('distSkuStatusFilter')?.value||'all';
+ let data=mbqDistributorAnalysisState.skuRows||[];if(selected!=='all')data=data.filter(x=>x.distKey===selected);if(status!=='all')data=data.filter(x=>x.status===status);
  if(!data.length){body.innerHTML='<tr><td colspan="9" class="dist-empty">No Data Available for the selected distributor / date range.</td></tr>';return;}
  data=[...data].sort((a,b)=>b.current-a.current);
  body.innerHTML=data.slice(0,500).map(x=>'<tr><td>'+mbqEscape(x.itemId)+'</td><td>'+mbqEscape(x.description)+'</td><td class="dist-num">'+mbqDistFmt(x.previous)+'</td><td class="dist-num"><b>'+mbqDistFmt(x.current)+'</b></td><td class="dist-num">'+(x.delta>0?'+':'')+mbqDistFmt(x.delta)+'</td><td class="dist-num">'+x.pct+'</td><td class="dist-num">'+(x.gsvAvailable?mbqDistMoney(x.previousGsv):'No Data Available')+'</td><td class="dist-num">'+(x.gsvAvailable?mbqDistMoney(x.currentGsv):'No Data Available')+'</td><td>'+mbqDistStatusHtml(x.status)+'</td></tr>').join('');
