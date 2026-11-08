@@ -616,12 +616,18 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 #page-distributor .dist-kpi{padding:14px 15px}
 #page-distributor .dist-kpi .value{font-size:21px;overflow-wrap:anywhere}
 #page-distributor .dist-kpi .sub{line-height:1.45}
-#page-distributor .dist-table-wrap{overflow:auto;max-width:100%}
+#page-distributor .dist-table-wrap{overflow:auto;max-width:100%;border:1px solid #e0e8f1;border-radius:10px}
 #page-distributor table{width:100%;border-collapse:separate;border-spacing:0;white-space:nowrap;font-size:11px}
-#page-distributor th{background:#f1f5fa;color:#52627a;text-align:left;font-size:10px;letter-spacing:.35px;text-transform:uppercase;padding:11px 10px;border-bottom:1px solid #dce4ef;position:sticky;top:0;z-index:1}
-#page-distributor td{padding:10px;border-bottom:1px solid #edf1f6;color:#26364c}
-#page-distributor tbody tr:nth-child(even){background:#fafbfd}
-#page-distributor .dist-num{text-align:right;font-variant-numeric:tabular-nums}
+#page-distributor th{background:#176b68;color:#fff;text-align:left;vertical-align:middle;font-size:10px;font-weight:800;letter-spacing:.35px;text-transform:uppercase;padding:12px 11px;border-bottom:1px solid #125653;position:sticky;top:0;z-index:1}
+#page-distributor #distSkuTable th{background:#425b86;border-bottom-color:#354a70}
+#page-distributor td{padding:10px 11px;border-bottom:1px solid #edf1f6;color:#26364c;vertical-align:middle;text-align:left}
+#page-distributor tbody tr:nth-child(even){background:#f5f9fb}
+#page-distributor tbody tr:hover{background:#eaf4f3}
+#page-distributor #distSkuTable tbody tr:hover{background:#eef2f9}
+#page-distributor .dist-num{text-align:right!important;font-variant-numeric:tabular-nums}
+#page-distributor td:last-child{text-align:center}
+#page-distributor th.dist-num{text-align:right}
+#page-distributor .dist-table-wrap table{min-width:100%}
 #page-distributor .dist-status{display:inline-flex;padding:4px 8px;border-radius:99px;font-size:9px;font-weight:800}
 #page-distributor .dist-status.drop{background:#fee8e8;color:#b42332}
 #page-distributor .dist-status.growth{background:#e4f7ed;color:#13764e}
@@ -918,7 +924,7 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 <section class="section" id="page-distributor">
  <div class="page-head">
   <div><div class="eyebrow">Sales intelligence · Kerala</div><h1>Distributor Performance Analysis</h1><p>Identify distributors with billing drops, growth and SKU-level purchase changes using connected GSV.</p></div>
-  <div class="actions"><button class="btn" type="button" onclick="renderDistributorPerformance()">↻ Refresh Analysis</button><button class="btn primary" type="button" onclick="mbqOpenReportExport(this,'Distributor Performance Analysis','#page-distributor')">⇩ Export Report</button></div>
+  <div class="actions"><button class="btn" type="button" onclick="renderDistributorPerformance()">↻ Refresh Analysis</button><button class="btn primary" type="button" onclick="mbqOpenReportExport(this,'Distributor Performance Analysis','#page-distributor')">⇩ Export · Excel / PDF / JPEG</button></div>
  </div>
  <div class="notice">CBB Quantity determines Sales Drop / Growth status. GSV Amount is shown as a parallel value comparison. No sample or estimated sales values are used.</div>
  <div class="card" style="padding:16px;margin-bottom:14px">
