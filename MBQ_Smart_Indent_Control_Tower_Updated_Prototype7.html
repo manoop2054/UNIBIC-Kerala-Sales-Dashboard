@@ -216,6 +216,16 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 #indentWorkspaceWrap td:nth-child(1),#indentWorkspaceWrap td:nth-child(2){text-align:left}
 /* Ensure employee tab permissions override the nav's display:flex rule. */
 .nav button[hidden]{display:none!important}
+
+/* Monthly Indent Against Billed: keep both grouped header rows aligned while the report body scrolls */
+.mbq-indent-report .report-scroll{position:relative;overflow:auto;overscroll-behavior:contain;isolation:isolate}
+.mbq-indent-report .report-scroll table{border-collapse:separate;border-spacing:0}
+.mbq-indent-report .report-scroll thead th{position:sticky;white-space:nowrap;vertical-align:middle;box-sizing:border-box}
+.mbq-indent-report .report-scroll thead tr:first-child th{top:0!important;height:34px;min-height:34px;z-index:8}
+.mbq-indent-report .report-scroll thead tr:nth-child(2) th{top:34px!important;height:32px;min-height:32px;z-index:7}
+.mbq-indent-report .report-scroll thead th:first-child{left:0;z-index:10}
+.mbq-indent-report .report-scroll tbody td:first-child{position:sticky;left:0;z-index:3;background:#f0f5fb}
+.mbq-indent-report .report-scroll tbody tr:nth-child(even) td:first-child{background:#e9f0f8}
 </style>
 <style id="mbq-compact-layout-refinement">
 /* Dashboard-wide compact layout refinement: spacing and presentation only. */
