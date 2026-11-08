@@ -4416,6 +4416,30 @@ function mbqRunReportExport(format){
  catch(e){console.error('Report export failed',e);showToast('Export failed: '+(e.message||'Please retry'));}
 }
 document.addEventListener('click',function(e){const menu=document.getElementById('mbqReportExportMenu');if(menu&&menu.style.display==='block'&&!menu.contains(e.target)&&!(window.mbqPendingReportExport&&window.mbqPendingReportExport.anchor&&window.mbqPendingReportExport.anchor.contains(e.target)))menu.style.display='none';});
+function mbqExportDistributorWorkbook(){
+ if(!window.XLSX){showToast('Excel library loading. Refresh ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.');return;}
+ const state=window.mbqDistributorAnalysisState||mbqDistributorAnalysisState||{},allDist=Array.isArray(state.rows)?state.rows:[],allItems=Array.isArray(state.skuRows)?state.skuRows:[];
+ if(!allDist.length||!allItems.length){showToast('Distributor / item data ലഭ്യമല്ല.');return;}
+ const distStatus=document.getElementById('distStatusFilter')?.value||'all',selectedDist=document.getElementById('distSkuDistributor')?.value||'all',skuStatus=document.getElementById('distSkuStatusFilter')?.value||'all';
+ const distRows=allDist.filter(x=>distStatus==='all'||x.status===distStatus).sort((a,b)=>a.name.localeCompare(b.name));
+ const skuRows=allItems.filter(x=>(selectedDist==='all'||x.distKey===selectedDist)&&(skuStatus==='all'||x.status===skuStatus)).sort((a,b)=>a.name?.localeCompare(b.name)||b.current-a.current);
+ const byKey=new Map(allDist.map(x=>[x.key,x]));
+ const itemDetail=skuRows.map(x=>{const d=byKey.get(x.distKey)||{};return [x.cfa||d.cfa||'',d.code||'',d.name||'Unknown Distributor',x.itemId||'',x.description||'',Number(x.previous)||0,Number(x.current)||0,Number(x.delta)||0,x.pct||'',x.gsvAvailable?Number(x.previousGsv)||0:'No Data Available',x.gsvAvailable?Number(x.currentGsv)||0:'No Data Available',x.gsvAvailable?Number(x.currentGsv||0)-Number(x.previousGsv||0):'No Data Available',x.status||'No Data Available'];});
+ const wb=XLSX.utils.book_new();
+ const statusFill={drop:'FCE4D6',growth:'E2F0D9',stable:'DDEBF7',new:'E4DFEC',none:'E7E6E6'};
+ const statusFont={drop:'C00000',growth:'548235',stable:'1F4E78',new:'7030A0',none:'666666'};
+ const add=(name,headers,rows,statusCol)=>{const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);const range=XLSX.utils.decode_range(ws['!ref']||'A1');ws['!freeze']={xSplit:0,ySplit:1};ws['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:range.e.r,c:range.e.c}})};ws['!cols']=headers.map((h,i)=>({wch:Math.min(34,Math.max(13,String(h).length+3,...rows.slice(0,200).map(r=>String(r[i]??'').length+2)))}));
+ for(let c=0;c<headers.length;c++){const cell=ws[XLSX.utils.encode_cell({r:0,c})];if(cell)cell.s={fill:{patternType:'solid',fgColor:{rgb:'17365D'}},font:{name:'Aptos',sz:10,bold:true,color:{rgb:'FFFFFF'}},alignment:{vertical:'center',horizontal:'center',wrapText:true},border:{bottom:{style:'medium',color:{rgb:'0EA5A4'}}}};}
+ for(let r=0;r<rows.length;r++){for(let c=0;c<headers.length;c++){const cell=ws[XLSX.utils.encode_cell({r:r+1,c})];if(!cell)continue;cell.s={font:{name:'Aptos',sz:9,color:{rgb:'24364B'}},alignment:{vertical:'center',horizontal:c>=3&&c!==statusCol?'right':'left'},fill:{patternType:'solid',fgColor:{rgb:r%2?'F3F6FA':'FFFFFF'}},border:{bottom:{style:'thin',color:{rgb:'D9E2F0'}}}};}
+ if(statusCol>=0){const cell=ws[XLSX.utils.encode_cell({r:r+1,c:statusCol})],st=String(rows[r][statusCol]||'none');const fill=statusFill[st]||'E7E6E6',color=statusFont[st]||'666666';if(cell)cell.s={fill:{patternType:'solid',fgColor:{rgb:fill}},font:{name:'Aptos',sz:9,bold:true,color:{rgb:color}},alignment:{horizontal:'center',vertical:'center'}};}}
+ XLSX.utils.book_append_sheet(wb,ws,name);};
+ const money=v=>Number(v)||0;
+ add('Distributor Performance',['CFA','Distributor Code','Distributor Name','Previous CBB','Current CBB','CBB Change','CBB Change %','Previous GSV','Current GSV','GSV Change %','Status'],distRows.map(x=>[x.cfa,x.code,x.name,money(x.previous),money(x.current),money(x.delta),x.pct,x.gsvAvailable?money(x.previousGsv):'No Data Available',x.gsvAvailable?money(x.currentGsv):'No Data Available',x.gsvAvailable?x.gsvPct:'No Data Available',x.status]),10);
+ add('SKU-wise Purchase',['CFA','Item Code','Item Description','Previous CBB','Current CBB','CBB Change','CBB Change %','Previous GSV','Current GSV','Status'],skuRows.map(x=>[x.cfa,x.itemId,x.description,money(x.previous),money(x.current),money(x.delta),x.pct,x.gsvAvailable?money(x.previousGsv):'No Data Available',x.gsvAvailable?money(x.currentGsv):'No Data Available',x.status]),9);
+ add('Distributor Item Details',['CFA','Distributor Code','Distributor Name','Item Code','Item Description','Previous CBB','Current CBB','CBB Change','CBB Change %','Previous GSV','Current GSV','GSV Change','Performance Status'],itemDetail,12);
+ const from=document.getElementById('distFromDate')?.value||'',to=document.getElementById('distToDate')?.value||'';
+ XLSX.writeFile(wb,'Distributor_Performance_'+from+'_to_'+to+'_Colour.xlsx',{compression:true});showToast('3-sheet colour Excel report downloaded.');
+}
 function mbqExportTargetExcel(target,title){
  if(!window.XLSX){showToast('Excel library loading. Refresh ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.');return;}
  let root=target?document.querySelector(target):null;if(root&&(root.tagName==='TBODY'||root.tagName==='TR'))root=root.closest('table')||root;if(!root){showToast('Export data area unavailable.');return;}
