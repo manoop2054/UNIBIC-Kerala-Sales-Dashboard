@@ -1483,8 +1483,15 @@ async function mbqRestoreSharedSalesHeadUpload(){
   try{
    const upload=await mbqGetSharedUpload('monthly-indent');
    if(upload&&Array.isArray(upload.payload)){
-    localStorage.setItem(MBQ_SALES_HEAD_UPLOAD_KEY,JSON.stringify(upload.payload));
+    // The latest shared upload is authoritative. Keep only valid rows belonging
+    // to the currently loaded official GitHub assortment; ignore legacy/extra groups.
+    const officialKeys=Array.isArray(window.mbqOfficialAssortmentGroupKeys)?new Set(window.mbqOfficialAssortmentGroupKeys):null;
+    const latestRows=officialKeys
+     ? upload.payload.filter(x=>x&&x.sku&&!x.errors?.length&&x.anyQty&&officialKeys.has(mbqSkuGroupKey(x.sku)))
+     : upload.payload;
+    localStorage.setItem(MBQ_SALES_HEAD_UPLOAD_KEY,JSON.stringify(latestRows));
     pendingUploadFileName=upload.fileName||'Shared Monthly Indent Upload';
+    console.info('Latest shared Sales Head upload restored',{fileName:pendingUploadFileName,uploadedAt:upload.uploadedAt,officialSkuGroups:latestRows.length});
    }
    return;
   }catch(e){
@@ -3740,6 +3747,9 @@ function mbqStartAuthenticatedDataLoad(){
    assortmentReady
   ]);
   jobs.forEach((result,index)=>{if(result.status==='rejected')console.warn('MBQ initial data load task '+index+' failed:',result.reason);});
+  // Re-fetch after authentication: the early page-load attempt may have run before
+  // the user's session was ready and therefore could not read the shared upload.
+  await mbqRestoreSharedSalesHeadUpload();
   mbqApplyPendingSalesHeadUpload();
   mbqRefreshDashboardKpis();
   loadMbqGsv();
