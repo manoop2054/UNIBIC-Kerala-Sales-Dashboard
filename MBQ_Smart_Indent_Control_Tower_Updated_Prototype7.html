@@ -3330,10 +3330,9 @@ const mbqDistributorAnalysisState={rows:[],skuRows:[],currentFrom:'',currentTo:'
 function mbqDistDateParts(v){const m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?{y:Number(m[1]),m:Number(m[2]),d:Number(m[3])}:null}
 function mbqDistDateString(y,m,d){return String(y).padStart(4,'0')+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0')}
 function mbqDistPreviousMonthRange(from,to){
- const a=mbqDistDateParts(from),b=mbqDistDateParts(to);if(!a||!b)return null;
- const py=a.m===1?a.y-1:a.y,pm=a.m===1?12:a.m-1,days=new Date(Date.UTC(py,pm,0)).getUTCDate();
- const start=Math.min(a.d,days),end=Math.min(b.d,days);
- return {from:mbqDistDateString(py,pm,start),to:mbqDistDateString(py,pm,end)};
+ const shiftMonth=(v)=>{const p=mbqDistDateParts(v);if(!p)return null;const target=new Date(Date.UTC(p.y,p.m-2,1));const y=target.getUTCFullYear(),m=target.getUTCMonth()+1,days=new Date(Date.UTC(y,m,0)).getUTCDate();return mbqDistDateString(y,m,Math.min(p.d,days));};
+ const previousFrom=shiftMonth(from),previousTo=shiftMonth(to);
+ return previousFrom&&previousTo?{from:previousFrom,to:previousTo}:null;
 }
 function mbqDistFmt(v){return Number(v||0).toLocaleString('en-IN',{maximumFractionDigits:0})}
 function mbqDistMoney(v){return '₹'+Number(v||0).toLocaleString('en-IN',{maximumFractionDigits:0})}
@@ -3378,7 +3377,9 @@ function renderDistributorPerformance(){
  const from=document.getElementById('distFromDate')?.value||'',to=document.getElementById('distToDate')?.value||'',cfa=document.getElementById('distCfaFilter')?.value||'all',statusFilter=document.getElementById('distStatusFilter')?.value||'all';
  if(!Array.isArray(mbqGsvRows)||!mbqGsvRows.length){mbqDistSet('distComparisonLabel',mbqGsvLoading?'GSV data is loading…':'No Data Available — connected GSV rows are required.');mbqDistSet('distRowsCount','No Data Available');['distKpiTotal','distKpiDrop','distKpiGrowth','distKpiCbb','distKpiGsv','distKpiTop'].forEach(id=>mbqDistSet(id,'No Data Available'));document.getElementById('distPerformanceRows').innerHTML='<tr><td colspan="11" class="dist-empty">'+(mbqGsvLoading?'Loading GSV data…':'No Data Available — GSV not connected.')+'</td></tr>';document.getElementById('distSkuRows').innerHTML='<tr><td colspan="9" class="dist-empty">No Data Available</td></tr>';return;}
  const a=mbqDistDateParts(from),b=mbqDistDateParts(to);
- if(!a||!b||from>to||a.y!==b.y||a.m!==b.m){mbqDistSet('distComparisonLabel','Please select a valid From / To range within the same calendar month.');document.getElementById('distPerformanceRows').innerHTML='<tr><td colspan="11" class="dist-empty">Select valid dates within one month.</td></tr>';document.getElementById('distSkuRows').innerHTML='<tr><td colspan="9" class="dist-empty">Select valid dates within one month.</td></tr>';mbqDistSet('distRowsCount','Invalid Date Range');return;}
+ const sameCalendarMonth=!!(a&&b&&a.y===b.y&&a.m===b.m);
+ const targetCycle=!!(a&&b&&a.d===16&&b.d===15&&((b.y-a.y)*12+(b.m-a.m)===1));
+ if(!a||!b||from>to||(!sameCalendarMonth&&!targetCycle)){mbqDistSet('distComparisonLabel','Select dates within one calendar month, or use the Sales Target Cycle (16th to 15th).');document.getElementById('distPerformanceRows').innerHTML='<tr><td colspan="11" class="dist-empty">Select a valid calendar-month range or 16th–15th Sales Target Cycle.</td></tr>';document.getElementById('distSkuRows').innerHTML='<tr><td colspan="9" class="dist-empty">Select a valid calendar-month range or 16th–15th Sales Target Cycle.</td></tr>';mbqDistSet('distRowsCount','Invalid Date Range');['distKpiTotal','distKpiDrop','distKpiGrowth','distKpiCbb','distKpiGsv','distKpiTop'].forEach(id=>mbqDistSet(id,'No Data Available'));mbqDistSet('distKpiCbbSub','Select a valid analysis period');mbqDistSet('distKpiTopSub','By current CBB');return;}
  const prev=mbqDistPreviousMonthRange(from,to);if(!prev)return;
  mbqDistributorAnalysisState.currentFrom=from;mbqDistributorAnalysisState.currentTo=to;mbqDistributorAnalysisState.previousFrom=prev.from;mbqDistributorAnalysisState.previousTo=prev.to;
  mbqDistSet('distComparisonLabel','Current: '+from+' to '+to+'  |  Previous month: '+prev.from+' to '+prev.to+'  |  Sales Drop / Growth status is based on CBB Quantity.');
