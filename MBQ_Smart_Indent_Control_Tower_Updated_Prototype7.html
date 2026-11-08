@@ -4280,10 +4280,10 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
   if(f.mode==='gt')return n>an;if(f.mode==='gte')return n>=an;if(f.mode==='lt')return n<an;if(f.mode==='lte')return n<=an;if(f.mode==='numEquals')return n===an;if(f.mode==='between')return n>=Math.min(an,bn)&&n<=Math.max(an,bn);
   return true;
  }
- function applyTable(table){
+ function applyTable(table,skipSort){
   const state=getState(table),rows=rowsFor(table);
   rows.forEach(row=>{row.hidden=!visibleByOtherFilters(row,state,-1);});
-  if(state.sortCol>=0&&state.sortDir){
+  if(!skipSort&&state.sortCol>=0&&state.sortDir){
    const body=table.tBodies[0];if(body){if(!state.originalRows)state.originalRows=rows.slice();const sorted=rows.slice().sort((a,b)=>{const av=cellValue(a,state.sortCol),bv=cellValue(b,state.sortCol),an=Number(av.replace(/,/g,'').replace(/[^0-9.+-]/g,'')),bn=Number(bv.replace(/,/g,'').replace(/[^0-9.+-]/g,''));let cmp;if(av!==''&&bv!==''&&Number.isFinite(an)&&Number.isFinite(bn))cmp=an-bn;else cmp=av.localeCompare(bv,undefined,{numeric:true,sensitivity:'base'});return state.sortDir==='desc'?-cmp:cmp;});sorted.forEach(r=>body.appendChild(r));}
   }
   rows.forEach(row=>{row.hidden=!visibleByOtherFilters(row,state,-1);});
@@ -4348,7 +4348,7 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
  document.addEventListener('click',e=>{if(popup&&!popup.contains(e.target)&&e.target!==activeButton&&!e.target.closest('.mbq-filter-trigger'))closePopup();});
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&popup)closePopup();});
  refresh(document);
- const observer=new MutationObserver(records=>{for(const r of records){if(r.target&&r.target.closest&&r.target.closest('.mbq-filter-popup'))continue;for(const n of r.addedNodes||[])if(n.nodeType===1)refresh(n);}});
+ const observer=new MutationObserver(records=>{for(const r of records){if(r.target&&r.target.closest&&r.target.closest('.mbq-filter-popup'))continue;const table=r.target&&r.target.closest?r.target.closest('table'):null;if(table){if(r.target.closest&&r.target.closest('thead'))decorate(table);else if(r.target.closest&&r.target.closest('tbody'))applyTable(table,true);}for(const n of r.addedNodes||[])if(n.nodeType===1)refresh(n);}});
  if(document.documentElement)observer.observe(document.documentElement,{subtree:true,childList:true});
 })();
 </script>
