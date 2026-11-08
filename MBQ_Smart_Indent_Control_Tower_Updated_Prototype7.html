@@ -944,6 +944,7 @@ body:not(.mbq-authenticated)>.app{display:none!important}
   <div class="card kpi dist-kpi"><div class="label">Current CBB</div><div class="value" id="distKpiCbb">No Data Available</div><div class="sub" id="distKpiCbbSub">Selected period billing</div></div>
   <div class="card kpi dist-kpi"><div class="label">Current GSV Amount</div><div class="value" id="distKpiGsv">No Data Available</div><div class="sub">Selected period value</div></div>
   <div class="card kpi dist-kpi"><div class="label">Highest Purchase</div><div class="value" id="distKpiTop">No Data Available</div><div class="sub" id="distKpiTopSub">By current CBB</div></div>
+  <div class="card kpi dist-kpi"><div class="label" id="distKpiAllocationLabel">November 2026 Allocated Indent CBB</div><div class="value" id="distKpiAllocatedIndent">No Data Available</div><div class="sub" id="distKpiAllocatedIndentSub">Current month · selected CFA</div></div>
  </div>
  <div class="card" style="margin-bottom:14px">
   <div class="card-head"><div><h3>Distributor-wise Performance</h3><small>Current month vs previous month · CBB drives the status</small></div><span class="pill blue" id="distRowsCount">No Data Available</span></div>
@@ -3372,9 +3373,22 @@ function mbqDistDescription(itemId){
  const fromSoh=Array.isArray(liveSohRows)?liveSohRows.find(x=>mbqCodeKey(keyValue(x,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']))===key):null;
  return fromSoh?String(keyValue(fromSoh,['DESCRIPTION','Description','Item Description','Product Name','Item Name'])||itemId):itemId;
 }
+function mbqDistUpdateAllocatedIndentKpi(cfa){
+ const now=new Date();
+ const monthLabel=new Intl.DateTimeFormat('en-IN',{month:'long',year:'numeric'}).format(now);
+ mbqDistSet('distKpiAllocationLabel',monthLabel+' Allocated Indent CBB');
+ if(!Array.isArray(allocationData)||!allocationData.length){try{buildAllocationData();}catch(e){console.warn('Allocated indent KPI unavailable',e);}}
+ const source=Array.isArray(allocationData)?allocationData:[];
+ const selected=source.filter(r=>cfa==='all'||normalCfa(r.cfaKey||r.cfa)===cfa);
+ if(!selected.length){mbqDistSet('distKpiAllocatedIndent','No Data Available');mbqDistSet('distKpiAllocatedIndentSub','Current month · selected CFA');return;}
+ const total=selected.reduce((sum,r)=>sum+(Number(r.indentCbb??r.allocation)||0),0);
+ mbqDistSet('distKpiAllocatedIndent',mbqDistFmt(total)+' CBB');
+ mbqDistSet('distKpiAllocatedIndentSub',cfa==='all'?'All CFAs · current month allocation':cfa+' CFA · current month allocation');
+}
 function renderDistributorPerformance(){
  mbqDistDefaultDates();
  const from=document.getElementById('distFromDate')?.value||'',to=document.getElementById('distToDate')?.value||'',cfa=document.getElementById('distCfaFilter')?.value||'all',statusFilter=document.getElementById('distStatusFilter')?.value||'all';
+ mbqDistUpdateAllocatedIndentKpi(cfa);
  if(!Array.isArray(mbqGsvRows)||!mbqGsvRows.length){mbqDistSet('distComparisonLabel',mbqGsvLoading?'GSV data is loading…':'No Data Available — connected GSV rows are required.');mbqDistSet('distRowsCount','No Data Available');['distKpiTotal','distKpiDrop','distKpiGrowth','distKpiCbb','distKpiGsv','distKpiTop'].forEach(id=>mbqDistSet(id,'No Data Available'));document.getElementById('distPerformanceRows').innerHTML='<tr><td colspan="11" class="dist-empty">'+(mbqGsvLoading?'Loading GSV data…':'No Data Available — GSV not connected.')+'</td></tr>';document.getElementById('distSkuRows').innerHTML='<tr><td colspan="9" class="dist-empty">No Data Available</td></tr>';return;}
  const a=mbqDistDateParts(from),b=mbqDistDateParts(to);
  const sameCalendarMonth=!!(a&&b&&a.y===b.y&&a.m===b.m);
