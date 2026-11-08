@@ -400,6 +400,39 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 .mbq-report-export-menu button:hover{background:#edf4fc}.mbq-report-export-menu button+button{margin-top:3px}.mbq-report-export-menu .export-menu-title{padding:6px 10px 8px;color:#718096;font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase}
 @media(max-width:650px){.mbq-indent-cfa-filter{width:100%;justify-content:space-between}.mbq-indent-cfa-options{position:relative;margin-top:5px}.mbq-indent-cfa-chart{gap:12px;padding:12px}.mbq-indent-cfa-donut{width:92px;height:92px;flex-basis:92px}.mbq-indent-cfa-donut:before{width:66px;height:66px}.mbq-indent-cfa-metric{min-width:105px}.mbq-report-export-menu{min-width:165px}}
 </style>
+
+<style id="mbq-excel-autofilter-styles">
+/* MBQ EXCEL STYLE AUTOFILTER v1 */
+.mbq-filter-head{position:relative!important;padding-right:27px!important}
+.mbq-filter-trigger{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:19px;height:19px;border:1px solid #b8c6d6;border-radius:4px;background:#f8fafc;color:#30465f;font-size:10px;line-height:16px;padding:0;cursor:pointer;z-index:9}
+.mbq-filter-trigger:hover,.mbq-filter-trigger.is-active{background:#dcecfb;border-color:#5684b5;color:#143b61}
+.mbq-filter-popup{position:fixed;z-index:20000;width:min(290px,calc(100vw - 20px));max-height:min(470px,calc(100vh - 20px));overflow:auto;background:#fff;border:1px solid #b9c7d8;border-radius:9px;box-shadow:0 12px 35px #10243b35;padding:10px;color:#20344c;font:12px/1.4 Inter,Segoe UI,Arial,sans-serif}
+.mbq-filter-popup input,.mbq-filter-popup select{font:12px Inter,Segoe UI,Arial,sans-serif;max-width:100%;box-sizing:border-box}
+.mbq-filter-popup .mbq-f-search{width:100%;padding:7px 8px;border:1px solid #cbd5e1;border-radius:6px;margin-bottom:7px}
+.mbq-filter-popup .mbq-f-actions{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.mbq-filter-popup button{border:1px solid #cbd5e1;background:#f8fafc;border-radius:6px;padding:6px 8px;color:#20344c;font-size:11px;font-weight:650;cursor:pointer}
+.mbq-filter-popup button.primary{background:#183c5b;color:white;border-color:#183c5b}
+.mbq-filter-popup .mbq-f-list{border-top:1px solid #e5ebf2;border-bottom:1px solid #e5ebf2;max-height:190px;overflow:auto;padding:5px 2px;margin:6px 0}
+.mbq-filter-popup .mbq-f-option{display:flex;align-items:center;gap:7px;padding:4px 3px;white-space:normal;overflow-wrap:anywhere}
+.mbq-filter-popup .mbq-f-option input{margin:0}
+.mbq-filter-popup .mbq-f-sort{display:flex;gap:6px}
+.mbq-filter-popup .mbq-f-custom{border-top:1px solid #e5ebf2;margin-top:8px;padding-top:8px;display:grid;gap:6px}
+.mbq-filter-popup .mbq-f-custom input,.mbq-filter-popup .mbq-f-custom select{width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;background:#fff}
+.mbq-filter-popup .mbq-f-caption{font-size:10px;color:#65758b;font-weight:700;margin:4px 0}
+.mbq-filter-popup .mbq-f-count{color:#64748b;font-size:10px;margin-left:auto}
+#indentWorkspaceWrap.group-mode table{width:100%;min-width:780px;table-layout:fixed;border-collapse:separate;border-spacing:0}
+#indentWorkspaceWrap.group-mode th,#indentWorkspaceWrap.group-mode td{box-sizing:border-box;vertical-align:middle;padding:10px 11px;line-height:1.35;white-space:normal;overflow-wrap:anywhere}
+#indentWorkspaceWrap.group-mode th:nth-child(1),#indentWorkspaceWrap.group-mode td:nth-child(1){width:24%;text-align:left!important}
+#indentWorkspaceWrap.group-mode th:nth-child(2),#indentWorkspaceWrap.group-mode td:nth-child(2){width:18%;text-align:right!important}
+#indentWorkspaceWrap.group-mode th:nth-child(3),#indentWorkspaceWrap.group-mode td:nth-child(3){width:16%;text-align:right!important}
+#indentWorkspaceWrap.group-mode th:nth-child(4),#indentWorkspaceWrap.group-mode td:nth-child(4){width:22%;text-align:right!important}
+#indentWorkspaceWrap.group-mode th:nth-child(5),#indentWorkspaceWrap.group-mode td:nth-child(5){width:20%;text-align:right!important}
+#indentWorkspaceWrap.group-mode th:first-child,#indentWorkspaceWrap.group-mode td:first-child{text-align:left!important}
+#indentWorkspaceWrap.group-mode td .group-indent-input{display:block;margin-left:auto;width:100%;max-width:145px;min-width:105px;text-align:right!important;font-variant-numeric:tabular-nums}
+#indentWorkspaceWrap.group-mode thead th{white-space:normal;overflow-wrap:anywhere;text-align:center!important}
+#indentWorkspaceWrap.group-mode .mbq-filter-trigger{right:4px}
+@media(max-width:700px){#indentWorkspaceWrap.group-mode{overflow-x:auto}#indentWorkspaceWrap.group-mode table{min-width:780px}#indentWorkspaceWrap.group-mode th,#indentWorkspaceWrap.group-mode td{padding:9px 8px;font-size:11px}}
+</style>
 </head>
 <body><div id="mbqLoginGate"><div class="mbq-login-card"><div class="mbq-login-brand">UNIBIC · EMPLOYEE ACCESS</div><div id="mbqLoginFormWrap"><h1>MBQ Smart Indent</h1><p>Sign in using your existing UNIBIC Dashboard Employee ID and password.</p><form id="mbqLoginForm"><label for="mbqEmployeeId">Employee ID</label><input id="mbqEmployeeId" name="employee_id" autocomplete="username" required><label for="mbqEmployeePassword">Password</label><input id="mbqEmployeePassword" name="password" type="password" autocomplete="current-password" required><button id="mbqLoginButton" type="submit">Login</button><div id="mbqLoginMessage" role="alert"></div></form></div><div id="mbqAccessPending"><h1>Access not assigned yet</h1><p id="mbqPendingMessage">Your MBQ tab access has not been assigned by Super Admin.</p><button type="button" id="mbqPendingLogout">Logout</button></div></div></div><div class="app"><aside class="sidebar"><div class="brand"><div class="logo">MB</div><div><strong>SMART INDENT</strong><small>Kerala · CFA Replenishment</small></div></div><div class="nav-label">WORKSPACE</div><nav class="nav" id="nav"><button class="active" data-page="overview"><span>◫</span>Overview Dashboard</button><button data-page="indent"><span>＋</span>Monthly Indent Entry</button><button data-page="suggest"><span>✦</span>AI Suggested Indent</button><button data-page="stock"><span>▦</span>CFA-wise Stock</button><button data-page="totracker"><span>⇄</span>Open TO Tracker</button><button data-page="advanced"><span>✦</span>Advanced Controls</button><button data-page="allocation"><span>⇄</span>CFA Allocation</button><button data-page="peak"><span>◷</span>Peak Billing Planner</button><button data-page="loading"><span>▤</span>CFA Loading Plan</button><button data-page="flash"><span>◉</span>Daily WhatsApp Flash</button><button data-page="reports"><span>⇩</span>Reports & Export</button><button data-page="excelview"><span>▤</span>MBQ Excel View</button><button data-page="settings"><span>⚙</span>Master Data & Settings</button></nav><div class="sidebar-foot"><span class="dot"></span>MBQ workspace<br><br>Data will appear after the relevant source is connected.</div></aside>
 <main class="main"><header class="topbar"><div class="crumb">Workspace / <b id="crumb">Overview Dashboard</b></div><div class="top-right"><div id="gsvConnectionStatus" class="gsv-connection loading" role="status" aria-live="polite"><span class="gsv-dot"></span><span id="gsvConnectionLabel">GSV Loading</span></div><select class="select" id="month" onchange="renderMbqExcelView()"><option>November 2026</option><option>October 2026</option><option>December 2026</option></select><select class="select" id="cfa"><option>All CFAs</option><option>TVD CFA</option><option>PAY CFA</option><option>ALU CFA</option></select><div class="user" id="mbqEmployeeIdDisplay">Employee</div><button class="mbq-logout-link" id="mbqLogoutButton" type="button">Logout</button></div></header><div class="content">
@@ -4213,6 +4246,110 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
    advPanel(key,'Data Quality & Audit Trail','Connected source presence and basic mapping diagnostics. User-level audit history is not available.','SOURCE CHECK',advTable(['Check','Value','Status'],out.map(x=>x))+'<div class="small-note">Source metadata: GSV '+advEsc(gsv.loadedAt||gsv.generatedAt||'timestamp not supplied')+' · LIVE SOH '+advEsc(soh.loadedAt||soh.generatedAt||'timestamp not supplied')+'. Duplicate invoice/PO line reconciliation is not recomputed here. Old/new value, user identity and timestamp audit requires authenticated backend events.</div>');return;
   }
  };
+})();
+</script>
+
+<script id="mbq-excel-autofilter">
+/* MBQ EXCEL STYLE AUTOFILTER v1 — presentation-only row filtering and sorting. */
+(function(){
+ 'use strict';
+ const states=new WeakMap();
+ let popup=null,activeTable=null,activeCol=-1,activeButton=null;
+ const txt=v=>String(v==null?'':v).trim();
+ function cellValue(row,col){
+  const cell=row&&row.cells?row.cells[col]:null;if(!cell)return '';
+  const fields=cell.querySelectorAll('input,select,textarea');
+  if(fields.length){const vals=[...fields].map(x=>txt(x.value)).filter(Boolean);if(vals.length)return vals.join(' ');}
+  return txt(cell.innerText||cell.textContent);
+ }
+ function getState(table){
+  let s=states.get(table);if(!s){s={filters:new Map(),sortCol:-1,sortDir:'',originalRows:null};states.set(table,s);}return s;
+ }
+ function rowsFor(table){return [...table.querySelectorAll('tbody tr')].filter(r=>!r.dataset.mbqFilterSkip&&!r.closest('tfoot'));}
+ function visibleByOtherFilters(row,state,exceptCol){
+  for(const [col,f] of state.filters){if(col===exceptCol)continue;const v=cellValue(row,col);if(f.kind==='set'&&!f.values.has(v))return false;if(f.kind==='custom'&&!customMatch(v,f))return false;}return true;
+ }
+ function customMatch(value,f){
+  const v=txt(value),low=v.toLocaleLowerCase(),a=txt(f.a),b=txt(f.b),n=Number(v.replace(/,/g,'').replace(/[^0-9.+-]/g,'')),an=Number(a.replace(/,/g,'')),bn=Number(b.replace(/,/g,''));
+  if(f.mode==='contains')return low.includes(a.toLocaleLowerCase());
+  if(f.mode==='notcontains')return !low.includes(a.toLocaleLowerCase());
+  if(f.mode==='begins')return low.startsWith(a.toLocaleLowerCase());
+  if(f.mode==='ends')return low.endsWith(a.toLocaleLowerCase());
+  if(f.mode==='textEquals')return low===a.toLocaleLowerCase();
+  if(!Number.isFinite(n)||!Number.isFinite(an))return false;
+  if(f.mode==='gt')return n>an;if(f.mode==='gte')return n>=an;if(f.mode==='lt')return n<an;if(f.mode==='lte')return n<=an;if(f.mode==='numEquals')return n===an;if(f.mode==='between')return n>=Math.min(an,bn)&&n<=Math.max(an,bn);
+  return true;
+ }
+ function applyTable(table){
+  const state=getState(table),rows=rowsFor(table);
+  rows.forEach(row=>{row.hidden=!visibleByOtherFilters(row,state,-1);});
+  if(state.sortCol>=0&&state.sortDir){
+   const body=table.tBodies[0];if(body){if(!state.originalRows)state.originalRows=rows.slice();const sorted=rows.slice().sort((a,b)=>{const av=cellValue(a,state.sortCol),bv=cellValue(b,state.sortCol),an=Number(av.replace(/,/g,'').replace(/[^0-9.+-]/g,'')),bn=Number(bv.replace(/,/g,'').replace(/[^0-9.+-]/g,''));let cmp;if(av!==''&&bv!==''&&Number.isFinite(an)&&Number.isFinite(bn))cmp=an-bn;else cmp=av.localeCompare(bv,undefined,{numeric:true,sensitivity:'base'});return state.sortDir==='desc'?-cmp:cmp;});sorted.forEach(r=>body.appendChild(r));}
+  }
+  rows.forEach(row=>{row.hidden=!visibleByOtherFilters(row,state,-1);});
+  table.querySelectorAll('.mbq-filter-trigger').forEach(btn=>{const col=Number(btn.dataset.mbqCol);btn.classList.toggle('is-active',state.filters.has(col)||state.sortCol===col);});
+ }
+ function closePopup(){if(popup&&popup.parentNode)popup.parentNode.removeChild(popup);popup=null;activeTable=null;activeButton=null;activeCol=-1;}
+ function addButton(th,table,col){
+  if(th.querySelector(':scope > .mbq-filter-trigger'))return;
+  th.classList.add('mbq-filter-head');
+  const btn=document.createElement('button');btn.type='button';btn.className='mbq-filter-trigger';btn.title='Filter / Sort';btn.setAttribute('aria-label','Filter '+txt(th.innerText));btn.textContent='▼';btn.dataset.mbqCol=String(col);
+  btn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();openPopup(table,col,btn);});
+  th.appendChild(btn);
+ }
+ function decorate(table){
+  if(!table||table.closest('.mbq-filter-popup')||table.dataset.mbqFilterExclude==='1')return;
+  const head=table.tHead;if(!head||!table.tBodies.length)return;
+  const headerRows=[...head.rows];if(!headerRows.length)return;
+  const last=headerRows[headerRows.length-1];let col=0;
+  [...last.cells].forEach(th=>{const span=Math.max(1,th.colSpan||1);if(span===1)addButton(th,table,col);col+=span;});
+ }
+ function refresh(root){
+  const scope=root&&root.querySelectorAll?root:document;
+  if(scope.matches&&scope.matches('table'))decorate(scope);
+  scope.querySelectorAll('table').forEach(decorate);
+ }
+ function openPopup(table,col,button){
+  closePopup();const state=getState(table),rows=rowsFor(table),vals=[...new Set(rows.filter(r=>visibleByOtherFilters(r,state,col)).map(r=>cellValue(r,col)))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'}));
+  const current=state.filters.get(col),selected=current&&current.kind==='set'?new Set(current.values):new Set(vals);
+  popup=document.createElement('div');popup.className='mbq-filter-popup';popup.setAttribute('role','dialog');popup.innerHTML=
+   '<div style="display:flex;align-items:center;gap:6px;font-weight:800;margin-bottom:7px"><span>Filter values</span><span class="mbq-f-count">'+vals.length+' values</span></div>'+
+   '<input class="mbq-f-search" type="search" placeholder="Search values…">'+
+   '<div class="mbq-f-actions"><button type="button" data-act="all">Select All</button><button type="button" data-act="none">Clear Selection</button></div>'+
+   '<div class="mbq-f-list"></div>'+
+   '<div class="mbq-f-actions"><button type="button" data-act="apply" class="primary">Apply</button><button type="button" data-act="clear">Clear Filter</button></div>'+
+   '<div class="mbq-f-caption">Sort</div><div class="mbq-f-sort"><button type="button" data-act="asc">Sort A to Z / Small to Large</button><button type="button" data-act="desc">Sort Z to A / Large to Small</button></div>'+
+   '<div class="mbq-f-custom"><div class="mbq-f-caption">Text / Number Filters</div><select class="mbq-f-mode"><option value="">Choose filter…</option><option value="contains">Text contains</option><option value="notcontains">Text does not contain</option><option value="begins">Text begins with</option><option value="ends">Text ends with</option><option value="textEquals">Text equals</option><option value="gt">Number greater than</option><option value="gte">Number greater than or equal</option><option value="lt">Number less than</option><option value="lte">Number less than or equal</option><option value="numEquals">Number equals</option><option value="between">Number between</option></select><input class="mbq-f-a" type="text" placeholder="Enter value"><input class="mbq-f-b" type="text" placeholder="And value (Between)" style="display:none"><button type="button" data-act="custom" class="primary">Apply Custom Filter</button></div>'+
+   '<div class="mbq-f-actions"><button type="button" data-act="clearall">Clear All Filters (this table)</button></div>';
+  document.body.appendChild(popup);activeTable=table;activeCol=col;activeButton=button;
+  const rect=button.getBoundingClientRect(),left=Math.max(10,Math.min(window.innerWidth-300,rect.right-285)),top=Math.max(10,Math.min(window.innerHeight-490,rect.bottom+4));popup.style.left=left+'px';popup.style.top=top+'px';
+  const list=popup.querySelector('.mbq-f-list'),search=popup.querySelector('.mbq-f-search');
+  function drawOptions(){
+   list.innerHTML='';
+   vals.filter(v=>v.toLocaleLowerCase().includes(search.value.toLocaleLowerCase())).forEach(v=>{
+    const label=document.createElement('label');label.className='mbq-f-option';const cb=document.createElement('input');cb.type='checkbox';cb.checked=selected.has(v);cb.dataset.value=v;
+    const span=document.createElement('span');span.textContent=v===''?'(Blanks)':v;label.append(cb,span);list.appendChild(label);
+   });
+  }
+  drawOptions();search.addEventListener('input',drawOptions);
+  popup.addEventListener('click',e=>{
+   const btn=e.target.closest('button[data-act]');if(!btn)return;const act=btn.dataset.act;
+   if(act==='all'){vals.forEach(v=>selected.add(v));drawOptions();return;}
+   if(act==='none'){selected.clear();drawOptions();return;}
+   if(act==='apply'){const checked=[...list.querySelectorAll('input:checked')].map(x=>x.dataset.value);const visibleVals=vals.filter(v=>v.toLocaleLowerCase().includes(search.value.toLocaleLowerCase()));visibleVals.forEach(v=>selected.delete(v));checked.forEach(v=>selected.add(v));if(selected.size===vals.length)state.filters.delete(col);else state.filters.set(col,{kind:'set',values:new Set(selected)});applyTable(table);closePopup();return;}
+   if(act==='clear'){state.filters.delete(col);applyTable(table);closePopup();return;}
+   if(act==='asc'||act==='desc'){state.sortCol=col;state.sortDir=act==='asc'?'asc':'desc';applyTable(table);closePopup();return;}
+   if(act==='clearall'){state.filters.clear();state.sortCol=-1;state.sortDir='';if(state.originalRows&&table.tBodies[0])state.originalRows.forEach(r=>table.tBodies[0].appendChild(r));state.originalRows=null;applyTable(table);closePopup();return;}
+   if(act==='custom'){const mode=popup.querySelector('.mbq-f-mode').value,a=popup.querySelector('.mbq-f-a').value,b=popup.querySelector('.mbq-f-b').value;if(!mode||!txt(a)||(mode==='between'&&!txt(b))){popup.querySelector('.mbq-f-a').focus();return;}state.filters.set(col,{kind:'custom',mode,a,b});applyTable(table);closePopup();}
+  });
+  popup.querySelector('.mbq-f-mode').addEventListener('change',e=>{popup.querySelector('.mbq-f-b').style.display=e.target.value==='between'?'block':'none';popup.querySelector('.mbq-f-a').placeholder=e.target.value.startsWith('text')||['contains','notcontains','begins','ends'].includes(e.target.value)?'Enter text':'Enter number';});
+  setTimeout(()=>search.focus(),0);
+ }
+ document.addEventListener('click',e=>{if(popup&&!popup.contains(e.target)&&e.target!==activeButton&&!e.target.closest('.mbq-filter-trigger'))closePopup();});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&popup)closePopup();});
+ refresh(document);
+ const observer=new MutationObserver(records=>{for(const r of records){if(r.target&&r.target.closest&&r.target.closest('.mbq-filter-popup'))continue;for(const n of r.addedNodes||[])if(n.nodeType===1)refresh(n);}});
+ if(document.documentElement)observer.observe(document.documentElement,{subtree:true,childList:true});
 })();
 </script>
 </body></html>
