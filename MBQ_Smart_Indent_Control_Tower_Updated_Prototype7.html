@@ -4412,7 +4412,7 @@ function mbqOpenReportExport(anchor,title,target,excelFn,pdfFn,jpgFn){
 }
 function mbqRunReportExport(format){
  const menu=document.getElementById('mbqReportExportMenu'),cfg=window.mbqPendingReportExport;if(menu)menu.style.display='none';if(!cfg)return;
- try{if(format==='excel'){if(cfg.excel)cfg.excel();else mbqExportTargetExcel(cfg.target,cfg.title);}else if(format==='pdf'){if(cfg.pdf)cfg.pdf();else mbqExportTargetPdf(cfg.target,cfg.title);}else if(format==='jpg'){if(cfg.jpg)cfg.jpg();else mbqExportTargetJpg(cfg.target,cfg.title);}}
+ try{if(format==='excel'){if(cfg.excel)cfg.excel();else if(cfg.target==='#page-distributor')mbqExportDistributorWorkbook();else mbqExportTargetExcel(cfg.target,cfg.title);}else if(format==='pdf'){if(cfg.pdf)cfg.pdf();else mbqExportTargetPdf(cfg.target,cfg.title);}else if(format==='jpg'){if(cfg.jpg)cfg.jpg();else mbqExportTargetJpg(cfg.target,cfg.title);}}
  catch(e){console.error('Report export failed',e);showToast('Export failed: '+(e.message||'Please retry'));}
 }
 document.addEventListener('click',function(e){const menu=document.getElementById('mbqReportExportMenu');if(menu&&menu.style.display==='block'&&!menu.contains(e.target)&&!(window.mbqPendingReportExport&&window.mbqPendingReportExport.anchor&&window.mbqPendingReportExport.anchor.contains(e.target)))menu.style.display='none';});
