@@ -306,6 +306,118 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 #page-suggest .table-wrap tbody tr:last-child td{border-bottom:0!important}
 #page-suggest .table-wrap tbody td .small-note{padding:0}
 
+/* CFA operations tabs — individual complementary palettes */
+/* Shared compact table geometry, scoped to the four requested tabs */
+#page-stock .table-wrap,
+#page-totracker .table-wrap,
+#page-allocation .table-wrap,
+#page-loading .table-wrap{overflow-x:auto;overflow-y:visible;border:1px solid #dce5ed;border-radius:10px;background:#fff}
+#page-stock .table-wrap table,
+#page-totracker .table-wrap table,
+#page-allocation .table-wrap table,
+#page-loading .table-wrap table{
+ width:100%!important;table-layout:fixed!important;border-collapse:separate!important;
+ border-spacing:0!important;font-size:10.5px!important
+}
+#page-stock .table-wrap thead th,
+#page-totracker .table-wrap thead th,
+#page-allocation .table-wrap thead th,
+#page-loading .table-wrap thead th{
+ padding:11px 7px!important;text-align:center!important;vertical-align:middle!important;
+ white-space:normal!important;line-height:1.3;font-size:9px!important;
+ font-weight:850!important;letter-spacing:.28px;color:#fff!important;
+ border-right:1px solid #ffffff35!important;border-bottom:1px solid #cbd5e1!important;
+ box-shadow:none!important
+}
+#page-stock .table-wrap tbody td,
+#page-totracker .table-wrap tbody td,
+#page-allocation .table-wrap tbody td,
+#page-loading .table-wrap tbody td{
+ padding:9px 7px!important;text-align:center!important;vertical-align:middle!important;
+ white-space:normal!important;line-height:1.35;font-size:10.5px!important;
+ color:#263548;border-right:1px solid #e2e8f0!important;
+ border-bottom:1px solid #e2e8f0!important;background:#fff
+}
+#page-stock .table-wrap tbody tr:nth-child(even) td,
+#page-totracker .table-wrap tbody tr:nth-child(even) td,
+#page-allocation .table-wrap tbody tr:nth-child(even) td,
+#page-loading .table-wrap tbody tr:nth-child(even) td{background:#f6f9fb!important}
+#page-stock .table-wrap tbody tr:hover td,
+#page-totracker .table-wrap tbody tr:hover td,
+#page-allocation .table-wrap tbody tr:hover td,
+#page-loading .table-wrap tbody tr:hover td{background:#edf5f8!important}
+#page-stock .table-wrap tbody td:first-child,
+#page-totracker .table-wrap tbody td:first-child,
+#page-allocation .table-wrap tbody td:first-child,
+#page-loading .table-wrap tbody td:first-child{font-weight:800!important}
+#page-stock .table-wrap tbody td:last-child,
+#page-totracker .table-wrap tbody td:last-child,
+#page-allocation .table-wrap tbody td:last-child,
+#page-loading .table-wrap tbody td:last-child,
+#page-stock .table-wrap thead th:last-child,
+#page-totracker .table-wrap thead th:last-child,
+#page-allocation .table-wrap thead th:last-child,
+#page-loading .table-wrap thead th:last-child{border-right:0!important}
+#page-stock .table-wrap tbody tr:last-child td,
+#page-totracker .table-wrap tbody tr:last-child td,
+#page-allocation .table-wrap tbody tr:last-child td,
+#page-loading .table-wrap tbody tr:last-child td{border-bottom:0!important}
+#page-stock .card.table-card>.card-head,
+#page-totracker .card.table-card>.card-head,
+#page-allocation .card.table-card>.card-head,
+#page-loading .card.table-card>.card-head{border-bottom:1px solid #e3eaf1}
+#page-stock .card.table-card>.card-head{border-left:4px solid #0f9b8e;padding-left:14px}
+#page-totracker .card.table-card>.card-head{border-left:4px solid #d97706;padding-left:14px}
+#page-allocation .card.table-card>.card-head{border-left:4px solid #7c3aed;padding-left:14px}
+#page-loading .card.table-card>.card-head{border-left:4px solid #0284c7;padding-left:14px}
+/* CFA-wise Stock · teal / sea-green */
+#page-stock .table-wrap{min-width:0;border-color:#b9ddd7}
+#page-stock .table-wrap table{min-width:900px}
+#page-stock .table-wrap thead th:nth-child(odd){background:#087f78!important}
+#page-stock .table-wrap thead th:nth-child(even){background:#176b72!important}
+#page-stock .table-wrap tbody td:first-child{color:#087f78!important;background:#e7f5f1!important}
+#page-stock .table-wrap tbody tr:nth-child(even) td:first-child{background:#def0eb!important}
+#page-stock .grid.kpis .card.kpi:nth-child(1){border-top:3px solid #0f9b8e}
+#page-stock .grid.kpis .card.kpi:nth-child(2){border-top:3px solid #38a169}
+#page-stock .grid.kpis .card.kpi:nth-child(3){border-top:3px solid #d69e2e}
+#page-stock .grid.kpis .card.kpi:nth-child(4){border-top:3px solid #3182ce}
+/* Open TO Tracker · amber / burnt orange */
+#page-totracker .table-wrap table{min-width:1040px}
+#page-totracker .table-wrap thead th:nth-child(odd){background:#9a4f13!important}
+#page-totracker .table-wrap thead th:nth-child(even){background:#bd6b1d!important}
+#page-totracker .table-wrap tbody td:first-child{color:#995014!important;background:#fff4e5!important}
+#page-totracker .table-wrap tbody tr:nth-child(even) td:first-child{background:#ffedd5!important}
+#page-totracker .grid.kpis .card.kpi:nth-child(1){border-top:3px solid #d97706}
+#page-totracker .grid.kpis .card.kpi:nth-child(2){border-top:3px solid #0f9b8e}
+#page-totracker .grid.kpis .card.kpi:nth-child(3){border-top:3px solid #dc6846}
+/* CFA Allocation · plum / violet */
+#page-allocation .table-wrap table{min-width:1500px}
+#page-allocation .table-wrap thead th:nth-child(odd){background:#59358f!important}
+#page-allocation .table-wrap thead th:nth-child(even){background:#7546a6!important}
+#page-allocation .table-wrap tbody td:first-child{color:#613b91!important;background:#f1eafa!important}
+#page-allocation .table-wrap tbody tr:nth-child(even) td:first-child{background:#e9def6!important}
+#page-allocation .table-wrap tbody td:nth-child(11){background:#f2f7ff!important}
+#page-allocation .table-wrap tbody td:nth-child(11) input{max-width:105px;text-align:center;font-weight:800;border-color:#b8a2d8;border-radius:7px}
+#page-allocation .grid.kpis .card.kpi:nth-child(1){border-top:3px solid #7546a6}
+#page-allocation .grid.kpis .card.kpi:nth-child(2){border-top:3px solid #0f9b8e}
+#page-allocation .grid.kpis .card.kpi:nth-child(3){border-top:3px solid #d97706}
+#page-allocation .grid.kpis .card.kpi:nth-child(4){border-top:3px solid #dc5265}
+#page-allocation .grid.kpis .card.kpi:nth-child(5){border-top:3px solid #3983c5}
+#page-allocation .grid.kpis .card.kpi:nth-child(6){border-top:3px solid #64748b}
+/* CFA Loading Plan · ocean blue / cool cyan */
+#page-loading .table-wrap table{min-width:1740px}
+#page-loading .table-wrap thead th:nth-child(odd){background:#075985!important}
+#page-loading .table-wrap thead th:nth-child(even){background:#087e9b!important}
+#page-loading .table-wrap tbody td:first-child{color:#075985!important;background:#e5f4fb!important}
+#page-loading .table-wrap tbody tr:nth-child(even) td:first-child{background:#d9edf8!important}
+#page-loading .table-wrap tbody td:nth-child(9),
+#page-loading .table-wrap tbody td:nth-child(12){font-weight:850!important;color:#075985!important}
+#page-loading .table-wrap tbody td:nth-child(10){color:#087e9b!important;font-weight:750!important}
+#page-loading .grid.kpis .card.kpi:nth-child(1){border-top:3px solid #0284c7}
+#page-loading .grid.kpis .card.kpi:nth-child(2){border-top:3px solid #0f9b8e}
+#page-loading .grid.kpis .card.kpi:nth-child(3){border-top:3px solid #7c3aed}
+#page-loading .grid.kpis .card.kpi:nth-child(4){border-top:3px solid #d97706}
+
 /* Ensure employee tab permissions override the nav's display:flex rule. */
 .nav button[hidden]{display:none!important}
 
