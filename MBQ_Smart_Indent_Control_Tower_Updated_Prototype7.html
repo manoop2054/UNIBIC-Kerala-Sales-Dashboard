@@ -123,37 +123,6 @@
 .mbq-indent-report .report-foot{padding:10px 16px;color:#52647d;background:#f8fafd;font-size:10.5px;border-top:1px solid #dbe4ef}
 .mbq-indent-report .empty-report{padding:24px;text-align:center;color:#718096}
 
-/* Monthly Indent vs Billed: tiny blue inline detail icon and compact invoice popup */
-.mbq-indent-report .billed-cell{white-space:nowrap}
-.mbq-indent-report .mbq-billed-eye{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;width:16px;height:16px;margin-left:4px;padding:0;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#2563eb!important;cursor:pointer;line-height:1}
-.mbq-indent-report .mbq-billed-eye svg{display:block;width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.mbq-indent-report .mbq-billed-eye:hover{color:#1d4ed8!important}
-.mbq-indent-report .mbq-billed-eye:focus-visible{outline:2px solid #93c5fd;outline-offset:2px;border-radius:3px}
-.mbq-indent-detail-backdrop{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:16px;background:rgba(15,23,42,.48)}
-.mbq-indent-detail-dialog{display:flex;flex-direction:column;width:min(920px,calc(100vw - 32px));max-height:min(78vh,760px);overflow:hidden;border:1px solid #dbe4ef;border-radius:13px;background:#fff;box-shadow:0 24px 70px rgba(15,23,42,.28)}
-.mbq-indent-detail-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 16px;background:#f5f8fc;border-bottom:1px solid #e2e8f0}
-.mbq-indent-detail-head h3{margin:0;color:#17365d;font-size:14px}
-.mbq-indent-detail-sub{margin-top:4px;color:#64748b;font-size:10.5px}
-.mbq-indent-detail-close{flex:0 0 auto;padding:6px 9px;border:1px solid #d5deea;border-radius:7px;background:#fff;color:#334155;font-size:11px;cursor:pointer}
-.mbq-indent-detail-summary{display:flex;flex-wrap:wrap;gap:8px;padding:10px 16px;border-bottom:1px solid #e8edf4;color:#475569;font-size:10.5px}
-.mbq-indent-detail-summary span{padding:5px 8px;border-radius:6px;background:#f1f5f9}
-.mbq-indent-detail-summary strong{color:#17365d}
-.mbq-indent-detail-table-wrap{overflow:auto;max-height:52vh}
-.mbq-indent-detail-table{width:100%;min-width:680px;border-collapse:collapse;font-size:10.5px}
-.mbq-indent-detail-table th,.mbq-indent-detail-table td{padding:7px 9px;border-bottom:1px solid #e5eaf1;text-align:left;vertical-align:top;white-space:nowrap}
-.mbq-indent-detail-table th{position:sticky;top:0;z-index:1;background:#eaf0f8;color:#334155;font-size:9px;letter-spacing:.25px}
-.mbq-indent-detail-table tbody tr:nth-child(even){background:#f8fafc}
-.mbq-indent-detail-table td small{display:block;margin-top:2px;color:#64748b;font-size:9.5px;white-space:normal}
-.mbq-indent-detail-kind{display:inline-block;padding:3px 6px;border-radius:5px;font-size:8.5px;font-weight:800}
-.mbq-indent-detail-kind.invoice{background:#eaf2ff;color:#1d4ed8}
-.mbq-indent-detail-kind.credit{background:#fff0f1;color:#b42332}
-.mbq-indent-detail-qty{text-align:right!important;font-weight:800}
-.mbq-indent-detail-qty.credit{color:#b42332}
-.mbq-indent-detail-empty{text-align:center!important;padding:22px!important;color:#64748b}
-@media(max-width:640px){.mbq-indent-detail-backdrop{padding:8px}.mbq-indent-detail-dialog{width:calc(100vw - 16px);max-height:86vh}.mbq-indent-detail-head{padding:10px}.mbq-indent-detail-summary{padding:8px 10px}}
-
-
-
 /* Compact Monthly Indent vs Billed report */
 .mbq-indent-report .report-scroll{overflow:auto;max-height:calc(100vh - 300px)}
 .mbq-indent-report table{min-width:0!important;width:100%;table-layout:fixed;font-size:10px}
@@ -1626,7 +1595,7 @@ function renderIndentReport(){
  }
  const td=(v,cls)=>'<td class="'+(cls||'')+'">'+fmt(v)+'</td>';
  window.mbqIndentReportDetailTargets=[];
- const billedTd=(r,c,b)=>{if(!b.available)return td(null,'billed-cell');if(Number(b.invoice)===0)return '<td class="billed-cell"><span>'+fmt(b.invoice)+'</span></td>';const index=window.mbqIndentReportDetailTargets.length;window.mbqIndentReportDetailTargets.push({sku:r.sku,cfa:c,monthKey});return '<td class="billed-cell"><span>'+fmt(b.invoice)+'</span><button type="button" class="mbq-billed-eye" title="View invoice details" aria-label="View invoice details" onclick="mbqShowIndentBillingDetails('+index+')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></td>';};
+ const billedTd=(r,c,b)=>{if(!b.available)return td(null,'billed-cell');const index=window.mbqIndentReportDetailTargets.length;window.mbqIndentReportDetailTargets.push({sku:r.sku,cfa:c,monthKey});return '<td class="billed-cell"><span>'+fmt(b.invoice)+'</span><button type="button" class="mbq-billed-eye" title="View invoice billing details" aria-label="View invoice billing details" onclick="mbqShowIndentBillingDetails('+index+')">&#128065;</button></td>';};
  const body=data.map(r=>{
   let html='<tr><td>'+mbqEscape(r.sku)+'</td>';
   if(all){const tb=balance(r.totalIndent,r.totalBilling);html+=td(r.totalIndent,'indent-cell')+billedTd(r,'ALL',r.totalBilling)+td(tb,'balance-cell');}
@@ -2441,10 +2410,8 @@ window.mbqShowIndentBillingDetails=function(index){
  const total=lines.reduce((sum,x)=>sum+(Number(x.quantity)||0),0);
  let modal=document.getElementById('mbqIndentBillingDetailModal');
  if(!modal){modal=document.createElement('div');modal.id='mbqIndentBillingDetailModal';modal.className='mbq-indent-detail-backdrop';modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});document.body.appendChild(modal);}
- const invoiceTotal=lines.reduce((sum,x)=>sum+Math.max(0,Number(x.quantity)||0),0);
- const creditTotal=lines.reduce((sum,x)=>sum+Math.max(0,-(Number(x.quantity)||0)),0);
- const body=lines.length?lines.map(x=>{const item=master.get(mbqCodeKey(x.itemId))||{},qty=Number(x.quantity)||0,credit=qty<0;return '<tr><td><span class="mbq-indent-detail-kind '+(credit?'credit':'invoice')+'">'+(credit?'CREDIT NOTE':'INVOICE')+'</span></td><td>'+esc(x.cfa?normalCfa(x.cfa)+' CFA':'No Data Available')+'</td><td>'+esc(x.date||'No Data Available')+'</td><td>'+esc(x.dbrCode||'No Data Available')+'<small>'+esc(x.dbrName||'')+'</small></td><td>'+esc(x.itemId||'No Data Available')+'<small>'+esc(item.description||'')+'</small></td><td class="mbq-indent-detail-qty '+(credit?'credit':'')+'">'+fmt(qty)+'</td></tr>';}).join(''):'<tr><td colspan="6" class="mbq-indent-detail-empty">No billing detail rows available for this SKU group, month and CFA.</td></tr>';
- modal.innerHTML='<div class="mbq-indent-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="mbqIndentDetailTitle"><div class="mbq-indent-detail-head"><div><h3 id="mbqIndentDetailTitle">Billing Details · '+esc(target.sku)+'</h3><div class="mbq-indent-detail-sub">'+esc(target.monthKey)+' · '+esc(target.cfa==='ALL'?'All CFA':target.cfa+' CFA')+'</div></div><button type="button" class="mbq-indent-detail-close" onclick="document.getElementById(\'mbqIndentBillingDetailModal\')?.remove()">✕ Close</button></div><div class="mbq-indent-detail-summary"><span><strong>'+lines.length.toLocaleString('en-IN')+'</strong> rows</span><span>Invoice <strong>'+fmt(invoiceTotal)+'</strong> CBB</span><span>Credit Notes <strong>−'+fmt(creditTotal)+'</strong> CBB</span><span>Net Billed <strong>'+fmt(total)+'</strong> CBB</span></div><div class="mbq-indent-detail-table-wrap"><table class="mbq-indent-detail-table"><thead><tr><th>TYPE</th><th>CFA</th><th>POSTING DATE</th><th>CUSTOMER</th><th>ITEM / DESCRIPTION</th><th>BILLED CBB</th></tr></thead><tbody>'+body+'</tbody></table></div></div>';
+ const body=lines.length?lines.map(x=>{const item=master.get(mbqCodeKey(x.itemId))||{};return '<tr><td>'+esc(x.cfa?normalCfa(x.cfa)+' CFA':'No Data Available')+'</td><td>'+esc(x.dbrCode||'No Data Available')+'</td><td>'+esc(x.dbrName||'No Data Available')+'</td><td>'+esc(x.itemId||'No Data Available')+'</td><td>'+esc(item.description||'No Data Available')+'</td><td>'+fmt(item.mrp)+'</td><td>'+esc(x.date||'No Data Available')+'</td><td>'+fmt(x.quantity)+'</td></tr>';}).join(''):'<tr><td colspan="8" class="mbq-indent-detail-empty">No billing detail rows available for this SKU group, month and CFA.</td></tr>';
+ modal.innerHTML='<div class="mbq-indent-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="mbqIndentDetailTitle"><div class="mbq-indent-detail-head"><div><h3 id="mbqIndentDetailTitle">Invoice Billed Details · '+esc(target.sku)+'</h3><div class="mbq-indent-detail-sub">'+esc(target.monthKey)+' · '+esc(target.cfa==='ALL'?'All CFA':target.cfa+' CFA')+'</div></div><button type="button" class="mbq-indent-detail-close" onclick="document.getElementById(\'mbqIndentBillingDetailModal\')?.remove()">✕ Close</button></div><div class="mbq-indent-detail-summary">'+lines.length.toLocaleString('en-IN')+' billing detail rows · Net Billed '+fmt(total)+' CBB. Credit Note quantities retain their negative sign.</div><div class="mbq-indent-detail-table-wrap"><table class="mbq-indent-detail-table"><thead><tr><th>CFA Name</th><th>Customer Code</th><th>Name</th><th>Fg Code</th><th>Description</th><th>MRP</th><th>Posting Date</th><th>Billed CBB</th></tr></thead><tbody>'+body+'</tbody></table></div></div>';
 };
 document.addEventListener('keydown',e=>{if(e.key==='Escape')document.getElementById('mbqIndentBillingDetailModal')?.remove();});
 
