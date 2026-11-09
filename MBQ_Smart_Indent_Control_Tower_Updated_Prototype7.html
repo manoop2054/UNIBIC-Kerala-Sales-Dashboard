@@ -2560,12 +2560,13 @@ let active='total',metric='CBB',sort='drop',search='';
 function rows(){return Array.isArray(mbqDistributorAnalysisState?.rows)?mbqDistributorAnalysisState.rows:[];}
 function availableGsv(r){return !!r.gsvAvailable;}
 function gsvLower(){return rows().filter(r=>availableGsv(r)&&Number(r.currentGsv)<Number(r.previousGsv));}
+function gsvComparisonReady(){return rows().some(availableGsv);}
 function gsvHigher(){return rows().filter(r=>availableGsv(r)&&Number(r.currentGsv)>Number(r.previousGsv));}
 function cardSubtext(){
  const drop=document.querySelector('#page-distributor #distKpiDrop')?.closest('.dist-kpi');
  const growth=document.querySelector('#page-distributor #distKpiGrowth')?.closest('.dist-kpi');
- if(drop){const sub=drop.querySelector('.dist-kpi-sub-lines');if(sub)sub.innerHTML='<div>CBB lower than previous month</div><div>GSV LOWER · '+(rows().length?fmt(gsvLower().length):'—')+' DBRs</div>';}
- if(growth){const sub=growth.querySelector('.dist-kpi-sub-lines');if(sub)sub.innerHTML='<div>CBB higher than previous month</div><div>GSV HIGHER · '+(rows().length?fmt(gsvHigher().length):'—')+' DBRs</div>';}
+ if(drop){const sub=drop.querySelector('.dist-kpi-sub-lines');if(sub)sub.innerHTML='<div>CBB lower than previous month</div><div>GSV LOWER · '+(gsvComparisonReady()?fmt(gsvLower().length):'—')+' DBRs</div>';}
+ if(growth){const sub=growth.querySelector('.dist-kpi-sub-lines');if(sub)sub.innerHTML='<div>CBB higher than previous month</div><div>GSV HIGHER · '+(gsvComparisonReady()?fmt(gsvHigher().length):'—')+' DBRs</div>';}
 }
 function ensureModal(){
  if(document.getElementById('mbqDistKpiModal'))return;
@@ -3719,7 +3720,7 @@ function renderDistributorPerformance(){
  mbqDistributorAnalysisState.currentFrom=from;mbqDistributorAnalysisState.currentTo=to;mbqDistributorAnalysisState.previousFrom=prev.from;mbqDistributorAnalysisState.previousTo=prev.to;
  mbqDistSet('distComparisonLabel','Current: '+from+' to '+to+'  |  Previous month: '+prev.from+' to '+prev.to+'  |  Sales Drop / Growth status is based on CBB Quantity.');
  const current=mbqDistAggregate(from,to,cfa),previous=mbqDistAggregate(prev.from,prev.to,cfa),keys=new Set([...current.distributors.keys(),...previous.distributors.keys()]);
- const data=[...keys].map(key=>{const x=current.distributors.get(key)||{},p=previous.distributors.get(key)||{};const cur=Number(x.cbb)||0,old=Number(p.cbb)||0,curG=Number(x.gsv)||0,oldG=Number(p.gsv)||0;return {key,cfa:x.cfa||p.cfa,code:x.code||p.code||'—',name:x.name||p.name||'Unknown Distributor',current:cur,previous:old,delta:cur-old,pct:mbqDistPct(cur,old),currentGsv:curG,previousGsv:oldG,gsvPct:mbqDistPct(curG,oldG),gsvAvailable:!!(x.gsvAvailable||p.gsvAvailable),status:mbqDistStatus(cur,old)};});
+ const data=[...keys].map(key=>{const x=current.distributors.get(key)||{},p=previous.distributors.get(key)||{};const cur=Number(x.cbb)||0,old=Number(p.cbb)||0,curG=Number(x.gsv)||0,oldG=Number(p.gsv)||0;return {key,cfa:x.cfa||p.cfa,code:x.code||p.code||'—',name:x.name||p.name||'Unknown Distributor',current:cur,previous:old,delta:cur-old,pct:mbqDistPct(cur,old),currentGsv:curG,previousGsv:oldG,gsvPct:mbqDistPct(curG,oldG),gsvAvailable:!!(x.gsvAvailable&&p.gsvAvailable),status:mbqDistStatus(cur,old)};});
  mbqDistributorAnalysisState.rows=data;
  const filtered=data.filter(x=>statusFilter==='all'||x.status===statusFilter);
  const drops=data.filter(x=>x.status==='drop').length,growth=data.filter(x=>x.status==='growth').length,totalCbb=data.reduce((z,x)=>z+x.current,0),totalGsv=data.reduce((z,x)=>z+x.currentGsv,0);
