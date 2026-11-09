@@ -664,6 +664,26 @@ body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,t
 #page-distributor td:last-child{text-align:center}
 #page-distributor th.dist-num{text-align:right}
 #page-distributor .dist-table-wrap table{min-width:100%}
+
+/* Compact distributor performance table only */
+#page-distributor #distPerformanceTable{width:100%;min-width:960px;table-layout:fixed;font-size:9.5px}
+#page-distributor #distPerformanceTable th{padding:7px 5px;font-size:8.5px;line-height:1.2;letter-spacing:.15px;white-space:normal;overflow-wrap:anywhere}
+#page-distributor #distPerformanceTable td{padding:6px 5px;font-size:9.5px;line-height:1.25}
+#page-distributor #distPerformanceTable th:nth-child(1),#page-distributor #distPerformanceTable td:nth-child(1){width:4%}
+#page-distributor #distPerformanceTable th:nth-child(2),#page-distributor #distPerformanceTable td:nth-child(2){width:8%}
+#page-distributor #distPerformanceTable th:nth-child(3),#page-distributor #distPerformanceTable td:nth-child(3){width:14%;white-space:normal;overflow-wrap:anywhere}
+#page-distributor #distPerformanceTable th:nth-child(4),#page-distributor #distPerformanceTable td:nth-child(4),
+#page-distributor #distPerformanceTable th:nth-child(5),#page-distributor #distPerformanceTable td:nth-child(5),
+#page-distributor #distPerformanceTable th:nth-child(6),#page-distributor #distPerformanceTable td:nth-child(6),
+#page-distributor #distPerformanceTable th:nth-child(7),#page-distributor #distPerformanceTable td:nth-child(7){width:8%;white-space:nowrap}
+#page-distributor #distPerformanceTable th:nth-child(8),#page-distributor #distPerformanceTable td:nth-child(8),
+#page-distributor #distPerformanceTable th:nth-child(9),#page-distributor #distPerformanceTable td:nth-child(9),
+#page-distributor #distPerformanceTable th:nth-child(10),#page-distributor #distPerformanceTable td:nth-child(10){width:10%;white-space:nowrap}
+#page-distributor #distPerformanceTable th:nth-child(11),#page-distributor #distPerformanceTable td:nth-child(11){width:12%}
+#page-distributor #distPerformanceTable .dist-status-stack{flex-direction:row;flex-wrap:wrap;justify-content:center;gap:3px}
+#page-distributor #distPerformanceTable .dist-status{padding:3px 5px;font-size:8px;line-height:1.15;white-space:normal}
+@media(max-width:1100px){#page-distributor #distPerformanceTable{min-width:960px}}
+
 #page-distributor .dist-metric-picker{position:relative;font-size:10px;color:#26364c}
 #page-distributor .dist-metric-picker summary{list-style:none;cursor:pointer;border:1px solid #dce4ef;border-radius:8px;padding:7px 24px 7px 9px;background:#fff;font-weight:800;white-space:nowrap;position:relative}
 #page-distributor .dist-metric-picker summary::-webkit-details-marker{display:none}
