@@ -4713,4 +4713,35 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
 })();
 </script>
 
+
+<style id="mbq-all-stock-view-green-theme">
+#mbqBatchModal{background:rgba(8,35,24,.62)!important}
+#mbqBatchModal .mbq-batch-dialog{width:min(1180px,97vw)!important;max-height:88vh!important;overflow:hidden!important;border:2px solid #16a34a!important;border-radius:14px!important;box-shadow:0 22px 70px rgba(15,90,45,.28)!important;display:flex!important;flex-direction:column!important}
+#mbqBatchModal #mbqBatchTitle{color:#166534!important}
+#mbqBatchModal .mbq-batch-dialog>div:first-child{padding-bottom:12px!important;border-bottom:1px solid #bbf7d0!important}
+#mbqBatchModal .mbq-batch-dialog>div:first-child .btn{border-color:#16a34a!important;color:#166534!important;background:#f0fdf4!important}
+#mbqBatchContent{min-height:0;overflow:auto;padding-top:10px}
+.mbq-view-cfa-picker{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;margin:0 0 10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:9px;color:#166534;font-size:11px}
+.mbq-view-cfa-picker strong{margin-right:4px}.mbq-view-cfa-picker label{display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-weight:700}.mbq-view-cfa-picker input{accent-color:#16a34a}
+#mbqBatchModal .mbq-batch-dialog .table-wrap{max-height:65vh;border:1px solid #86efac!important;border-radius:9px!important}
+#mbqBatchModal .mbq-batch-dialog table{min-width:900px!important}#mbqBatchModal .mbq-batch-dialog th{background:#166534!important;color:#fff!important}#mbqBatchModal .mbq-batch-dialog td{border-color:#dcfce7!important}
+#mbqBatchModal .mbq-batch-dialog tbody tr:nth-child(even) td{background:#f0fdf4!important}#mbqBatchModal .mbq-batch-dialog tbody tr:hover td{background:#dcfce7!important}
+@media(max-width:600px){#mbqBatchModal .mbq-batch-dialog{max-height:94vh!important;padding:10px!important}#mbqBatchModal .mbq-batch-dialog .table-wrap{max-height:72vh}}
+</style>
+<script id="mbq-unified-stock-view-popups">
+(function(){
+ const batchKeys=['BATCH','BATCH NO','BATCH NUMBER','BATCHNO','BATCHNUM','BATCH CODE','BATCHCODE','LOT','LOT NO','LOT NUMBER'],mfdKeys=['MFD','MFD DATE','MFG','MFG DATE','MANUFACTURING DATE','DATE OF MANUFACTURE','PRODUCTION DATE'],expKeys=['EXP DATE','EXPIRY DATE','EXPIRY_DATE','EXP','EXPIRATION DATE','DATE OF EXPIRY','BEST BEFORE'],codeKeys=['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No'],qtyKeys=['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity','Available Quantity','Inventory','Stock Quantity'],shelfKeys=['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%'],cfaKeys=['WAREHOUSE','Warehouse','CFA','LocationCode','Location Code','Location_Code','Location Name','Location','Branch','Site','Store'],descKeys=['DESCRIPTION','Description','ITEM DESCRIPTION','Item Description','Product Description','Material Description','Name'];
+ const safe=v=>typeof mbqEscape==='function'?mbqEscape(String(v??'')):String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const val=(raw,keys)=>keyValue(raw,keys);
+ const dateText=v=>{if(v===null||v===undefined||String(v).trim()==='')return 'No Data Available';if(typeof v==='number'&&Number.isFinite(v)&&v>20000&&v<80000){const d=new Date(Date.UTC(1899,11,30)+v*86400000);return Number.isNaN(d.getTime())?'No Data Available':d.toLocaleDateString('en-GB',{timeZone:'UTC'});}const raw=String(v).trim(),iso=raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/);return iso?iso[3]+'-'+iso[2]+'-'+iso[1]:raw;};
+ window.mbqShowBatchDetailsForCodes=function(codes,cfas,title,minShelf=null){
+  const codeSet=new Set((codes||[]).map(mbqCodeKey).filter(Boolean)),initial=(cfas||['ALU','PAY','TVD']).map(normalCfa).filter(c=>['ALU','PAY','TVD'].includes(c)),selected=new Set(initial.length?initial:['ALU','PAY','TVD']),modal=document.getElementById('mbqBatchModal'),heading=document.getElementById('mbqBatchTitle'),content=document.getElementById('mbqBatchContent');if(!modal||!content)return;heading.textContent=String(title||'Item')+' — Batch Details';
+  const render=()=>{const items=[];(Array.isArray(liveSohRows)?liveSohRows:[]).forEach(raw=>{const type=String(val(raw,['TYPE','Type'])||'').trim().toUpperCase();if(type&&type!=='SOH')return;const codeRaw=val(raw,codeKeys),code=mbqCodeKey(codeRaw),warehouse=String(val(raw,cfaKeys)||'').trim(),cfa=normalCfa(warehouse);if(!codeSet.has(code)||!selected.has(cfa))return;const shelfRaw=val(raw,shelfKeys),shelf=Number(String(shelfRaw??'').replace('%','').replace(/,/g,''));if(minShelf!==null&&(!Number.isFinite(shelf)||shelf<Number(minShelf)))return;const qtyRaw=val(raw,qtyKeys),qty=Number(String(qtyRaw??'').replace(/,/g,'')),desc=val(raw,descKeys),batch=val(raw,batchKeys),mfd=val(raw,mfdKeys),exp=val(raw,expKeys);items.push({cfa,code:String(codeRaw??''),description:String(desc??''),batch:String(batch??''),mfd:dateText(mfd),exp:dateText(exp),qty:Number.isFinite(qty)&&String(qtyRaw??'').trim()!==''?qty:null,shelf:Number.isFinite(shelf)&&String(shelfRaw??'').trim()!==''?shelf:null});});items.sort((a,b)=>a.cfa.localeCompare(b.cfa)||a.code.localeCompare(b.code)||(a.shelf??Infinity)-(b.shelf??Infinity));const picker='<div class="mbq-view-cfa-picker"><strong>Filter CFA:</strong>'+['ALU','PAY','TVD'].map(c=>'<label><input type="checkbox" value="'+c+'" '+(selected.has(c)?'checked':'')+' onchange="mbqUnifiedViewToggleCfa(this)"> '+c+'</label>').join('')+'</div>';const rows=items.map(x=>'<tr><td>'+safe(x.cfa)+'</td><td>'+safe(x.code)+'</td><td>'+safe(x.description||'No Data Available')+'</td><td>'+safe(x.batch||'No Data Available')+'</td><td>'+safe(x.mfd)+'</td><td>'+safe(x.exp)+'</td><td>'+(x.qty===null?'No Data Available':x.qty.toLocaleString('en-IN',{maximumFractionDigits:0}))+'</td><td>'+(x.shelf===null?'No Data Available':x.shelf.toLocaleString('en-IN',{maximumFractionDigits:2})+'%')+'</td></tr>').join('');content.innerHTML=picker+'<div class="table-wrap"><table><thead><tr><th>Item CFA Name</th><th>Item Code</th><th>Description</th><th>Batch</th><th>MFD</th><th>Exp Date</th><th>CBB</th><th>Shelf Life %</th></tr></thead><tbody>'+(rows||'<tr><td colspan="8" class="empty">No Data Available — matching LIVE SOH batch rows are not present for the selected CFA(s).</td></tr>')+'</tbody></table></div>';};
+  window.mbqUnifiedViewToggleCfa=function(el){if(el.checked)selected.add(el.value);else selected.delete(el.value);render();};render();modal.style.display='flex';
+ };
+ window.peakShowSoh=function(code){window.mbqShowBatchDetailsForCodes([String(code||'')],['ALU','PAY','TVD'],'Item '+String(code||''));};
+ window.peakShowGroupSoh=function(group,cfa){const mapped=typeof peakItemRowsForGroup==='function'?peakItemRowsForGroup(group):[],codes=[...new Set(mapped.map(x=>String(x.code||'').trim()).filter(Boolean))];window.mbqShowBatchDetailsForCodes(codes,[normalCfa(cfa)],String(group||'SKU Group')+' · Batch Details',60);};
+})();
+</script>
+
 </body></html>
