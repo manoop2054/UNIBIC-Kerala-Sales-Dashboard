@@ -2496,65 +2496,7 @@ function printToReport(mode='details'){
   :'<th>TO Number</th><th>Item Number</th><th>Product Name</th><th>CFA</th><th>Transfer Qty CBO</th><th>Received CBB</th><th>Open TO CBB</th><th>Status</th>';
  const w=window.open('','_blank');if(!w){showToast('Print popup അനുവദിക്കുക.');return;}
  const title=summary?'Summary':'Item Details';
- const html='<!doctype html><html><head><meta charset="utf-8"><title>Open TO Report</title><style>body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}</style></head><body><h2>Open TO '+title+'</h2><table><thead><tr>'+heads+'</tr></thead><tbody>'+rows+'</tbody></table><div id="distKpiDetailModal" aria-hidden="true">
- <div class="dist-kpi-dialog" role="dialog" aria-modal="true" aria-labelledby="distKpiModalTitle">
-  <div class="dist-kpi-modal-head">
-   <div><div class="dist-kpi-modal-eyebrow">Distributor Performance · Details</div><div class="dist-kpi-modal-title" id="distKpiModalTitle">KPI Details</div><div class="dist-kpi-modal-sub" id="distKpiModalSub">Selected period comparison</div></div>
-   <button type="button" class="dist-kpi-close" id="distKpiModalClose" aria-label="Close details">×</button>
-  </div>
-  <div class="dist-kpi-modal-body"><div class="dist-kpi-summary" id="distKpiModalSummary"></div><div id="distKpiModalContent"></div></div>
-  <div class="dist-kpi-modal-foot" id="distKpiModalFoot">Current period compared with the matching previous-month period.</div>
- </div>
-</div>
-<script id="dist-kpi-popup-script">
-(function(){
- const modal=document.getElementById('distKpiDetailModal');if(!modal)return;
- const esc=v=>typeof mbqEscape==='function'?mbqEscape(String(v??'')):String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const fmt=v=>typeof mbqDistFmt==='function'?mbqDistFmt(v):Number(v||0).toLocaleString('en-IN');
- const money=v=>typeof mbqDistMoney==='function'?mbqDistMoney(v):'₹'+fmt(v);
- const rows=()=>Array.isArray(mbqDistributorAnalysisState?.rows)?mbqDistributorAnalysisState.rows:[];
- const summary=(items)=>{document.getElementById('distKpiModalSummary').innerHTML=items.map(x=>'<div class="dist-kpi-stat"><small>'+esc(x.label)+'</small><strong>'+esc(x.value)+'</strong></div>').join('');};
- const table=(heads,body)=>body.length?'<div class="dist-kpi-table-wrap"><table><thead><tr>'+heads.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+body.join('')+'</tbody></table></div>':'<div class="dist-kpi-modal-empty">No Data Available for this selection.</div>';
- const rowHtml=(r,mode)=>'<tr><td>'+esc(r.cfa)+'</td><td>'+esc(r.code)+'</td><td>'+esc(r.name)+'</td>'+(
-  mode==='gsv'?'<td>'+money(r.previousGsv)+'</td><td>'+money(r.currentGsv)+'</td><td>'+esc(r.gsvPct)+'</td>':
-  '<td>'+fmt(r.previous)+'</td><td>'+fmt(r.current)+'</td><td>'+(r.delta>0?'+':'')+fmt(r.delta)+'</td><td>'+esc(r.pct)+'</td>'
- )+'</tr>';
- function open(key){
-  const data=rows(),period=(mbqDistributorAnalysisState.currentFrom||'—')+' to '+(mbqDistributorAnalysisState.currentTo||'—'),prev=(mbqDistributorAnalysisState.previousFrom||'—')+' to '+(mbqDistributorAnalysisState.previousTo||'—');
-  let title='',sub='Current: '+period+' · Previous: '+prev,heads=[],body=[],content='',stats=[];
-  if(key==='total'){
-   title='Total Distributors';const sorted=[...data].sort((a,b)=>a.name.localeCompare(b.name));stats=[{label:'Total DBRs',value:fmt(data.length)},{label:'Sales Drop',value:fmt(data.filter(x=>x.status==='drop').length)},{label:'Growing',value:fmt(data.filter(x=>x.status==='growth').length)}];heads=['CFA','DBR Code','Distributor','Previous CBB','Current CBB','CBB Change','Change %'];body=sorted.map(r=>rowHtml(r,'cbb'));
-  }else if(key==='drop'||key==='growth'){
-   const isDrop=key==='drop',list=data.filter(x=>x.status===key).sort((a,b)=>isDrop?a.delta-b.delta:b.delta-a.delta),gsvList=data.filter(x=>x.gsvAvailable&&(isDrop?x.currentGsv<x.previousGsv:x.currentGsv>x.previousGsv));
-   title=isDrop?'Sales Drop Details':'Growing Details';stats=[{label:'CBB '+(isDrop?'Lower':'Higher')+' DBRs',value:fmt(list.length)},{label:'GSV '+(isDrop?'Lower':'Higher')+' DBRs',value:fmt(gsvList.length)}];heads=['CFA','DBR Code','Distributor','Previous CBB','Current CBB','CBB Change','Change %'];body=list.map(r=>rowHtml(r,'cbb'));
-   content='<div class="dist-kpi-modal-section-note">'+(isDrop?'DBRs where current CBB is lower than previous period.':'DBRs where current CBB is higher than previous period.')+'</div>'+table(heads,body);
-   summary(stats);document.getElementById('distKpiModalTitle').textContent=title;document.getElementById('distKpiModalSub').textContent=sub;document.getElementById('distKpiModalContent').innerHTML=content;document.getElementById('distKpiModalFoot').textContent='GSV comparison count includes only DBRs with available GSV values.';show();return;
-  }else if(key==='cbb'){
-   title='Current CBB Details';const sorted=[...data].sort((a,b)=>b.current-a.current);stats=[{label:'Current CBB',value:fmt(data.reduce((n,x)=>n+x.current,0))},{label:'Previous CBB',value:fmt(data.reduce((n,x)=>n+x.previous,0))},{label:'DBRs',value:fmt(data.length)}];heads=['CFA','DBR Code','Distributor','Previous CBB','Current CBB','CBB Change','Change %'];body=sorted.map(r=>rowHtml(r,'cbb'));
-  }else if(key==='gsv'){
-   title='Current GSV Details';const available=data.filter(x=>x.gsvAvailable),sorted=[...available].sort((a,b)=>b.currentGsv-a.currentGsv);stats=[{label:'Current GSV',value:money(available.reduce((n,x)=>n+x.currentGsv,0))},{label:'Previous GSV',value:money(available.reduce((n,x)=>n+x.previousGsv,0))},{label:'DBRs with GSV',value:fmt(available.length)}];heads=['CFA','DBR Code','Distributor','Previous GSV','Current GSV','Change %'];body=sorted.map(r=>rowHtml(r,'gsv'));
-  }else if(key==='top'){
-   title='Highest Purchase Details';const sorted=[...data].filter(x=>x.current>0).sort((a,b)=>b.current-a.current).slice(0,10),top=sorted[0];stats=[{label:'Top Distributor',value:top?top.name:'No Data Available'},{label:'CFA',value:top?top.cfa:'—'},{label:'Current CBB',value:top?fmt(top.current):'—'}];heads=['Rank','CFA','DBR Code','Distributor','Current CBB','Current GSV'];body=sorted.map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(r.cfa)+'</td><td>'+esc(r.code)+'</td><td>'+esc(r.name)+'</td><td>'+fmt(r.current)+'</td><td>'+(r.gsvAvailable?money(r.currentGsv):'No Data Available')+'</td></tr>');
-  }else if(key==='allocation'){
-   title='Allocated Indent Details';const cfa=document.getElementById('distCfaFilter')?.value||'all',source=Array.isArray(allocationData)?allocationData:[],list=source.filter(r=>cfa==='all'||normalCfa(r.cfaKey||r.cfa)===cfa);const total=list.reduce((n,r)=>n+(Number(r.indentCbb??r.allocation)||0),0);stats=[{label:'Allocated Indent',value:list.length?fmt(total)+' CBB':'No Data Available'},{label:'Allocation Lines',value:fmt(list.length)}];heads=['CFA','SKU Group','FG Code','Allocated CBB'];body=list.map(r=>'<tr><td>'+esc(normalCfa(r.cfaKey||r.cfa))+'</td><td>'+esc(r.sku||r.skuGroup||'—')+'</td><td>'+esc(r.code||r.itemId||'—')+'</td><td>'+fmt(r.indentCbb??r.allocation)+'</td></tr>');
-   sub=(document.getElementById('distKpiAllocationLabel')?.textContent||'Current month allocation')+' · '+(cfa==='all'?'All CFAs':cfa+' CFA');
-  }
-  summary(stats);document.getElementById('distKpiModalTitle').textContent=title;document.getElementById('distKpiModalSub').textContent=sub;document.getElementById('distKpiModalContent').innerHTML=table(heads,body);document.getElementById('distKpiModalFoot').textContent='Source: connected GSV / current allocation data · Selected CFA and period filters are applied.';show();
- }
- function show(){modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';document.getElementById('distKpiModalClose')?.focus();}
- function close(){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');document.body.style.overflow='';}
- document.querySelectorAll('#page-distributor .dist-kpi').forEach(card=>{
-  const id=card.querySelector('.value')?.id;
-  const key={distKpiTotal:'total',distKpiDrop:'drop',distKpiGrowth:'growth',distKpiCbb:'cbb',distKpiGsv:'gsv',distKpiTop:'top',distKpiAllocatedIndent:'allocation'}[id];
-  if(!key)return;card.dataset.distKpi=key;card.setAttribute('role','button');card.setAttribute('tabindex','0');card.setAttribute('aria-haspopup','dialog');card.setAttribute('aria-label','Open '+(card.querySelector('.label')?.textContent||'KPI')+' details');
-  card.addEventListener('click',()=>open(key));card.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open(key);}});
- });
- document.getElementById('distKpiModalClose')?.addEventListener('click',close);
- modal.addEventListener('click',e=>{if(e.target===modal)close();});
- document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal.classList.contains('open'))close();});
-})();
-</script>
-</body></html>';
+ const html='<!doctype html><html><head><meta charset="utf-8"><title>Open TO Report</title><style>body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}</style></head><body><h2>Open TO '+title+'</h2><table><thead><tr>'+heads+'</tr></thead><tbody>'+rows+'</tbody></table></body></html>';
  w.document.open();w.document.write(html);w.document.close();w.onload=()=>w.print();
 }
 function showPreviousIndent(){document.getElementById('prevIndentPanel').innerHTML='<strong>Previous month balance review</strong> Example loaded.';showToast('Previous indent review opened.')}
