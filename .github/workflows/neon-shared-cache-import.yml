@@ -3,9 +3,11 @@ name: Refresh Neon shared cache
 on:
   workflow_dispatch:
   schedule:
-    - cron: "17 */6 * * *"
+    # Daily safety check in case an existing release asset is replaced
+    # without a release-published event.
+    - cron: "17 3 * * *"
   release:
-    types: [published]
+    types: [published, edited]
 
 permissions:
   contents: read
@@ -19,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - name: Checkout importer branch
+      - name: Checkout importer
         uses: actions/checkout@v4
         with:
           ref: main
