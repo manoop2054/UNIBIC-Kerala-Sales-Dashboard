@@ -2685,6 +2685,124 @@ else{installCards();cardSubtext();}
 }
 </style>
 
+
+<style id="mbq-laptop-table-compact-pass2">
+/* Laptop table sizing pass 2 — targeted presentation-only adjustments for the requested tables. */
+@media (min-width: 900px) {
+  /* SKU Group-wise Monthly Indent: five-column view; reduce excess cell spacing. */
+  #indentWorkspaceWrap.group-mode table {
+    min-width: 980px !important;
+  }
+  #indentWorkspaceWrap.group-mode thead th {
+    padding: 8px 7px !important;
+    font-size: 9.5px !important;
+  }
+  #indentWorkspaceWrap.group-mode tbody td {
+    padding: 8px 7px !important;
+    font-size: 10px !important;
+    line-height: 1.3 !important;
+  }
+  #indentWorkspaceWrap.group-mode .group-indent-input {
+    padding: 7px 8px !important;
+  }
+
+  /* Stock review by CFA: retain its readable 900px table width and horizontal scroll. */
+  #page-stock .table-wrap th {
+    padding: 7px 8px !important;
+    font-size: 9px !important;
+    line-height: 1.25 !important;
+  }
+  #page-stock .table-wrap td {
+    padding: 7px 8px !important;
+    font-size: 10px !important;
+    line-height: 1.3 !important;
+  }
+
+  /* Open TO Tracker: nine columns; tighten spacing without hiding columns. */
+  #page-totracker .table-wrap table {
+    min-width: 920px !important;
+  }
+  #page-totracker .table-wrap th {
+    padding: 7px 8px !important;
+    font-size: 9px !important;
+    line-height: 1.25 !important;
+  }
+  #page-totracker .table-wrap td {
+    padding: 7px 8px !important;
+    font-size: 10px !important;
+  }
+
+  /* Automated CFA Allocation: 13 columns remain horizontally scrollable. */
+  #page-allocation .table-wrap table {
+    min-width: 1280px !important;
+  }
+  #page-allocation .table-wrap th {
+    padding: 6px 6px !important;
+    font-size: 8.5px !important;
+    line-height: 1.25 !important;
+    white-space: normal !important;
+  }
+  #page-allocation .table-wrap td {
+    padding: 6px 6px !important;
+    font-size: 9.5px !important;
+  }
+  #page-allocation .table-wrap td:nth-child(3) {
+    white-space: normal !important;
+    min-width: 145px;
+  }
+
+  /* CFA Loading & Indent Planner: 13 columns; preserve scroll for full details. */
+  #page-loading .table-wrap table {
+    min-width: 1440px !important;
+  }
+  #page-loading .table-wrap th {
+    padding: 6px 6px !important;
+    font-size: 8.5px !important;
+    line-height: 1.25 !important;
+    white-space: normal !important;
+  }
+  #page-loading .table-wrap td {
+    padding: 6px 6px !important;
+    font-size: 9.5px !important;
+  }
+
+  /* Peak Billing Planner matrix: align the sticky subheader directly under CFA headings. */
+  #page-peak .peak-new-table thead tr:first-child th {
+    top: 0 !important;
+    height: 30px !important;
+    padding: 4px 8px !important;
+    line-height: 20px !important;
+  }
+  #page-peak .peak-new-table thead tr:nth-child(2) th {
+    top: 30px !important;
+    padding: 6px 7px !important;
+    font-size: 8.5px !important;
+    line-height: 1.2 !important;
+    white-space: normal !important;
+  }
+  #page-peak .peak-new-table td {
+    padding: 7px 7px !important;
+    font-size: 9.5px !important;
+  }
+
+  /* MBQ Excel View: show more workbook rows while retaining sticky headers and scroll. */
+  #page-excelview .excel-table-wrap {
+    max-height: 68vh !important;
+  }
+  #page-excelview .excel-table {
+    font-size: 10.5px !important;
+  }
+  #page-excelview .excel-table th {
+    padding: 7px 8px !important;
+    font-size: 9px !important;
+  }
+  #page-excelview .excel-table td {
+    padding: 6px 8px !important;
+    font-size: 10px !important;
+  }
+}
+</style>
+
 </body></html>';
  w.document.open();w.document.write(html);w.document.close();w.onload=()=>w.print();
 }
