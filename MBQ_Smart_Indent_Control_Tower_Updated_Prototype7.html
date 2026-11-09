@@ -453,6 +453,33 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 .mbq-indent-report .report-scroll tbody td:first-child{position:sticky;left:0;z-index:3;background:#f0f5fb}
 .mbq-indent-report .report-scroll tbody tr:nth-child(even) td:first-child{background:#e9f0f8}
 body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}
+
+/* Open TO Tracker: compact table sizing only; preserve existing colours and behaviour. */
+#page-totracker .table-card > .table-wrap{overflow-x:auto}
+#page-totracker .table-card > .table-wrap > table{width:100%;min-width:900px;table-layout:fixed}
+#page-totracker .table-card > .table-wrap > table th,
+#page-totracker .table-card > .table-wrap > table td{padding:7px 8px;font-size:10.5px}
+#page-totracker .table-card > .table-wrap > table th{white-space:normal;line-height:1.25}
+#page-totracker .table-card > .table-wrap > table th:nth-child(1),
+#page-totracker .table-card > .table-wrap > table td:nth-child(1){width:5%;text-align:center}
+#page-totracker .table-card > .table-wrap > table th:nth-child(2),
+#page-totracker .table-card > .table-wrap > table td:nth-child(2){width:19%}
+#page-totracker .table-card > .table-wrap > table th:nth-child(3),
+#page-totracker .table-card > .table-wrap > table td:nth-child(3){width:9%}
+#page-totracker .table-card > .table-wrap > table th:nth-child(4),
+#page-totracker .table-card > .table-wrap > table td:nth-child(4){width:8%;text-align:center}
+#page-totracker .table-card > .table-wrap > table th:nth-child(5),
+#page-totracker .table-card > .table-wrap > table td:nth-child(5),
+#page-totracker .table-card > .table-wrap > table th:nth-child(6),
+#page-totracker .table-card > .table-wrap > table td:nth-child(6),
+#page-totracker .table-card > .table-wrap > table th:nth-child(7),
+#page-totracker .table-card > .table-wrap > table td:nth-child(7){width:9%;text-align:center}
+#page-totracker .table-card > .table-wrap > table th:nth-child(8),
+#page-totracker .table-card > .table-wrap > table td:nth-child(8){width:12%}
+#page-totracker .table-card > .table-wrap > table th:nth-child(9),
+#page-totracker .table-card > .table-wrap > table td:nth-child(9){width:20%}
+#page-totracker .table-card > .table-wrap > table td:nth-child(9){white-space:normal}
+#page-totracker .table-card > .table-wrap > table td:nth-child(9) .btn{padding:5px 7px;font-size:10px;margin:2px 2px 2px 0}
 </style>
 <style id="mbq-compact-layout-refinement">
 /* Dashboard-wide compact layout refinement: spacing and presentation only. */
