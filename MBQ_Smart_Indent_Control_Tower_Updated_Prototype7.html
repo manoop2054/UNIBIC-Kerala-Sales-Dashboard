@@ -5132,4 +5132,34 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
 #page-suggest .table-wrap thead th,#page-suggest .table-wrap tbody td{padding:6px!important}
 }
 </style>
+<style id="peak-planner-freeze-first-four-columns">
+/* Peak Billing Planner only: freeze the four identity columns while CFA columns scroll. */
+#page-peak .peak-table-scroll{position:relative;overflow:auto;isolation:isolate}
+#page-peak .peak-new-table{border-collapse:separate!important;border-spacing:0!important}
+#page-peak .peak-new-table th.common-head:nth-child(1),
+#page-peak .peak-new-table td:nth-child(1){width:210px!important;min-width:210px!important;max-width:210px!important;left:0!important}
+#page-peak .peak-new-table th.common-head:nth-child(2),
+#page-peak .peak-new-table td:nth-child(2){width:110px!important;min-width:110px!important;max-width:110px!important;left:210px!important}
+#page-peak .peak-new-table th.common-head:nth-child(3),
+#page-peak .peak-new-table td:nth-child(3){width:70px!important;min-width:70px!important;max-width:70px!important;left:320px!important}
+#page-peak .peak-new-table th.common-head:nth-child(4),
+#page-peak .peak-new-table td:nth-child(4){width:130px!important;min-width:130px!important;max-width:130px!important;left:390px!important}
+#page-peak .peak-new-table tbody td:nth-child(-n+4){
+ position:sticky!important;z-index:5!important;box-sizing:border-box!important;
+ background:#fff!important;background-clip:padding-box!important;
+}
+#page-peak .peak-new-table tbody tr:nth-child(even) td:nth-child(-n+4){background:#f7f9fc!important}
+#page-peak .peak-new-table tbody tr:hover td:nth-child(-n+4){background:#dff2f0!important}
+#page-peak .peak-new-table thead th.common-head{
+ position:sticky!important;top:0!important;z-index:9!important;
+ box-sizing:border-box!important;background:#183451!important;
+ background-clip:padding-box!important;
+}
+#page-peak .peak-new-table thead th.common-head:nth-child(1){left:0!important}
+#page-peak .peak-new-table thead th.common-head:nth-child(2){left:210px!important}
+#page-peak .peak-new-table thead th.common-head:nth-child(3){left:320px!important}
+#page-peak .peak-new-table thead th.common-head:nth-child(4){left:390px!important}
+#page-peak .peak-new-table thead tr:first-child th:not(.common-head){z-index:3!important}
+#page-peak .peak-new-table thead tr:nth-child(2) th{z-index:3!important}
+</style>
 </body></html>
