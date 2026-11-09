@@ -123,10 +123,10 @@
 .mbq-indent-report .report-foot{padding:10px 16px;color:#52647d;background:#f8fafd;font-size:10.5px;border-top:1px solid #dbe4ef}
 .mbq-indent-report .empty-report{padding:24px;text-align:center;color:#718096}
 
-/* Monthly Indent vs Billed: compact inline View button and invoice popup */
-.mbq-indent-report .billed-cell{white-space:nowrap}
-.mbq-indent-report .mbq-billed-view{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;margin-left:5px;padding:2px 6px;border:1px solid #bfdbfe!important;border-radius:4px!important;background:#eff6ff!important;box-shadow:none!important;color:#1d4ed8!important;font-size:9px;font-weight:700;line-height:1.1;min-height:17px;cursor:pointer;white-space:nowrap}
-.mbq-indent-report .mbq-billed-view:hover{background:#dbeafe!important;border-color:#93c5fd!important;color:#1e40af!important}
+/* Monthly Indent vs Billed: keep billed values centred; View stays out of the layout flow */
+.mbq-indent-report .billed-cell{position:relative;text-align:center!important;white-space:nowrap}
+.mbq-indent-report .mbq-billed-view{position:absolute;right:5px;top:50%;transform:translateY(-50%);display:inline-flex;align-items:center;justify-content:center;margin:0;padding:0;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#2563eb!important;font-size:9px;font-weight:700;line-height:1.1;min-height:0;cursor:pointer;white-space:nowrap}
+.mbq-indent-report .mbq-billed-view:hover{background:transparent!important;color:#1d4ed8!important;text-decoration:underline}
 .mbq-indent-report .mbq-billed-view:focus-visible{outline:2px solid #93c5fd;outline-offset:2px}
 .mbq-indent-detail-backdrop{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:16px;background:rgba(15,23,42,.48)}
 .mbq-indent-detail-dialog{display:flex;flex-direction:column;width:min(920px,calc(100vw - 32px));max-height:min(78vh,760px);overflow:hidden;border:1px solid #dbe4ef;border-radius:13px;background:#fff;box-shadow:0 24px 70px rgba(15,23,42,.28)}
