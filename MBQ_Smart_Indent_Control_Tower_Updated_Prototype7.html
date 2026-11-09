@@ -2657,6 +2657,34 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 else{installCards();cardSubtext();}
 })();
 </script>
+
+<style id="mbq-laptop-table-compact-pass1">
+/* Laptop table sizing pass 1 — presentation only; existing min-widths and table behavior are preserved. */
+@media (min-width: 900px) {
+  /* AI Suggested Indent — reduce cell footprint while keeping all columns readable. */
+  #page-suggest .table-wrap th { padding: 7px 8px !important; font-size: 9px !important; line-height: 1.25; }
+  #page-suggest .table-wrap td { padding: 7px 8px !important; font-size: 10px !important; line-height: 1.3; }
+
+  /* Daily WhatsApp Flash — six-column report. */
+  #page-flash .table-wrap th { padding: 7px 9px !important; font-size: 9px !important; }
+  #page-flash .table-wrap td { padding: 7px 9px !important; font-size: 10px !important; }
+
+  /* Master Data & Settings — compact four/five-column setup tables. */
+  #page-settings .table-wrap th { padding: 7px 8px !important; font-size: 9px !important; }
+  #page-settings .table-wrap td { padding: 7px 8px !important; font-size: 10px !important; }
+
+  /* Distributor SKU-wise Purchase Analysis only; performance table is already compact. */
+  #page-distributor #distSkuTable th { padding: 7px 7px !important; font-size: 9px !important; line-height: 1.25; }
+  #page-distributor #distSkuTable td { padding: 7px 7px !important; font-size: 9.5px !important; line-height: 1.3; }
+  #page-distributor #distSkuTable th:nth-child(2),
+  #page-distributor #distSkuTable td:nth-child(2) { white-space: normal; min-width: 150px; }
+
+  /* Advanced Controls tables are generated from verified source rows at runtime. */
+  #mbqAdvPanel .table-wrap th { padding: 7px 8px !important; font-size: 9px !important; }
+  #mbqAdvPanel .table-wrap td { padding: 7px 8px !important; font-size: 10px !important; }
+}
+</style>
+
 </body></html>';
  w.document.open();w.document.write(html);w.document.close();w.onload=()=>w.print();
 }
