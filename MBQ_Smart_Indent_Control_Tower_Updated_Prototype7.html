@@ -1533,10 +1533,12 @@ function renderIndentReport(){
   sub='<tr>'+selected.map(()=>['INDENT','INVOICE BILLED','BALANCE'].map(x=>'<th>'+x+'</th>').join('')).join('')+'</tr>';
  }
  const td=(v,cls)=>'<td class="'+(cls||'')+'">'+fmt(v)+'</td>';
+ window.mbqIndentReportDetailTargets=[];
+ const billedTd=(r,c,b)=>{if(!b.available)return td(null,'billed-cell');const index=window.mbqIndentReportDetailTargets.length;window.mbqIndentReportDetailTargets.push({sku:r.sku,cfa:c,monthKey});return '<td class="billed-cell"><span>'+fmt(b.invoice)+'</span><button type="button" class="mbq-billed-eye" title="View invoice billing details" aria-label="View invoice billing details" onclick="mbqShowIndentBillingDetails('+index+')">&#128065;</button></td>';};
  const body=data.map(r=>{
   let html='<tr><td>'+mbqEscape(r.sku)+'</td>';
-  if(all){const tb=balance(r.totalIndent,r.totalBilling);html+=td(r.totalIndent,'indent-cell')+td(r.totalBilling.available?r.totalBilling.invoice:null,'billed-cell')+td(tb,'balance-cell');}
-  selected.forEach(c=>{const x=r.cfas[c],b=x.billing;html+=td(x.indent,'indent-cell')+td(b.available?b.invoice:null,'billed-cell')+td(balance(x.indent,b),'balance-cell');});
+  if(all){const tb=balance(r.totalIndent,r.totalBilling);html+=td(r.totalIndent,'indent-cell')+billedTd(r,'ALL',r.totalBilling)+td(tb,'balance-cell');}
+  selected.forEach(c=>{const x=r.cfas[c],b=x.billing;html+=td(x.indent,'indent-cell')+billedTd(r,c,b)+td(balance(x.indent,b),'balance-cell');});
   return html+'</tr>';
  }).join('');
  host.innerHTML='<table><thead>'+heads+sub+'</thead><tbody>'+body+'</tbody></table>';
@@ -2343,7 +2345,47 @@ function printToReport(mode='details'){
   :'<th>TO Number</th><th>Item Number</th><th>Product Name</th><th>CFA</th><th>Transfer Qty CBO</th><th>Received CBB</th><th>Open TO CBB</th><th>Status</th>';
  const w=window.open('','_blank');if(!w){showToast('Print popup അനുവദിക്കുക.');return;}
  const title=summary?'Summary':'Item Details';
- const html='<!doctype html><html><head><meta charset="utf-8"><title>Open TO Report</title><style>body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}</style></head><body><h2>Open TO '+title+'</h2><table><thead><tr>'+heads+'</tr></thead><tbody>'+rows+'</tbody></table>\\n</body></html>';
+ const html='<!doctype html><html><head><meta charset="utf-8"><title>Open TO Report</title><style>body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}</style></head><body><h2>Open TO '+title+'</h2><table><thead><tr>'+heads+'</tr></thead><tbody>'+rows+'</tbody></table>\\n
+<style>
+.mbq-billed-eye{border:0;background:transparent;color:#2563eb;cursor:pointer;font-size:15px;line-height:1;padding:2px 5px;margin-left:5px;border-radius:5px;vertical-align:middle}
+.mbq-billed-eye:hover{background:#dbeafe}
+.mbq-indent-detail-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.58);z-index:10050;display:flex;align-items:center;justify-content:center;padding:18px}
+.mbq-indent-detail-dialog{background:#fff;color:#172033;width:min(1120px,96vw);max-height:88vh;overflow:hidden;border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.28);display:flex;flex-direction:column}
+.mbq-indent-detail-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid #e5e7eb}
+.mbq-indent-detail-head h3{margin:0;font-size:17px}.mbq-indent-detail-sub{font-size:12px;color:#64748b;margin-top:4px}
+.mbq-indent-detail-close{border:1px solid #dbe1ea;background:#fff;border-radius:8px;padding:7px 11px;cursor:pointer}
+.mbq-indent-detail-summary{padding:10px 20px;background:#f8fafc;font-size:13px;color:#475569}
+.mbq-indent-detail-table-wrap{overflow:auto;padding:0 16px 16px}
+.mbq-indent-detail-table{width:100%;border-collapse:collapse;min-width:850px;font-size:12px}
+.mbq-indent-detail-table th{position:sticky;top:0;background:#eef2f7;color:#334155;text-align:left;padding:10px 9px;white-space:nowrap}
+.mbq-indent-detail-table td{padding:9px;border-bottom:1px solid #edf0f4;white-space:nowrap}
+.mbq-indent-detail-table td:last-child,.mbq-indent-detail-table th:last-child{text-align:right;font-weight:700}
+.mbq-indent-detail-empty{padding:24px;text-align:center;color:#64748b}
+@media(max-width:640px){.mbq-indent-detail-backdrop{padding:8px}.mbq-indent-detail-dialog{width:100%;max-height:92vh}.mbq-indent-detail-head{padding:12px}.mbq-indent-detail-summary{padding:9px 12px}}
+</style>
+<script>
+window.mbqShowIndentBillingDetails=function(index){
+ const target=(window.mbqIndentReportDetailTargets||[])[Number(index)];
+ if(!target)return;
+ const codeSet=new Set((typeof mbqIndentReportCodes==='function'?mbqIndentReportCodes(target.sku):[]).map(mbqCodeKey));
+ const source=Array.isArray(window.mbqGsvRows)?window.mbqGsvRows:(typeof mbqGsvRows!=='undefined'?mbqGsvRows:[]);
+ const lines=source.filter(x=>codeSet.has(mbqCodeKey(x.itemId))&&String(x.month||x.date||'').slice(0,7)===target.monthKey&&(target.cfa==='ALL'||normalCfa(x.cfa)===target.cfa));
+ const stockRows=typeof liveSohRows!=='undefined'&&Array.isArray(liveSohRows)?liveSohRows:[];
+ const master=new Map();
+ stockRows.forEach(x=>{const code=mbqCodeKey(keyValue(x,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']));if(code&&!master.has(code))master.set(code,{description:keyValue(x,['DESCRIPTION','Description','Item Description','Product Description']),mrp:keyValue(x,['MRP','M.R.P.','Maximum Retail Price'])});});
+ lines.sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.dbrCode||'').localeCompare(String(b.dbrCode||''))||String(a.itemId||'').localeCompare(String(b.itemId||'')));
+ const esc=v=>typeof mbqEscape==='function'?mbqEscape(String(v??'')):String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const fmt=v=>v===null||v===undefined||v===''?'No Data Available':Number.isFinite(Number(v))?Number(v).toLocaleString('en-IN',{maximumFractionDigits:2}):esc(v);
+ const total=lines.reduce((sum,x)=>sum+(Number(x.quantity)||0),0);
+ let modal=document.getElementById('mbqIndentBillingDetailModal');
+ if(!modal){modal=document.createElement('div');modal.id='mbqIndentBillingDetailModal';modal.className='mbq-indent-detail-backdrop';modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});document.body.appendChild(modal);}
+ const body=lines.length?lines.map(x=>{const item=master.get(mbqCodeKey(x.itemId))||{};return '<tr><td>'+esc(x.cfa?normalCfa(x.cfa)+' CFA':'No Data Available')+'</td><td>'+esc(x.dbrCode||'No Data Available')+'</td><td>'+esc(x.dbrName||'No Data Available')+'</td><td>'+esc(x.itemId||'No Data Available')+'</td><td>'+esc(item.description||'No Data Available')+'</td><td>'+fmt(item.mrp)+'</td><td>'+esc(x.date||'No Data Available')+'</td><td>'+fmt(x.quantity)+'</td></tr>';}).join(''):'<tr><td colspan="8" class="mbq-indent-detail-empty">No billing detail rows available for this SKU group, month and CFA.</td></tr>';
+ modal.innerHTML='<div class="mbq-indent-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="mbqIndentDetailTitle"><div class="mbq-indent-detail-head"><div><h3 id="mbqIndentDetailTitle">Invoice Billed Details · '+esc(target.sku)+'</h3><div class="mbq-indent-detail-sub">'+esc(target.monthKey)+' · '+esc(target.cfa==='ALL'?'All CFA':target.cfa+' CFA')+'</div></div><button type="button" class="mbq-indent-detail-close" onclick="document.getElementById(\'mbqIndentBillingDetailModal\')?.remove()">✕ Close</button></div><div class="mbq-indent-detail-summary">'+lines.length.toLocaleString('en-IN')+' billing detail rows · Net Billed '+fmt(total)+' CBB. Credit Note quantities retain their negative sign.</div><div class="mbq-indent-detail-table-wrap"><table class="mbq-indent-detail-table"><thead><tr><th>CFA Name</th><th>Customer Code</th><th>Name</th><th>Fg Code</th><th>Description</th><th>MRP</th><th>Posting Date</th><th>Billed CBB</th></tr></thead><tbody>'+body+'</tbody></table></div></div>';
+};
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.getElementById('mbqIndentBillingDetailModal')?.remove();});
+</script>
+
+</body></html>';
  w.document.open();w.document.write(html);w.document.close();w.onload=()=>w.print();
 }
 function showPreviousIndent(){document.getElementById('prevIndentPanel').innerHTML='<strong>Previous month balance review</strong> Example loaded.';showToast('Previous indent review opened.')}
