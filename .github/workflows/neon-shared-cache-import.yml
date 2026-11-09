@@ -1,0 +1,39 @@
+name: Refresh Neon shared cache
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neon-shared-cache-import
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout importer branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/neon-shared-cache-importer
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --no-save exceljs@4.4.0 xlsx@0.18.5 pg@8.16.3
+
+      - name: Import latest GitHub Release into Neon
+        env:
+          SHARED_CACHE_DATABASE_URL: ${{ secrets.SHARED_CACHE_DATABASE_URL }}
+        run: node shared-cache/import-release-to-neon.js
