@@ -422,6 +422,7 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 .mbq-indent-report .report-scroll thead th:first-child{left:0;z-index:10}
 .mbq-indent-report .report-scroll tbody td:first-child{position:sticky;left:0;z-index:3;background:#f0f5fb}
 .mbq-indent-report .report-scroll tbody tr:nth-child(even) td:first-child{background:#e9f0f8}
+body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}
 </style>
 <style id="mbq-compact-layout-refinement">
 /* Dashboard-wide compact layout refinement: spacing and presentation only. */
@@ -2347,37 +2348,7 @@ function csvCell(v){return '"'+String(v==null?'':v).replaceAll('"','""')+'"'}
 function downloadCsvRows(name,rows){const csv=rows.map(r=>r.map(csvCell).join(',')).join('\\r\\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.download=name;a.click();URL.revokeObjectURL(a.href)}
 function exportToSummaryCsv(){const groups=groupedTos(getToRecords());if(!groups.length){showToast('TO data ഇല്ല.');return}downloadCsvRows('Open_TO_Summary.csv',[['TO Number','CFA','Total Items','Total CBB','Received CBB','Open TO CBB','Status'],...groups.map(g=>[g.toNo,g.cfa,g.items.length,g.total,g.received,g.open,g.isReceived?'Received / Closed':'Open TO'])])}
 function exportToCsv(){const items=getToRecords();if(!items.length){showToast('TO data ഇല്ല.');return}downloadCsvRows('Open_TO_Item_Details.csv',[['TO Number','Item Number','Product Name','CFA','Transfer Qty CBO','Received CBB','Open TO CBB','Status'],...items.map(r=>[r.toNo,r.code,r.product,r.cfa,r.qty,r.fullyReceived?r.qty:0,r.fullyReceived?0:r.qty,r.fullyReceived?'Received / Closed':'Open TO'])])}
-function printToReport(mode='details'){
- const items=getToRecords(),groups=groupedTos(items);
- if(!items.length){showToast('TO data ഇല്ല.');return;}
- const summary=mode==='summary';
- const rows=summary
-  ?groups.map(g=>'<tr><td>'+escapeToHtml(g.toNo)+'</td><td>'+escapeToHtml(g.cfa)+'</td><td>'+g.items.length+'</td><td>'+g.total+'</td><td>'+g.received+'</td><td>'+g.open+'</td><td>'+(g.isReceived?'Received / Closed':'Open TO')+'</td></tr>').join('')
-  :items.map(r=>'<tr><td>'+escapeToHtml(r.toNo)+'</td><td>'+escapeToHtml(r.code)+'</td><td>'+escapeToHtml(r.product)+'</td><td>'+escapeToHtml(r.cfa)+'</td><td>'+r.qty+'</td><td>'+(r.fullyReceived?r.qty:0)+'</td><td>'+(r.fullyReceived?0:r.qty)+'</td><td>'+(r.fullyReceived?'Received / Closed':'Open TO')+'</td></tr>').join('');
- const heads=summary
-  ?'<th>TO Number</th><th>CFA</th><th>Total Items</th><th>Total CBB</th><th>Received CBB</th><th>Open CBB</th><th>Status</th>'
-  :'<th>TO Number</th><th>Item Number</th><th>Product Name</th><th>CFA</th><th>Transfer Qty CBO</th><th>Received CBB</th><th>Open TO CBB</th><th>Status</th>';
- const w=window.open('','_blank');if(!w){showToast('Print popup അനുവദിക്കുക.');return;}
- const title=summary?'Summary':'Item Details';
- const html='<!doctype html><html><head><meta charset="utf-8"><title>Open TO Report</title><style>body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}</style></head><body><h2>Open TO '+title+'</h2><table><thead><tr>'+heads+'</tr></thead><tbody>'+rows+'</tbody></table>\\n
-<style>
-.mbq-billed-eye{border:0;background:transparent;color:#2563eb;cursor:pointer;font-size:15px;line-height:1;padding:2px 5px;margin-left:5px;border-radius:5px;vertical-align:middle}
-.mbq-billed-eye:hover{background:#dbeafe}
-.mbq-indent-detail-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.58);z-index:10050;display:flex;align-items:center;justify-content:center;padding:18px}
-.mbq-indent-detail-dialog{background:#fff;color:#172033;width:min(1120px,96vw);max-height:88vh;overflow:hidden;border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.28);display:flex;flex-direction:column}
-.mbq-indent-detail-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid #e5e7eb}
-.mbq-indent-detail-head h3{margin:0;font-size:17px}.mbq-indent-detail-sub{font-size:12px;color:#64748b;margin-top:4px}
-.mbq-indent-detail-close{border:1px solid #dbe1ea;background:#fff;border-radius:8px;padding:7px 11px;cursor:pointer}
-.mbq-indent-detail-summary{padding:10px 20px;background:#f8fafc;font-size:13px;color:#475569}
-.mbq-indent-detail-table-wrap{overflow:auto;padding:0 16px 16px}
-.mbq-indent-detail-table{width:100%;border-collapse:collapse;min-width:850px;font-size:12px}
-.mbq-indent-detail-table th{position:sticky;top:0;background:#eef2f7;color:#334155;text-align:left;padding:10px 9px;white-space:nowrap}
-.mbq-indent-detail-table td{padding:9px;border-bottom:1px solid #edf0f4;white-space:nowrap}
-.mbq-indent-detail-table td:last-child,.mbq-indent-detail-table th:last-child{text-align:right;font-weight:700}
-.mbq-indent-detail-empty{padding:24px;text-align:center;color:#64748b}
-@media(max-width:640px){.mbq-indent-detail-backdrop{padding:8px}.mbq-indent-detail-dialog{width:100%;max-height:92vh}.mbq-indent-detail-head{padding:12px}.mbq-indent-detail-summary{padding:9px 12px}}
-</style>
-<script>
+
 window.mbqShowIndentBillingDetails=function(index){
  const target=(window.mbqIndentReportDetailTargets||[])[Number(index)];
  if(!target)return;
@@ -2397,9 +2368,20 @@ window.mbqShowIndentBillingDetails=function(index){
  modal.innerHTML='<div class="mbq-indent-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="mbqIndentDetailTitle"><div class="mbq-indent-detail-head"><div><h3 id="mbqIndentDetailTitle">Invoice Billed Details · '+esc(target.sku)+'</h3><div class="mbq-indent-detail-sub">'+esc(target.monthKey)+' · '+esc(target.cfa==='ALL'?'All CFA':target.cfa+' CFA')+'</div></div><button type="button" class="mbq-indent-detail-close" onclick="document.getElementById(\'mbqIndentBillingDetailModal\')?.remove()">✕ Close</button></div><div class="mbq-indent-detail-summary">'+lines.length.toLocaleString('en-IN')+' billing detail rows · Net Billed '+fmt(total)+' CBB. Credit Note quantities retain their negative sign.</div><div class="mbq-indent-detail-table-wrap"><table class="mbq-indent-detail-table"><thead><tr><th>CFA Name</th><th>Customer Code</th><th>Name</th><th>Fg Code</th><th>Description</th><th>MRP</th><th>Posting Date</th><th>Billed CBB</th></tr></thead><tbody>'+body+'</tbody></table></div></div>';
 };
 document.addEventListener('keydown',e=>{if(e.key==='Escape')document.getElementById('mbqIndentBillingDetailModal')?.remove();});
-</script>
 
-</body></html>';
+function printToReport(mode='details'){
+ const items=getToRecords(),groups=groupedTos(items);
+ if(!items.length){showToast('TO data ഇല്ല.');return;}
+ const summary=mode==='summary';
+ const rows=summary
+  ?groups.map(g=>'<tr><td>'+escapeToHtml(g.toNo)+'</td><td>'+escapeToHtml(g.cfa)+'</td><td>'+g.items.length+'</td><td>'+g.total+'</td><td>'+g.received+'</td><td>'+g.open+'</td><td>'+(g.isReceived?'Received / Closed':'Open TO')+'</td></tr>').join('')
+  :items.map(r=>'<tr><td>'+escapeToHtml(r.toNo)+'</td><td>'+escapeToHtml(r.code)+'</td><td>'+escapeToHtml(r.product)+'</td><td>'+escapeToHtml(r.cfa)+'</td><td>'+r.qty+'</td><td>'+(r.fullyReceived?r.qty:0)+'</td><td>'+(r.fullyReceived?0:r.qty)+'</td><td>'+(r.fullyReceived?'Received / Closed':'Open TO')+'</td></tr>').join('');
+ const heads=summary
+  ?'<th>TO Number</th><th>CFA</th><th>Total Items</th><th>Total CBB</th><th>Received CBB</th><th>Open CBB</th><th>Status</th>'
+  :'<th>TO Number</th><th>Item Number</th><th>Product Name</th><th>CFA</th><th>Transfer Qty CBO</th><th>Received CBB</th><th>Open TO CBB</th><th>Status</th>';
+ const w=window.open('','_blank');if(!w){showToast('Print popup അനുവദിക്കുക.');return;}
+ const title=summary?'Summary':'Item Details';
+ const html='<!doctype html><html><head><meta charset="utf-8"><title>Open TO Report</title><style>body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}</style></head><body><h2>Open TO '+title+'</h2><table><thead><tr>'+heads+'</tr></thead><tbody>'+rows+'</tbody></table></body></html>';
  w.document.open();w.document.write(html);w.document.close();w.onload=()=>w.print();
 }
 function showPreviousIndent(){document.getElementById('prevIndentPanel').innerHTML='<strong>Previous month balance review</strong> Example loaded.';showToast('Previous indent review opened.')}
