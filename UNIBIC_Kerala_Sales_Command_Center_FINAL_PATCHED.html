@@ -9574,4 +9574,42 @@ document.querySelectorAll('.nav button[data-tab="clmanagement"]').forEach(b=>b.a
   setInterval(()=>{const n=Array.isArray(window.targets)?window.targets.length:0;if(n!==previous){previous=n;render();}},1200);
   setTimeout(render,1000);
 })();
-</script></body></html>
+</script><script id="command-center-navigation-repair">
+/* Navigation is delegated after the page markup exists, so it works even when
+   the original head-level binding runs before the sidebar is parsed. */
+document.addEventListener('click', function(event){
+  const button = event.target.closest('.nav button[data-tab]');
+  if (!button) return;
+
+  const id = button.getAttribute('data-tab');
+  const target = document.getElementById(id);
+  if (!target || !target.classList.contains('section')) return;
+
+  document.querySelectorAll('.nav button[data-tab]').forEach(function(item){
+    item.classList.toggle('active', item === button);
+  });
+  document.querySelectorAll('.section').forEach(function(section){
+    section.classList.toggle('active', section.id === id);
+  });
+
+  window.scrollTo({top:0, behavior:'smooth'});
+
+  if (id === 'soh') {
+    try {
+      if (Array.isArray(window.soh)) window.filteredSOH = window.soh.slice();
+      if (typeof window.renderSOH === 'function') window.renderSOH();
+    } catch (error) {
+      console.warn('LIVE SOH navigation render failed:', error);
+    }
+  }
+
+  if (id === 'invoice') {
+    try {
+      if (typeof window.renderInvoice === 'function') window.renderInvoice();
+    } catch (error) {
+      console.warn('Invoice drill-down navigation render failed:', error);
+    }
+  }
+});
+</script>
+</body></html>
