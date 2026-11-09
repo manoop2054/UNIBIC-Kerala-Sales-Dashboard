@@ -712,6 +712,33 @@ body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,t
 .mbq-indent-detail-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;padding:14px 18px!important;border-bottom:1px solid #e4eaf2!important}.mbq-indent-detail-head h3{margin:0!important;font-size:14px!important;color:#18253b!important}.mbq-indent-detail-close{border:0!important;background:transparent!important;color:#52627a!important;font-size:18px!important;cursor:pointer!important;padding:4px 8px!important}
 .mbq-indent-detail-table-wrap{overflow:auto!important;padding:0 14px 14px!important}.mbq-indent-detail-table{width:100%!important;min-width:900px!important;border-collapse:collapse!important;font-size:11px!important}.mbq-indent-detail-table th,.mbq-indent-detail-table td{padding:9px 10px!important;border:1px solid #e4eaf2!important;text-align:left!important;white-space:nowrap!important}.mbq-indent-detail-table th{position:sticky!important;top:0!important;background:#f3f6fb!important;color:#52627a!important;font-weight:700!important}.mbq-indent-detail-empty{text-align:center!important;padding:24px!important;color:#718096!important}
 </style>
+<style id="dist-kpi-popup-style">
+#page-distributor .dist-kpi{cursor:pointer;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
+#page-distributor .dist-kpi:hover{transform:translateY(-2px);box-shadow:0 10px 25px rgba(20,39,71,.12);border-color:#b9cbdc}
+#page-distributor .dist-kpi:focus-visible{outline:3px solid #7cb8d8;outline-offset:2px}
+#distKpiDetailModal{position:fixed;inset:0;z-index:10050;display:none;align-items:center;justify-content:center;padding:22px;background:rgba(12,25,45,.55);backdrop-filter:blur(5px)}
+#distKpiDetailModal.open{display:flex}
+#distKpiDetailModal .dist-kpi-dialog{width:min(1040px,96vw);max-height:min(86vh,850px);display:flex;flex-direction:column;background:#fff;border:1px solid #dce5ef;border-radius:18px;box-shadow:0 24px 80px rgba(8,20,38,.28);overflow:hidden}
+#distKpiDetailModal .dist-kpi-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:19px 22px;background:linear-gradient(120deg,#142a49,#1d4968);color:#fff}
+#distKpiDetailModal .dist-kpi-modal-eyebrow{font-size:9px;letter-spacing:1.4px;text-transform:uppercase;color:#9edbd6;font-weight:800}
+#distKpiDetailModal .dist-kpi-modal-title{font-size:19px;font-weight:800;margin-top:4px}
+#distKpiDetailModal .dist-kpi-modal-sub{font-size:11px;color:#d5e4f2;margin-top:4px}
+#distKpiDetailModal .dist-kpi-close{width:34px;height:34px;flex:0 0 34px;border:1px solid #ffffff45;border-radius:10px;background:#ffffff16;color:#fff;font-size:21px;line-height:1;cursor:pointer}
+#distKpiDetailModal .dist-kpi-close:hover{background:#ffffff2b}
+#distKpiDetailModal .dist-kpi-modal-body{padding:18px 20px 20px;overflow:auto}
+#distKpiDetailModal .dist-kpi-summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+#distKpiDetailModal .dist-kpi-stat{min-width:130px;flex:1;padding:11px 13px;border:1px solid #e5ebf2;border-radius:11px;background:#f7f9fc}
+#distKpiDetailModal .dist-kpi-stat small{display:block;color:#718096;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px}
+#distKpiDetailModal .dist-kpi-stat strong{display:block;margin-top:4px;color:#18253b;font-size:17px;font-weight:800}
+#distKpiDetailModal .dist-kpi-table-wrap{max-height:48vh;overflow:auto;border:1px solid #e3eaf2;border-radius:11px}
+#distKpiDetailModal table{width:100%;min-width:700px;border-collapse:separate;border-spacing:0;font-size:11px}
+#distKpiDetailModal th{position:sticky;top:0;z-index:1;background:#176b68;color:#fff;padding:11px 12px;text-align:left;font-size:9px;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap}
+#distKpiDetailModal td{padding:10px 12px;border-bottom:1px solid #edf1f6;color:#26364c;white-space:nowrap}
+#distKpiDetailModal tbody tr:nth-child(even){background:#f6f9fc}
+#distKpiDetailModal .dist-kpi-modal-empty{padding:28px 16px;text-align:center;color:#718096;background:#f8fafc;border:1px dashed #d7e0ea;border-radius:11px;font-size:12px}
+#distKpiDetailModal .dist-kpi-modal-foot{padding:10px 20px;border-top:1px solid #e8edf3;color:#7a8798;font-size:10px;background:#fbfcfe}
+@media(max-width:650px){#distKpiDetailModal{padding:8px;align-items:flex-end}#distKpiDetailModal .dist-kpi-dialog{width:100%;max-height:92vh;border-radius:16px 16px 10px 10px}#distKpiDetailModal .dist-kpi-modal-head{padding:16px}#distKpiDetailModal .dist-kpi-modal-body{padding:13px}#distKpiDetailModal .dist-kpi-stat{min-width:calc(50% - 6px)}}
+</style>
 </head>
 <body><div id="mbqLoginGate"><div class="mbq-login-card"><div class="mbq-login-brand">UNIBIC · EMPLOYEE ACCESS</div><div id="mbqLoginFormWrap"><h1>MBQ Smart Indent</h1><p>Sign in using your existing UNIBIC Dashboard Employee ID and password.</p><form id="mbqLoginForm"><label for="mbqEmployeeId">Employee ID</label><input id="mbqEmployeeId" name="employee_id" autocomplete="username" required><label for="mbqEmployeePassword">Password</label><input id="mbqEmployeePassword" name="password" type="password" autocomplete="current-password" required><button id="mbqLoginButton" type="submit">Login</button><div id="mbqLoginMessage" role="alert"></div></form></div><div id="mbqAccessPending"><h1>Access not assigned yet</h1><p id="mbqPendingMessage">Your MBQ tab access has not been assigned by Super Admin.</p><button type="button" id="mbqPendingLogout">Logout</button></div></div></div><div class="app"><aside class="sidebar"><div class="brand"><div class="logo">MB</div><div><strong>SMART INDENT</strong><small>Kerala · CFA Replenishment</small></div></div><div class="nav-label">WORKSPACE</div><nav class="nav" id="nav"><button class="active" data-page="overview"><span>◫</span>Overview Dashboard</button><button data-page="indent"><span>＋</span>Monthly Indent Entry</button><button data-page="suggest"><span>✦</span>AI Suggested Indent</button><button data-page="stock"><span>▦</span>CFA-wise Stock</button><button data-page="totracker"><span>⇄</span>Open TO Tracker</button><button data-page="advanced"><span>✦</span>Advanced Controls</button><button data-page="allocation"><span>⇄</span>CFA Allocation</button><button data-page="distributor"><span>▥</span>Distributor Performance</button><button data-page="peak"><span>◷</span>Peak Billing Planner</button><button data-page="loading"><span>▤</span>CFA Loading Plan</button><button data-page="flash"><span>◉</span>Daily WhatsApp Flash</button><button data-page="reports"><span>⇩</span>Reports & Export</button><button data-page="excelview"><span>▤</span>MBQ Excel View</button><button data-page="settings"><span>⚙</span>Master Data & Settings</button></nav><div class="sidebar-foot"><span class="dot"></span>MBQ workspace<br><br>Data will appear after the relevant source is connected.</div></aside>
 <main class="main"><header class="topbar"><div class="crumb">Workspace / <b id="crumb">Overview Dashboard</b></div><div class="top-right"><div id="gsvConnectionStatus" class="gsv-connection loading" role="status" aria-live="polite"><span class="gsv-dot"></span><span id="gsvConnectionLabel">GSV Loading</span></div><select class="select" id="month" onchange="renderMbqExcelView()"><option>November 2026</option><option>October 2026</option><option>December 2026</option></select><select class="select" id="cfa"><option>All CFAs</option><option>TVD CFA</option><option>PAY CFA</option><option>ALU CFA</option></select><div class="user" id="mbqEmployeeIdDisplay">Employee</div><button class="mbq-logout-link" id="mbqLogoutButton" type="button">Logout</button></div></header><div class="content">
@@ -2468,7 +2495,65 @@ function printToReport(mode='details'){
   :'<th>TO Number</th><th>Item Number</th><th>Product Name</th><th>CFA</th><th>Transfer Qty CBO</th><th>Received CBB</th><th>Open TO CBB</th><th>Status</th>';
  const w=window.open('','_blank');if(!w){showToast('Print popup അനുവദിക്കുക.');return;}
  const title=summary?'Summary':'Item Details';
- const html='<!doctype html><html><head><meta charset="utf-8"><title>Open TO Report</title><style>body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}</style></head><body><h2>Open TO '+title+'</h2><table><thead><tr>'+heads+'</tr></thead><tbody>'+rows+'</tbody></table></body></html>';
+ const html='<!doctype html><html><head><meta charset="utf-8"><title>Open TO Report</title><style>body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}</style></head><body><h2>Open TO '+title+'</h2><table><thead><tr>'+heads+'</tr></thead><tbody>'+rows+'</tbody></table><div id="distKpiDetailModal" aria-hidden="true">
+ <div class="dist-kpi-dialog" role="dialog" aria-modal="true" aria-labelledby="distKpiModalTitle">
+  <div class="dist-kpi-modal-head">
+   <div><div class="dist-kpi-modal-eyebrow">Distributor Performance · Details</div><div class="dist-kpi-modal-title" id="distKpiModalTitle">KPI Details</div><div class="dist-kpi-modal-sub" id="distKpiModalSub">Selected period comparison</div></div>
+   <button type="button" class="dist-kpi-close" id="distKpiModalClose" aria-label="Close details">×</button>
+  </div>
+  <div class="dist-kpi-modal-body"><div class="dist-kpi-summary" id="distKpiModalSummary"></div><div id="distKpiModalContent"></div></div>
+  <div class="dist-kpi-modal-foot" id="distKpiModalFoot">Current period compared with the matching previous-month period.</div>
+ </div>
+</div>
+<script id="dist-kpi-popup-script">
+(function(){
+ const modal=document.getElementById('distKpiDetailModal');if(!modal)return;
+ const esc=v=>typeof mbqEscape==='function'?mbqEscape(String(v??'')):String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const fmt=v=>typeof mbqDistFmt==='function'?mbqDistFmt(v):Number(v||0).toLocaleString('en-IN');
+ const money=v=>typeof mbqDistMoney==='function'?mbqDistMoney(v):'₹'+fmt(v);
+ const rows=()=>Array.isArray(mbqDistributorAnalysisState?.rows)?mbqDistributorAnalysisState.rows:[];
+ const summary=(items)=>{document.getElementById('distKpiModalSummary').innerHTML=items.map(x=>'<div class="dist-kpi-stat"><small>'+esc(x.label)+'</small><strong>'+esc(x.value)+'</strong></div>').join('');};
+ const table=(heads,body)=>body.length?'<div class="dist-kpi-table-wrap"><table><thead><tr>'+heads.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+body.join('')+'</tbody></table></div>':'<div class="dist-kpi-modal-empty">No Data Available for this selection.</div>';
+ const rowHtml=(r,mode)=>'<tr><td>'+esc(r.cfa)+'</td><td>'+esc(r.code)+'</td><td>'+esc(r.name)+'</td>'+(
+  mode==='gsv'?'<td>'+money(r.previousGsv)+'</td><td>'+money(r.currentGsv)+'</td><td>'+esc(r.gsvPct)+'</td>':
+  '<td>'+fmt(r.previous)+'</td><td>'+fmt(r.current)+'</td><td>'+(r.delta>0?'+':'')+fmt(r.delta)+'</td><td>'+esc(r.pct)+'</td>'
+ )+'</tr>';
+ function open(key){
+  const data=rows(),period=(mbqDistributorAnalysisState.currentFrom||'—')+' to '+(mbqDistributorAnalysisState.currentTo||'—'),prev=(mbqDistributorAnalysisState.previousFrom||'—')+' to '+(mbqDistributorAnalysisState.previousTo||'—');
+  let title='',sub='Current: '+period+' · Previous: '+prev,heads=[],body=[],content='',stats=[];
+  if(key==='total'){
+   title='Total Distributors';const sorted=[...data].sort((a,b)=>a.name.localeCompare(b.name));stats=[{label:'Total DBRs',value:fmt(data.length)},{label:'Sales Drop',value:fmt(data.filter(x=>x.status==='drop').length)},{label:'Growing',value:fmt(data.filter(x=>x.status==='growth').length)}];heads=['CFA','DBR Code','Distributor','Previous CBB','Current CBB','CBB Change','Change %'];body=sorted.map(r=>rowHtml(r,'cbb'));
+  }else if(key==='drop'||key==='growth'){
+   const isDrop=key==='drop',list=data.filter(x=>x.status===key).sort((a,b)=>isDrop?a.delta-b.delta:b.delta-a.delta),gsvList=data.filter(x=>x.gsvAvailable&&(isDrop?x.currentGsv<x.previousGsv:x.currentGsv>x.previousGsv));
+   title=isDrop?'Sales Drop Details':'Growing Details';stats=[{label:'CBB '+(isDrop?'Lower':'Higher')+' DBRs',value:fmt(list.length)},{label:'GSV '+(isDrop?'Lower':'Higher')+' DBRs',value:fmt(gsvList.length)}];heads=['CFA','DBR Code','Distributor','Previous CBB','Current CBB','CBB Change','Change %'];body=list.map(r=>rowHtml(r,'cbb'));
+   content='<div class="dist-kpi-modal-section-note">'+(isDrop?'DBRs where current CBB is lower than previous period.':'DBRs where current CBB is higher than previous period.')+'</div>'+table(heads,body);
+   summary(stats);document.getElementById('distKpiModalTitle').textContent=title;document.getElementById('distKpiModalSub').textContent=sub;document.getElementById('distKpiModalContent').innerHTML=content;document.getElementById('distKpiModalFoot').textContent='GSV comparison count includes only DBRs with available GSV values.';show();return;
+  }else if(key==='cbb'){
+   title='Current CBB Details';const sorted=[...data].sort((a,b)=>b.current-a.current);stats=[{label:'Current CBB',value:fmt(data.reduce((n,x)=>n+x.current,0))},{label:'Previous CBB',value:fmt(data.reduce((n,x)=>n+x.previous,0))},{label:'DBRs',value:fmt(data.length)}];heads=['CFA','DBR Code','Distributor','Previous CBB','Current CBB','CBB Change','Change %'];body=sorted.map(r=>rowHtml(r,'cbb'));
+  }else if(key==='gsv'){
+   title='Current GSV Details';const available=data.filter(x=>x.gsvAvailable),sorted=[...available].sort((a,b)=>b.currentGsv-a.currentGsv);stats=[{label:'Current GSV',value:money(available.reduce((n,x)=>n+x.currentGsv,0))},{label:'Previous GSV',value:money(available.reduce((n,x)=>n+x.previousGsv,0))},{label:'DBRs with GSV',value:fmt(available.length)}];heads=['CFA','DBR Code','Distributor','Previous GSV','Current GSV','Change %'];body=sorted.map(r=>rowHtml(r,'gsv'));
+  }else if(key==='top'){
+   title='Highest Purchase Details';const sorted=[...data].filter(x=>x.current>0).sort((a,b)=>b.current-a.current).slice(0,10),top=sorted[0];stats=[{label:'Top Distributor',value:top?top.name:'No Data Available'},{label:'CFA',value:top?top.cfa:'—'},{label:'Current CBB',value:top?fmt(top.current):'—'}];heads=['Rank','CFA','DBR Code','Distributor','Current CBB','Current GSV'];body=sorted.map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(r.cfa)+'</td><td>'+esc(r.code)+'</td><td>'+esc(r.name)+'</td><td>'+fmt(r.current)+'</td><td>'+(r.gsvAvailable?money(r.currentGsv):'No Data Available')+'</td></tr>');
+  }else if(key==='allocation'){
+   title='Allocated Indent Details';const cfa=document.getElementById('distCfaFilter')?.value||'all',source=Array.isArray(allocationData)?allocationData:[],list=source.filter(r=>cfa==='all'||normalCfa(r.cfaKey||r.cfa)===cfa);const total=list.reduce((n,r)=>n+(Number(r.indentCbb??r.allocation)||0),0);stats=[{label:'Allocated Indent',value:list.length?fmt(total)+' CBB':'No Data Available'},{label:'Allocation Lines',value:fmt(list.length)}];heads=['CFA','SKU Group','FG Code','Allocated CBB'];body=list.map(r=>'<tr><td>'+esc(normalCfa(r.cfaKey||r.cfa))+'</td><td>'+esc(r.sku||r.skuGroup||'—')+'</td><td>'+esc(r.code||r.itemId||'—')+'</td><td>'+fmt(r.indentCbb??r.allocation)+'</td></tr>');
+   sub=(document.getElementById('distKpiAllocationLabel')?.textContent||'Current month allocation')+' · '+(cfa==='all'?'All CFAs':cfa+' CFA');
+  }
+  summary(stats);document.getElementById('distKpiModalTitle').textContent=title;document.getElementById('distKpiModalSub').textContent=sub;document.getElementById('distKpiModalContent').innerHTML=table(heads,body);document.getElementById('distKpiModalFoot').textContent='Source: connected GSV / current allocation data · Selected CFA and period filters are applied.';show();
+ }
+ function show(){modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';document.getElementById('distKpiModalClose')?.focus();}
+ function close(){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');document.body.style.overflow='';}
+ document.querySelectorAll('#page-distributor .dist-kpi').forEach(card=>{
+  const id=card.querySelector('.value')?.id;
+  const key={distKpiTotal:'total',distKpiDrop:'drop',distKpiGrowth:'growth',distKpiCbb:'cbb',distKpiGsv:'gsv',distKpiTop:'top',distKpiAllocatedIndent:'allocation'}[id];
+  if(!key)return;card.dataset.distKpi=key;card.setAttribute('role','button');card.setAttribute('tabindex','0');card.setAttribute('aria-haspopup','dialog');card.setAttribute('aria-label','Open '+(card.querySelector('.label')?.textContent||'KPI')+' details');
+  card.addEventListener('click',()=>open(key));card.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open(key);}});
+ });
+ document.getElementById('distKpiModalClose')?.addEventListener('click',close);
+ modal.addEventListener('click',e=>{if(e.target===modal)close();});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal.classList.contains('open'))close();});
+})();
+</script>
+</body></html>';
  w.document.open();w.document.write(html);w.document.close();w.onload=()=>w.print();
 }
 function showPreviousIndent(){document.getElementById('prevIndentPanel').innerHTML='<strong>Previous month balance review</strong> Example loaded.';showToast('Previous indent review opened.')}
