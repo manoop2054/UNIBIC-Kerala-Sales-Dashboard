@@ -123,7 +123,6 @@
 .mbq-indent-report .report-foot{padding:10px 16px;color:#52647d;background:#f8fafd;font-size:10.5px;border-top:1px solid #dbe4ef}
 .mbq-indent-report .empty-report{padding:24px;text-align:center;color:#718096}
 
-
 /* Compact Monthly Indent vs Billed report */
 .mbq-indent-report .report-scroll{overflow:auto;max-height:calc(100vh - 300px)}
 .mbq-indent-report table{min-width:0!important;width:100%;table-layout:fixed;font-size:10px}
@@ -423,6 +422,33 @@ body:not(.mbq-authenticated)>.app{display:none!important}
 .mbq-indent-report .report-scroll tbody td:first-child{position:sticky;left:0;z-index:3;background:#f0f5fb}
 .mbq-indent-report .report-scroll tbody tr:nth-child(even) td:first-child{background:#e9f0f8}
 body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}
+
+/* Open TO Tracker: compact table sizing only; preserve existing colours and behaviour. */
+#page-totracker .table-card > .table-wrap{overflow-x:auto}
+#page-totracker .table-card > .table-wrap > table{width:100%;min-width:900px;table-layout:fixed}
+#page-totracker .table-card > .table-wrap > table th,
+#page-totracker .table-card > .table-wrap > table td{padding:7px 8px;font-size:10.5px}
+#page-totracker .table-card > .table-wrap > table th{white-space:normal;line-height:1.25}
+#page-totracker .table-card > .table-wrap > table th:nth-child(1),
+#page-totracker .table-card > .table-wrap > table td:nth-child(1){width:5%;text-align:center}
+#page-totracker .table-card > .table-wrap > table th:nth-child(2),
+#page-totracker .table-card > .table-wrap > table td:nth-child(2){width:19%}
+#page-totracker .table-card > .table-wrap > table th:nth-child(3),
+#page-totracker .table-card > .table-wrap > table td:nth-child(3){width:9%}
+#page-totracker .table-card > .table-wrap > table th:nth-child(4),
+#page-totracker .table-card > .table-wrap > table td:nth-child(4){width:8%;text-align:center}
+#page-totracker .table-card > .table-wrap > table th:nth-child(5),
+#page-totracker .table-card > .table-wrap > table td:nth-child(5),
+#page-totracker .table-card > .table-wrap > table th:nth-child(6),
+#page-totracker .table-card > .table-wrap > table td:nth-child(6),
+#page-totracker .table-card > .table-wrap > table th:nth-child(7),
+#page-totracker .table-card > .table-wrap > table td:nth-child(7){width:9%;text-align:center}
+#page-totracker .table-card > .table-wrap > table th:nth-child(8),
+#page-totracker .table-card > .table-wrap > table td:nth-child(8){width:12%}
+#page-totracker .table-card > .table-wrap > table th:nth-child(9),
+#page-totracker .table-card > .table-wrap > table td:nth-child(9){width:20%}
+#page-totracker .table-card > .table-wrap > table td:nth-child(9){white-space:normal}
+#page-totracker .table-card > .table-wrap > table td:nth-child(9) .btn{padding:5px 7px;font-size:10px;margin:2px 2px 2px 0}
 </style>
 <style id="mbq-compact-layout-refinement">
 /* Dashboard-wide compact layout refinement: spacing and presentation only. */
@@ -634,6 +660,26 @@ body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,t
 #page-distributor td:last-child{text-align:center}
 #page-distributor th.dist-num{text-align:right}
 #page-distributor .dist-table-wrap table{min-width:100%}
+
+/* Compact distributor performance table only */
+#page-distributor #distPerformanceTable{width:100%;min-width:960px;table-layout:fixed;font-size:9.5px}
+#page-distributor #distPerformanceTable th{padding:7px 5px;font-size:8.5px;line-height:1.2;letter-spacing:.15px;white-space:normal;overflow-wrap:anywhere}
+#page-distributor #distPerformanceTable td{padding:6px 5px;font-size:9.5px;line-height:1.25}
+#page-distributor #distPerformanceTable th:nth-child(1),#page-distributor #distPerformanceTable td:nth-child(1){width:4%}
+#page-distributor #distPerformanceTable th:nth-child(2),#page-distributor #distPerformanceTable td:nth-child(2){width:8%}
+#page-distributor #distPerformanceTable th:nth-child(3),#page-distributor #distPerformanceTable td:nth-child(3){width:14%;white-space:normal;overflow-wrap:anywhere}
+#page-distributor #distPerformanceTable th:nth-child(4),#page-distributor #distPerformanceTable td:nth-child(4),
+#page-distributor #distPerformanceTable th:nth-child(5),#page-distributor #distPerformanceTable td:nth-child(5),
+#page-distributor #distPerformanceTable th:nth-child(6),#page-distributor #distPerformanceTable td:nth-child(6),
+#page-distributor #distPerformanceTable th:nth-child(7),#page-distributor #distPerformanceTable td:nth-child(7){width:8%;white-space:nowrap}
+#page-distributor #distPerformanceTable th:nth-child(8),#page-distributor #distPerformanceTable td:nth-child(8),
+#page-distributor #distPerformanceTable th:nth-child(9),#page-distributor #distPerformanceTable td:nth-child(9),
+#page-distributor #distPerformanceTable th:nth-child(10),#page-distributor #distPerformanceTable td:nth-child(10){width:10%;white-space:nowrap}
+#page-distributor #distPerformanceTable th:nth-child(11),#page-distributor #distPerformanceTable td:nth-child(11){width:12%}
+#page-distributor #distPerformanceTable .dist-status-stack{flex-direction:row;flex-wrap:wrap;justify-content:center;gap:3px}
+#page-distributor #distPerformanceTable .dist-status{padding:3px 5px;font-size:8px;line-height:1.15;white-space:normal}
+@media(max-width:1100px){#page-distributor #distPerformanceTable{min-width:960px}}
+
 #page-distributor .dist-metric-picker{position:relative;font-size:10px;color:#26364c}
 #page-distributor .dist-metric-picker summary{list-style:none;cursor:pointer;border:1px solid #dce4ef;border-radius:8px;padding:7px 24px 7px 9px;background:#fff;font-weight:800;white-space:nowrap;position:relative}
 #page-distributor .dist-metric-picker summary::-webkit-details-marker{display:none}
