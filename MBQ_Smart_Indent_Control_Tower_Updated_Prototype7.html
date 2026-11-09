@@ -3618,7 +3618,9 @@ function renderPeakGroupRows(){
   return cells.replace(/<td>[^<]*<\/td>$/,'')+'<td>'+peakDisplay(sumStrict(finalVals),'CBB')+'</td><td>'+peakFmt(manualTotal)+' CBB</td>';
  }).join('');
  const totalRow='<tfoot><tr><td>GRAND TOTAL</td><td>'+peakDisplay(sumStrict(totalKeys.totalIndent),'CBB')+'</td><td>—</td><td>'+peakDisplay(sumStrict(totalKeys.plant),'CBB')+'</td>'+footCfas+'<td>'+peakDisplay(sumStrict(totalKeys.totalL2M),'CBB')+'</td></tr></tfoot>';
- host.innerHTML='<div class="peak-manual-savebar"><span style="font-size:11px;color:#52677e;margin-right:auto">Manual Qty Adjustment (+ / −) is applied to calculated ABM Requirement. Save to share it across users.</span><button class="btn primary" type="button" onclick="savePeakAbmManual()" '+(!peakAbmManualLoaded?'disabled':'')+'>Save Manual Qty</button></div><table class="peak-new-table">'+header+'<tbody>'+(body||'<tr><td colspan="'+(4+cfas.length*6+1)+'" class="empty">No SKU Group rows available for this filter.</td></tr>')+'</tbody>'+totalRow+'</table>';
+ const compactSingleCfa=p.cfa!=='ALL';
+ const compactCols=compactSingleCfa?'<colgroup><col style="width:15%"><col style="width:8%"><col style="width:4%"><col style="width:8%"><col style="width:7%"><col style="width:7%"><col style="width:11%"><col style="width:9%"><col style="width:8%"><col style="width:9%"><col style="width:14%"></colgroup>':'';
+ host.innerHTML='<div class="peak-manual-savebar"><span style="font-size:11px;color:#52677e;margin-right:auto">Manual Qty Adjustment (+ / −) is applied to calculated ABM Requirement. Save to share it across users.</span><button class="btn primary" type="button" onclick="savePeakAbmManual()" '+(!peakAbmManualLoaded?'disabled':'')+'>Save Manual Qty</button></div><table class="peak-new-table'+(compactSingleCfa?' single-cfa':'')+'">'+compactCols+header+'<tbody>'+(body||'<tr><td colspan="'+(4+cfas.length*6+1)+'" class="empty">No SKU Group rows available for this filter.</td></tr>')+'</tbody>'+totalRow+'</table>';
  renderPeakAbmExcessReport();
 }
 function renderPeakItemDetails(){
@@ -5163,3 +5165,25 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
 #page-peak .peak-new-table thead tr:nth-child(2) th{z-index:3!important}
 </style>
 </body></html>
+
+<style id="peak-single-cfa-screen-fit">
+/* SKU Group · CFA Planning Matrix: compact only when exactly one CFA is selected. */
+#page-peak .peak-new-table.single-cfa{
+ width:100%!important;min-width:0!important;table-layout:fixed!important;
+ white-space:normal!important;
+}
+#page-peak .peak-new-table.single-cfa th,
+#page-peak .peak-new-table.single-cfa td{
+ box-sizing:border-box!important;padding:7px 4px!important;
+ white-space:normal!important;overflow-wrap:anywhere!important;
+ word-break:normal!important;line-height:1.25!important;
+}
+#page-peak .peak-new-table.single-cfa th{font-size:8.5px!important;letter-spacing:0!important}
+#page-peak .peak-new-table.single-cfa td{font-size:9px!important}
+#page-peak .peak-new-table.single-cfa td:first-child{min-width:0!important}
+#page-peak .peak-new-table.single-cfa .peak-manual-input{
+ width:100%!important;max-width:76px!important;min-width:0!important;
+ box-sizing:border-box!important;padding:5px 2px!important;font-size:9px!important;
+}
+#page-peak .peak-new-table.single-cfa .peak-billing-view{margin-left:2px!important;padding:2px 4px!important;font-size:8px!important}
+</style>
