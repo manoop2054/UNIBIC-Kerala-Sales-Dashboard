@@ -123,12 +123,11 @@
 .mbq-indent-report .report-foot{padding:10px 16px;color:#52647d;background:#f8fafd;font-size:10.5px;border-top:1px solid #dbe4ef}
 .mbq-indent-report .empty-report{padding:24px;text-align:center;color:#718096}
 
-/* Monthly Indent vs Billed: tiny blue inline detail icon and compact invoice popup */
+/* Monthly Indent vs Billed: compact inline View button and invoice popup */
 .mbq-indent-report .billed-cell{white-space:nowrap}
-.mbq-indent-report .mbq-billed-eye{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;width:16px;height:16px;margin-left:4px;padding:0;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#2563eb!important;cursor:pointer;line-height:1}
-.mbq-indent-report .mbq-billed-eye svg{display:block;width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.mbq-indent-report .mbq-billed-eye:hover{color:#1d4ed8!important}
-.mbq-indent-report .mbq-billed-eye:focus-visible{outline:2px solid #93c5fd;outline-offset:2px;border-radius:3px}
+.mbq-indent-report .mbq-billed-view{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;margin-left:5px;padding:2px 6px;border:1px solid #bfdbfe!important;border-radius:4px!important;background:#eff6ff!important;box-shadow:none!important;color:#1d4ed8!important;font-size:9px;font-weight:700;line-height:1.1;min-height:17px;cursor:pointer;white-space:nowrap}
+.mbq-indent-report .mbq-billed-view:hover{background:#dbeafe!important;border-color:#93c5fd!important;color:#1e40af!important}
+.mbq-indent-report .mbq-billed-view:focus-visible{outline:2px solid #93c5fd;outline-offset:2px}
 .mbq-indent-detail-backdrop{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:16px;background:rgba(15,23,42,.48)}
 .mbq-indent-detail-dialog{display:flex;flex-direction:column;width:min(920px,calc(100vw - 32px));max-height:min(78vh,760px);overflow:hidden;border:1px solid #dbe4ef;border-radius:13px;background:#fff;box-shadow:0 24px 70px rgba(15,23,42,.28)}
 .mbq-indent-detail-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 16px;background:#f5f8fc;border-bottom:1px solid #e2e8f0}
@@ -1626,7 +1625,7 @@ function renderIndentReport(){
  }
  const td=(v,cls)=>'<td class="'+(cls||'')+'">'+fmt(v)+'</td>';
  window.mbqIndentReportDetailTargets=[];
- const billedTd=(r,c,b)=>{if(!b.available)return td(null,'billed-cell');if(Number(b.invoice)===0)return '<td class="billed-cell"><span>'+fmt(b.invoice)+'</span></td>';const index=window.mbqIndentReportDetailTargets.length;window.mbqIndentReportDetailTargets.push({sku:r.sku,cfa:c,monthKey});return '<td class="billed-cell"><span>'+fmt(b.invoice)+'</span><button type="button" class="mbq-billed-eye" title="View invoice details" aria-label="View invoice details" onclick="mbqShowIndentBillingDetails('+index+')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></td>';};
+ const billedTd=(r,c,b)=>{if(!b.available)return td(null,'billed-cell');if(Number(b.invoice)===0)return '<td class="billed-cell"><span>'+fmt(b.invoice)+'</span></td>';const index=window.mbqIndentReportDetailTargets.length;window.mbqIndentReportDetailTargets.push({sku:r.sku,cfa:c,monthKey});return '<td class="billed-cell"><span>'+fmt(b.invoice)+'</span><button type="button" class="mbq-billed-view" title="View invoice details" aria-label="View invoice details" onclick="mbqShowIndentBillingDetails('+index+')">View</button></td>';};
  const body=data.map(r=>{
   let html='<tr><td>'+mbqEscape(r.sku)+'</td>';
   if(all){const tb=balance(r.totalIndent,r.totalBilling);html+=td(r.totalIndent,'indent-cell')+billedTd(r,'ALL',r.totalBilling)+td(tb,'balance-cell');}
