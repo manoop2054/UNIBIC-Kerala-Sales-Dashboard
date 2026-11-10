@@ -7,6 +7,7 @@ const XLSX = require("xlsx");
 const ExcelJS = require("exceljs");
 const { Pool } = require("pg");
 const sharedCache = require("./shared-cache/read-from-neon");
+const sharedCacheControl = require("./shared-cache/manual-control");
 const { getAccessControlPool } = require("./employee-access-control/postgres-db");
 const { authenticateCredentials, resolveSession, revokeSession, extractSessionToken, sessionCookie, clearSessionCookie, SUPER_ADMIN_ID } = require("./employee-access-control/session-auth");
 // Use explicit libpq-compatible secure SSL semantics for both isolated MBQ databases.
@@ -899,6 +900,12 @@ app.get("/api/mbq/employee-db-check", async (req, res) => {
     console.error("MBQ employee database connectivity check failed:", error.message);
     return res.status(503).json({ configured: true, connected: false, message: "Employee database connection failed; check Render environment configuration" });
   }
+});
+
+// Protected Super Admin control for the same shared Neon cache used by Kerala dashboard.
+sharedCacheControl.mount(app, {
+  middleware: express.json({ limit: "2kb" }),
+  authorize: async (req, res) => Boolean(await mbqRequireSuperAdmin(req, res))
 });
 
 app.get("/health", (req, res) => {
