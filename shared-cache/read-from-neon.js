@@ -14,8 +14,8 @@ const pool = connectionString ? new Pool({
   max: 3,
   connectionTimeoutMillis: 3500,
   idleTimeoutMillis: 10000,
-  query_timeout: 20000,
-  statement_timeout: 20000
+  query_timeout: 60000,
+  statement_timeout: 60000
 }) : null;
 
 if (pool) pool.on('error', error => console.warn('[shared-cache] idle connection error:', error.message));
