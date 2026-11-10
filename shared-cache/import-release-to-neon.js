@@ -40,7 +40,8 @@ function date(v){if(!v)return null;const s=String(v).trim();let m=s.match(/^(\d{
 async function insert(client,table,id,rows){for(let i=0;i<rows.length;i+=BATCH){const p=rows.slice(i,i+BATCH).map(x=>({...x,refresh_id:id}));if(table==='gsv_sales'){await client.query('INSERT INTO public.gsv_sales(refresh_id,source_row_number,transaction_type,posting_date,item_id,description,location_code,quantity_in_pcs,quantity_in_cbo,amount_to_customer,invoice_no,sell_to_customer_no,sell_to_customer_name,ship_to_code,ship_to_name,sku_group,bg,raw_data) SELECT refresh_id,source_row_number,transaction_type,posting_date,item_id,description,location_code,quantity_in_pcs,quantity_in_cbo,amount_to_customer,invoice_no,sell_to_customer_no,sell_to_customer_name,ship_to_code,ship_to_name,sku_group,bg,raw_data FROM jsonb_to_recordset($1::jsonb) AS x(refresh_id uuid,source_row_number bigint,transaction_type text,posting_date date,item_id text,description text,location_code text,quantity_in_pcs numeric,quantity_in_cbo numeric,amount_to_customer numeric,invoice_no text,sell_to_customer_no text,sell_to_customer_name text,ship_to_code text,ship_to_name text,sku_group text,bg text,raw_data jsonb)',[JSON.stringify(p)]);}else{await client.query('INSERT INTO public.live_stock(refresh_id,source_row_number,item_id,description,warehouse,batch_no,mrp,mfg_date,expiry_date,cbo,quarantine_qty_cbo,total_main_qrt,shelf_life,remaining_shelf_life,case_size,units,total_qty_in_units,quarantine_units,net_weight,total_weight,hsn_code,brand_code,brand_family,pack_family,brand_basket_code,brand_short_name,category,data_area_id,inventory_location_type,type,sku_group,raw_data) SELECT refresh_id,source_row_number,item_id,description,warehouse,batch_no,mrp,mfg_date,expiry_date,cbo,quarantine_qty_cbo,total_main_qrt,shelf_life,remaining_shelf_life,case_size,units,total_qty_in_units,quarantine_units,net_weight,total_weight,hsn_code,brand_code,brand_family,pack_family,brand_basket_code,brand_short_name,category,data_area_id,inventory_location_type,type,sku_group,raw_data FROM jsonb_to_recordset($1::jsonb) AS x(refresh_id uuid,source_row_number bigint,item_id text,description text,warehouse text,batch_no text,mrp numeric,mfg_date date,expiry_date date,cbo numeric,quarantine_qty_cbo numeric,total_main_qrt numeric,shelf_life numeric,remaining_shelf_life numeric,case_size numeric,units numeric,total_qty_in_units numeric,quarantine_units numeric,net_weight numeric,total_weight numeric,hsn_code text,brand_code text,brand_family text,pack_family text,brand_basket_code text,brand_short_name text,category text,data_area_id text,inventory_location_type text,type text,sku_group text,raw_data jsonb)',[JSON.stringify(p)]);}}}
 async function importGsv(c,id,file){
   const reader=new ExcelJS.stream.xlsx.WorkbookReader(file,{sharedStrings:'cache',hyperlinks:'ignore',worksheets:'emit',styles:'ignore'});
-  let header=null,batch=[],count=0,sourceRows=0,invalidDate=0,found=false,minDate='',maxDate='';
+  let header=null,batch=[],count=0,sourceRows=0,invalidDate=0,missingItem=0,missingQty=0,found=false,minDate='',maxDate='';
+  const sampleRows=[];
   const availableSheets=[];
   for await(const sh of reader){
     availableSheets.push(sh.name);
@@ -63,7 +64,8 @@ async function importGsv(c,id,file){
       const item=String(pick(raw,'ItemId','Item ID','ItemCode','Item Code')||'').trim();
       const postingDate=date(pick(raw,'PostingDate','Posting Date','Date','Invoice Date'));
       const qty=num(pick(raw,'QuantityinCBO','Quantity in CBO','QuantityinCBD','CBO','CBB','Quantity'));
-      if(!item||!postingDate||qty===null){if(!postingDate)invalidDate++;continue;}
+      if(sampleRows.length<3)sampleRows.push({sourceRow:sourceRows,itemId:item||null,postingDateRaw:pick(raw,'PostingDate','Posting Date','Date','Invoice Date'),postingDateParsed:postingDate,qtyRaw:pick(raw,'QuantityinCBO','Quantity in CBO','QuantityinCBD','CBO','CBB','Quantity'),qtyParsed:qty,firstCells:a.slice(1,6).map(val)});
+      if(!item||!postingDate||qty===null){if(!postingDate)invalidDate++;if(!item)missingItem++;if(qty===null)missingQty++;continue;}
       if(!minDate||postingDate<minDate)minDate=postingDate;
       if(!maxDate||postingDate>maxDate)maxDate=postingDate;
       const shipCode=pick(raw,'Ship Code','ShipCode','Ship To Code','ShipToCode','Ship To Customer Code','DBR Code','DBRCode','Customer Code','CustomerCode','Debtor Code','Customer Id','Account Code');
@@ -94,7 +96,7 @@ async function importGsv(c,id,file){
     break;
   }
   if(!found)throw Error('GSV worksheet missing: expected '+GSV_SHEET+'; available worksheets: '+availableSheets.join(' | '));
-  if(!count)throw Error('GSV worksheet found but no valid rows: '+GSV_SHEET+'; sourceRows='+sourceRows+'; header='+JSON.stringify(header));
+  if(!count)throw Error('GSV worksheet found but no valid rows: '+GSV_SHEET+'; sourceRows='+sourceRows+'; missingItem='+missingItem+'; invalidDate='+invalidDate+'; missingQty='+missingQty+'; samples='+JSON.stringify(sampleRows));
   const invalidDateRate=sourceRows?invalidDate/sourceRows:1;
   if(count<Number(process.env.MIN_GSV_ROWS||1000))throw Error('GSV validation failed: only '+count+' valid rows (minimum '+(process.env.MIN_GSV_ROWS||1000)+')');
   if(invalidDateRate>Number(process.env.MAX_GSV_INVALID_DATE_RATE||0.05))throw Error('GSV validation failed: invalid/missing dates in '+(invalidDateRate*100).toFixed(2)+'% of source rows');
