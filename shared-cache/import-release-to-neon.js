@@ -287,7 +287,7 @@ async function ensureMbqGsvAggregate(client,refreshId){
   FROM public.gsv_sales
   WHERE refresh_id=$1
     AND item_id IS NOT NULL AND posting_date IS NOT NULL AND quantity_in_cbo IS NOT NULL
-  GROUP BY item_id,posting_date,
+  GROUP BY refresh_id,item_id,posting_date,
     CASE
       WHEN location_code ~* '\\mALU\\M' THEN 'ALU'
       WHEN location_code ~* '\\mPAY\\M' THEN 'PAY'
