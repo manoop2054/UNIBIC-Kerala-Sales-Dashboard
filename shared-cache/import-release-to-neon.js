@@ -77,7 +77,10 @@ async function importGsv(c,id,file){
         QuantityinPcs:pick(raw,'QuantityinPcs','Quantity in Pcs'),QuantityinCBO:qty,AmountToCustomer:pick(raw,'AmountToCustomer','Amount To Customer','GSV Amount','Amount'),
         Ship_Code:shipCode,Ship_To_Name:shipName,Sell_to_Customer_No:pick(raw,'Sell_to_Customer_No','Sell To Customer No'),
         Sell_to_Customer_Name:pick(raw,'Sell_to_Customer_Name','Sell To Customer Name'),SKU_Group:pick(raw,'SKU_Group','SKU Group'),
-        BG:pick(raw,'BG'),Brand:pick(raw,'Brand'),BrandFamily:pick(raw,'BrandFamily'),PackFamily:pick(raw,'PackFamily'),CategoryName:pick(raw,'CategoryName')
+        BG:pick(raw,'BG'),Brand:pick(raw,'Brand'),BrandFamily:pick(raw,'BrandFamily'),PackFamily:pick(raw,'PackFamily'),CategoryName:pick(raw,'CategoryName'),
+        REGION:pick(raw,'REGION','Region','Region Name','REGION NAME','Region_Name','REGION_NAME'),
+        Area:pick(raw,'Area','Area Name','AREA NAME','Area_Name','AREA_NAME','AreaCode','Area Code'),
+        AnchorZoneName:pick(raw,'AnchorZoneName','Anchor Zone Name','ANCHOR ZONENAME','Anchor Zone','AnchorZone')
       };
       batch.push({
         source_row_number:sourceRows,transaction_type:transactionType,posting_date:postingDate,item_id:item,
