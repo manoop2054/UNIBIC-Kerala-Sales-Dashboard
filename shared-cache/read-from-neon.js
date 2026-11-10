@@ -57,13 +57,16 @@ async function writeActiveDatasetJson(kind, filePath, transform) {
     await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
     stream = fs.createWriteStream(temp, { encoding: 'utf8' });
     await writeChunk(stream, '{"data":[');
+    // GSV is the large dataset; larger pages reduce cross-region DB round trips
+    // while keeping memory bounded. LIVE SOH retains the smaller batch size.
+    const batchSize = kind === 'gsv' ? 10000 : 5000;
     let last = 0, count = 0, first = true;
     while (true) {
       const result = await client.query(
         `SELECT source_row_number, raw_data FROM public.${table}
           WHERE refresh_id = $1 AND source_row_number > $2
-          ORDER BY source_row_number LIMIT 5000`,
-        [meta.refresh_id, last]
+          ORDER BY source_row_number LIMIT $3`,
+        [meta.refresh_id, last, batchSize]
       );
       if (!result.rowCount) break;
       const chunks = [];
