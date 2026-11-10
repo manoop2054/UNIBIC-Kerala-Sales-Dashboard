@@ -273,9 +273,9 @@ async function ensureMbqGsvAggregate(client,refreshId){
   )
   SELECT refresh_id,item_id,posting_date,to_char(posting_date,'YYYY-MM'),
     CASE
-      WHEN location_code ~* '\\mALU\\\\M' THEN 'ALU'
-      WHEN location_code ~* '\\mPAY\\\\M' THEN 'PAY'
-      WHEN location_code ~* '\\mTVD\\\\M' THEN 'TVD'
+      WHEN location_code ~* '\\mALU\\M' THEN 'ALU'
+      WHEN location_code ~* '\\mPAY\\M' THEN 'PAY'
+      WHEN location_code ~* '\\mTVD\\M' THEN 'TVD'
       ELSE 'ALL'
     END,
     COALESCE(ship_to_code,''),
@@ -289,9 +289,9 @@ async function ensureMbqGsvAggregate(client,refreshId){
     AND item_id IS NOT NULL AND posting_date IS NOT NULL AND quantity_in_cbo IS NOT NULL
   GROUP BY item_id,posting_date,
     CASE
-      WHEN location_code ~* '\\mALU\\\\M' THEN 'ALU'
-      WHEN location_code ~* '\\mPAY\\\\M' THEN 'PAY'
-      WHEN location_code ~* '\\mTVD\\\\M' THEN 'TVD'
+      WHEN location_code ~* '\\mALU\\M' THEN 'ALU'
+      WHEN location_code ~* '\\mPAY\\M' THEN 'PAY'
+      WHEN location_code ~* '\\mTVD\\M' THEN 'TVD'
       ELSE 'ALL'
     END,
     COALESCE(ship_to_code,'')`,[refreshId]);
