@@ -20,7 +20,7 @@ for (const token of [
   'SUM(COALESCE(amount_to_customer,0))',
   'BOOL_OR(amount_to_customer IS NOT NULL)',
   'COUNT(*)::integer',
-  'GROUP BY item_id,posting_date',
+  'GROUP BY refresh_id,item_id,posting_date',
   'ship_to_code',
   'WHERE refresh_id=$1',
   'built.rowCount'
