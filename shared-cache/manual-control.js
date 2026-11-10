@@ -49,7 +49,7 @@ async function setEnabled(enabled) {
     error.status = 400;
     throw error;
   }
-  const endpoint = await neonRequest('PUT', { endpoint: { disabled: !enabled } });
+  const endpoint = await neonRequest('PATCH', { endpoint: { disabled: !enabled } });
   return {
     enabled: !endpoint.disabled,
     disabled: Boolean(endpoint.disabled),
