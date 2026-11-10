@@ -37,7 +37,56 @@ function norm(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');}
 function pick(o,...names){const m=new Map(Object.entries(o).map(([k,v])=>[norm(k),v]));for(const n of names){const v=m.get(norm(n));if(v!==undefined&&v!==null&&v!=='')return v;}return null;}
 function num(v){if(v==null||v==='')return null;const n=Number(String(v).replace(/,/g,''));return Number.isFinite(n)?n:null;}
 function date(v){if(v==null||v==='')return null;const serial=typeof v==='number'?v:(/^\\d+(?:\\.\\d+)?$/.test(String(v).trim())?Number(v):NaN);if(Number.isFinite(serial)&&serial>=1&&serial<=100000){const d=new Date(Date.UTC(1899,11,30)+Math.floor(serial)*86400000);return d.toISOString().slice(0,10);}const s=String(v).trim();let m=s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/);if(m){let y=+m[3];if(y<100)y+=y>=70?1900:2000;const d=new Date(Date.UTC(y,+m[2]-1,+m[1]));return d.getUTCFullYear()===y&&d.getUTCMonth()===+m[2]-1&&d.getUTCDate()===+m[1]?d.toISOString().slice(0,10):null;}m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[0]:null;}
-async function insert(client,table,id,rows){for(let i=0;i<rows.length;i+=BATCH){const p=rows.slice(i,i+BATCH).map(x=>({...x,refresh_id:id}));if(table==='gsv_sales'){await client.query('INSERT INTO public.gsv_sales(refresh_id,source_row_number,transaction_type,posting_date,item_id,description,location_code,quantity_in_pcs,quantity_in_cbo,amount_to_customer,invoice_no,sell_to_customer_no,sell_to_customer_name,ship_to_code,ship_to_name,sku_group,bg,raw_data) SELECT refresh_id,source_row_number,transaction_type,posting_date,item_id,description,location_code,quantity_in_pcs,quantity_in_cbo,amount_to_customer,invoice_no,sell_to_customer_no,sell_to_customer_name,ship_to_code,ship_to_name,sku_group,bg,raw_data FROM jsonb_to_recordset($1::jsonb) AS x(refresh_id uuid,source_row_number bigint,transaction_type text,posting_date date,item_id text,description text,location_code text,quantity_in_pcs numeric,quantity_in_cbo numeric,amount_to_customer numeric,invoice_no text,sell_to_customer_no text,sell_to_customer_name text,ship_to_code text,ship_to_name text,sku_group text,bg text,raw_data jsonb)',[JSON.stringify(p)]);}else{await client.query('INSERT INTO public.live_stock(refresh_id,source_row_number,item_id,description,warehouse,batch_no,mrp,mfg_date,expiry_date,cbo,quarantine_qty_cbo,total_main_qrt,shelf_life,remaining_shelf_life,case_size,units,total_qty_in_units,quarantine_units,net_weight,total_weight,hsn_code,brand_code,brand_family,pack_family,brand_basket_code,brand_short_name,category,data_area_id,inventory_location_type,type,sku_group,raw_data) SELECT refresh_id,source_row_number,item_id,description,warehouse,batch_no,mrp,mfg_date,expiry_date,cbo,quarantine_qty_cbo,total_main_qrt,shelf_life,remaining_shelf_life,case_size,units,total_qty_in_units,quarantine_units,net_weight,total_weight,hsn_code,brand_code,brand_family,pack_family,brand_basket_code,brand_short_name,category,data_area_id,inventory_location_type,type,sku_group,raw_data FROM jsonb_to_recordset($1::jsonb) AS x(refresh_id uuid,source_row_number bigint,item_id text,description text,warehouse text,batch_no text,mrp numeric,mfg_date date,expiry_date date,cbo numeric,quarantine_qty_cbo numeric,total_main_qrt numeric,shelf_life numeric,remaining_shelf_life numeric,case_size numeric,units numeric,total_qty_in_units numeric,quarantine_units numeric,net_weight numeric,total_weight numeric,hsn_code text,brand_code text,brand_family text,pack_family text,brand_basket_code text,brand_short_name text,category text,data_area_id text,inventory_location_type text,type text,sku_group text,raw_data jsonb)',[JSON.stringify(p)]);}}}
+async function insert(client,table,id,rows){
+  for(let i=0;i<rows.length;i+=BATCH){
+    const p=rows.slice(i,i+BATCH).map(x=>({...x,refresh_id:id}));
+    if(table==='gsv_sales'){
+      await client.query(`INSERT INTO public.gsv_sales(
+        refresh_id,source_row_number,transaction_type,return_invoices,line_discount_amount,
+        invoice_no,posting_date,order_no,order_date,sell_to_customer_name,sell_to_customer_no,
+        billed_to_code,billed_to_name,ship_to_code,ship_to_name,external_doc_no,location_code,
+        customer_posting_group,item_id,description,uom,ship_date,quantity_in_pcs,quantity_in_cbo,
+        unit_price,scheme_discount,scheme_discount_percent,indv_discount,line_discount_percent,
+        discount_percent,disc_amount,gst_base_amount,amount_to_customer,net_weight,case_qty,
+        line_amount,cgst,sgst,igst,gst_type,hsn,mrp_price,posting_group,area_code,region_name,
+        business_group_name,chain_name,tbi_zone_name,ccity_code_name,nkam_abm,assesable_value,
+        sales_worker_responsible,voucher,anchor_name,anchor_zone_name,category_name,brand_basket,
+        brand,brand_family,sku_group,pack_family,brand_short_name,city_group,quantity_kg,
+        gsv_in_lakh,mrp_value,bg,raw_data
+      ) SELECT
+        refresh_id,source_row_number,transaction_type,return_invoices,line_discount_amount,
+        invoice_no,posting_date,order_no,order_date,sell_to_customer_name,sell_to_customer_no,
+        billed_to_code,billed_to_name,ship_to_code,ship_to_name,external_doc_no,location_code,
+        customer_posting_group,item_id,description,uom,ship_date,quantity_in_pcs,quantity_in_cbo,
+        unit_price,scheme_discount,scheme_discount_percent,indv_discount,line_discount_percent,
+        discount_percent,disc_amount,gst_base_amount,amount_to_customer,net_weight,case_qty,
+        line_amount,cgst,sgst,igst,gst_type,hsn,mrp_price,posting_group,area_code,region_name,
+        business_group_name,chain_name,tbi_zone_name,ccity_code_name,nkam_abm,assesable_value,
+        sales_worker_responsible,voucher,anchor_name,anchor_zone_name,category_name,brand_basket,
+        brand,brand_family,sku_group,pack_family,brand_short_name,city_group,quantity_kg,
+        gsv_in_lakh,mrp_value,bg,raw_data
+      FROM jsonb_to_recordset($1::jsonb) AS x(
+        refresh_id uuid,source_row_number bigint,transaction_type text,return_invoices text,
+        line_discount_amount numeric,invoice_no text,posting_date date,order_no text,order_date date,
+        sell_to_customer_name text,sell_to_customer_no text,billed_to_code text,billed_to_name text,
+        ship_to_code text,ship_to_name text,external_doc_no text,location_code text,
+        customer_posting_group text,item_id text,description text,uom text,ship_date text,
+        quantity_in_pcs numeric,quantity_in_cbo numeric,unit_price numeric,scheme_discount numeric,
+        scheme_discount_percent numeric,indv_discount numeric,line_discount_percent numeric,
+        discount_percent numeric,disc_amount numeric,gst_base_amount numeric,amount_to_customer numeric,
+        net_weight numeric,case_qty numeric,line_amount numeric,cgst numeric,sgst numeric,igst numeric,
+        gst_type text,hsn text,mrp_price numeric,posting_group text,area_code text,region_name text,
+        business_group_name text,chain_name text,tbi_zone_name text,ccity_code_name text,nkam_abm text,
+        assesable_value numeric,sales_worker_responsible text,voucher text,anchor_name text,
+        anchor_zone_name text,category_name text,brand_basket text,brand text,brand_family text,
+        sku_group text,pack_family text,brand_short_name text,city_group text,quantity_kg numeric,
+        gsv_in_lakh numeric,mrp_value numeric,bg text,raw_data jsonb
+      )`,[JSON.stringify(p)]);
+    }else{
+      await client.query('INSERT INTO public.live_stock(refresh_id,source_row_number,item_id,description,warehouse,batch_no,mrp,mfg_date,expiry_date,cbo,quarantine_qty_cbo,total_main_qrt,shelf_life,remaining_shelf_life,case_size,units,total_qty_in_units,quarantine_units,net_weight,total_weight,hsn_code,brand_code,brand_family,pack_family,brand_basket_code,brand_short_name,category,data_area_id,inventory_location_type,type,sku_group,raw_data) SELECT refresh_id,source_row_number,item_id,description,warehouse,batch_no,mrp,mfg_date,expiry_date,cbo,quarantine_qty_cbo,total_main_qrt,shelf_life,remaining_shelf_life,case_size,units,total_qty_in_units,quarantine_units,net_weight,total_weight,hsn_code,brand_code,brand_family,pack_family,brand_basket_code,brand_short_name,category,data_area_id,inventory_location_type,type,sku_group,raw_data FROM jsonb_to_recordset($1::jsonb) AS x(refresh_id uuid,source_row_number bigint,item_id text,description text,warehouse text,batch_no text,mrp numeric,mfg_date date,expiry_date date,cbo numeric,quarantine_qty_cbo numeric,total_main_qrt numeric,shelf_life numeric,remaining_shelf_life numeric,case_size numeric,units numeric,total_qty_in_units numeric,quarantine_units numeric,net_weight numeric,total_weight numeric,hsn_code text,brand_code text,brand_family text,pack_family text,brand_basket_code text,brand_short_name text,category text,data_area_id text,inventory_location_type text,type text,sku_group text,raw_data jsonb)',[JSON.stringify(p)]);
+    }
+  }
+}
 async function importGsv(c,id,file){
   const reader=new ExcelJS.stream.xlsx.WorkbookReader(file,{sharedStrings:'cache',hyperlinks:'ignore',worksheets:'emit',styles:'ignore'});
   let header=null,batch=[],count=0,sourceRows=0,invalidDate=0,missingItem=0,missingQty=0,found=false,minDate='',maxDate='';
@@ -71,28 +120,76 @@ async function importGsv(c,id,file){
       const shipCode=pick(raw,'Ship Code','ShipCode','Ship To Code','ShipToCode','Ship To Customer Code','DBR Code','DBRCode','Customer Code','CustomerCode','Debtor Code','Customer Id','Account Code');
       const shipName=pick(raw,'Ship To Name','ShipToName','Customer Name','CustomerName','Debtor Name','Account Name');
       const transactionType=pick(raw,'Transaction_Type','Transaction Type','Document Type');
-      const rawSafe={
-        Transaction_Type:transactionType,PostingDate:pick(raw,'PostingDate','Posting Date'),Invoice_No:pick(raw,'Invoice_No','Invoice No','Invoice Number'),
-        LocationCode:pick(raw,'LocationCode','Location Code','Location_Code','CFA','Warehouse'),ItemId:item,Description:pick(raw,'Description'),
-        QuantityinPcs:pick(raw,'QuantityinPcs','Quantity in Pcs'),QuantityinCBO:qty,AmountToCustomer:pick(raw,'AmountToCustomer','Amount To Customer','GSV Amount','Amount'),
-        Ship_Code:shipCode,Ship_To_Name:shipName,Sell_to_Customer_No:pick(raw,'Sell_to_Customer_No','Sell To Customer No'),
-        Sell_to_Customer_Name:pick(raw,'Sell_to_Customer_Name','Sell To Customer Name'),SKU_Group:pick(raw,'SKU_Group','SKU Group'),
-        BG:pick(raw,'BG'),Brand:pick(raw,'Brand'),BrandFamily:pick(raw,'BrandFamily'),PackFamily:pick(raw,'PackFamily'),CategoryName:pick(raw,'CategoryName'),
-        REGION:pick(raw,'REGION','Region','Region Name','REGION NAME','Region_Name','REGION_NAME'),
-        Area:pick(raw,'Area','Area Name','AREA NAME','Area_Name','AREA_NAME','AreaCode','Area Code'),
-        AnchorZoneName:pick(raw,'AnchorZoneName','Anchor Zone Name','ANCHOR ZONENAME','Anchor Zone','AnchorZone')
+      // Preserve every non-sensitive source field in raw_data. The structured columns
+      // below are the stable fields consumed by the two dashboards.
+      const safeRaw=Object.fromEntries(Object.entries(raw).filter(([k])=>!/(email|phone|gstin|address|pincode|contact.?person)/i.test(k)));
+      const get=(...keys)=>pick(raw,...keys);
+      const asText=v=>v==null||v===''?null:String(v).trim();
+      const structured={
+        transaction_type:asText(get('Transaction_Type','Transaction Type','Document Type')),
+        return_invoices:asText(get('Return_Invoices','Return Invoice','Return Invoices')),
+        line_discount_amount:num(get('Line_Discount_Amount','Line Discount Amount','INDV Amount')),
+        invoice_no:asText(get('Invoice_No','Invoice No','Invoice Number','Invoice')),
+        posting_date:postingDate,
+        order_no:asText(get('Order_No','Order No','Order')),
+        order_date:date(get('Order_Date','Order Date')),
+        sell_to_customer_name:asText(get('Sell_to_Customer_Name','Sell To Customer Name','Customer_Name','Customer Name')),
+        sell_to_customer_no:asText(get('Sell_to_Customer_No','Sell To Customer No','Customer_Account')),
+        billed_to_code:asText(get('Billed_to_Code','Billed To Code','DBR_Code','DBR Code')),
+        billed_to_name:asText(get('Billed_to_Name','Billed To Name','DBR_Name','DBR Name')),
+        ship_to_code:asText(get('Ship_to_Code','Ship to Code','Ship Code','ShipCode','Ship To Code','ShipToCode','Ship To Customer Code','DBR Code','DBRCode','Customer Code','CustomerCode','Debtor Code','Customer Id','Account Code')),
+        ship_to_name:asText(get('Ship_to_Name','Ship To Name','ShipToName','Customer Name','CustomerName','Debtor Name','Account Name')),
+        external_doc_no:asText(get('ExternalDocNo','External Doc No','External Document No')),
+        location_code:asText(get('LocationCode','Location Code','Location_Code','CFA','Warehouse','Branch','Site')),
+        customer_posting_group:asText(get('Customer_Posting_Group','Customer Posting Group')),
+        item_id:item,
+        description:asText(get('Description','Item Description')),
+        uom:asText(get('UOM','Unit of Measure')),
+        ship_date:asText(get('Ship_Date','Ship Date')),
+        quantity_in_pcs:num(get('QuantityinPcs','Quantity in Pcs','Qty PCS')),
+        quantity_in_cbo:qty,
+        unit_price:num(get('Unit_Price','UNIT PRICE','Unit Price','UnitPrice')),
+        scheme_discount:num(get('Scheme_Discount','Scheme Discount')),
+        scheme_discount_percent:num(get('Scheme_Discount_Percent','Scheme Discount Percent')),
+        indv_discount:num(get('INDV_discount','INDV Discount','Discount')),
+        line_discount_percent:num(get('Line_Discount_Percent','Line Discount Percent','LineDiscountPercent')),
+        discount_percent:num(get('Discount_Percent','Discount Percent')),
+        disc_amount:num(get('Disc_Amount','Disc Amount','Discount Amount','INDV Amount')),
+        gst_base_amount:num(get('GST_Base_Amount','GST Base Amount','GST_Base')),
+        amount_to_customer:num(get('AmountToCustomer','Amount To Customer','GSV Amount','GSV','Amount')),
+        net_weight:num(get('Net_Weight','Net Weight')),
+        case_qty:num(get('Case_Qty','Case Qty')),
+        line_amount:num(get('Line_Amount','Line Amount')),
+        cgst:num(get('CGST')),sgst:num(get('SGST')),igst:num(get('IGST')),
+        gst_type:asText(get('GST_Type','GST Type')),hsn:asText(get('HSN','HSN Code')),
+        mrp_price:num(get('MRP_Price','MRP Price','MRP')),
+        posting_group:asText(get('Posting_Group','Posting Group')),
+        area_code:asText(get('AreaCode','Area Code','Area','Area Name','AREA NAME','Area_Name','AREA_NAME')),
+        region_name:asText(get('REGION','Region','region','Region Name','REGION NAME','Region_Name','REGION_NAME')),
+        business_group_name:asText(get('Business_Group_Name','Business Group Name')),
+        chain_name:asText(get('Chain_Name','Chain Name')),
+        tbi_zone_name:asText(get('TBI_Zone_Name','TBI Zone Name')),
+        ccity_code_name:asText(get('CCity_Code_Name','CCity Code Name')),
+        nkam_abm:asText(get('NKAM_ABM','NKAM / ABM','ABM','ABM Name')),
+        assesable_value:num(get('AssesableValue','AssessableValue','Assesable Value')),
+        sales_worker_responsible:asText(get('Sales_Worker_Responsible','Sales Worker Responsible')),
+        voucher:asText(get('Voucher')),
+        anchor_name:asText(get('AnchorName','Anchor Name','Anchor')),
+        anchor_zone_name:asText(get('AnchorZoneName','Anchor Zone Name','ANCHOR ZONENAME','Anchor Zone','AnchorZone')),
+        category_name:asText(get('CategoryName','Category Name')),
+        brand_basket:asText(get('Brand_Basket','Brand Basket')),
+        brand:asText(get('Brand','BrandName')),
+        brand_family:asText(get('BrandFamily','Brand Family')),
+        sku_group:asText(get('SKU_Group','SKU Group')),
+        pack_family:asText(get('PackFamily','Pack Family')),
+        brand_short_name:asText(get('BrandShortName','Brand Short Name')),
+        city_group:asText(get('City_Group','City Group')),
+        quantity_kg:num(get('Quantity_KG','Quantity KG')),
+        gsv_in_lakh:num(get('GSV IN LAKH','GSV_In_Lakh')),
+        mrp_value:num(get('MRP_Value','MRP Value')),
+        bg:asText(get('BG'))
       };
-      batch.push({
-        source_row_number:sourceRows,transaction_type:transactionType,posting_date:postingDate,item_id:item,
-        description:pick(raw,'Description'),location_code:rawSafe.LocationCode==null?null:String(rawSafe.LocationCode).trim(),
-        quantity_in_pcs:num(pick(raw,'QuantityinPcs','Quantity in Pcs')),quantity_in_cbo:qty,
-        amount_to_customer:num(pick(raw,'AmountToCustomer','Amount To Customer','GSV Amount','Amount')),
-        invoice_no:pick(raw,'Invoice_No','Invoice No','Invoice Number'),
-        sell_to_customer_no:pick(raw,'Sell_to_Customer_No','Sell To Customer No'),
-        sell_to_customer_name:pick(raw,'Sell_to_Customer_Name','Sell To Customer Name'),
-        ship_to_code:shipCode==null?null:String(shipCode).trim(),ship_to_name:shipName==null?null:String(shipName).trim(),
-        sku_group:pick(raw,'SKU_Group','SKU Group'),bg:pick(raw,'BG'),raw_data:rawSafe
-      });
+      batch.push({source_row_number:sourceRows,...structured,raw_data:safeRaw});
       count++;
       if(batch.length===BATCH){await insert(c,'gsv_sales',id,batch);batch=[];}
     }
