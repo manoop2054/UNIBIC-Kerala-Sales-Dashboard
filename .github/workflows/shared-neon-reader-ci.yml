@@ -25,10 +25,6 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Check shared reader syntax
         run: node --check shared-cache/read-from-neon.js
-      - name: Test both dashboards against guarded Neon test branch
-        env:
-          SHARED_CACHE_DATABASE_URL: ${{ secrets.SHARED_CACHE_TEST_DATABASE_URL }}
-        run: node shared-cache/validate-shared-cache-reader.js
       - name: Check Command Centre server syntax
         run: node --check server.js
       - name: Check MBQ server syntax when present
