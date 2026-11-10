@@ -41,8 +41,10 @@ async function insert(client,table,id,rows){for(let i=0;i<rows.length;i+=BATCH){
 async function importGsv(c,id,file){
   const reader=new ExcelJS.stream.xlsx.WorkbookReader(file,{sharedStrings:'cache',hyperlinks:'ignore',worksheets:'emit',styles:'ignore'});
   let header=null,batch=[],count=0,sourceRows=0,invalidDate=0,found=false,minDate='',maxDate='';
+  const availableSheets=[];
   for await(const sh of reader){
-    if(sh.name!==GSV_SHEET)continue;
+    availableSheets.push(sh.name);
+    if(norm(sh.name)!==norm(GSV_SHEET))continue;
     found=true;
     for await(const row of sh){
       const a=row.values||[];
@@ -91,7 +93,8 @@ async function importGsv(c,id,file){
     }
     break;
   }
-  if(!found||!count)throw Error('GSV worksheet missing or no valid rows: '+GSV_SHEET);
+  if(!found)throw Error('GSV worksheet missing: expected '+GSV_SHEET+'; available worksheets: '+availableSheets.join(' | '));
+  if(!count)throw Error('GSV worksheet found but no valid rows: '+GSV_SHEET+'; sourceRows='+sourceRows+'; header='+JSON.stringify(header));
   const invalidDateRate=sourceRows?invalidDate/sourceRows:1;
   if(count<Number(process.env.MIN_GSV_ROWS||1000))throw Error('GSV validation failed: only '+count+' valid rows (minimum '+(process.env.MIN_GSV_ROWS||1000)+')');
   if(invalidDateRate>Number(process.env.MAX_GSV_INVALID_DATE_RATE||0.05))throw Error('GSV validation failed: invalid/missing dates in '+(invalidDateRate*100).toFixed(2)+'% of source rows');
