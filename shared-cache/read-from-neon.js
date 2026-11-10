@@ -127,56 +127,80 @@ async function readMbqGsvAggregate() {
   const client = await pool.connect();
   try {
     const meta = await activeDataset(client, 'gsv');
-    const result = await client.query(
-      `SELECT item_id AS "itemId",
-              posting_date::text AS date,
-              to_char(posting_date, 'YYYY-MM') AS month,
-              CASE
-                WHEN location_code ~* '\\mALU\\M' THEN 'ALU'
-                WHEN location_code ~* '\\mPAY\\M' THEN 'PAY'
-                WHEN location_code ~* '\\mTVD\\M' THEN 'TVD'
-                ELSE 'ALL'
-              END AS cfa,
-              COALESCE(ship_to_code, '') AS "dbrCode",
-              COALESCE(MAX(ship_to_name), '') AS "dbrName",
-              SUM(COALESCE(quantity_in_cbo, 0))::numeric AS quantity,
-              SUM(COALESCE(amount_to_customer, 0))::numeric AS amount,
-              BOOL_OR(amount_to_customer IS NOT NULL) AS "amountAvailable",
-              COUNT(*)::integer AS rows
-         FROM public.gsv_sales
-        WHERE refresh_id = $1
-          AND item_id IS NOT NULL AND posting_date IS NOT NULL AND quantity_in_cbo IS NOT NULL
-        GROUP BY item_id, posting_date,
-                 CASE
-                   WHEN location_code ~* '\\mALU\\M' THEN 'ALU'
-                   WHEN location_code ~* '\\mPAY\\M' THEN 'PAY'
-                   WHEN location_code ~* '\\mTVD\\M' THEN 'TVD'
-                   ELSE 'ALL'
-                 END,
-                 COALESCE(ship_to_code, '')
-        ORDER BY item_id, posting_date, cfa, "dbrCode"`,
-      [meta.refresh_id]
-    );
+    // Preferred path: the importer materializes this exact aggregation when
+    // a GSV refresh is activated, avoiding a full 123k-row GROUP BY at startup.
+    let result = null;
+    try {
+      result = await client.query(
+        `SELECT item_id AS "itemId",
+                posting_date::text AS date,
+                month,
+                cfa,
+                ship_to_code AS "dbrCode",
+                ship_to_name AS "dbrName",
+                quantity,
+                amount,
+                amount_available AS "amountAvailable",
+                row_count AS rows
+           FROM public.gsv_mbq_aggregate
+          WHERE refresh_id = $1
+          ORDER BY item_id, posting_date, cfa, ship_to_code`,
+        [meta.refresh_id]
+      );
+    } catch (error) {
+      // Older cache schemas may not have the precomputed table yet. Keep the
+      // existing live aggregation as a safe compatibility fallback.
+      if (error.code !== '42P01') throw error;
+    }
+    if (!result || !result.rowCount) {
+      result = await client.query(
+        `SELECT item_id AS "itemId",
+                posting_date::text AS date,
+                to_char(posting_date, 'YYYY-MM') AS month,
+                CASE
+                  WHEN location_code ~* '\\\\mALU\\\\M' THEN 'ALU'
+                  WHEN location_code ~* '\\\\mPAY\\\\M' THEN 'PAY'
+                  WHEN location_code ~* '\\\\mTVD\\\\M' THEN 'TVD'
+                  ELSE 'ALL'
+                END AS cfa,
+                COALESCE(ship_to_code, '') AS "dbrCode",
+                COALESCE(MAX(ship_to_name), '') AS "dbrName",
+                SUM(COALESCE(quantity_in_cbo, 0))::numeric AS quantity,
+                SUM(COALESCE(amount_to_customer, 0))::numeric AS amount,
+                BOOL_OR(amount_to_customer IS NOT NULL) AS "amountAvailable",
+                COUNT(*)::integer AS rows
+           FROM public.gsv_sales
+          WHERE refresh_id = $1
+            AND item_id IS NOT NULL AND posting_date IS NOT NULL AND quantity_in_cbo IS NOT NULL
+          GROUP BY item_id, posting_date,
+                   CASE
+                     WHEN location_code ~* '\\\\mALU\\\\M' THEN 'ALU'
+                     WHEN location_code ~* '\\\\mPAY\\\\M' THEN 'PAY'
+                     WHEN location_code ~* '\\\\mTVD\\\\M' THEN 'TVD'
+                     ELSE 'ALL'
+                   END,
+                   COALESCE(ship_to_code, '')
+          ORDER BY item_id, posting_date, cfa, "dbrCode"`,
+        [meta.refresh_id]
+      );
+    }
     const data = result.rows.map(row => ({
       ...row,
       quantity: Number(row.quantity || 0),
       amount: Number(row.amount || 0),
+      amountAvailable: Boolean(row.amountAvailable),
       rows: Number(row.rows || 0)
     }));
-    const coverage = await client.query(
-      'SELECT MIN(posting_date)::text AS min_date, MAX(posting_date)::text AS max_date, COUNT(*)::bigint AS matched_rows FROM public.gsv_sales WHERE refresh_id=$1 AND item_id IS NOT NULL AND posting_date IS NOT NULL AND quantity_in_cbo IS NOT NULL',
-      [meta.refresh_id]
-    );
-    const c = coverage.rows[0] || {};
     return {
       success: true,
       schemaVersion: 4,
       data,
       rows: Number(meta.row_count || 0),
-      matchedRows: Number(c.matched_rows || 0),
+      matchedRows: data.reduce((sum, row) => sum + row.rows, 0),
       aggregateRows: data.length,
       loadedAt: meta.updated_at,
-      dateCoverage: { from: c.min_date || null, to: c.max_date || null },
+      dateCoverage: { from: data.length ? data.reduce((min, row) => row.date < min ? row.date : min, data[0].date) : null,
+                      to: data.length ? data.reduce((max, row) => row.date > max ? row.date : max, data[0].date) : null },
       source: 'neon-shared-cache'
     };
   } finally {
