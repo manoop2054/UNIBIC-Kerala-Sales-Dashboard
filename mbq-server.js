@@ -6,6 +6,7 @@ const https = require("https");
 const XLSX = require("xlsx");
 const ExcelJS = require("exceljs");
 const { Pool } = require("pg");
+const sharedCache = require("./shared-cache/read-from-neon");
 const { getAccessControlPool } = require("./employee-access-control/postgres-db");
 const { authenticateCredentials, resolveSession, revokeSession, extractSessionToken, sessionCookie, clearSessionCookie, SUPER_ADMIN_ID } = require("./employee-access-control/session-auth");
 // Use explicit libpq-compatible secure SSL semantics for both isolated MBQ databases.
@@ -62,7 +63,7 @@ function gsvCfa(value) {
   if (/\bTVD\b/.test(v)) return "TVD";
   return "";
 }
-async function buildMbqGsvAggregate() {
+async function buildMbqGsvAggregateFromGitHub() {
   await fs.promises.mkdir(CACHE_DIR, { recursive: true });
   const source = path.join(CACHE_DIR, "KL.LIVE.GSV.LINK-MANOOB.xlsx");
   const cache = path.join(CACHE_DIR, "gsv-aggregate.json");
@@ -129,12 +130,26 @@ async function buildMbqGsvAggregate() {
   gsvLoadError = null;
   return payload;
 }
+async function buildMbqGsvAggregate() {
+  if (sharedCache.isConfigured) {
+    try {
+      const result = await sharedCache.readMbqGsvAggregate();
+      console.log("MBQ GSV loaded from shared Neon cache:", result.rows, "source rows,", result.aggregateRows, "aggregate rows");
+      return result;
+    } catch (error) {
+      console.warn("MBQ GSV Neon cache unavailable; using existing GitHub loader:", error.message);
+    }
+  }
+  return buildMbqGsvAggregateFromGitHub();
+}
+
 async function readMbqGsvCache() {
   const cache = path.join(CACHE_DIR, "gsv-aggregate.json");
   try {
     const stat = await fs.promises.stat(cache);
-    if (Date.now() - stat.mtimeMs < 6 * 60 * 60 * 1000) {
-      const cached = JSON.parse(await fs.promises.readFile(cache, "utf8"));
+    const cached = JSON.parse(await fs.promises.readFile(cache, "utf8"));
+    const cacheTtl = cached.source === "neon-shared-cache" ? 5 * 60 * 1000 : 6 * 60 * 60 * 1000;
+    if (Date.now() - stat.mtimeMs < cacheTtl) {
       if (cached.schemaVersion === 4 && Array.isArray(cached.data) && cached.data.every(row => row && /^\d{4}-\d{2}-\d{2}$/.test(String(row.date || "")))) return cached;
       console.log("MBQ GSV cache schema outdated; rebuilding with posting dates");
     }
@@ -186,8 +201,24 @@ async function downloadToFileWithRetry(url, dest, maxAttempts = 3) {
 async function loadSohRows() {
   await fs.promises.mkdir(CACHE_DIR, { recursive: true });
   const cache = path.join(CACHE_DIR, "soh.json");
-  try { const st = await fs.promises.stat(cache); if (Date.now() - st.mtimeMs < 30 * 60 * 1000) return JSON.parse(await fs.promises.readFile(cache, "utf8")); } catch (_) {}
+  try {
+    const st = await fs.promises.stat(cache);
+    const cached = JSON.parse(await fs.promises.readFile(cache, "utf8"));
+    const cacheTtl = cached.source === "neon-shared-cache" ? 5 * 60 * 1000 : 30 * 60 * 1000;
+    if (Date.now() - st.mtimeMs < cacheTtl) return cached;
+  } catch (_) {}
   if (!sohLoadPromise) sohLoadPromise = (async () => {
+    if (sharedCache.isConfigured) {
+      try {
+        const shared = await sharedCache.readMbqSohRows();
+        const payload = { ...shared, source: "neon-shared-cache" };
+        await fs.promises.writeFile(cache, JSON.stringify(payload));
+        console.log("MBQ LIVE SOH loaded from shared Neon cache:", payload.rows, "rows");
+        return payload;
+      } catch (error) {
+        console.warn("MBQ LIVE SOH Neon cache unavailable; using existing GitHub loader:", error.message);
+      }
+    }
     const source = path.join(CACHE_DIR, "LIVE.STOCK.xlsb");
     await downloadToFile(SOH_URL, source);
     const wb = XLSX.readFile(source, { cellDates: true });
