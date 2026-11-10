@@ -158,9 +158,9 @@ async function readMbqGsvAggregate() {
                 posting_date::text AS date,
                 to_char(posting_date, 'YYYY-MM') AS month,
                 CASE
-                  WHEN location_code ~* '\\\\mALU\\\\M' THEN 'ALU'
-                  WHEN location_code ~* '\\\\mPAY\\\\M' THEN 'PAY'
-                  WHEN location_code ~* '\\\\mTVD\\\\M' THEN 'TVD'
+                  WHEN location_code ~* '\\mALU\\\\M' THEN 'ALU'
+                  WHEN location_code ~* '\\mPAY\\\\M' THEN 'PAY'
+                  WHEN location_code ~* '\\mTVD\\\\M' THEN 'TVD'
                   ELSE 'ALL'
                 END AS cfa,
                 COALESCE(ship_to_code, '') AS "dbrCode",
@@ -174,9 +174,9 @@ async function readMbqGsvAggregate() {
             AND item_id IS NOT NULL AND posting_date IS NOT NULL AND quantity_in_cbo IS NOT NULL
           GROUP BY item_id, posting_date,
                    CASE
-                     WHEN location_code ~* '\\\\mALU\\\\M' THEN 'ALU'
-                     WHEN location_code ~* '\\\\mPAY\\\\M' THEN 'PAY'
-                     WHEN location_code ~* '\\\\mTVD\\\\M' THEN 'TVD'
+                     WHEN location_code ~* '\\mALU\\\\M' THEN 'ALU'
+                     WHEN location_code ~* '\\mPAY\\\\M' THEN 'PAY'
+                     WHEN location_code ~* '\\mTVD\\\\M' THEN 'TVD'
                      ELSE 'ALL'
                    END,
                    COALESCE(ship_to_code, '')
