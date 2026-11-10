@@ -5164,6 +5164,81 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
 #page-peak .peak-new-table thead tr:first-child th:not(.common-head){z-index:3!important}
 #page-peak .peak-new-table thead tr:nth-child(2) th{z-index:3!important}
 </style>
+<style>
+#sharedCacheControl{display:inline-flex;align-items:center;gap:7px;margin-right:8px;font:600 11px/1.2 Arial,sans-serif;white-space:nowrap}
+#sharedCacheControl .state{padding:6px 9px;border-radius:99px;background:#e8f7ef;color:#147a54;border:1px solid #b8e4cb}
+#sharedCacheControl.off .state{background:#fff0f0;color:#b42332;border-color:#f2c4c8}
+#sharedCacheControl.pending .state{background:#f2f4f7;color:#52627a;border-color:#d8dee8}
+#sharedCacheControl button{border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#24364b;padding:7px 10px;font-weight:700;font-size:11px;cursor:pointer}
+#sharedCacheControl button:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:760px){#sharedCacheControl{margin:5px 0;flex-wrap:wrap}}
+</style>
+<script>
+(function(){
+ 'use strict';
+ var attempts=0, control=null, busy=false;
+ var host=document.querySelector('.top-right');
+ if(!host)return;
+ function make(){
+   if(control)return control;
+   control=document.createElement('div');
+   control.id='sharedCacheControl';
+   control.className='pending';
+   control.innerHTML='<span class="state">Shared Cache: checking</span><button type="button" disabled>Checking…</button>';
+   var before=document.getElementById('month');
+   if(before&&before.parentNode===host)host.insertBefore(control,before);else host.appendChild(control);
+   control.querySelector('button').addEventListener('click',toggle);
+   return control;
+ }
+ function render(data){
+   make();
+   var enabled=!!data.enabled;
+   control.className=enabled?'':'off';
+   control.querySelector('.state').textContent=enabled
+     ?'Shared Cache: ON · '+String(data.computeState||'idle').toUpperCase()
+     :'Shared Cache: OFF · BLOCKED';
+   var b=control.querySelector('button');
+   b.disabled=busy;
+   b.textContent=busy?'Please wait…':(enabled?'Turn OFF':'Turn ON');
+   b.title=enabled?'Block all normal connections to the shared cache':'Allow the dashboards to use the shared cache';
+   control.dataset.enabled=enabled?'true':'false';
+ }
+ function showSetup(message){
+   make();control.className='pending';
+   control.querySelector('.state').textContent='Shared Cache: setup required';
+   var b=control.querySelector('button');b.disabled=true;b.textContent='Not configured';
+   control.title=message||'Add Neon control credentials to Render environment variables.';
+ }
+ async function load(){
+   try{
+     var r=await fetch('/api/shared-cache/control',{credentials:'same-origin',cache:'no-store'});
+     var d=await r.json().catch(function(){return{}});
+     if(r.ok&&d.success){render(d);return true;}
+     if(r.status===403)return true; // not the protected Super Admin: do not show controls
+     if(r.status===503&&String(d.error||'').indexOf('NEON_API_KEY')>=0){showSetup(d.error);return true;}
+     if(r.status===401||r.status===503){if(attempts++<20){setTimeout(load,1500);return false;}}
+     if(r.status===503){showSetup(d.error);return true;}
+     return true;
+   }catch(e){if(attempts++<20){setTimeout(load,1500);return false;}return true;}
+ }
+ async function toggle(){
+   if(busy||!control)return;
+   var enabled=control.dataset.enabled!=='true';
+   var msg=enabled?'Turn ON the shared Neon cache for BOTH dashboards?':'Turn OFF the shared Neon cache for BOTH dashboards? While OFF, dashboards will use their existing fallback loaders.';
+   if(!window.confirm(msg))return;
+   busy=true;var b=control.querySelector('button');b.disabled=true;b.textContent='Updating…';
+   try{
+     var r=await fetch('/api/shared-cache/control',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:enabled})});
+     var d=await r.json().catch(function(){return{}});
+     if(!r.ok||!d.success)throw new Error(d.error||('HTTP '+r.status));
+     busy=false;render(d);
+     window.alert(enabled?'Shared Neon cache is ENABLED.':'Shared Neon cache is DISABLED. Both dashboards will use fallback data.');
+   }catch(e){busy=false;b.disabled=false;b.textContent=control.dataset.enabled==='true'?'Turn OFF':'Turn ON';window.alert('Shared cache control failed: '+e.message);}
+ }
+ function start(){load();}
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+})();
+</script>
 </body></html>
 
 <style id="peak-single-cfa-screen-fit">
