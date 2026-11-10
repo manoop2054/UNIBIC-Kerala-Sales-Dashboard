@@ -59,9 +59,9 @@ async function setEnabled(enabled) {
 }
 
 function mount(app, options) {
-  const middleware = options.middleware || ((req, res, next) => next());
+  const middleware = options.middleware ? (Array.isArray(options.middleware) ? options.middleware : [options.middleware]) : [];
   const authorize = options.authorize || (async () => false);
-  app.get('/api/shared-cache/control', middleware, async (req, res) => {
+  app.get('/api/shared-cache/control', ...middleware, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     try {
       if (!(await authorize(req, res))) {
@@ -73,7 +73,7 @@ function mount(app, options) {
       res.status(error.status || 503).json({ success: false, error: error.message || 'Unable to read shared cache status.' });
     }
   });
-  app.post('/api/shared-cache/control', middleware, async (req, res) => {
+  app.post('/api/shared-cache/control', ...middleware, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     try {
       if (!(await authorize(req, res))) {
