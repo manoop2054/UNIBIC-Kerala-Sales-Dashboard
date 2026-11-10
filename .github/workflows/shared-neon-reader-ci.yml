@@ -1,0 +1,32 @@
+name: Shared Neon reader validation
+
+on:
+  pull_request:
+    paths:
+      - "server.js"
+      - "mbq-server.js"
+      - "shared-cache/read-from-neon.js"
+      - ".github/workflows/shared-neon-reader-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-and-existing-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install existing project dependencies
+        run: npm install --no-audit --no-fund
+      - name: Check shared reader syntax
+        run: node --check shared-cache/read-from-neon.js
+      - name: Check Command Centre server syntax
+        run: node --check server.js
+      - name: Check MBQ server syntax when present
+        run: if [ -f mbq-server.js ]; then node --check mbq-server.js; fi
+      - name: Run existing employee access tests
+        run: npm test
