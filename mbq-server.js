@@ -156,7 +156,17 @@ async function readMbqGsvCache() {
   } catch (_) {}
   if (!gsvLoadPromise) {
     gsvLoadError = null;
-    gsvLoadPromise = buildMbqGsvAggregate().catch(error => {
+    gsvLoadPromise = buildMbqGsvAggregate().then(async result => {
+      // Persist Neon results to the same local cache used by subsequent API requests.
+      // Without this write, every request after the loading response re-queries Neon.
+      if (result && result.source === "neon-shared-cache") {
+        await fs.promises.mkdir(CACHE_DIR, { recursive: true });
+        const tmp = cache + ".tmp";
+        await fs.promises.writeFile(tmp, JSON.stringify(result), "utf8");
+        await fs.promises.rename(tmp, cache);
+      }
+      return result;
+    }).catch(error => {
       gsvLoadError = error.message || String(error);
       console.error("MBQ GSV load failed:", error.stack || error.message);
       return null;
