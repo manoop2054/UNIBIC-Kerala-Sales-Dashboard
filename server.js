@@ -20,6 +20,17 @@ const app = express();
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '24kb' }));
 const PORT = process.env.PORT || 10000;
+
+async function isSharedCacheEnabled() {
+  try {
+    const status = await sharedCacheControl.getStatus();
+    return status.enabled === true;
+  } catch (error) {
+    console.warn('Kerala shared cache control status unavailable; using GitHub loader:', error.message);
+    return false;
+  }
+}
+
 const DASHBOARD = path.join(__dirname, 'UNIBIC_Kerala_Sales_Command_Center_FINAL_PATCHED.html');
 const CACHE_DIR = path.join(os.tmpdir(), 'unibic-sales-cache');
 const GSV_URL = process.env.GSV_SHARE_URL || 'https://github.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/releases/download/v1.0/KL.LIVE.GSV.LINK-MANOOB.xlsx';
@@ -281,7 +292,7 @@ async function buildSohCacheFromGitHub(cachePath) {
 
 
 async function buildGsvCache(cachePath) {
-  if (sharedCache.isConfigured) {
+  if (sharedCache.isConfigured && await isSharedCacheEnabled()) {
     try {
       const result = await sharedCache.writeActiveDatasetJson('gsv', cachePath, raw => normalizeRow(Object.fromEntries(Object.entries(raw || {}).filter(([key]) => GSV_FIELDS.has(key)))));
       gsvStatus.stage = 'ready from Neon shared cache';
@@ -299,7 +310,7 @@ async function buildGsvCache(cachePath) {
 }
 
 async function buildSohCache(cachePath) {
-  if (sharedCache.isConfigured) {
+  if (sharedCache.isConfigured && await isSharedCacheEnabled()) {
     try {
       const result = await sharedCache.writeActiveDatasetJson('soh', cachePath);
       console.log('LIVE SOH shared Neon cache ready:', result.rows, 'rows');
