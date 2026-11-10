@@ -6,6 +6,7 @@ on:
       - "server.js"
       - "mbq-server.js"
       - "shared-cache/read-from-neon.js"
+      - "shared-cache/validate-shared-cache-reader.js"
       - ".github/workflows/shared-neon-reader-ci.yml"
 
 permissions:
