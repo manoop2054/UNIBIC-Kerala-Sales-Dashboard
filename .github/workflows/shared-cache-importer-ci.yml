@@ -13,6 +13,8 @@ permissions:
 jobs:
   syntax-and-contract:
     runs-on: ubuntu-latest
+    env:
+      SHARED_CACHE_TEST_DATABASE_URL: ${{ secrets.SHARED_CACHE_TEST_DATABASE_URL }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -24,9 +26,9 @@ jobs:
       - name: Validate importer JavaScript syntax
         run: node --check shared-cache/import-release-to-neon.js
       - name: Run end-to-end import against isolated Neon test branch
-        if: ${{ secrets.SHARED_CACHE_TEST_DATABASE_URL != '' }}
+        if: ${{ env.SHARED_CACHE_TEST_DATABASE_URL != '' }}
         env:
-          SHARED_CACHE_DATABASE_URL: ${{ secrets.SHARED_CACHE_TEST_DATABASE_URL }}
+          SHARED_CACHE_DATABASE_URL: ${{ env.SHARED_CACHE_TEST_DATABASE_URL }}
         run: node shared-cache/import-release-to-neon.js
 
       - name: Confirm importer uses isolated shared-cache connection
