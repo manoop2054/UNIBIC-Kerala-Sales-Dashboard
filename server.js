@@ -13,6 +13,7 @@ const { getAccessControlPool, initializeAccessControlDatabase, getAccessControlD
 const { mountAccessControlRoutes } = require('./employee-access-control/access-control-routes');
 const { createDashboardSessionGuard, sendScopedJsonCache } = require('./employee-access-control/dashboard-data-security');
 const sharedCache = require('./shared-cache/read-from-neon');
+const sharedCacheControl = require('./shared-cache/manual-control');
 
 const app = express();
 // Render terminates HTTPS at its trusted proxy; use one proxy hop for req.ip rate limiting.
@@ -540,6 +541,12 @@ mountAccessControlRoutes(app, {
   getPool: getAccessControlPool,
   initializeDatabase: initializeAccessControlDatabase,
   getDatabaseStatus: getAccessControlDatabaseStatus
+});
+
+// Protected Super Admin control for the shared Neon cache endpoint.
+sharedCacheControl.mount(app, {
+  middleware: requireDashboardSession,
+  authorize: req => req.isProtectedSuperAdmin === true
 });
 
 app.listen(PORT, () => {
