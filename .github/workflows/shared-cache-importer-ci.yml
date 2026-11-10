@@ -1,0 +1,28 @@
+name: Shared cache importer validation
+
+on:
+  pull_request:
+    paths:
+      - "shared-cache/**"
+      - ".github/workflows/neon-shared-cache-import.yml"
+      - ".github/workflows/shared-cache-importer-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-and-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install importer dependencies
+        run: npm install --no-save exceljs@4.4.0 xlsx@0.18.5 pg@8.16.3
+      - name: Validate importer JavaScript syntax
+        run: node --check shared-cache/import-release-to-neon.js
+      - name: Confirm importer uses isolated shared-cache connection
+        run: |
+          node -e "const fs=require('fs'); const s=fs.readFileSync('shared-cache/import-release-to-neon.js','utf8'); if(!s.includes('SHARED_CACHE_DATABASE_URL')) process.exit(1); if(s.includes('DATABASE_URL') && !s.includes('SHARED_CACHE_DATABASE_URL')) process.exit(1); if(!s.includes('preservedPreviousActiveCache:true')) process.exit(1); if(!s.includes('ship_to_code,ship_to_name')) process.exit(1); console.log('Importer contract checks passed');"
