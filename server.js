@@ -282,7 +282,7 @@ async function buildSohCacheFromGitHub(cachePath) {
 async function buildGsvCache(cachePath) {
   if (sharedCache.isConfigured) {
     try {
-      const result = await sharedCache.writeActiveDatasetJson('gsv', cachePath, normalizeRow);
+      const result = await sharedCache.writeActiveDatasetJson('gsv', cachePath, raw => normalizeRow(Object.fromEntries(Object.entries(raw || {}).filter(([key]) => GSV_FIELDS.has(key)))));
       gsvStatus.stage = 'ready from Neon shared cache';
       gsvStatus.rows = result.rows;
       gsvStatus.updatedAt = result.loadedAt || new Date().toISOString();
