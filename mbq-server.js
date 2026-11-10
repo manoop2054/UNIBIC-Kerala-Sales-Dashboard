@@ -132,7 +132,7 @@ async function buildMbqGsvAggregateFromGitHub() {
   return payload;
 }
 async function buildMbqGsvAggregate() {
-  if (sharedCache.isConfigured) {
+  if (sharedCache.isConfigured && await isSharedCacheEnabled()) {
     try {
       const result = await sharedCache.readMbqGsvAggregate();
       console.log("MBQ GSV loaded from shared Neon cache:", result.rows, "source rows,", result.aggregateRows, "aggregate rows");
@@ -219,7 +219,7 @@ async function loadSohRows() {
     if (Date.now() - st.mtimeMs < cacheTtl) return cached;
   } catch (_) {}
   if (!sohLoadPromise) sohLoadPromise = (async () => {
-    if (sharedCache.isConfigured) {
+    if (sharedCache.isConfigured && await isSharedCacheEnabled()) {
       try {
         const shared = await sharedCache.readMbqSohRows();
         const payload = { ...shared, source: "neon-shared-cache" };
@@ -245,6 +245,19 @@ async function loadSohRows() {
 
 const app = express();
 const PORT = process.env.PORT || 10000;
+
+// Respect the shared endpoint's global ON/OFF switch before opening a Neon
+// database connection. If control status cannot be verified, fail closed and
+// continue through the existing GitHub loader.
+async function isSharedCacheEnabled() {
+  try {
+    const status = await sharedCacheControl.getStatus();
+    return status.enabled === true;
+  } catch (error) {
+    console.warn("MBQ shared cache control status unavailable; using GitHub loader:", error.message);
+    return false;
+  }
+}
 
 const prototypeFile = path.join(
   __dirname,
