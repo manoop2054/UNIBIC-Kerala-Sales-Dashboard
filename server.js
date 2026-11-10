@@ -12,6 +12,7 @@ const ExcelJS = require('exceljs');
 const { getAccessControlPool, initializeAccessControlDatabase, getAccessControlDatabaseStatus } = require('./employee-access-control/postgres-db');
 const { mountAccessControlRoutes } = require('./employee-access-control/access-control-routes');
 const { createDashboardSessionGuard, sendScopedJsonCache } = require('./employee-access-control/dashboard-data-security');
+const sharedCache = require('./shared-cache/read-from-neon');
 
 const app = express();
 // Render terminates HTTPS at its trusted proxy; use one proxy hop for req.ip rate limiting.
@@ -154,7 +155,7 @@ function normalizeRow(r) {
   };
 }
 
-async function buildGsvCache(cachePath) {
+async function buildGsvCacheFromGitHub(cachePath) {
   const buildStarted = performance.now();
   let downloadMs = 0, normalizeMs = 0, writeWaitMs = 0;
   gsvStatus.stage = 'downloading workbook'; gsvStatus.rows = 0; gsvStatus.startedAt = new Date().toISOString(); gsvStatus.updatedAt = gsvStatus.startedAt; gsvStatus.error = null;
@@ -263,7 +264,7 @@ async function getCache(name, builder) {
   return cachePath;
 }
 
-async function buildSohCache(cachePath) {
+async function buildSohCacheFromGitHub(cachePath) {
   await fs.promises.mkdir(CACHE_DIR, { recursive: true });
   const source = path.join(CACHE_DIR, 'soh-source.xlsb');
   const temp = cachePath + '.tmp';
@@ -275,6 +276,39 @@ async function buildSohCache(cachePath) {
   await fs.promises.writeFile(temp, JSON.stringify({ data: rows }));
   await fs.promises.rename(temp, cachePath);
   console.log('SOH cache ready:', rows.length, 'rows from', sheetName);
+}
+
+
+async function buildGsvCache(cachePath) {
+  if (sharedCache.isConfigured) {
+    try {
+      const result = await sharedCache.writeActiveDatasetJson('gsv', cachePath, raw => normalizeRow(Object.fromEntries(Object.entries(raw || {}).filter(([key]) => GSV_FIELDS.has(key)))));
+      gsvStatus.stage = 'ready from Neon shared cache';
+      gsvStatus.rows = result.rows;
+      gsvStatus.updatedAt = result.loadedAt || new Date().toISOString();
+      gsvStatus.error = null;
+      console.log('GSV shared Neon cache ready:', result.rows, 'rows');
+      return;
+    } catch (error) {
+      console.warn('GSV Neon shared cache unavailable; using existing GitHub loader:', error.message);
+      await fs.promises.rm(cachePath, { force: true }).catch(() => {});
+    }
+  }
+  return buildGsvCacheFromGitHub(cachePath);
+}
+
+async function buildSohCache(cachePath) {
+  if (sharedCache.isConfigured) {
+    try {
+      const result = await sharedCache.writeActiveDatasetJson('soh', cachePath);
+      console.log('LIVE SOH shared Neon cache ready:', result.rows, 'rows');
+      return;
+    } catch (error) {
+      console.warn('LIVE SOH Neon shared cache unavailable; using existing GitHub loader:', error.message);
+      await fs.promises.rm(cachePath, { force: true }).catch(() => {});
+    }
+  }
+  return buildSohCacheFromGitHub(cachePath);
 }
 
 const gzipInFlight = new Map();
