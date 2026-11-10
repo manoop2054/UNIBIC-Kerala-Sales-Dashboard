@@ -37,4 +37,5 @@ jobs:
       - name: Import latest GitHub Release into Neon
         env:
           SHARED_CACHE_DATABASE_URL: ${{ secrets.SHARED_CACHE_DATABASE_URL }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: node shared-cache/import-release-to-neon.js
