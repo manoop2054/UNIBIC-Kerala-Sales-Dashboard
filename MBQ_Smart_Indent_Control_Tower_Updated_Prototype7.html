@@ -5187,3 +5187,32 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
 }
 #page-peak .peak-new-table.single-cfa .peak-billing-view{margin-left:2px!important;padding:2px 4px!important;font-size:8px!important}
 </style>
+
+
+<style id="peak-single-cfa-freeze-alignment-fix">
+/* Single-CFA view: keep the four frozen identity columns aligned with the
+   percentage-based colgroup used by the compact table. */
+#page-peak .peak-new-table.single-cfa th.common-head:nth-child(1),
+#page-peak .peak-new-table.single-cfa td:nth-child(1){
+  width:15%!important;min-width:0!important;max-width:none!important;left:0!important;
+}
+#page-peak .peak-new-table.single-cfa th.common-head:nth-child(2),
+#page-peak .peak-new-table.single-cfa td:nth-child(2){
+  width:8%!important;min-width:0!important;max-width:none!important;left:15%!important;
+}
+#page-peak .peak-new-table.single-cfa th.common-head:nth-child(3),
+#page-peak .peak-new-table.single-cfa td:nth-child(3){
+  width:4%!important;min-width:0!important;max-width:none!important;left:23%!important;
+}
+#page-peak .peak-new-table.single-cfa th.common-head:nth-child(4),
+#page-peak .peak-new-table.single-cfa td:nth-child(4){
+  width:8%!important;min-width:0!important;max-width:none!important;left:27%!important;
+}
+#page-peak .peak-new-table.single-cfa tbody td:nth-child(-n+4){
+  overflow:hidden!important;text-overflow:ellipsis;
+}
+#page-peak .peak-new-table.single-cfa thead th.common-head:nth-child(1){left:0!important}
+#page-peak .peak-new-table.single-cfa thead th.common-head:nth-child(2){left:15%!important}
+#page-peak .peak-new-table.single-cfa thead th.common-head:nth-child(3){left:23%!important}
+#page-peak .peak-new-table.single-cfa thead th.common-head:nth-child(4){left:27%!important}
+</style>
