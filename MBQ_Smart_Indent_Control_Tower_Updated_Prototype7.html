@@ -5518,7 +5518,7 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
     // Reapply the dynamic row filters after options are refreshed.
     const rows = currentBaseRows();
     state.baseRows = rows;
-    if (!rows.length) { host.innerHTML = '<div class="empty">No Data Available</div>'; document.getElementById('lpPivotCount').textContent = '0 rows'; return; }
+    if (!rows.length) { state.pivotRows = []; state.details = []; host.innerHTML = '<div class="empty">No Data Available</div>'; document.getElementById('lpPivotCount').textContent = '0 rows'; return; }
     const map = new Map();
     rows.forEach(row => {
       const key = row.group + '\u0000' + row.mrp;
@@ -5624,6 +5624,8 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
       const get = key => { const v=row.values.get(key); return v&&v.count?v.sum:''; };
       aoa.push([row.group,row.mrp,get('LT60|INTRANSIT'),get('LT60|SOH'),get('GTE60|INTRANSIT'),get('GTE60|SOH'),get('EXPIRED|SOH'),row.records.reduce((sum,x)=>sum+(x.qty||0),0)]);
     });
+    const sumKey = key => state.pivotRows.reduce((sum,row) => sum + (row.values.get(key)?.sum || 0), 0);
+    aoa.push(['Grand Total','',sumKey('LT60|INTRANSIT'),sumKey('LT60|SOH'),sumKey('GTE60|INTRANSIT'),sumKey('GTE60|SOH'),sumKey('EXPIRED|SOH'),state.pivotRows.reduce((sum,row)=>sum+row.records.reduce((n,x)=>n+(x.qty||0),0),0)]);
     const ws=window.XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[{wch:28},{wch:10},{wch:17},{wch:13},{wch:19},{wch:15},{wch:15},{wch:16}];ws['!autofilter']={ref:'A1:H'+Math.max(1,aoa.length)};ws['!freeze']={xSplit:2,ySplit:1};
     const wb=window.XLSX.utils.book_new();window.XLSX.utils.book_append_sheet(wb,ws,'LIVE SOH Pivot');window.XLSX.writeFile(wb,'LIVE_SOH_Pivot.xlsx',{compression:true});
   }
