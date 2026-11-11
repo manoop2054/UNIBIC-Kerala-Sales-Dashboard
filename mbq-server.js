@@ -20,12 +20,10 @@ const draftPool = process.env.DATABASE_URL ? new Pool({ connectionString: mbqVer
 const masterPool = process.env.MBQ_MASTER_DATABASE_URL ? new Pool({ connectionString: mbqVerifiedDatabaseUrl(process.env.MBQ_MASTER_DATABASE_URL), ssl: { rejectUnauthorized: true }, max: 3 }) : null;
 const MBQ_MASTER_UPLOAD_PIN = process.env.MBQ_MASTER_UPLOAD_PIN || "";
 
-const SOH_URL = process.env.SOH_SHARE_URL || "https://github.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/releases/download/v1.0/LIVE.STOCK.xlsb";
 const SOH_SHEET = process.env.SOH_SHEET_NAME || "LIVE STOCK REPORT";
 const CACHE_DIR = path.join(os.tmpdir(), "mbq-live-data");
 let sohLoadPromise = null;
 
-const GSV_URL = process.env.GSV_SHARE_URL || "https://github.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/releases/download/v1.0/KL.LIVE.GSV.LINK-MANOOB.xlsx";
 const GSV_SHEET = process.env.GSV_SHEET_NAME || "ACX_Sales_Register";
 let githubReleaseMetadataCache = { expiresAt: 0, release: null };
 function githubReleaseMetadata() {
