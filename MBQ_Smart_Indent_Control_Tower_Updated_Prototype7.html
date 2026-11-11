@@ -5650,7 +5650,7 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
     if (!selected.length) { host.innerHTML = '<div class="empty">No matching batch records.</div>'; }
     else {
       const headers = DETAIL_COLUMNS.map(x => `<th>${escapeHtml(x[0])}</th>`).join('');
-      const body = selected.map(raw => '<tr>' + DETAIL_COLUMNS.map((col, i) => `<td>${escapeHtml(detailValue(raw, col[1]))}</td>`).join('') + '</tr>').join('');
+      const body = selected.map(raw => '<tr>' + DETAIL_COLUMNS.map((col, i) => `<td>${escapeHtml(detailValue(raw.raw, col[1]))}</td>`).join('') + '</tr>').join('');
       host.innerHTML = `<table class="lp-detail-table"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table>`;
     }
     document.getElementById('lpDetailModal').classList.add('open');
