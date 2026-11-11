@@ -5336,6 +5336,18 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
 @media(max-width:1100px){#page-livepivot .lp-filter-grid{grid-template-columns:repeat(3,minmax(130px,1fr))}}
 @media(max-width:650px){#page-livepivot .lp-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr));padding:0 11px 12px}#page-livepivot .lp-modal{padding:6px;align-items:flex-end}#page-livepivot .lp-dialog{width:100%;max-height:96vh;border-radius:13px 13px 8px 8px}#page-livepivot .lp-detail-scroll{max-height:64vh;margin:0 7px}#page-livepivot .lp-dialog-toolbar{padding:8px}#page-livepivot .lp-dialog-head{padding:11px}}
 
+
+#page-livepivot .lp-sku-filter{position:relative;min-width:160px}
+#page-livepivot .lp-sku-trigger{width:100%;min-height:38px;text-align:left;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);padding:8px 30px 8px 10px;font-size:11px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#page-livepivot .lp-sku-menu{display:none;position:absolute;z-index:40;top:calc(100% + 4px);left:0;width:260px;max-width:min(82vw,320px);padding:9px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 30px rgba(20,39,71,.18)}
+#page-livepivot .lp-sku-menu.open{display:block}
+#page-livepivot #lpSkuSearch{width:100%;border:1px solid var(--line);border-radius:7px;padding:8px 9px;font-size:11px;outline:none}
+#page-livepivot .lp-sku-actions{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--line)}
+#page-livepivot .lp-sku-actions button{border:0;background:transparent;color:#2563a6;font-size:10px;font-weight:700;cursor:pointer;padding:4px}
+#page-livepivot .lp-sku-options{max-height:220px;overflow:auto;padding-top:5px}
+#page-livepivot .lp-sku-options label{display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:11px;cursor:pointer;border-radius:5px}
+#page-livepivot .lp-sku-options label:hover{background:#f3f7fb}
+#page-livepivot .lp-sku-options input{margin:0;accent-color:var(--teal)}
 </style>
 <script id="mbq-live-soh-pivot-script">
 (function () {
@@ -5366,7 +5378,7 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
     { label: 'BLR1', keys: ['BLR1'] },
     { label: 'BLR2', keys: ['BLR2'] }
   ];
-  const state = { baseRows: [], pivotRows: [], details: [], selectedDetails: [] };
+  const state = { baseRows: [], pivotRows: [], details: [], selectedDetails: [], selectedGroups: [] };
   const norm = value => String(value == null ? '' : value).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
   const escapeHtml = value => String(value == null ? '' : value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   function read(row, aliases) {
@@ -5401,12 +5413,12 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
     try { return Array.isArray(liveSohRows) ? liveSohRows : []; }
     catch (_) { return []; }
   }
-  function getFilterRows() {
+  function getFilterRows(ignoreGroup = false) {
     const warehouse = CFA_OPTIONS.find(x => x.label === document.getElementById('lpWarehouse')?.value) || CFA_OPTIONS[0];
     const shelfMode = document.getElementById('lpShelfMode')?.value || 'ALL';
     const shelfThreshold = Number(document.getElementById('lpShelfValue')?.value || 10);
     const typeFilter = document.getElementById('lpType')?.value || 'ALL';
-    const groupFilter = document.getElementById('lpSkuGroup')?.value || 'ALL';
+    const selectedGroups = state.selectedGroups || [];
     const mrpFilter = document.getElementById('lpMrp')?.value || 'ALL';
     return rawRows().map(raw => {
       const warehouseValue = read(raw, ['WAREHOUSE']);
@@ -5422,7 +5434,7 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
       if (typeFilter !== 'ALL' && row.type !== typeFilter) return false;
       if (shelfMode === 'GTE' && (row.shelf == null || row.shelf < shelfThreshold)) return false;
       if (shelfMode === 'LTE' && (row.shelf == null || row.shelf > shelfThreshold)) return false;
-      if (groupFilter !== 'ALL' && row.group !== groupFilter) return false;
+      if (!ignoreGroup && selectedGroups.length && !selectedGroups.includes(row.group)) return false;
       if (mrpFilter !== 'ALL' && row.mrp !== mrpFilter) return false;
       return true;
     });
@@ -5465,7 +5477,7 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
             <div class="field"><label for="lpShelfMode">SHELF · REMAININGSHELFLIFE</label><select id="lpShelfMode"><option value="ALL">All Values</option><option value="GTE">Above or Equal To (≥)</option><option value="LTE">Below or Equal To (≤)</option></select></div>
             <div class="field"><label for="lpShelfValue">SHELF VALUE</label><select id="lpShelfValue">${Array.from({length:18},(_,i)=>(i+2)*5).map(n=>`<option value="${n}">${n}%</option>`).join('')}</select></div>
             <div class="field"><label for="lpType">TYPE</label><select id="lpType"><option value="ALL">All Types</option><option value="INTRANSIT">INTRANSIT</option><option value="SOH">SOH</option></select></div>
-            <div class="field"><label for="lpSkuGroup">SKU GROUP</label><select id="lpSkuGroup"><option value="ALL">All SKU Groups</option></select></div>
+            <div class="field"><label>SKU GROUP</label><div class="lp-sku-filter" id="lpSkuGroup"><button type="button" class="lp-sku-trigger" id="lpSkuTrigger">All SKU Groups ▾</button><div class="lp-sku-menu" id="lpSkuMenu"><input type="search" id="lpSkuSearch" placeholder="Search SKU Group…" autocomplete="off"><div class="lp-sku-actions"><button type="button" id="lpSkuSelectAll">Select All</button><button type="button" id="lpSkuClear">Clear Filter</button></div><div class="lp-sku-options" id="lpSkuOptions"></div></div></div></div>
             <div class="field"><label for="lpMrp">MRP</label><select id="lpMrp"><option value="ALL">All MRP</option></select></div>
           </div>
         </div>
@@ -5473,6 +5485,12 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
         <div class="lp-modal" id="lpDetailModal" aria-hidden="true"><div class="lp-dialog" role="dialog" aria-modal="true" aria-labelledby="lpDetailTitle"><div class="lp-dialog-head"><div><h3 id="lpDetailTitle">LIVE SOH Batch Details</h3><small id="lpDetailMeta"></small></div><button class="lp-close" type="button" id="lpClose" aria-label="Close">×</button></div><div class="lp-dialog-toolbar"><span id="lpDetailCount">0 records</span><button class="btn primary" type="button" id="lpExportDetails">⇩ Export All Details</button></div><div class="lp-detail-scroll" id="lpDetailTableHost"></div><div class="lp-dialog-foot">First 25 rows visible in the popup area; scroll inside the table for remaining records. Excel export includes every matching record.</div></div></div>`;
       content.appendChild(section);
       section.querySelectorAll('select').forEach(control => control.addEventListener('change', renderPivot));
+      section.querySelector('#lpSkuTrigger').addEventListener('click', () => section.querySelector('#lpSkuMenu').classList.toggle('open'));
+      section.querySelector('#lpSkuSearch').addEventListener('input', () => filterSkuGroupOptions());
+      section.querySelector('#lpSkuOptions').addEventListener('change', event => { if (event.target.matches('input[type=checkbox]')) { const value=event.target.value; const set=new Set(state.selectedGroups); if(event.target.checked)set.add(value);else set.delete(value); state.selectedGroups=[...set]; updateSkuGroupTrigger(); renderPivot(); } });
+      section.querySelector('#lpSkuSelectAll').addEventListener('click', () => { const visible=[...section.querySelectorAll('#lpSkuOptions label:not([hidden]) input[type=checkbox]')].map(x=>x.value); state.selectedGroups=[...new Set([...state.selectedGroups,...visible])]; updateSkuGroupTrigger(); renderPivot(); });
+      section.querySelector('#lpSkuClear').addEventListener('click', () => { state.selectedGroups=[]; section.querySelector('#lpSkuSearch').value=''; updateSkuGroupTrigger(); renderPivot(); });
+      document.addEventListener('click', event => { const wrap=section.querySelector('#lpSkuGroup'); if(wrap && !wrap.contains(event.target)) section.querySelector('#lpSkuMenu')?.classList.remove('open'); });
       section.querySelector('#lpRefresh').addEventListener('click', renderPivot);
       section.querySelector('#lpExportPivot').addEventListener('click', exportPivot);
       section.querySelector('#lpClose').addEventListener('click', closeDetails);
@@ -5504,6 +5522,20 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
     renderPivot();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
+  function renderSkuGroupOptions(groups) {
+    const host=document.getElementById('lpSkuOptions'); if(!host)return;
+    host.innerHTML=groups.map(group=>'<label><input type="checkbox" value="'+escapeHtml(group)+'" '+(state.selectedGroups.includes(group)?'checked':'')+'><span>'+escapeHtml(group)+'</span></label>').join('') || '<div class="empty">No SKU Groups Available</div>';
+    updateSkuGroupTrigger(); filterSkuGroupOptions();
+  }
+  function filterSkuGroupOptions() {
+    const search=(document.getElementById('lpSkuSearch')?.value||'').trim().toLowerCase();
+    document.querySelectorAll('#lpSkuOptions label').forEach(label=>{label.hidden=!label.textContent.toLowerCase().includes(search);});
+  }
+  function updateSkuGroupTrigger() {
+    const button=document.getElementById('lpSkuTrigger'); if(!button)return;
+    const count=state.selectedGroups.length;
+    button.textContent=count ? count+' SKU Group'+(count===1?'':'s')+' selected ▾' : 'All SKU Groups ▾';
+  }
   function currentBaseRows() { return getFilterRows(); }
   function renderPivot() {
     const host = document.getElementById('lpPivotHost');
@@ -5512,11 +5544,13 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
     state.baseRows = all;
     const status = document.getElementById('lpSourceStatus');
     if (status) status.textContent = liveSohError ? 'LIVE SOH unavailable: ' + liveSohError : (all.length ? 'LIVE SOH connected · ' + rawRows().length.toLocaleString('en-IN') + ' source rows · ' + all.length.toLocaleString('en-IN') + ' rows match current filters.' : (rawRows().length ? 'No Data Available for the selected filters.' : 'LIVE SOH data is not loaded yet.'));
-    const groups = [...new Set(all.map(x => x.group))].sort((a,b) => a.localeCompare(b));
+    const optionRows = getFilterRows(true);
+    const groups = [...new Set(optionRows.map(x => x.group))].sort((a,b) => a.localeCompare(b));
     const mrps = [...new Set(all.map(x => x.mrp))].sort((a,b) => (numeric(a) ?? 0) - (numeric(b) ?? 0));
-    const groupSelect = document.getElementById('lpSkuGroup'), mrpSelect = document.getElementById('lpMrp');
-    const priorGroup = groupSelect?.value || 'ALL', priorMrp = mrpSelect?.value || 'ALL';
-    if (groupSelect) { groupSelect.innerHTML = '<option value="ALL">All SKU Groups</option>' + groups.map(x => `<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`).join(''); groupSelect.value = groups.includes(priorGroup) ? priorGroup : 'ALL'; }
+    state.selectedGroups = state.selectedGroups.filter(x => groups.includes(x));
+    renderSkuGroupOptions(groups);
+    const mrpSelect = document.getElementById('lpMrp');
+    const priorMrp = mrpSelect?.value || 'ALL';
     if (mrpSelect) { mrpSelect.innerHTML = '<option value="ALL">All MRP</option>' + mrps.map(x => `<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`).join(''); mrpSelect.value = mrps.includes(priorMrp) ? priorMrp : 'ALL'; }
     // Reapply the dynamic row filters after options are refreshed.
     const rows = currentBaseRows();
