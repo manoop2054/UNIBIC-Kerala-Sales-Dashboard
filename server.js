@@ -33,8 +33,6 @@ async function isSharedCacheEnabled() {
 
 const DASHBOARD = path.join(__dirname, 'UNIBIC_Kerala_Sales_Command_Center_FINAL_PATCHED.html');
 const CACHE_DIR = path.join(os.tmpdir(), 'unibic-sales-cache');
-const GSV_URL = process.env.GSV_SHARE_URL || 'https://github.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/releases/download/v1.0/KL.LIVE.GSV.LINK-MANOOB.xlsx';
-const SOH_URL = process.env.SOH_SHARE_URL || 'https://github.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/releases/download/v1.0/LIVE.STOCK.xlsb';
 const GSV_SHEET = process.env.GSV_SHEET_NAME || 'ACX_Sales_Register';
 const SOH_SHEET = process.env.SOH_SHEET_NAME || 'LIVE STOCK REPORT';
 let githubReleaseMetadataCache = { expiresAt: 0, release: null };
