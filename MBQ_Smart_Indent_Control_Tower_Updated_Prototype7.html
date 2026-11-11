@@ -5239,7 +5239,7 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
 </script>
-</body></html>
+
 
 <style id="peak-single-cfa-screen-fit">
 /* SKU Group · CFA Planning Matrix: compact only when exactly one CFA is selected. */
@@ -5291,3 +5291,369 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
 #page-peak .peak-new-table.single-cfa thead th.common-head:nth-child(3){left:23%!important}
 #page-peak .peak-new-table.single-cfa thead th.common-head:nth-child(4){left:27%!important}
 </style>
+
+<style id="mbq-live-soh-pivot-style">
+
+#page-livepivot .lp-filter-grid{display:grid;grid-template-columns:repeat(6,minmax(130px,1fr));gap:10px;padding:0 16px 16px}
+#page-livepivot .lp-filter-grid .field{min-width:0}
+#page-livepivot .lp-filter-grid select{width:100%;min-width:0}
+#page-livepivot .lp-pivot-wrap{max-width:100%;overflow:auto;border-top:1px solid var(--line)}
+#page-livepivot .lp-pivot-table{width:100%;min-width:1050px;border-collapse:separate;border-spacing:0;font-size:11px;white-space:nowrap}
+#page-livepivot .lp-pivot-table th,#page-livepivot .lp-pivot-table td{padding:9px 10px;border-right:1px solid #dce5ef;border-bottom:1px solid #dce5ef;text-align:right;background:#fff}
+#page-livepivot .lp-pivot-table thead tr:first-child th{position:sticky;top:0;z-index:5;background:#17365d;color:#fff;text-align:center;font-weight:800}
+#page-livepivot .lp-pivot-table thead tr:nth-child(2) th{position:sticky;top:35px;z-index:5;background:#e9eff7;color:#29415e;text-align:center;font-size:10px}
+#page-livepivot .lp-pivot-table th:first-child,#page-livepivot .lp-pivot-table td:first-child{position:sticky;left:0;z-index:4;text-align:left;min-width:210px;background:#f4f7fb}
+#page-livepivot .lp-pivot-table th:nth-child(2),#page-livepivot .lp-pivot-table td:nth-child(2){position:sticky;left:210px;z-index:4;text-align:center;min-width:85px;background:#f4f7fb}
+#page-livepivot .lp-pivot-table thead th:first-child,#page-livepivot .lp-pivot-table thead th:nth-child(2){z-index:7;background:#102a49;color:#fff}
+#page-livepivot .lp-pivot-table .lp-head-low{background:#245b91!important}
+#page-livepivot .lp-pivot-table .lp-head-high{background:#14765f!important}
+#page-livepivot .lp-pivot-table .lp-head-expired{background:#a33b43!important}
+#page-livepivot .lp-pivot-table .lp-grand-head{background:#0f766e!important}
+#page-livepivot .lp-pivot-table tbody tr:nth-child(even) td{background:#f8fafd}
+#page-livepivot .lp-pivot-table tbody tr:hover td{background:#edf6ff}
+#page-livepivot .lp-pivot-table tbody td:first-child,#page-livepivot .lp-pivot-table tbody td:nth-child(2){background:#f2f6fb}
+#page-livepivot .lp-pivot-table .lp-grand-cell{background:#e7f5f2!important;color:#075e54;font-weight:800}
+#page-livepivot .lp-pivot-table .lp-total-row td{background:#eaf0f7!important;font-weight:900;border-top:2px solid #aebfd2}
+#page-livepivot .lp-filter-glyph{font-size:9px;opacity:.8;margin-left:4px}
+#page-livepivot .lp-value,#page-livepivot .lp-row-label{border:0;background:transparent;color:#1d5fb8;font:inherit;font-weight:750;cursor:pointer;padding:0;text-align:inherit}
+#page-livepivot .lp-value:hover,#page-livepivot .lp-row-label:hover{text-decoration:underline;color:#0f477f}
+#page-livepivot .lp-total-label{color:#17365d}
+#page-livepivot .lp-empty-value{color:#a0aaba}
+#page-livepivot .lp-modal{display:none;position:fixed;inset:0;z-index:100200;align-items:center;justify-content:center;padding:12px;background:rgba(8,20,38,.62);backdrop-filter:blur(3px)}
+#page-livepivot .lp-modal.open{display:flex}
+#page-livepivot .lp-dialog{width:min(1600px,98vw);max-height:94vh;display:flex;flex-direction:column;overflow:hidden;background:#fff;border:1px solid #dce5ef;border-radius:13px;box-shadow:0 24px 80px rgba(0,0,0,.3)}
+#page-livepivot .lp-dialog-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 17px;background:linear-gradient(105deg,#142b49,#1b536b);color:#fff}
+#page-livepivot .lp-dialog-head h3{margin:0;font-size:14px}
+#page-livepivot .lp-dialog-head small{display:block;color:#d6e6f2;font-size:10px;margin-top:4px}
+#page-livepivot .lp-close{border:0;background:transparent;color:#fff;font-size:25px;cursor:pointer}
+#page-livepivot .lp-dialog-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 15px;border-bottom:1px solid var(--line);font-size:11px;color:#52647d}
+#page-livepivot .lp-detail-scroll{max-height:min(650px,66vh);overflow:auto;margin:0 12px;border:1px solid #dce5ef}
+#page-livepivot .lp-detail-table{width:100%;min-width:1450px;border-collapse:separate;border-spacing:0;font-size:10px;white-space:nowrap}
+#page-livepivot .lp-detail-table th{position:sticky;top:0;z-index:2;background:#176b68;color:#fff;text-align:left;padding:5px 8px;font-size:9px}
+#page-livepivot .lp-detail-table td{padding:4px 8px;border-bottom:1px solid #edf1f6;color:#26364c;line-height:16px}
+#page-livepivot .lp-detail-table tbody tr:nth-child(even){background:#f6f9fc}
+#page-livepivot .lp-dialog-foot{padding:8px 15px;color:#718096;font-size:10px;border-top:1px solid var(--line)}
+@media(max-width:1100px){#page-livepivot .lp-filter-grid{grid-template-columns:repeat(3,minmax(130px,1fr))}}
+@media(max-width:650px){#page-livepivot .lp-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr));padding:0 11px 12px}#page-livepivot .lp-modal{padding:6px;align-items:flex-end}#page-livepivot .lp-dialog{width:100%;max-height:96vh;border-radius:13px 13px 8px 8px}#page-livepivot .lp-detail-scroll{max-height:64vh;margin:0 7px}#page-livepivot .lp-dialog-toolbar{padding:8px}#page-livepivot .lp-dialog-head{padding:11px}}
+
+</style>
+<script id="mbq-live-soh-pivot-script">
+(function () {
+  'use strict';
+  const NAV_ID = 'mbqLiveSohPivotNav';
+  const PAGE_ID = 'page-livepivot';
+  const DETAIL_COLUMNS = [
+    ['WAREHOUSE', ['WAREHOUSE', 'Warehouse']],
+    ['BATCHNO', ['BATCHNO', 'BATCH NO', 'BATCH NUMBER', 'BATCHNUM']],
+    ['MRP', ['MRP']],
+    ['MFG', ['MFG', 'MFG DATE', 'MANUFACTURING DATE']],
+    ['EXPIRY_DATE', ['EXPIRY_DATE', 'EXPIRY DATE', 'EXPIRY']],
+    ['CBO', ['CBO']],
+    ['TOTAL_MAIN_QRT', ['TOTAL_MAIN_QRT', 'TOTAL MAIN QRT']],
+    ['SHELFLIFE', ['SHELFLIFE', 'SHELF LIFE']],
+    ['REMAININGSHELFLIFE', ['REMAININGSHELFLIFE', 'REMAINING SHELF LIFE']],
+    ['CASESIZE', ['CASESIZE', 'CASE SIZE']],
+    ['UNITS', ['UNITS']],
+    ['TOTALQTYINUNITS', ['TOTALQTYINUNITS', 'TOTAL QTY IN UNITS']]
+  ];
+  const CFA_OPTIONS = [
+    { label: 'ALU CFA', keys: ['ALU', 'ALU CFA'] },
+    { label: 'PAY CFA', keys: ['PAY', 'PAY CFA'] },
+    { label: 'TVD CFA', keys: ['TVD', 'TVD CFA'] },
+    { label: 'HYD P', keys: ['HYD P'] },
+    { label: 'HYD PLAT', keys: ['HYD PLAT'] },
+    { label: 'HYD PLANT1', keys: ['HYD PLANT1'] },
+    { label: 'BLR1', keys: ['BLR1'] },
+    { label: 'BLR2', keys: ['BLR2'] }
+  ];
+  const state = { baseRows: [], pivotRows: [], details: [], selectedDetails: [] };
+  const norm = value => String(value == null ? '' : value).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const escapeHtml = value => String(value == null ? '' : value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  function read(row, aliases) {
+    const keys = Object.keys(row || {});
+    for (const alias of aliases) {
+      const key = keys.find(k => norm(k) === norm(alias));
+      if (key != null && row[key] !== '' && row[key] !== null && row[key] !== undefined) return row[key];
+    }
+    return '';
+  }
+  function numeric(value) {
+    if (value === '' || value == null) return null;
+    const n = Number(String(value).replace(/,/g, '').replace(/%/g, '').trim());
+    return Number.isFinite(n) ? n : null;
+  }
+  function warehouseMatches(raw, option) {
+    const value = norm(raw);
+    return option.keys.some(key => value === norm(key));
+  }
+  function rowType(raw) {
+    const value = norm(read(raw, ['TYPE']));
+    if (!value || value === 'SOH' || value.includes('STOCKONHAND')) return 'SOH';
+    if (value.includes('INTRANSIT') || value === 'TRANSIT') return 'INTRANSIT';
+    return '';
+  }
+  function shelfBucket(value) {
+    if (value == null) return 'BLANK';
+    if (value <= 0) return 'EXPIRED';
+    return value < 60 ? 'LT60' : 'GTE60';
+  }
+  function rawRows() {
+    try { return Array.isArray(liveSohRows) ? liveSohRows : []; }
+    catch (_) { return []; }
+  }
+  function getFilterRows() {
+    const warehouse = CFA_OPTIONS.find(x => x.label === document.getElementById('lpWarehouse')?.value) || CFA_OPTIONS[0];
+    const shelfMode = document.getElementById('lpShelfMode')?.value || 'ALL';
+    const shelfThreshold = Number(document.getElementById('lpShelfValue')?.value || 10);
+    const typeFilter = document.getElementById('lpType')?.value || 'ALL';
+    const groupFilter = document.getElementById('lpSkuGroup')?.value || 'ALL';
+    const mrpFilter = document.getElementById('lpMrp')?.value || 'ALL';
+    return rawRows().map(raw => {
+      const warehouseValue = read(raw, ['WAREHOUSE']);
+      const group = String(read(raw, ['ItemAttribute.SKUGroup', 'SKUGroup', 'SKU Group']) || '').trim();
+      const mrpRaw = read(raw, ['MRP']);
+      const type = rowType(raw);
+      const shelf = numeric(read(raw, ['REMAININGSHELFLIFE', 'Remaining Shelf Life']));
+      const qty = numeric(read(raw, ['CBO']));
+      return { raw, warehouseValue, group, mrp: String(mrpRaw == null ? '' : mrpRaw).trim(), type, shelf, bucket: shelfBucket(shelf), qty };
+    }).filter(row => {
+      if (!warehouseMatches(row.warehouseValue, warehouse)) return false;
+      if (!row.group || !row.mrp || !row.type) return false;
+      if (typeFilter !== 'ALL' && row.type !== typeFilter) return false;
+      if (shelfMode === 'GTE' && (row.shelf == null || row.shelf < shelfThreshold)) return false;
+      if (shelfMode === 'LTE' && (row.shelf == null || row.shelf > shelfThreshold)) return false;
+      if (groupFilter !== 'ALL' && row.group !== groupFilter) return false;
+      if (mrpFilter !== 'ALL' && row.mrp !== mrpFilter) return false;
+      return true;
+    });
+  }
+  function fmt(value) {
+    return Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  }
+  function ensureMarkup() {
+    const nav = document.getElementById('nav');
+    const content = document.querySelector('.content');
+    if (!nav || !content) return false;
+    if (!document.getElementById(NAV_ID)) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.id = NAV_ID;
+      button.dataset.page = 'stock'; // Reuse existing CFA-wise Stock permission.
+      button.innerHTML = '<span>▦</span>LIVE SOH Pivot';
+      button.title = 'Excel-style LIVE SOH Pivot';
+      const stockButton = nav.querySelector('button[data-page="stock"]');
+      if (stockButton && stockButton.nextSibling) nav.insertBefore(button, stockButton.nextSibling);
+      else nav.appendChild(button);
+      nav.addEventListener('click', event => {
+        const target = event.target.closest('#' + NAV_ID);
+        if (!target) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        showPage();
+      }, true);
+    }
+    if (!document.getElementById(PAGE_ID)) {
+      const section = document.createElement('section');
+      section.className = 'section';
+      section.id = PAGE_ID;
+      section.innerHTML = `
+        <div class="page-head"><div><div class="eyebrow">MBQ · LIVE STOCK INTELLIGENCE</div><h1>LIVE SOH Pivot</h1><p>Excel Pivot-style CFA / Shelf / Type analysis · source-linked batch stock only.</p></div><div class="actions"><button class="btn" type="button" id="lpRefresh">↻ Refresh Pivot</button><button class="btn primary" type="button" id="lpExportPivot">⇩ Export Pivot</button></div></div>
+        <div class="notice" id="lpSourceStatus">Connecting to existing LIVE SOH source…</div>
+        <div class="card lp-filter-card"><div class="card-head"><div><h3>Pivot Filters</h3><small>Each filter applies to the pivot and its detail popup.</small></div></div>
+          <div class="lp-filter-grid">
+            <div class="field"><label for="lpWarehouse">WAREHOUSE / CFA</label><select id="lpWarehouse">${CFA_OPTIONS.map(x => `<option value="${escapeHtml(x.label)}">${escapeHtml(x.label)}</option>`).join('')}</select></div>
+            <div class="field"><label for="lpShelfMode">SHELF · REMAININGSHELFLIFE</label><select id="lpShelfMode"><option value="ALL">All Values</option><option value="GTE">Above or Equal To (≥)</option><option value="LTE">Below or Equal To (≤)</option></select></div>
+            <div class="field"><label for="lpShelfValue">SHELF VALUE</label><select id="lpShelfValue">${Array.from({length:18},(_,i)=>(i+2)*5).map(n=>`<option value="${n}">${n}%</option>`).join('')}</select></div>
+            <div class="field"><label for="lpType">TYPE</label><select id="lpType"><option value="ALL">All Types</option><option value="INTRANSIT">INTRANSIT</option><option value="SOH">SOH</option></select></div>
+            <div class="field"><label for="lpSkuGroup">SKU GROUP</label><select id="lpSkuGroup"><option value="ALL">All SKU Groups</option></select></div>
+            <div class="field"><label for="lpMrp">MRP</label><select id="lpMrp"><option value="ALL">All MRP</option></select></div>
+          </div>
+        </div>
+        <div class="card lp-pivot-card"><div class="card-head"><div><h3>LIVE SOH · Pivot Table</h3><small id="lpPivotSummary">Rows: SKU Group · MRP | Values: Sum of CBO</small></div><span class="pill blue" id="lpPivotCount">Waiting for data</span></div><div class="lp-pivot-wrap" id="lpPivotHost"><div class="empty">LIVE SOH data loading…</div></div><div class="small-note">Click any pivot value or SKU Group to open the matching batch details. MRP values are not clickable.</div></div>
+        <div class="lp-modal" id="lpDetailModal" aria-hidden="true"><div class="lp-dialog" role="dialog" aria-modal="true" aria-labelledby="lpDetailTitle"><div class="lp-dialog-head"><div><h3 id="lpDetailTitle">LIVE SOH Batch Details</h3><small id="lpDetailMeta"></small></div><button class="lp-close" type="button" id="lpClose" aria-label="Close">×</button></div><div class="lp-dialog-toolbar"><span id="lpDetailCount">0 records</span><button class="btn primary" type="button" id="lpExportDetails">⇩ Export All Details</button></div><div class="lp-detail-scroll" id="lpDetailTableHost"></div><div class="lp-dialog-foot">First 25 rows visible in the popup area; scroll inside the table for remaining records. Excel export includes every matching record.</div></div></div>`;
+      content.appendChild(section);
+      section.querySelectorAll('select').forEach(control => control.addEventListener('change', renderPivot));
+      section.querySelector('#lpRefresh').addEventListener('click', renderPivot);
+      section.querySelector('#lpExportPivot').addEventListener('click', exportPivot);
+      section.querySelector('#lpClose').addEventListener('click', closeDetails);
+      section.querySelector('#lpDetailModal').addEventListener('click', event => { if (event.target.id === 'lpDetailModal') closeDetails(); });
+      section.querySelector('#lpExportDetails').addEventListener('click', exportDetails);
+      section.querySelector('#lpPivotHost').addEventListener('click', event => {
+        const button = event.target.closest('[data-lp-detail]');
+        if (!button) return;
+        openDetails(Number(button.dataset.lpDetail));
+      });
+      document.addEventListener('keydown', event => { if (event.key === 'Escape') closeDetails(); });
+    }
+    if (window.mbqCurrentUser && typeof window.mbqApplyUserAccess === 'function') window.mbqApplyUserAccess(window.mbqCurrentUser);
+    return true;
+  }
+  function showPage() {
+    const section = document.getElementById(PAGE_ID);
+    const button = document.getElementById(NAV_ID);
+    if (!section || !button) return;
+    document.querySelectorAll('.section').forEach(node => node.classList.remove('active'));
+    section.classList.add('active');
+    document.querySelectorAll('#nav button').forEach(node => node.classList.remove('active'));
+    button.classList.add('active');
+    const crumb = document.getElementById('crumb');
+    if (crumb) crumb.textContent = 'LIVE SOH Pivot';
+    renderPivot();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  function currentBaseRows() { return getFilterRows(); }
+  function renderPivot() {
+    const host = document.getElementById('lpPivotHost');
+    if (!host) return;
+    const all = currentBaseRows();
+    state.baseRows = all;
+    const status = document.getElementById('lpSourceStatus');
+    if (status) status.textContent = liveSohError ? 'LIVE SOH unavailable: ' + liveSohError : (all.length ? 'LIVE SOH connected · ' + rawRows().length.toLocaleString('en-IN') + ' source rows · ' + all.length.toLocaleString('en-IN') + ' rows match current filters.' : (rawRows().length ? 'No Data Available for the selected filters.' : 'LIVE SOH data is not loaded yet.'));
+    const groups = [...new Set(all.map(x => x.group))].sort((a,b) => a.localeCompare(b));
+    const mrps = [...new Set(all.map(x => x.mrp))].sort((a,b) => (numeric(a) ?? 0) - (numeric(b) ?? 0));
+    const groupSelect = document.getElementById('lpSkuGroup'), mrpSelect = document.getElementById('lpMrp');
+    const priorGroup = groupSelect?.value || 'ALL', priorMrp = mrpSelect?.value || 'ALL';
+    if (groupSelect) { groupSelect.innerHTML = '<option value="ALL">All SKU Groups</option>' + groups.map(x => `<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`).join(''); groupSelect.value = groups.includes(priorGroup) ? priorGroup : 'ALL'; }
+    if (mrpSelect) { mrpSelect.innerHTML = '<option value="ALL">All MRP</option>' + mrps.map(x => `<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`).join(''); mrpSelect.value = mrps.includes(priorMrp) ? priorMrp : 'ALL'; }
+    // Reapply the dynamic row filters after options are refreshed.
+    const rows = currentBaseRows();
+    state.baseRows = rows;
+    if (!rows.length) { host.innerHTML = '<div class="empty">No Data Available</div>'; document.getElementById('lpPivotCount').textContent = '0 rows'; return; }
+    const map = new Map();
+    rows.forEach(row => {
+      const key = row.group + '\u0000' + row.mrp;
+      if (!map.has(key)) map.set(key, { group: row.group, mrp: row.mrp, values: new Map(), records: [] });
+      const item = map.get(key); item.records.push(row);
+      const valueKey = row.bucket + '|' + row.type;
+      const old = item.values.get(valueKey) || { sum: 0, count: 0 };
+      if (row.qty != null) old.sum += row.qty;
+      old.count++;
+      item.values.set(valueKey, old);
+    });
+    const pivotRows = [...map.values()].sort((a,b) => a.group.localeCompare(b.group) || ((numeric(a.mrp) ?? 0) - (numeric(b.mrp) ?? 0)));
+    state.pivotRows = pivotRows;
+    state.details = [];
+    const totals = new Map();
+    let grand = 0;
+    pivotRows.forEach(row => row.values.forEach((value,key) => { const old=totals.get(key)||{sum:0,count:0};old.sum+=value.sum;old.count+=value.count;totals.set(key,old);grand+=value.sum; }));
+    const specs = [
+      { bucket: 'LT60', type: 'INTRANSIT' }, { bucket: 'LT60', type: 'SOH' },
+      { bucket: 'GTE60', type: 'INTRANSIT' }, { bucket: 'GTE60', type: 'SOH' },
+      { bucket: 'EXPIRED', type: 'SOH' }
+    ];
+    const addTarget = spec => { state.details.push(spec); return state.details.length - 1; };
+    const valueButton = (row, bucket, type, totalRow) => {
+      const spec = { group: row?.group || '', mrp: row?.mrp || '', bucket: bucket || '', type: type || '', totalRow: !!totalRow };
+      const index = addTarget(spec);
+      const key = bucket && type ? bucket + '|' + type : '';
+      const value = totalRow ? (key ? totals.get(key) : { sum: grand, count: rows.length }) : (key ? row.values.get(key) : { sum: row.records.reduce((s,x)=>s+(x.qty||0),0), count: row.records.length });
+      if (!value || !value.count) return '<span class="lp-empty-value">—</span>';
+      return `<button type="button" class="lp-value" data-lp-detail="${index}" title="Click to view matching batch details">${fmt(value.sum)}</button>`;
+    };
+    let html = '<table class="lp-pivot-table"><thead><tr><th rowspan="2">SKU GROUP <span class="lp-filter-glyph">▾</span></th><th rowspan="2">MRP <span class="lp-filter-glyph">▾</span></th><th colspan="2" class="lp-head-low">SHELF · &lt;60%</th><th colspan="2" class="lp-head-high">SHELF · >60%</th><th class="lp-head-expired">EXPIRED</th><th rowspan="2" class="lp-grand-head">Grand Total</th></tr><tr><th class="lp-subhead">INTRANSIT</th><th class="lp-subhead">SOH</th><th class="lp-subhead">INTRANSIT</th><th class="lp-subhead">SOH</th><th class="lp-subhead">SOH</th></tr></thead><tbody>';
+    pivotRows.forEach(row => {
+      const groupIndex = addTarget({ group: row.group, mrp: '', bucket: '', type: '', totalRow: false });
+      html += `<tr><td><button type="button" class="lp-row-label" data-lp-detail="${groupIndex}">${escapeHtml(row.group)}</button></td><td class="lp-mrp">${escapeHtml(row.mrp)}</td>`;
+      specs.forEach(spec => { html += `<td>${valueButton(row, spec.bucket, spec.type, false)}</td>`; });
+      html += `<td class="lp-grand-cell">${valueButton(row, '', '', false)}</td></tr>`;
+    });
+    html += '<tr class="lp-total-row"><td><button type="button" class="lp-row-label lp-total-label" data-lp-detail="' + addTarget({ group: '', mrp: '', bucket: '', type: '', totalRow: true }) + '">Grand Total</button></td><td></td>';
+    specs.forEach(spec => { html += `<td>${valueButton(null, spec.bucket, spec.type, true)}</td>`; });
+    html += `<td class="lp-grand-cell">${valueButton(null, '', '', true)}</td></tr></tbody></table>`;
+    host.innerHTML = html;
+    document.getElementById('lpPivotCount').textContent = pivotRows.length.toLocaleString('en-IN') + ' SKU / MRP rows';
+    document.getElementById('lpPivotSummary').textContent = 'Rows: SKU Group · MRP | Values: Sum of CBO · ' + rows.length.toLocaleString('en-IN') + ' matching source rows';
+  }
+  function rowsForSpec(spec) {
+    return state.baseRows.filter(row => {
+      if (spec.group && row.group !== spec.group) return false;
+      if (spec.mrp && row.mrp !== spec.mrp) return false;
+      if (spec.bucket && row.bucket !== spec.bucket) return false;
+      if (spec.type && row.type !== spec.type) return false;
+      return true;
+    });
+  }
+  function detailValue(row, aliases) { return read(row.raw, aliases); }
+  function openDetails(index) {
+    const spec = state.details[index];
+    if (!spec) return;
+    const selected = rowsForSpec(spec);
+    state.selectedDetails = selected.map(x => x.raw);
+    const warehouse = document.getElementById('lpWarehouse')?.value || '';
+    const bucketLabel = spec.bucket === 'LT60' ? '<60%' : spec.bucket === 'GTE60' ? '>60%' : spec.bucket === 'EXPIRED' ? 'EXPIRED' : 'All Shelf';
+    const typeLabel = spec.type || 'All Types';
+    const title = [spec.group, spec.mrp ? 'MRP ' + spec.mrp : '', bucketLabel, typeLabel].filter(Boolean).join(' · ') || 'Grand Total';
+    document.getElementById('lpDetailTitle').textContent = 'LIVE SOH · ' + title;
+    document.getElementById('lpDetailMeta').textContent = warehouse + ' · ' + selected.length.toLocaleString('en-IN') + ' matching batch records';
+    document.getElementById('lpDetailCount').textContent = selected.length.toLocaleString('en-IN') + ' records · all records available below';
+    const host = document.getElementById('lpDetailTableHost');
+    if (!selected.length) { host.innerHTML = '<div class="empty">No matching batch records.</div>'; }
+    else {
+      const headers = DETAIL_COLUMNS.map(x => `<th>${escapeHtml(x[0])}</th>`).join('');
+      const body = selected.map(raw => '<tr>' + DETAIL_COLUMNS.map((col, i) => `<td>${escapeHtml(detailValue({raw}, col[1]))}</td>`).join('') + '</tr>').join('');
+      host.innerHTML = `<table class="lp-detail-table"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table>`;
+    }
+    document.getElementById('lpDetailModal').classList.add('open');
+    document.getElementById('lpDetailModal').setAttribute('aria-hidden', 'false');
+  }
+  function closeDetails() {
+    const modal = document.getElementById('lpDetailModal');
+    if (modal) { modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); }
+  }
+  function exportRows(rawRowsToExport, fileName, sheetName) {
+    if (!window.XLSX) { if (typeof showToast === 'function') showToast('Excel library is loading. Please retry.'); return; }
+    const aoa = [DETAIL_COLUMNS.map(x => x[0])];
+    rawRowsToExport.forEach(raw => aoa.push(DETAIL_COLUMNS.map(col => read(raw, col[1]))));
+    const ws = window.XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [18,16,10,14,14,12,16,12,20,12,12,18].map(wch => ({ wch }));
+    ws['!autofilter'] = { ref: 'A1:L' + Math.max(1, aoa.length) };
+    ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, sheetName || 'LIVE SOH Details');
+    window.XLSX.writeFile(wb, fileName, { compression: true });
+  }
+  function exportDetails() {
+    const warehouse = document.getElementById('lpWarehouse')?.value || 'CFA';
+    const safe = warehouse.replace(/[^A-Z0-9]+/gi, '_');
+    exportRows(state.selectedDetails, 'LIVE_SOH_Batch_Details_' + safe + '.xlsx', 'Batch Details');
+  }
+  function exportPivot() {
+    if (!window.XLSX) { if (typeof showToast === 'function') showToast('Excel library is loading. Please retry.'); return; }
+    const aoa = [['SKU GROUP','MRP','<60% INTRANSIT','<60% SOH','>60% INTRANSIT','>60% SOH','EXPIRED SOH','Grand Total']];
+    state.pivotRows.forEach(row => {
+      const get = key => { const v=row.values.get(key); return v&&v.count?v.sum:''; };
+      aoa.push([row.group,row.mrp,get('LT60|INTRANSIT'),get('LT60|SOH'),get('GTE60|INTRANSIT'),get('GTE60|SOH'),get('EXPIRED|SOH'),row.records.reduce((sum,x)=>sum+(x.qty||0),0)]);
+    });
+    const ws=window.XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[{wch:28},{wch:10},{wch:17},{wch:13},{wch:19},{wch:15},{wch:15},{wch:16}];ws['!autofilter']={ref:'A1:H'+Math.max(1,aoa.length)};ws['!freeze']={xSplit:2,ySplit:1};
+    const wb=window.XLSX.utils.book_new();window.XLSX.utils.book_append_sheet(wb,ws,'LIVE SOH Pivot');window.XLSX.writeFile(wb,'LIVE_SOH_Pivot.xlsx',{compression:true});
+  }
+  function init() {
+    if (!ensureMarkup()) return;
+    const originalGo = window.go;
+    if (typeof originalGo === 'function' && !window.__mbqLivePivotGoWrapped) {
+      window.go = function (page) {
+        if (page === 'livepivot') { showPage(); return; }
+        const result = originalGo.apply(this, arguments);
+        document.getElementById(NAV_ID)?.classList.remove('active');
+        return result;
+      };
+      window.__mbqLivePivotGoWrapped = true;
+    }
+    if (typeof window.loadLiveSoh === 'function' && !window.__mbqLivePivotLoadWrapped) {
+      const originalLoad = window.loadLiveSoh;
+      window.loadLiveSoh = async function () {
+        const result = await originalLoad.apply(this, arguments);
+        renderPivot();
+        return result;
+      };
+      window.__mbqLivePivotLoadWrapped = true;
+    }
+    renderPivot();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
+  else init();
+  window.renderMbqLiveSohPivot = renderPivot;
+})();
+
+</script>
+</body></html>
