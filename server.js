@@ -383,7 +383,7 @@ async function buildGsvCache(cachePath) {
       gsvStatus.rows = result.rows;
       gsvStatus.updatedAt = result.loadedAt || new Date().toISOString();
       gsvStatus.error = null;
-      console.log('DATA SOURCE: NEON CACHE | GSV rows:', result.rows, '| NEON CACHE UPDATED:', result.loadedAt || 'unknown', '| REFRESH ID:', result.refreshId, '|', await githubReleaseAssetTimes());
+      console.log('DATA SOURCE: NEON CACHE | GSV rows:', result.rows, '| NEON CACHE UPDATED:', result.loadedAt || 'unknown', '| REFRESH ID:', result.refreshId, '| RELEASE:', result.releaseTag || 'unknown', '| CHECKSUM:', result.checksum || 'unknown', '|', await githubReleaseAssetTimes());
       return result;
     } catch (error) {
       console.warn('GSV Neon shared cache unavailable; using existing GitHub loader:', error.message);
@@ -397,7 +397,7 @@ async function buildSohCache(cachePath) {
   if (sharedCache.isConfigured && await isSharedCacheEnabled()) {
     try {
       const result = await sharedCache.writeActiveDatasetJson('soh', cachePath);
-      console.log('DATA SOURCE: NEON CACHE | LIVE SOH rows:', result.rows, '| NEON CACHE UPDATED:', result.loadedAt || 'unknown', '| REFRESH ID:', result.refreshId, '|', await githubReleaseAssetTimes());
+      console.log('DATA SOURCE: NEON CACHE | LIVE SOH rows:', result.rows, '| NEON CACHE UPDATED:', result.loadedAt || 'unknown', '| REFRESH ID:', result.refreshId, '| RELEASE:', result.releaseTag || 'unknown', '| CHECKSUM:', result.checksum || 'unknown', '|', await githubReleaseAssetTimes());
       return result;
     } catch (error) {
       console.warn('LIVE SOH Neon shared cache unavailable; using existing GitHub loader:', error.message);
