@@ -154,7 +154,7 @@ async function readMbqGsvCache() {
     const cachedSource = cached.source === "neon-shared-cache" ? "neon-shared-cache" : "github";
     const cacheTtl = 15 * 60 * 1000;
     if (cachedSource === expectedSource && Date.now() - stat.mtimeMs < cacheTtl) {
-      if (cached.schemaVersion === 4 && Array.isArray(cached.data) && cached.data.every(row => row && /^\\d{4}-\\d{2}-\\d{2}$/.test(String(row.date || "")))) return cached;
+      if (cached.schemaVersion === 4 && Array.isArray(cached.data) && cached.data.every(row => row && /^\d{4}-\d{2}-\d{2}$/.test(String(row.date || "")))) return cached;
       console.log("MBQ GSV cache schema outdated; rebuilding with posting dates");
     }
   } catch (_) {}
