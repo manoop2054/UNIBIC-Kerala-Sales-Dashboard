@@ -5351,7 +5351,7 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
 #page-livepivot .lp-filter-grid{display:grid;grid-template-columns:repeat(6,minmax(130px,1fr));gap:10px;padding:0 16px 16px}
 #page-livepivot .lp-filter-grid .field{min-width:0}
 #page-livepivot .lp-filter-grid select{width:100%;min-width:0}
-#page-livepivot .lp-pivot-wrap{max-width:100%;overflow:auto;border-top:1px solid var(--line)}
+#page-livepivot .lp-pivot-wrap{max-width:100%;overflow:auto;border-top:1px solid var(--line);-webkit-overflow-scrolling:touch;scrollbar-width:thin;overscroll-behavior-x:contain}
 #page-livepivot .lp-pivot-table{width:100%;min-width:1050px;border-collapse:separate;border-spacing:0;font-size:11px;white-space:nowrap}
 #page-livepivot .lp-pivot-table th,#page-livepivot .lp-pivot-table td{padding:9px 10px;border-right:1px solid #dce5ef;border-bottom:1px solid #dce5ef;text-align:right;background:#fff}
 #page-livepivot .lp-pivot-table thead tr:first-child th{position:sticky;top:0;z-index:5;background:#17365d;color:#fff;text-align:center;font-weight:800}
@@ -5389,7 +5389,7 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
 #page-livepivot .lp-detail-table tbody tr:nth-child(even){background:#f6f9fc}
 #page-livepivot .lp-dialog-foot{padding:8px 15px;color:#718096;font-size:10px;border-top:1px solid var(--line)}
 @media(max-width:1100px){#page-livepivot .lp-filter-grid{grid-template-columns:repeat(3,minmax(130px,1fr))}}
-@media(max-width:650px){#page-livepivot .lp-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr));padding:0 11px 12px}#page-livepivot .lp-modal{padding:6px;align-items:flex-end}#page-livepivot .lp-dialog{width:100%;max-height:96vh;border-radius:13px 13px 8px 8px}#page-livepivot .lp-detail-scroll{max-height:64vh;margin:0 7px}#page-livepivot .lp-dialog-toolbar{padding:8px}#page-livepivot .lp-dialog-head{padding:11px}}
+@media(max-width:650px){#page-livepivot .lp-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr));padding:0 11px 12px}#page-livepivot .lp-pivot-wrap{width:100%;max-width:100%;overflow-x:auto!important;overflow-y:hidden!important;touch-action:pan-x;scrollbar-width:thin}#page-livepivot .lp-pivot-wrap::-webkit-scrollbar{height:7px}#page-livepivot .lp-pivot-wrap::-webkit-scrollbar-thumb{background:#8da4bd;border-radius:99px}#page-livepivot .lp-mobile-scroll-hint{display:inline;color:#176b68;font-weight:800}#page-livepivot .lp-modal{padding:6px;align-items:flex-end}#page-livepivot .lp-dialog{width:100%;max-height:96vh;border-radius:13px 13px 8px 8px}#page-livepivot .lp-detail-scroll{max-height:64vh;margin:0 7px}#page-livepivot .lp-dialog-toolbar{padding:8px}#page-livepivot .lp-dialog-head{padding:11px}}
 
 
 #page-livepivot .lp-sku-filter{position:relative;min-width:160px}
@@ -5534,7 +5534,7 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
             <div class="field"><label for="lpMrp">MRP</label><select id="lpMrp"><option value="ALL">All MRP</option></select></div>
           </div>
         </div>
-        <div class="card lp-pivot-card"><div class="card-head"><div><h3>LIVE SOH · Pivot Table</h3><small id="lpPivotSummary">Rows: SKU Group · MRP | Values: Sum of CBO</small></div><span class="pill blue" id="lpPivotCount">Waiting for data</span></div><div class="lp-pivot-wrap" id="lpPivotHost"><div class="empty">LIVE SOH data loading…</div></div><div class="small-note">Click any pivot value or SKU Group to open the matching batch details. MRP values are not clickable.</div></div>
+        <div class="card lp-pivot-card"><div class="card-head"><div><h3>LIVE SOH · Pivot Table</h3><small id="lpPivotSummary">Rows: SKU Group · MRP | Values: Sum of CBO</small></div><span class="pill blue" id="lpPivotCount">Waiting for data</span></div><div class="lp-pivot-wrap" id="lpPivotHost"><div class="empty">LIVE SOH data loading…</div></div><div class="small-note">Click any pivot value or SKU Group to open the matching batch details. MRP values are not clickable. <span class="lp-mobile-scroll-hint">On mobile, swipe the table left/right to view all columns.</span></div></div>
         <div class="lp-modal" id="lpDetailModal" aria-hidden="true"><div class="lp-dialog" role="dialog" aria-modal="true" aria-labelledby="lpDetailTitle"><div class="lp-dialog-head"><div><h3 id="lpDetailTitle">LIVE SOH Batch Details</h3><small id="lpDetailMeta"></small></div><button class="lp-close" type="button" id="lpClose" aria-label="Close">×</button></div><div class="lp-dialog-toolbar"><span id="lpDetailCount">0 records</span><button class="btn primary" type="button" id="lpExportDetails">⇩ Export All Details</button></div><div class="lp-detail-scroll" id="lpDetailTableHost"></div><div class="lp-dialog-foot">First 25 rows visible in the popup area; scroll inside the table for remaining records. Excel export includes every matching record.</div></div></div>`;
       content.appendChild(section);
       section.querySelectorAll('select').forEach(control => control.addEventListener('change', renderPivot));
