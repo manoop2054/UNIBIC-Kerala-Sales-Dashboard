@@ -268,9 +268,30 @@ async function buildGsvCacheFromGitHub(cachePath) {
 
 async function getCache(name, builder) {
   const cachePath = path.join(CACHE_DIR, name);
-  try { await fs.promises.access(cachePath); return cachePath; } catch (_) {}
+  const refreshMs = Math.max(60_000, Number(process.env.SALES_CACHE_REFRESH_MS || 15 * 60 * 1000));
+  let exists = false;
+  let stale = true;
+  try {
+    const stat = await fs.promises.stat(cachePath);
+    exists = stat.isFile();
+    stale = !exists || (Date.now() - stat.mtimeMs) >= refreshMs;
+  } catch (_) {}
+  if (!stale) return cachePath;
   if (!inFlight.has(name)) {
-    inFlight.set(name, builder(cachePath).finally(() => inFlight.delete(name)));
+    inFlight.set(name, (async () => {
+      try {
+        await builder(cachePath);
+        // A rebuilt source file must never be served with an older gzip copy.
+        await fs.promises.rm(cachePath + '.gz', { force: true }).catch(() => {});
+        console.log('Cache refreshed:', name, '| source:', (await isSharedCacheEnabled().catch(() => false)) ? 'Neon' : 'GitHub');
+      } catch (error) {
+        if (exists) {
+          console.warn('Cache refresh failed; keeping last good cache:', name, error.message);
+          return cachePath;
+        }
+        throw error;
+      }
+    })().finally(() => inFlight.delete(name)));
   }
   await inFlight.get(name);
   return cachePath;
