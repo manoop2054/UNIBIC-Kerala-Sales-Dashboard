@@ -5387,7 +5387,7 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
     ['CBO', ['CBO']],
     ['TOTAL_MAIN_QRT', ['TOTAL_MAIN_QRT', 'TOTAL MAIN QRT']],
     ['SHELFLIFE', ['SHELFLIFE', 'SHELF LIFE']],
-    ['REMAININGSHELFLIFE', ['REMAININGSHELFLIFE', 'REMAINING SHELF LIFE']],
+    ['REMAININGSHELFLIFE (%)', ['REMAININGSHELFLIFE', 'REMAINING SHELF LIFE']],
     ['CASESIZE', ['CASESIZE', 'CASE SIZE']],
     ['UNITS', ['UNITS']],
     ['TOTALQTYINUNITS', ['TOTALQTYINUNITS', 'TOTAL QTY IN UNITS']]
@@ -5633,7 +5633,14 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
       return true;
     });
   }
-  function detailValue(raw, aliases) { return read(raw, aliases); }
+  function detailValue(raw, aliases) {
+    const value = read(raw, aliases);
+    if (aliases.some(alias => norm(alias) === 'REMAININGSHELFLIFE')) {
+      const clean = String(value == null ? '' : value).trim();
+      return clean === '' ? '' : (clean.endsWith('%') ? clean : clean + '%');
+    }
+    return value;
+  }
   function openDetails(index) {
     const spec = state.details[index];
     if (!spec) return;
@@ -5664,7 +5671,7 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
   function exportRows(rawRowsToExport, fileName, sheetName) {
     if (!window.XLSX) { if (typeof showToast === 'function') showToast('Excel library is loading. Please retry.'); return; }
     const aoa = [DETAIL_COLUMNS.map(x => x[0])];
-    rawRowsToExport.forEach(raw => aoa.push(DETAIL_COLUMNS.map(col => read(raw, col[1]))));
+    rawRowsToExport.forEach(raw => aoa.push(DETAIL_COLUMNS.map(col => detailValue(raw, col[1]))));
     const ws = window.XLSX.utils.aoa_to_sheet(aoa);
     ws['!cols'] = [18,16,10,14,14,12,16,12,20,12,12,18].map(wch => ({ wch }));
     ws['!autofilter'] = { ref: 'A1:L' + Math.max(1, aoa.length) };
