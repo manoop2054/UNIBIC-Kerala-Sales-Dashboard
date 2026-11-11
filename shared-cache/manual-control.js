@@ -1,5 +1,45 @@
 'use strict';
 
+const { spawn } = require('child_process');
+const path = require('path');
+const fs = require('fs');
+let refreshProcess = null;
+let refreshState = { status: 'idle', startedAt: null, completedAt: null, error: null };
+
+function startReleaseRefresh() {
+  if (refreshProcess) return { ...refreshState, status: 'running' };
+  const script = path.join(__dirname, 'import-release-to-neon.js');
+  if (!process.env.SHARED_CACHE_DATABASE_URL) throw new Error('SHARED_CACHE_DATABASE_URL is missing; Neon was enabled but automatic refresh cannot start.');
+  if (!fs.existsSync(script)) throw new Error('GitHub-to-Neon importer is missing from this Render release.');
+  refreshState = { status: 'running', startedAt: new Date().toISOString(), completedAt: null, error: null };
+  console.log('[NEON REFRESH] START | source=GitHub latest release | startedAt=' + refreshState.startedAt);
+  const child = spawn(process.execPath, [script], { env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+  refreshProcess = child;
+  const pipe = (stream, label) => {
+    let pending = '';
+    stream.setEncoding('utf8');
+    stream.on('data', chunk => {
+      pending += chunk;
+      const lines = pending.split(/\r?\n/); pending = lines.pop() || '';
+      for (const line of lines) if (line) console.log('[NEON REFRESH][' + label + '] ' + line);
+    });
+    stream.on('end', () => { if (pending) console.log('[NEON REFRESH][' + label + '] ' + pending); });
+  };
+  pipe(child.stdout, 'OUT'); pipe(child.stderr, 'ERR');
+  child.on('error', error => {
+    refreshState = { ...refreshState, status: 'failed', completedAt: new Date().toISOString(), error: error.message };
+    refreshProcess = null;
+    console.error('[NEON REFRESH] FAILED |', error.message);
+  });
+  child.on('close', code => {
+    refreshState = { ...refreshState, status: code === 0 ? 'success' : 'failed', completedAt: new Date().toISOString(), error: code === 0 ? null : 'Importer exited with code ' + code };
+    refreshProcess = null;
+    console.log('[NEON REFRESH] ' + (code === 0 ? 'SUCCESS' : 'FAILED') + ' | completedAt=' + refreshState.completedAt + ' | exitCode=' + code);
+  });
+  return { ...refreshState };
+}
+
+
 // Central manual gate for the shared Neon cache endpoint.
 // "OFF" sets endpoint.disabled=true, which blocks normal DB connections from
 // waking the compute. "ON" clears that restriction; the first DB query may wake it.
@@ -39,7 +79,8 @@ async function getStatus() {
     enabled: !endpoint.disabled,
     disabled: Boolean(endpoint.disabled),
     computeState: endpoint.current_state || 'unknown',
-    endpointId: endpoint.id
+    endpointId: endpoint.id,
+    refresh: { ...refreshState }
   };
 }
 
@@ -50,11 +91,14 @@ async function setEnabled(enabled) {
     throw error;
   }
   const endpoint = await neonRequest('PATCH', { endpoint: { disabled: !enabled } });
+  const refresh = enabled ? startReleaseRefresh() : { ...refreshState };
+  if (!enabled) console.log('[NEON CACHE] OFF | GitHub mode will be used by dashboard loaders.');
   return {
     enabled: !endpoint.disabled,
     disabled: Boolean(endpoint.disabled),
     computeState: endpoint.current_state || 'unknown',
-    endpointId: endpoint.id
+    endpointId: endpoint.id,
+    refresh
   };
 }
 
