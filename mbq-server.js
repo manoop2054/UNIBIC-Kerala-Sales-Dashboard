@@ -319,7 +319,7 @@ const prototypeFile = path.join(
 
 
 const mbqLoginAttempts = new Map();
-const MBQ_ALLOWED_TABS = ["overview","indent","suggest","stock","totracker","advanced","allocation","distributor","peak","loading","flash","reports","excelview","settings","manualindent"];
+const MBQ_ALLOWED_TABS = ["overview","indent","suggest","stock","totracker","advanced","allocation","distributor","peak","loading","flash","reports","excelview","settings","manualindent","livepivot"];
 let mbqAccessTableReady = null;
 async function ensureMbqAccessTable(pool) {
   if (!mbqAccessTableReady) {
