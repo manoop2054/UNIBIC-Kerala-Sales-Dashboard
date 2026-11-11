@@ -269,21 +269,26 @@ async function buildGsvCacheFromGitHub(cachePath) {
 async function getCache(name, builder) {
   const cachePath = path.join(CACHE_DIR, name);
   const refreshMs = Math.max(60_000, Number(process.env.SALES_CACHE_REFRESH_MS || 15 * 60 * 1000));
+  const useNeon = sharedCache.isConfigured && await isSharedCacheEnabled().catch(() => false);
+  const sourceMode = useNeon ? 'neon' : 'github';
+  const sourceMarker = cachePath + '.source';
   let exists = false;
   let stale = true;
+  let cachedSource = '';
+  try { cachedSource = (await fs.promises.readFile(sourceMarker, 'utf8')).trim(); } catch (_) {}
   try {
     const stat = await fs.promises.stat(cachePath);
     exists = stat.isFile();
-    stale = !exists || (Date.now() - stat.mtimeMs) >= refreshMs;
+    stale = !exists || cachedSource !== sourceMode || (Date.now() - stat.mtimeMs) >= refreshMs;
   } catch (_) {}
   if (!stale) return cachePath;
   if (!inFlight.has(name)) {
     inFlight.set(name, (async () => {
       try {
         await builder(cachePath);
-        // A rebuilt source file must never be served with an older gzip copy.
+        await fs.promises.writeFile(sourceMarker, sourceMode, 'utf8');
         await fs.promises.rm(cachePath + '.gz', { force: true }).catch(() => {});
-        console.log('Cache refreshed:', name, '| source:', (await isSharedCacheEnabled().catch(() => false)) ? 'Neon' : 'GitHub');
+        console.log('Cache refreshed:', name, '| source:', sourceMode);
       } catch (error) {
         if (exists) {
           console.warn('Cache refresh failed; keeping last good cache:', name, error.message);
