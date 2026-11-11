@@ -5668,14 +5668,50 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
     const modal = document.getElementById('lpDetailModal');
     if (modal) { modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); }
   }
+  function excelCellStyle(cell, style) { if (cell) cell.s = style; }
+  function styleExcelSheet(ws, aoa, opts) {
+    const XLSX = window.XLSX, cols = opts.cols, headerRow = opts.headerRow, lastRow = aoa.length, lastCol = cols.length;
+    const navy = '12233F', navy2 = '1B3458', teal = '0E8F8C', pale = 'EAF3F8', line = 'D9E2EC', ink = '24354B';
+    const border = { top:{style:'thin',color:{rgb:line}}, bottom:{style:'thin',color:{rgb:line}}, left:{style:'thin',color:{rgb:line}}, right:{style:'thin',color:{rgb:line}} };
+    const titleStyle = {font:{name:'Aptos Display',sz:16,bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:navy}},alignment:{vertical:'center',horizontal:'left'},border};
+    const subStyle = {font:{name:'Aptos',sz:11,bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:teal}},alignment:{vertical:'center',horizontal:'left'},border};
+    const metaStyle = {font:{name:'Aptos',sz:10,italic:true,color:{rgb:navy2}},fill:{fgColor:{rgb:'EAF5F5'}},alignment:{vertical:'center',horizontal:'left'},border};
+    const headStyle = {font:{name:'Aptos',sz:10,bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:navy2}},alignment:{vertical:'center',horizontal:'center',wrapText:true},border};
+    const totalStyle = {font:{name:'Aptos',sz:10,bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:teal}},alignment:{vertical:'center'},border};
+    for(let r=0;r<lastRow;r++) for(let c=0;c<lastCol;c++) {
+      const addr=XLSX.utils.encode_cell({r,c}), cell=ws[addr]; if(!cell) continue;
+      if(r===0) excelCellStyle(cell,titleStyle);
+      else if(r===1) excelCellStyle(cell,subStyle);
+      else if(r===2) excelCellStyle(cell,metaStyle);
+      else if(r===headerRow) excelCellStyle(cell,headStyle);
+      else {
+        const isTotal=opts.totalRow===r;
+        const fill=isTotal?teal:(r%2===0?'F3F7FB':'FFFFFF');
+        const st={font:{name:'Aptos',sz:10,bold:isTotal,color:{rgb:isTotal?'FFFFFF':ink}},fill:{fgColor:{rgb:fill}},alignment:{vertical:'center',horizontal:c===0?'left':'right'},border};
+        if(opts.numericCols && opts.numericCols.includes(c)) st.numFmt='#,##0.00;[Red]-#,##0.00;–';
+        excelCellStyle(cell,st);
+      }
+    }
+    ws['!cols']=cols.map(wch=>({wch}));
+    ws['!rows']=[{hpt:28},{hpt:22},{hpt:20},{hpt:34}];
+    ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:lastCol-1}},{s:{r:1,c:0},e:{r:1,c:lastCol-1}},{s:{r:2,c:0},e:{r:2,c:lastCol-1}}];
+    ws['!autofilter']={ref:XLSX.utils.encode_range({s:{r:headerRow,c:0},e:{r:Math.max(headerRow,lastRow-1),c:lastCol-1}})};
+    ws['!freeze']={xSplit:opts.freezeCols||0,ySplit:headerRow+1};
+  }
   function exportRows(rawRowsToExport, fileName, sheetName) {
     if (!window.XLSX) { if (typeof showToast === 'function') showToast('Excel library is loading. Please retry.'); return; }
-    const aoa = [DETAIL_COLUMNS.map(x => x[0])];
+    const warehouse = document.getElementById('lpWarehouse')?.value || 'All CFA';
+    const threshold = Number(document.getElementById('lpShelfValue')?.value || 10);
+    const exportedAt = new Date().toLocaleString('en-IN');
+    const aoa = [
+      ['UNIBIC FOODS INDIA PRIVATE LIMITED'],
+      ['LIVE SOH · BATCH DETAIL EXPORT'],
+      ['CFA: '+warehouse+'  |  Shelf threshold: '+threshold+'%  |  Records: '+rawRowsToExport.length+'  |  Exported: '+exportedAt],
+      DETAIL_COLUMNS.map(x => x[0])
+    ];
     rawRowsToExport.forEach(raw => aoa.push(DETAIL_COLUMNS.map(col => detailValue(raw, col[1]))));
     const ws = window.XLSX.utils.aoa_to_sheet(aoa);
-    ws['!cols'] = [18,16,10,14,14,12,16,12,20,12,12,18].map(wch => ({ wch }));
-    ws['!autofilter'] = { ref: 'A1:L' + Math.max(1, aoa.length) };
-    ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+    styleExcelSheet(ws,aoa,{cols:[18,16,10,14,14,12,16,12,22,12,12,19],headerRow:3,freezeCols:1,numericCols:[2,5,6,7,10,11]});
     const wb = window.XLSX.utils.book_new();
     window.XLSX.utils.book_append_sheet(wb, ws, sheetName || 'LIVE SOH Details');
     window.XLSX.writeFile(wb, fileName, { compression: true });
@@ -5688,15 +5724,25 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
   function exportPivot() {
     if (!window.XLSX) { if (typeof showToast === 'function') showToast('Excel library is loading. Please retry.'); return; }
     const threshold = Number(document.getElementById('lpShelfValue')?.value || 10);
-    const aoa = [['SKU GROUP','MRP','< ' + threshold + '% INTRANSIT','< ' + threshold + '% SOH','≥ ' + threshold + '% INTRANSIT','≥ ' + threshold + '% SOH','EXPIRED SOH','Grand Total']];
+    const exportedAt = new Date().toLocaleString('en-IN');
+    const aoa = [
+      ['UNIBIC FOODS INDIA PRIVATE LIMITED'],
+      ['LIVE SOH · PIVOT SUMMARY'],
+      ['CFA: '+(document.getElementById('lpWarehouse')?.value||'All CFA')+'  |  Shelf threshold: '+threshold+'%  |  SKU / MRP rows: '+state.pivotRows.length+'  |  Exported: '+exportedAt],
+      ['SKU GROUP','MRP','< ' + threshold + '% INTRANSIT','< ' + threshold + '% SOH','≥ ' + threshold + '% INTRANSIT','≥ ' + threshold + '% SOH','EXPIRED SOH','GRAND TOTAL']
+    ];
     state.pivotRows.forEach(row => {
       const get = key => { const v=row.values.get(key); return v&&v.count?v.sum:''; };
       aoa.push([row.group,row.mrp,get('BELOW|INTRANSIT'),get('BELOW|SOH'),get('ABOVE|INTRANSIT'),get('ABOVE|SOH'),get('EXPIRED|SOH'),row.records.reduce((sum,x)=>sum+(x.qty||0),0)]);
     });
     const sumKey = key => state.pivotRows.reduce((sum,row) => sum + (row.values.get(key)?.sum || 0), 0);
-    aoa.push(['Grand Total','',sumKey('BELOW|INTRANSIT'),sumKey('BELOW|SOH'),sumKey('ABOVE|INTRANSIT'),sumKey('ABOVE|SOH'),sumKey('EXPIRED|SOH'),state.pivotRows.reduce((sum,row)=>sum+row.records.reduce((n,x)=>n+(x.qty||0),0),0)]);
-    const ws=window.XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[{wch:28},{wch:10},{wch:17},{wch:13},{wch:19},{wch:15},{wch:15},{wch:16}];ws['!autofilter']={ref:'A1:H'+Math.max(1,aoa.length)};ws['!freeze']={xSplit:2,ySplit:1};
-    const wb=window.XLSX.utils.book_new();window.XLSX.utils.book_append_sheet(wb,ws,'LIVE SOH Pivot');window.XLSX.writeFile(wb,'LIVE_SOH_Pivot.xlsx',{compression:true});
+    const totalIndex=aoa.length;
+    aoa.push(['GRAND TOTAL','',sumKey('BELOW|INTRANSIT'),sumKey('BELOW|SOH'),sumKey('ABOVE|INTRANSIT'),sumKey('ABOVE|SOH'),sumKey('EXPIRED|SOH'),state.pivotRows.reduce((sum,row)=>sum+row.records.reduce((n,x)=>n+(x.qty||0),0),0)]);
+    const ws=window.XLSX.utils.aoa_to_sheet(aoa);
+    styleExcelSheet(ws,aoa,{cols:[30,11,20,16,22,18,16,18],headerRow:3,freezeCols:2,numericCols:[1,2,3,4,5,6,7],totalRow:totalIndex});
+    const wb=window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb,ws,'LIVE SOH Pivot');
+    window.XLSX.writeFile(wb,'LIVE_SOH_Pivot.xlsx',{compression:true});
   }
   function init() {
     if (!ensureMarkup()) return;
