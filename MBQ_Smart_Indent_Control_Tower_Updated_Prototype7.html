@@ -5352,6 +5352,7 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
 #page-livepivot .lp-filter-grid .field{min-width:0}
 #page-livepivot .lp-filter-grid select{width:100%;min-width:0}
 #page-livepivot .lp-pivot-wrap{max-width:100%;overflow:auto;border-top:1px solid var(--line);-webkit-overflow-scrolling:touch;scrollbar-width:thin;overscroll-behavior-x:contain}
+#page-livepivot .lp-mobile-cards{display:none}
 #page-livepivot .lp-pivot-table{width:100%;min-width:1050px;border-collapse:separate;border-spacing:0;font-size:11px;white-space:nowrap}
 #page-livepivot .lp-pivot-table th,#page-livepivot .lp-pivot-table td{padding:9px 10px;border-right:1px solid #dce5ef;border-bottom:1px solid #dce5ef;text-align:right;background:#fff}
 #page-livepivot .lp-pivot-table thead tr:first-child th{position:sticky;top:0;z-index:5;background:#17365d;color:#fff;text-align:center;font-weight:800}
@@ -5389,7 +5390,7 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
 #page-livepivot .lp-detail-table tbody tr:nth-child(even){background:#f6f9fc}
 #page-livepivot .lp-dialog-foot{padding:8px 15px;color:#718096;font-size:10px;border-top:1px solid var(--line)}
 @media(max-width:1100px){#page-livepivot .lp-filter-grid{grid-template-columns:repeat(3,minmax(130px,1fr))}}
-@media(max-width:650px){#page-livepivot .lp-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr));padding:0 11px 12px}#page-livepivot .lp-pivot-wrap{width:100%;max-width:100%;overflow-x:auto!important;overflow-y:hidden!important;touch-action:pan-x;scrollbar-width:thin}#page-livepivot .lp-pivot-wrap::-webkit-scrollbar{height:7px}#page-livepivot .lp-pivot-wrap::-webkit-scrollbar-thumb{background:#8da4bd;border-radius:99px}#page-livepivot .lp-mobile-scroll-hint{display:inline;color:#176b68;font-weight:800}#page-livepivot .lp-modal{padding:6px;align-items:flex-end}#page-livepivot .lp-dialog{width:100%;max-height:96vh;border-radius:13px 13px 8px 8px}#page-livepivot .lp-detail-scroll{max-height:64vh;margin:0 7px}#page-livepivot .lp-dialog-toolbar{padding:8px}#page-livepivot .lp-dialog-head{padding:11px}}
+@media(max-width:650px){#page-livepivot .lp-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr));padding:0 11px 12px}#page-livepivot .lp-pivot-wrap{overflow:visible!important}#page-livepivot .lp-pivot-table{display:none}#page-livepivot .lp-mobile-cards{display:grid;gap:9px;padding:10px;background:#f3f6fb}#page-livepivot .lp-mobile-card{background:#fff;border:1px solid #dce5ef;border-radius:10px;padding:10px;box-shadow:0 2px 7px rgba(20,39,71,.05)}#page-livepivot .lp-mobile-card-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding-bottom:8px;margin-bottom:8px;border-bottom:1px solid #e6edf4}#page-livepivot .lp-mobile-card-head strong{font-size:12px;color:#17365d}#page-livepivot .lp-mobile-card-head span{font-size:11px;font-weight:800;color:#087f70;background:#e7f5f2;border-radius:6px;padding:4px 7px}#page-livepivot .lp-mobile-values{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}#page-livepivot .lp-mobile-value{display:flex;flex-direction:column;gap:3px;padding:7px;border-radius:7px;background:#f6f9fc;min-width:0}#page-livepivot .lp-mobile-value small{font-size:9px;line-height:1.25;color:#687b91;font-weight:800}#page-livepivot .lp-mobile-value b{font-size:12px;color:#1d5fb8}#page-livepivot .lp-mobile-value.total{background:#e7f5f2}#page-livepivot .lp-mobile-card.grand{border:1px solid #0f766e;background:#f1fbf9}#page-livepivot .lp-mobile-card.grand .lp-mobile-card-head strong{color:#075e54}#page-livepivot .lp-mobile-scroll-hint{display:inline;color:#176b68;font-weight:800}#page-livepivot .lp-modal{padding:6px;align-items:flex-end}#page-livepivot .lp-dialog{width:100%;max-height:96vh;border-radius:13px 13px 8px 8px}#page-livepivot .lp-detail-scroll{max-height:64vh;margin:0 7px}#page-livepivot .lp-dialog-toolbar{padding:8px}#page-livepivot .lp-dialog-head{padding:11px}}
 
 
 #page-livepivot .lp-sku-filter{position:relative;min-width:160px}
@@ -5644,16 +5645,26 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
       return `<button type="button" class="lp-value" data-lp-detail="${index}" title="Click to view matching batch details">${fmt(value.sum)}</button>`;
     };
     let html = `<table class="lp-pivot-table"><thead><tr><th rowspan="2">SKU GROUP <span class="lp-filter-glyph">▾</span></th><th rowspan="2">MRP <span class="lp-filter-glyph">▾</span></th><th colspan="2" class="lp-head-low">${escapeHtml(belowLabel)}</th><th colspan="2" class="lp-head-high">${escapeHtml(aboveLabel)}</th><th class="lp-head-expired">EXPIRED</th><th rowspan="2" class="lp-grand-head">Grand Total</th></tr><tr><th class="lp-subhead">INTRANSIT</th><th class="lp-subhead">SOH</th><th class="lp-subhead">INTRANSIT</th><th class="lp-subhead">SOH</th><th class="lp-subhead">SOH</th></tr></thead><tbody>`;
+    let mobileHtml = '<div class="lp-mobile-cards">';
     pivotRows.forEach(row => {
       const groupIndex = addTarget({ group: row.group, mrp: '', bucket: '', type: '', totalRow: false });
       html += `<tr><td><button type="button" class="lp-row-label" data-lp-detail="${groupIndex}">${escapeHtml(row.group)}</button></td><td class="lp-mrp">${escapeHtml(row.mrp)}</td>`;
-      specs.forEach(spec => { html += `<td>${valueButton(row, spec.bucket, spec.type, false)}</td>`; });
-      html += `<td class="lp-grand-cell">${valueButton(row, '', '', false)}</td></tr>`;
+      const mobileLabels = ['SHELF < ' + threshold + '% · INTRANSIT','SHELF < ' + threshold + '% · SOH','SHELF ≥ ' + threshold + '% · INTRANSIT','SHELF ≥ ' + threshold + '% · SOH','EXPIRED · SOH'];
+      const mobileValues = [];
+      specs.forEach((spec, i) => { const cell=valueButton(row, spec.bucket, spec.type, false); html += `<td>${cell}</td>`; mobileValues.push('<div class="lp-mobile-value"><small>'+escapeHtml(mobileLabels[i])+'</small><b>'+cell+'</b></div>'); });
+      const grandCell=valueButton(row, '', '', false);
+      html += `<td class="lp-grand-cell">${grandCell}</td></tr>`;
+      mobileHtml += '<article class="lp-mobile-card"><div class="lp-mobile-card-head"><strong>'+escapeHtml(row.group)+'</strong><span>MRP '+escapeHtml(row.mrp)+'</span></div><div class="lp-mobile-values">'+mobileValues.join('')+'<div class="lp-mobile-value total"><small>GRAND TOTAL</small><b>'+grandCell+'</b></div></div></article>';
     });
-    html += '<tr class="lp-total-row"><td><button type="button" class="lp-row-label lp-total-label" data-lp-detail="' + addTarget({ group: '', mrp: '', bucket: '', type: '', totalRow: true }) + '">Grand Total</button></td><td></td>';
-    specs.forEach(spec => { html += `<td>${valueButton(null, spec.bucket, spec.type, true)}</td>`; });
-    html += `<td class="lp-grand-cell">${valueButton(null, '', '', true)}</td></tr></tbody></table>`;
-    host.innerHTML = html;
+    const totalGroupIndex=addTarget({ group: '', mrp: '', bucket: '', type: '', totalRow: true });
+    html += '<tr class="lp-total-row"><td><button type="button" class="lp-row-label lp-total-label" data-lp-detail="' + totalGroupIndex + '">Grand Total</button></td><td></td>';
+    const totalMobileValues=[];
+    const mobileTotalLabels=['SHELF < '+threshold+'% · INTRANSIT','SHELF < '+threshold+'% · SOH','SHELF ≥ '+threshold+'% · INTRANSIT','SHELF ≥ '+threshold+'% · SOH','EXPIRED · SOH'];
+    specs.forEach((spec,i) => { const cell=valueButton(null,spec.bucket,spec.type,true); html += `<td>${cell}</td>`; totalMobileValues.push('<div class="lp-mobile-value"><small>'+escapeHtml(mobileTotalLabels[i])+'</small><b>'+cell+'</b></div>'); });
+    const totalGrandCell=valueButton(null,'','',true);
+    html += `<td class="lp-grand-cell">${totalGrandCell}</td></tr></tbody></table>`;
+    mobileHtml += '<article class="lp-mobile-card grand"><div class="lp-mobile-card-head"><strong>GRAND TOTAL</strong></div><div class="lp-mobile-values">'+totalMobileValues.join('')+'<div class="lp-mobile-value total"><small>GRAND TOTAL</small><b>'+totalGrandCell+'</b></div></div></article></div>';
+    host.innerHTML = html + mobileHtml;
     document.getElementById('lpPivotCount').textContent = pivotRows.length.toLocaleString('en-IN') + ' SKU / MRP rows';
     document.getElementById('lpPivotSummary').textContent = 'Rows: SKU Group · MRP | Values: Sum of CBO · ' + rows.length.toLocaleString('en-IN') + ' matching source rows';
   }
