@@ -124,7 +124,7 @@ async function buildMbqGsvAggregateFromGitHub() {
   }
   if (!sheetFound) throw new Error("GSV worksheet not found: " + GSV_SHEET);
   if (!indexes || !aggregate.size) throw new Error("GSV workbook contained no usable item/month/quantity records");
-  const payload = { success: true, schemaVersion: 4, data: Array.from(aggregate.values()), rows: rowCount, matchedRows, aggregateRows: aggregate.size, loadedAt: new Date().toISOString(), dateCoverage: { from: minDate, to: maxDate }, detected: stats.detected, headers: stats.headers, sourceBytes: stats.sourceBytes };
+  const payload = { success: true, schemaVersion: 4, data: Array.from(aggregate.values()), rows: rowCount, matchedRows, aggregateRows: aggregate.size, loadedAt: new Date().toISOString(), dateCoverage: { from: minDate, to: maxDate }, detected: stats.detected, headers: stats.headers, sourceBytes: stats.sourceBytes, source: "github" };
   await fs.promises.writeFile(tmp, JSON.stringify(payload), "utf8");
   await fs.promises.rename(tmp, cache);
   console.log("MBQ GSV ready:", JSON.stringify({ rows: rowCount, matchedRows, aggregateRows: aggregate.size, detected: stats.detected }));
@@ -146,12 +146,15 @@ async function buildMbqGsvAggregate() {
 
 async function readMbqGsvCache() {
   const cache = path.join(CACHE_DIR, "gsv-aggregate.json");
+  const useNeon = sharedCache.isConfigured && await isSharedCacheEnabled();
+  const expectedSource = useNeon ? "neon-shared-cache" : "github";
   try {
     const stat = await fs.promises.stat(cache);
     const cached = JSON.parse(await fs.promises.readFile(cache, "utf8"));
-    const cacheTtl = cached.source === "neon-shared-cache" ? 5 * 60 * 1000 : 6 * 60 * 60 * 1000;
-    if (Date.now() - stat.mtimeMs < cacheTtl) {
-      if (cached.schemaVersion === 4 && Array.isArray(cached.data) && cached.data.every(row => row && /^\d{4}-\d{2}-\d{2}$/.test(String(row.date || "")))) return cached;
+    const cachedSource = cached.source === "neon-shared-cache" ? "neon-shared-cache" : "github";
+    const cacheTtl = 15 * 60 * 1000;
+    if (cachedSource === expectedSource && Date.now() - stat.mtimeMs < cacheTtl) {
+      if (cached.schemaVersion === 4 && Array.isArray(cached.data) && cached.data.every(row => row && /^\\d{4}-\\d{2}-\\d{2}$/.test(String(row.date || "")))) return cached;
       console.log("MBQ GSV cache schema outdated; rebuilding with posting dates");
     }
   } catch (_) {}
@@ -212,11 +215,14 @@ async function downloadToFileWithRetry(url, dest, maxAttempts = 3) {
 async function loadSohRows() {
   await fs.promises.mkdir(CACHE_DIR, { recursive: true });
   const cache = path.join(CACHE_DIR, "soh.json");
+  const useNeon = sharedCache.isConfigured && await isSharedCacheEnabled();
+  const expectedSource = useNeon ? "neon-shared-cache" : "github";
   try {
     const st = await fs.promises.stat(cache);
     const cached = JSON.parse(await fs.promises.readFile(cache, "utf8"));
-    const cacheTtl = cached.source === "neon-shared-cache" ? 5 * 60 * 1000 : 30 * 60 * 1000;
-    if (Date.now() - st.mtimeMs < cacheTtl) return cached;
+    const cachedSource = cached.source === "neon-shared-cache" ? "neon-shared-cache" : "github";
+    const cacheTtl = 15 * 60 * 1000;
+    if (cachedSource === expectedSource && Date.now() - st.mtimeMs < cacheTtl) return cached;
   } catch (_) {}
   if (!sohLoadPromise) sohLoadPromise = (async () => {
     if (sharedCache.isConfigured && await isSharedCacheEnabled()) {
@@ -238,7 +244,7 @@ async function loadSohRows() {
     const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: "" });
     await fs.promises.writeFile(cache, JSON.stringify({ data: rows, sheet: sheetName, rows: rows.length, loadedAt: new Date().toISOString() }));
     console.log("MBQ LIVE SOH loaded:", rows.length, "rows from", sheetName);
-    return { data: rows, sheet: sheetName, rows: rows.length, loadedAt: new Date().toISOString() };
+    return { data: rows, sheet: sheetName, rows: rows.length, loadedAt: new Date().toISOString(), source: "github" };
   })().finally(() => { sohLoadPromise = null; });
   return sohLoadPromise;
 }
