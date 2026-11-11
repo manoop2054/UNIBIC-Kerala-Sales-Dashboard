@@ -4659,8 +4659,8 @@ renderIndent=function(){mbqReportOriginalRenderIndent();renderIndentReport();};
 const mbqReportOriginalRenderAlloc=renderAlloc;
 renderAlloc=function(){mbqReportOriginalRenderAlloc();renderIndentReport();};
 
-let mbqAuthenticatedDataLoadStarted=false;
-let mbqAuthenticatedDataLoadPromise=null;
+var mbqAuthenticatedDataLoadStarted=false;
+var mbqAuthenticatedDataLoadPromise=null;
 function mbqStartAuthenticatedDataLoad(){
  if(mbqAuthenticatedDataLoadPromise)return mbqAuthenticatedDataLoadPromise;
  if(mbqAuthenticatedDataLoadStarted)return Promise.resolve();
