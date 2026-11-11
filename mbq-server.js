@@ -27,11 +27,11 @@ let sohLoadPromise = null;
 
 const GSV_URL = process.env.GSV_SHARE_URL || "https://github.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/releases/download/v1.0/KL.LIVE.GSV.LINK-MANOOB.xlsx";
 const GSV_SHEET = process.env.GSV_SHEET_NAME || "ACX_Sales_Register";
-let githubReleaseAssetTimesCache = { expiresAt: 0, label: "GitHub upload time unavailable" };
-function githubReleaseAssetTimes() {
-  if (githubReleaseAssetTimesCache.expiresAt > Date.now()) return Promise.resolve(githubReleaseAssetTimesCache.label);
-  return new Promise(resolve => {
-    const request = https.get("https://api.github.com/repos/manoop2054/UNIBIC-Kerala-Sales-Dashboard/releases/tags/v1.0", {
+let githubReleaseMetadataCache = { expiresAt: 0, release: null };
+function githubReleaseMetadata() {
+  if (githubReleaseMetadataCache.expiresAt > Date.now() && githubReleaseMetadataCache.release) return Promise.resolve(githubReleaseMetadataCache.release);
+  return new Promise((resolve, reject) => {
+    const request = https.get("https://api.github.com/repos/manoop2054/UNIBIC-Kerala-Sales-Dashboard/releases/latest", {
       headers: { "User-Agent": "UNIBIC-Dashboard-Data-Metadata", "Accept": "application/vnd.github+json" }
     }, response => {
       let body = "";
@@ -39,26 +39,37 @@ function githubReleaseAssetTimes() {
       response.on("data", chunk => { body += chunk; });
       response.on("end", () => {
         try {
-          if (response.statusCode !== 200) throw new Error("GitHub API HTTP " + response.statusCode);
+          if (response.statusCode !== 200) throw new Error("GitHub latest release API HTTP " + response.statusCode);
           const release = JSON.parse(body);
-          const assets = Array.isArray(release.assets) ? release.assets : [];
-          const byName = Object.fromEntries(assets.map(asset => [asset.name, asset.created_at]));
-          const fmt = value => value ? new Intl.DateTimeFormat("en-IN", {
-            timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric",
-            hour: "2-digit", minute: "2-digit", hour12: true
-          }).format(new Date(value)) + " IST" : "Unavailable";
-          const label = "GitHub Last Upload | GSV: " + fmt(byName["KL.LIVE.GSV.LINK-MANOOB.xlsx"]) +
-            " | LIVE SOH: " + fmt(byName["LIVE.STOCK.xlsb"]);
-          githubReleaseAssetTimesCache = { expiresAt: Date.now() + 5 * 60 * 1000, label };
-          resolve(label);
-        } catch (error) {
-          resolve(githubReleaseAssetTimesCache.label);
-        }
+          if (!Array.isArray(release.assets)) throw new Error("Latest GitHub release has no assets");
+          githubReleaseMetadataCache = { expiresAt: Date.now() + 60 * 1000, release };
+          resolve(release);
+        } catch (error) { reject(error); }
       });
     });
-    request.setTimeout(5000, () => request.destroy(new Error("GitHub metadata timeout")));
-    request.on("error", () => resolve(githubReleaseAssetTimesCache.label));
+    request.setTimeout(8000, () => request.destroy(new Error("GitHub metadata timeout")));
+    request.on("error", reject);
   });
+}
+async function githubReleaseAssetUrl(name) {
+  const release = await githubReleaseMetadata();
+  const asset = release.assets.find(item => item.name === name);
+  if (!asset || !asset.browser_download_url) throw new Error("Latest GitHub release " + release.tag_name + " is missing asset " + name);
+  return asset.browser_download_url;
+}
+async function githubReleaseAssetTimes() {
+  try {
+    const release = await githubReleaseMetadata();
+    const byName = Object.fromEntries(release.assets.map(asset => [asset.name, asset.created_at]));
+    const fmt = value => value ? new Intl.DateTimeFormat("en-IN", {
+      timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric",
+      hour: "2-digit", minute: "2-digit", hour12: true
+    }).format(new Date(value)) + " IST" : "Unavailable";
+    return "GitHub Release: " + release.tag_name + " | GitHub Last Upload | GSV: " +
+      fmt(byName["KL.LIVE.GSV.LINK-MANOOB.xlsx"]) + " | LIVE SOH: " + fmt(byName["LIVE.STOCK.xlsb"]);
+  } catch (error) {
+    return "GitHub release metadata unavailable: " + error.message;
+  }
 }
 
 let gsvLoadPromise = null;
@@ -104,7 +115,7 @@ async function buildMbqGsvAggregateFromGitHub() {
   const cache = path.join(CACHE_DIR, "gsv-aggregate.json");
   const tmp = cache + ".tmp";
   console.log("MBQ GSV: downloading source workbook");
-  await downloadToFileWithRetry(GSV_URL, source, 3);
+  await downloadToFileWithRetry(await githubReleaseAssetUrl("KL.LIVE.GSV.LINK-MANOOB.xlsx"), source, 3);
   const stats = { sourceBytes: (await fs.promises.stat(source)).size, sheet: GSV_SHEET };
   const aggregate = new Map();
   let headers = null, indexes = null, rowCount = 0, matchedRows = 0, sheetFound = false;
@@ -169,7 +180,7 @@ async function buildMbqGsvAggregate() {
   if (sharedCache.isConfigured && await isSharedCacheEnabled()) {
     try {
       const result = await sharedCache.readMbqGsvAggregate();
-      console.log("MBQ GSV loaded from shared Neon cache:", result.rows, "source rows,", result.aggregateRows, "aggregate rows", "|", await githubReleaseAssetTimes());
+      console.log("DATA SOURCE: NEON CACHE | MBQ GSV:", result.rows, "source rows,", result.aggregateRows, "aggregate rows | NEON CACHE UPDATED:", result.loadedAt || "unknown", "|", await githubReleaseAssetTimes());
       return result;
     } catch (error) {
       console.warn("MBQ GSV Neon cache unavailable; using existing GitHub loader:", error.message);
@@ -264,20 +275,20 @@ async function loadSohRows() {
         const shared = await sharedCache.readMbqSohRows();
         const payload = { ...shared, source: "neon-shared-cache" };
         await fs.promises.writeFile(cache, JSON.stringify(payload));
-        console.log("MBQ LIVE SOH loaded from shared Neon cache:", payload.rows, "rows", "|", await githubReleaseAssetTimes());
+        console.log("DATA SOURCE: NEON CACHE | MBQ LIVE SOH:", payload.rows, "rows | NEON CACHE UPDATED:", payload.loadedAt || "unknown", "|", await githubReleaseAssetTimes());
         return payload;
       } catch (error) {
         console.warn("MBQ LIVE SOH Neon cache unavailable; using existing GitHub loader:", error.message);
       }
     }
     const source = path.join(CACHE_DIR, "LIVE.STOCK.xlsb");
-    await downloadToFile(SOH_URL, source);
+    await downloadToFile(await githubReleaseAssetUrl("LIVE.STOCK.xlsb"), source);
     const wb = XLSX.readFile(source, { cellDates: true });
     const sheetName = wb.SheetNames.includes(SOH_SHEET) ? SOH_SHEET : wb.SheetNames[0];
     if (!sheetName) throw new Error("No worksheet found in LIVE SOH workbook");
     const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: "" });
     await fs.promises.writeFile(cache, JSON.stringify({ data: rows, sheet: sheetName, rows: rows.length, loadedAt: new Date().toISOString() }));
-    console.log("MBQ LIVE SOH loaded:", rows.length, "rows from", sheetName, "|", await githubReleaseAssetTimes());
+    console.log("DATA SOURCE: GITHUB LATEST RELEASE | MBQ LIVE SOH loaded:", rows.length, "rows from", sheetName, "| CACHE UPDATED:", new Date().toISOString(), "|", await githubReleaseAssetTimes());
     return { data: rows, sheet: sheetName, rows: rows.length, loadedAt: new Date().toISOString(), source: "github" };
   })().finally(() => { sohLoadPromise = null; });
   return sohLoadPromise;
