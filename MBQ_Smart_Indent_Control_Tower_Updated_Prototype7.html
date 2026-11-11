@@ -5427,10 +5427,10 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
     if (value.includes('INTRANSIT') || value === 'TRANSIT') return 'INTRANSIT';
     return '';
   }
-  function shelfBucket(value) {
+  function shelfBucket(value, threshold) {
     if (value == null) return 'BLANK';
     if (value <= 0) return 'EXPIRED';
-    return value < 60 ? 'LT60' : 'GTE60';
+    return value < threshold ? 'BELOW' : 'ABOVE';
   }
   function rawRows() {
     try { return Array.isArray(liveSohRows) ? liveSohRows : []; }
@@ -5438,7 +5438,6 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
   }
   function getFilterRows(ignoreGroup = false) {
     const warehouse = CFA_OPTIONS.find(x => x.label === document.getElementById('lpWarehouse')?.value) || CFA_OPTIONS[0];
-    const shelfMode = document.getElementById('lpShelfMode')?.value || 'ALL';
     const shelfThreshold = Number(document.getElementById('lpShelfValue')?.value || 10);
     const typeFilter = document.getElementById('lpType')?.value || 'ALL';
     const selectedGroups = state.selectedGroups || [];
@@ -5450,13 +5449,11 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
       const type = rowType(raw);
       const shelf = numeric(read(raw, ['REMAININGSHELFLIFE', 'Remaining Shelf Life']));
       const qty = numeric(read(raw, ['CBO']));
-      return { raw, warehouseValue, group, mrp: String(mrpRaw == null ? '' : mrpRaw).trim(), type, shelf, bucket: shelfBucket(shelf), qty };
+      return { raw, warehouseValue, group, mrp: String(mrpRaw == null ? '' : mrpRaw).trim(), type, shelf, bucket: shelfBucket(shelf, shelfThreshold), qty };
     }).filter(row => {
       if (!warehouseMatches(row.warehouseValue, warehouse)) return false;
       if (!row.group || !row.mrp || !row.type) return false;
       if (typeFilter !== 'ALL' && row.type !== typeFilter) return false;
-      if (shelfMode === 'GTE' && (row.shelf == null || row.shelf < shelfThreshold)) return false;
-      if (shelfMode === 'LTE' && (row.shelf == null || row.shelf > shelfThreshold)) return false;
       if (!ignoreGroup && selectedGroups.length && !selectedGroups.includes(row.group)) return false;
       if (mrpFilter !== 'ALL' && row.mrp !== mrpFilter) return false;
       return true;
@@ -5497,8 +5494,7 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
         <div class="card lp-filter-card"><div class="card-head"><div><h3>Pivot Filters</h3><small>Each filter applies to the pivot and its detail popup.</small></div></div>
           <div class="lp-filter-grid">
             <div class="field"><label for="lpWarehouse">WAREHOUSE / CFA</label><select id="lpWarehouse">${CFA_OPTIONS.map(x => `<option value="${escapeHtml(x.label)}">${escapeHtml(x.label)}</option>`).join('')}</select></div>
-            <div class="field"><label for="lpShelfMode">SHELF · REMAININGSHELFLIFE</label><select id="lpShelfMode"><option value="ALL">All Values</option><option value="GTE">Above or Equal To (≥)</option><option value="LTE">Below or Equal To (≤)</option></select></div>
-            <div class="field"><label for="lpShelfValue">SHELF VALUE</label><select id="lpShelfValue">${Array.from({length:18},(_,i)=>(i+2)*5).map(n=>`<option value="${n}">${n}%</option>`).join('')}</select></div>
+            <div class="field"><label for="lpShelfValue">SHELF THRESHOLD · REMAINING SHELF LIFE</label><select id="lpShelfValue"><select id="lpShelfValue">${Array.from({length:18},(_,i)=>(i+2)*5).map(n=>`<option value="${n}">${n}%</option>`).join('')}</select></div>
             <div class="field"><label for="lpType">TYPE</label><select id="lpType"><option value="ALL">All Types</option><option value="INTRANSIT">INTRANSIT</option><option value="SOH">SOH</option></select></div>
             <div class="field"><label>SKU GROUP</label><div class="lp-sku-filter" id="lpSkuGroup"><button type="button" class="lp-sku-trigger" id="lpSkuTrigger">All SKU Groups ▾</button><div class="lp-sku-menu" id="lpSkuMenu"><input type="search" id="lpSkuSearch" placeholder="Search SKU Group…" autocomplete="off"><div class="lp-sku-actions"><button type="button" id="lpSkuSelectAll">Select All</button><button type="button" id="lpSkuClear">Clear Filter</button></div><div class="lp-sku-options" id="lpSkuOptions"></div></div></div></div>
             <div class="field"><label for="lpMrp">MRP</label><select id="lpMrp"><option value="ALL">All MRP</option></select></div>
@@ -5596,9 +5592,12 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
     const totals = new Map();
     let grand = 0;
     pivotRows.forEach(row => row.values.forEach((value,key) => { const old=totals.get(key)||{sum:0,count:0};old.sum+=value.sum;old.count+=value.count;totals.set(key,old);grand+=value.sum; }));
+    const threshold = Number(document.getElementById('lpShelfValue')?.value || 10);
+    const belowLabel = 'SHELF < ' + threshold + '%';
+    const aboveLabel = 'SHELF ≥ ' + threshold + '%';
     const specs = [
-      { bucket: 'LT60', type: 'INTRANSIT' }, { bucket: 'LT60', type: 'SOH' },
-      { bucket: 'GTE60', type: 'INTRANSIT' }, { bucket: 'GTE60', type: 'SOH' },
+      { bucket: 'BELOW', type: 'INTRANSIT' }, { bucket: 'BELOW', type: 'SOH' },
+      { bucket: 'ABOVE', type: 'INTRANSIT' }, { bucket: 'ABOVE', type: 'SOH' },
       { bucket: 'EXPIRED', type: 'SOH' }
     ];
     const addTarget = spec => { state.details.push(spec); return state.details.length - 1; };
@@ -5610,7 +5609,7 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
       if (!value || !value.count) return '<span class="lp-empty-value">—</span>';
       return `<button type="button" class="lp-value" data-lp-detail="${index}" title="Click to view matching batch details">${fmt(value.sum)}</button>`;
     };
-    let html = '<table class="lp-pivot-table"><thead><tr><th rowspan="2">SKU GROUP <span class="lp-filter-glyph">▾</span></th><th rowspan="2">MRP <span class="lp-filter-glyph">▾</span></th><th colspan="2" class="lp-head-low">SHELF · &lt;60%</th><th colspan="2" class="lp-head-high">SHELF · >60%</th><th class="lp-head-expired">EXPIRED</th><th rowspan="2" class="lp-grand-head">Grand Total</th></tr><tr><th class="lp-subhead">INTRANSIT</th><th class="lp-subhead">SOH</th><th class="lp-subhead">INTRANSIT</th><th class="lp-subhead">SOH</th><th class="lp-subhead">SOH</th></tr></thead><tbody>';
+    let html = `<table class="lp-pivot-table"><thead><tr><th rowspan="2">SKU GROUP <span class="lp-filter-glyph">▾</span></th><th rowspan="2">MRP <span class="lp-filter-glyph">▾</span></th><th colspan="2" class="lp-head-low">${escapeHtml(belowLabel)}</th><th colspan="2" class="lp-head-high">${escapeHtml(aboveLabel)}</th><th class="lp-head-expired">EXPIRED</th><th rowspan="2" class="lp-grand-head">Grand Total</th></tr><tr><th class="lp-subhead">INTRANSIT</th><th class="lp-subhead">SOH</th><th class="lp-subhead">INTRANSIT</th><th class="lp-subhead">SOH</th><th class="lp-subhead">SOH</th></tr></thead><tbody>`;
     pivotRows.forEach(row => {
       const groupIndex = addTarget({ group: row.group, mrp: '', bucket: '', type: '', totalRow: false });
       html += `<tr><td><button type="button" class="lp-row-label" data-lp-detail="${groupIndex}">${escapeHtml(row.group)}</button></td><td class="lp-mrp">${escapeHtml(row.mrp)}</td>`;
@@ -5640,7 +5639,8 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
     const selected = rowsForSpec(spec);
     state.selectedDetails = selected.map(x => x.raw);
     const warehouse = document.getElementById('lpWarehouse')?.value || '';
-    const bucketLabel = spec.bucket === 'LT60' ? '<60%' : spec.bucket === 'GTE60' ? '>60%' : spec.bucket === 'EXPIRED' ? 'EXPIRED' : 'All Shelf';
+    const threshold = Number(document.getElementById('lpShelfValue')?.value || 10);
+    const bucketLabel = spec.bucket === 'BELOW' ? '< ' + threshold + '%' : spec.bucket === 'ABOVE' ? '≥ ' + threshold + '%' : spec.bucket === 'EXPIRED' ? 'EXPIRED' : 'All Shelf';
     const typeLabel = spec.type || 'All Types';
     const title = [spec.group, spec.mrp ? 'MRP ' + spec.mrp : '', bucketLabel, typeLabel].filter(Boolean).join(' · ') || 'Grand Total';
     document.getElementById('lpDetailTitle').textContent = 'LIVE SOH · ' + title;
@@ -5679,13 +5679,14 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
   }
   function exportPivot() {
     if (!window.XLSX) { if (typeof showToast === 'function') showToast('Excel library is loading. Please retry.'); return; }
-    const aoa = [['SKU GROUP','MRP','<60% INTRANSIT','<60% SOH','>60% INTRANSIT','>60% SOH','EXPIRED SOH','Grand Total']];
+    const threshold = Number(document.getElementById('lpShelfValue')?.value || 10);
+    const aoa = [['SKU GROUP','MRP','< ' + threshold + '% INTRANSIT','< ' + threshold + '% SOH','≥ ' + threshold + '% INTRANSIT','≥ ' + threshold + '% SOH','EXPIRED SOH','Grand Total']];
     state.pivotRows.forEach(row => {
       const get = key => { const v=row.values.get(key); return v&&v.count?v.sum:''; };
-      aoa.push([row.group,row.mrp,get('LT60|INTRANSIT'),get('LT60|SOH'),get('GTE60|INTRANSIT'),get('GTE60|SOH'),get('EXPIRED|SOH'),row.records.reduce((sum,x)=>sum+(x.qty||0),0)]);
+      aoa.push([row.group,row.mrp,get('BELOW|INTRANSIT'),get('BELOW|SOH'),get('ABOVE|INTRANSIT'),get('ABOVE|SOH'),get('EXPIRED|SOH'),row.records.reduce((sum,x)=>sum+(x.qty||0),0)]);
     });
     const sumKey = key => state.pivotRows.reduce((sum,row) => sum + (row.values.get(key)?.sum || 0), 0);
-    aoa.push(['Grand Total','',sumKey('LT60|INTRANSIT'),sumKey('LT60|SOH'),sumKey('GTE60|INTRANSIT'),sumKey('GTE60|SOH'),sumKey('EXPIRED|SOH'),state.pivotRows.reduce((sum,row)=>sum+row.records.reduce((n,x)=>n+(x.qty||0),0),0)]);
+    aoa.push(['Grand Total','',sumKey('BELOW|INTRANSIT'),sumKey('BELOW|SOH'),sumKey('ABOVE|INTRANSIT'),sumKey('ABOVE|SOH'),sumKey('EXPIRED|SOH'),state.pivotRows.reduce((sum,row)=>sum+row.records.reduce((n,x)=>n+(x.qty||0),0),0)]);
     const ws=window.XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[{wch:28},{wch:10},{wch:17},{wch:13},{wch:19},{wch:15},{wch:15},{wch:16}];ws['!autofilter']={ref:'A1:H'+Math.max(1,aoa.length)};ws['!freeze']={xSplit:2,ySplit:1};
     const wb=window.XLSX.utils.book_new();window.XLSX.utils.book_append_sheet(wb,ws,'LIVE SOH Pivot');window.XLSX.writeFile(wb,'LIVE_SOH_Pivot.xlsx',{compression:true});
   }
