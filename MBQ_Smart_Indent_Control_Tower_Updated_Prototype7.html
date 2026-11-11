@@ -5724,11 +5724,12 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
   function exportPivot() {
     if (!window.XLSX) { if (typeof showToast === 'function') showToast('Excel library is loading. Please retry.'); return; }
     const threshold = Number(document.getElementById('lpShelfValue')?.value || 10);
+    const warehouse = document.getElementById('lpWarehouse')?.value || 'All CFA';
     const exportedAt = new Date().toLocaleString('en-IN');
     const aoa = [
       ['UNIBIC FOODS INDIA PRIVATE LIMITED'],
       ['LIVE SOH · PIVOT SUMMARY'],
-      ['CFA: '+(document.getElementById('lpWarehouse')?.value||'All CFA')+'  |  Shelf threshold: '+threshold+'%  |  SKU / MRP rows: '+state.pivotRows.length+'  |  Exported: '+exportedAt],
+      ['CFA: '+warehouse+'  |  Shelf threshold: '+threshold+'%  |  SKU / MRP rows: '+state.pivotRows.length+'  |  Exported: '+exportedAt],
       ['SKU GROUP','MRP','< ' + threshold + '% INTRANSIT','< ' + threshold + '% SOH','≥ ' + threshold + '% INTRANSIT','≥ ' + threshold + '% SOH','EXPIRED SOH','GRAND TOTAL']
     ];
     state.pivotRows.forEach(row => {
@@ -5738,10 +5739,24 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
     const sumKey = key => state.pivotRows.reduce((sum,row) => sum + (row.values.get(key)?.sum || 0), 0);
     const totalIndex=aoa.length;
     aoa.push(['GRAND TOTAL','',sumKey('BELOW|INTRANSIT'),sumKey('BELOW|SOH'),sumKey('ABOVE|INTRANSIT'),sumKey('ABOVE|SOH'),sumKey('EXPIRED|SOH'),state.pivotRows.reduce((sum,row)=>sum+row.records.reduce((n,x)=>n+(x.qty||0),0),0)]);
-    const ws=window.XLSX.utils.aoa_to_sheet(aoa);
-    styleExcelSheet(ws,aoa,{cols:[30,11,20,16,22,18,16,18],headerRow:3,freezeCols:2,numericCols:[1,2,3,4,5,6,7],totalRow:totalIndex});
+    const pivotWs=window.XLSX.utils.aoa_to_sheet(aoa);
+    styleExcelSheet(pivotWs,aoa,{cols:[30,11,20,16,22,18,16,18],headerRow:3,freezeCols:2,numericCols:[1,2,3,4,5,6,7],totalRow:totalIndex});
+
+    // Second worksheet mirrors the complete batch-detail columns shown in the popup.
+    const detailRows = state.baseRows.map(row => row.raw);
+    const detailAoa = [
+      ['UNIBIC FOODS INDIA PRIVATE LIMITED'],
+      ['LIVE SOH · ITEM WISE BATCH DETAILS'],
+      ['CFA: '+warehouse+'  |  Shelf threshold: '+threshold+'%  |  Matching batch records: '+detailRows.length+'  |  Exported: '+exportedAt],
+      DETAIL_COLUMNS.map(col => col[0])
+    ];
+    detailRows.forEach(raw => detailAoa.push(DETAIL_COLUMNS.map(col => detailValue(raw, col[1]))));
+    const detailWs = window.XLSX.utils.aoa_to_sheet(detailAoa);
+    styleExcelSheet(detailWs,detailAoa,{cols:[18,16,10,14,14,12,16,12,22,12,12,19],headerRow:3,freezeCols:1,numericCols:[2,5,6,7,10,11]});
+
     const wb=window.XLSX.utils.book_new();
-    window.XLSX.utils.book_append_sheet(wb,ws,'LIVE SOH Pivot');
+    window.XLSX.utils.book_append_sheet(wb,pivotWs,'LIVE SOH Pivot');
+    window.XLSX.utils.book_append_sheet(wb,detailWs,'Item Wise Details');
     window.XLSX.writeFile(wb,'LIVE_SOH_Pivot.xlsx',{compression:true});
   }
   function init() {
