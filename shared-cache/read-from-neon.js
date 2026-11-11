@@ -44,6 +44,15 @@ function writeChunk(stream, chunk) {
   });
 }
 
+async function getActiveDatasetVersion(kind) {
+  if (!pool) throw new Error('SHARED_CACHE_DATABASE_URL is not configured');
+  const client = await pool.connect();
+  try {
+    const meta = await activeDataset(client, kind);
+    return { refreshId: meta.refresh_id, updatedAt: meta.updated_at, rows: Number(meta.row_count || 0) };
+  } finally { client.release(); }
+}
+
 async function writeActiveDatasetJson(kind, filePath, transform) {
   if (!pool) throw new Error('SHARED_CACHE_DATABASE_URL is not configured');
   const table = kind === 'gsv' ? 'gsv_sales' : 'live_stock';
@@ -198,6 +207,7 @@ async function readMbqGsvAggregate() {
       rows: Number(meta.row_count || 0),
       matchedRows: data.reduce((sum, row) => sum + row.rows, 0),
       aggregateRows: data.length,
+      refreshId: meta.refresh_id,
       loadedAt: meta.updated_at,
       dateCoverage: { from: data.length ? data.reduce((min, row) => row.date < min ? row.date : min, data[0].date) : null,
                       to: data.length ? data.reduce((max, row) => row.date > max ? row.date : max, data[0].date) : null },
@@ -216,6 +226,7 @@ async function readMbqSohRows() {
 module.exports = {
   isConfigured: Boolean(pool),
   writeActiveDatasetJson,
+  getActiveDatasetVersion,
   readActiveRows,
   readMbqGsvAggregate,
   readMbqSohRows
