@@ -5489,6 +5489,9 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
     return true;
   }
   function showPage() {
+    const user = window.mbqCurrentUser || {};
+    const permitted = String(user.role || '').toUpperCase() === 'SUPER_ADMIN' || (Array.isArray(user.allowedTabs) && user.allowedTabs.includes('livepivot'));
+    if (!permitted) { if (typeof showToast === 'function') showToast('LIVE SOH Pivot access has not been assigned.'); return; }
     const section = document.getElementById(PAGE_ID);
     const button = document.getElementById(NAV_ID);
     if (!section || !button) return;
