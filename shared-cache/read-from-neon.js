@@ -25,7 +25,7 @@ async function activeDataset(client, kind) {
   const pointer = isGsv ? 'active_gsv_refresh_id' : 'active_live_soh_refresh_id';
   const source = isGsv ? 'GSV' : 'LIVE_SOH';
   const result = await client.query(
-    `SELECT p.${pointer} AS refresh_id, p.updated_at, l.row_count, l.refresh_status
+    `SELECT p.${pointer} AS refresh_id, p.updated_at, l.completed_at AS dataset_completed_at, l.release_tag, l.asset_name, l.file_checksum, l.row_count, l.refresh_status
        FROM public.cache_active_datasets p
        JOIN public.data_refresh_log l ON l.id = p.${pointer}
       WHERE p.singleton = TRUE AND l.source_name = $1 AND l.refresh_status = 'active'`,
@@ -49,7 +49,7 @@ async function getActiveDatasetVersion(kind) {
   const client = await pool.connect();
   try {
     const meta = await activeDataset(client, kind);
-    return { refreshId: meta.refresh_id, updatedAt: meta.updated_at, rows: Number(meta.row_count || 0) };
+    return { refreshId: meta.refresh_id, updatedAt: meta.dataset_completed_at || meta.updated_at, releaseTag: meta.release_tag, assetName: meta.asset_name, checksum: meta.file_checksum, rows: Number(meta.row_count || 0) };
   } finally { client.release(); }
 }
 
@@ -94,7 +94,7 @@ async function writeActiveDatasetJson(kind, filePath, transform) {
     await new Promise((resolve, reject) => stream.end(error => error ? reject(error) : resolve()));
     stream = null;
     await fs.promises.rename(temp, filePath);
-    return { rows: count, loadedAt: meta.updated_at, refreshId: meta.refresh_id, source: 'neon' };
+    return { rows: count, loadedAt: meta.dataset_completed_at || meta.updated_at, refreshId: meta.refresh_id, releaseTag: meta.release_tag, assetName: meta.asset_name, checksum: meta.file_checksum, source: 'neon' };
   } catch (error) {
     if (stream) stream.destroy();
     await fs.promises.rm(temp, { force: true }).catch(() => {});
@@ -128,7 +128,7 @@ async function readActiveRows(kind) {
       if (rows.length > expected) throw new Error('Shared-cache returned more rows than its active refresh log');
     }
     if (rows.length !== expected) throw new Error('Shared-cache row validation failed: expected ' + expected + ', received ' + rows.length);
-    return { data: rows, rows: rows.length, loadedAt: meta.updated_at, refreshId: meta.refresh_id };
+    return { data: rows, rows: rows.length, loadedAt: meta.dataset_completed_at || meta.updated_at, refreshId: meta.refresh_id, releaseTag: meta.release_tag, assetName: meta.asset_name, checksum: meta.file_checksum };
   } finally {
     client.release();
   }
@@ -188,7 +188,9 @@ async function readMbqGsvAggregate() {
       matchedRows: Number(c.matched_rows || 0),
       aggregateRows: data.length,
       refreshId: meta.refresh_id,
-      loadedAt: meta.updated_at,
+      releaseTag: meta.release_tag,
+      checksum: meta.file_checksum,
+      loadedAt: meta.dataset_completed_at || meta.updated_at,
       dateCoverage: { from: c.min_date || null, to: c.max_date || null },
       source: 'neon-shared-cache'
     };
