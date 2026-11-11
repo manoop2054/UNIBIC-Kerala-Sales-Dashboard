@@ -5210,7 +5210,9 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
    control.innerHTML='<span class="state">Shared Cache: checking</span><button type="button" disabled>Checking…</button>';
    var before=document.getElementById('month');
    if(before&&before.parentNode===host)host.insertBefore(control,before);else host.appendChild(control);
-   control.querySelector('button').addEventListener('click',toggle);
+   control.querySelector('button').addEventListener('click',function(){
+     if(control.dataset.action==='retry'){attempts=0;load();}else toggle();
+   });
    return control;
  }
  function render(data){
@@ -5225,27 +5227,45 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
    b.textContent=busy?'Please wait…':(enabled?'Turn OFF':'Turn ON');
    b.title=enabled?'Block all normal connections to the shared cache':'Allow the dashboards to use the shared cache';
    control.dataset.enabled=enabled?'true':'false';
+   control.dataset.action='toggle';
  }
  function showSetup(message){
    make();control.className='pending';
    control.querySelector('.state').textContent='Shared Cache: setup required';
    var b=control.querySelector('button');b.disabled=true;b.textContent='Not configured';
+   control.dataset.action='none';
    control.title=message||'Add Neon control credentials to Render environment variables.';
  }
+ function showError(label,message,retry){
+   make();control.className='pending';
+   control.querySelector('.state').textContent='Shared Cache: '+label;
+   var b=control.querySelector('button');
+   b.disabled=busy||!retry;
+   b.textContent=retry?'Retry':'Unavailable';
+   b.title=message||label;
+   control.dataset.action=retry?'retry':'none';
+   control.title=message||label;
+ }
  async function load(){
+   make();
+   var b=control.querySelector('button');
+   b.disabled=true;b.textContent='Checking…';
    try{
      var r=await fetch('/api/shared-cache/control',{credentials:'same-origin',cache:'no-store'});
      var d=await r.json().catch(function(){return{}});
-     if(r.ok&&d.success){render(d);return true;}
-     if(r.status===403)return true; // not the protected Super Admin: do not show controls
+     if(r.ok&&d.success){attempts=0;render(d);return true;}
+     if(r.status===401){showError('login required',d.error||'Employee login required. Sign in again.',false);return true;}
+     if(r.status===403){showError('access denied · Super Admin only',d.error||'This account is not being recognized as the protected Super Admin.',false);return true;}
      if(r.status===503&&String(d.error||'').indexOf('NEON_API_KEY')>=0){showSetup(d.error);return true;}
-     if(r.status===401||r.status===503){if(attempts++<20){setTimeout(load,1500);return false;}}
-     if(r.status===503){showSetup(d.error);return true;}
+     showError('status unavailable · HTTP '+r.status,d.error||'Unable to read shared Neon cache status.',true);
      return true;
-   }catch(e){if(attempts++<20){setTimeout(load,1500);return false;}return true;}
+   }catch(e){
+     showError('connection error',e&&e.message?e.message:'Unable to contact the MBQ server.',true);
+     return true;
+   }
  }
  async function toggle(){
-   if(busy||!control)return;
+   if(busy||!control||control.dataset.action!=='toggle')return;
    var enabled=control.dataset.enabled!=='true';
    var msg=enabled?'Turn ON the shared Neon cache for BOTH dashboards?':'Turn OFF the shared Neon cache for BOTH dashboards? While OFF, dashboards will use their existing fallback loaders.';
    if(!window.confirm(msg))return;
@@ -5253,12 +5273,23 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
    try{
      var r=await fetch('/api/shared-cache/control',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:enabled})});
      var d=await r.json().catch(function(){return{}});
-     if(!r.ok||!d.success)throw new Error(d.error||('HTTP '+r.status));
+     if(!r.ok||!d.success){
+       if(r.status===401)showError('login required',d.error||'Employee login required. Sign in again.',false);
+       else if(r.status===403)showError('access denied · Super Admin only',d.error||'This account is not being recognized as the protected Super Admin.',false);
+       else showError('update failed · HTTP '+r.status,d.error||'Unable to update shared cache.',true);
+       throw new Error(d.error||('HTTP '+r.status));
+     }
      busy=false;render(d);
      window.alert(enabled?'Shared Neon cache is ENABLED.':'Shared Neon cache is DISABLED. Both dashboards will use fallback data.');
-   }catch(e){busy=false;b.disabled=false;b.textContent=control.dataset.enabled==='true'?'Turn OFF':'Turn ON';window.alert('Shared cache control failed: '+e.message);}
+   }catch(e){
+     busy=false;
+     if(control.dataset.action==='toggle'){
+       b.disabled=false;b.textContent=control.dataset.enabled==='true'?'Turn OFF':'Turn ON';
+     }
+     window.alert('Shared cache control failed: '+e.message);
+   }
  }
- function start(){load();}
+ function start(){make();load();}
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
 </script>
