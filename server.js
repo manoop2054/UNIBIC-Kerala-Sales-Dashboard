@@ -299,7 +299,8 @@ async function buildGsvCacheFromGitHub(cachePath) {
     await new Promise((resolve, reject) => output.end(err => err ? reject(err) : resolve()));
     await fs.promises.rename(temp, cachePath);
     gsvStatus.stage = 'ready'; gsvStatus.rows = rowCount; gsvStatus.updatedAt = new Date().toISOString(); gsvStatus.error = null;
-    console.log('GSV compact cache ready:', rowCount, 'rows', '|', await githubReleaseAssetTimes());
+    console.log('DATA SOURCE: GITHUB LATEST RELEASE | GSV compact cache ready:', rowCount, 'rows | CACHE UPDATED:', new Date().toISOString(), '|', await githubReleaseAssetTimes());
+    return { source: 'github' };
     console.log('GSV timing: complete', JSON.stringify({ downloadSeconds: +(downloadMs / 1000).toFixed(2), processingAndWritingSeconds: +((performance.now() - buildStarted - downloadMs) / 1000).toFixed(2), normalizationSeconds: +(normalizeMs / 1000).toFixed(2), writeWaitSeconds: +(writeWaitMs / 1000).toFixed(2), totalSeconds: +((performance.now() - buildStarted) / 1000).toFixed(2), sourceMB: +(sourceBytes / 1048576).toFixed(2), rows: rowCount }));
   } catch (error) {
     gsvStatus.stage = 'failed'; gsvStatus.updatedAt = new Date().toISOString(); gsvStatus.error = error.message;
@@ -340,8 +341,9 @@ async function getCache(name, builder) {
     inFlight.set(name, (async () => {
       try {
         const buildResult = await builder(cachePath);
-        const refreshId = buildResult && buildResult.refreshId ? buildResult.refreshId : (activeVersion && activeVersion.refreshId) || null;
-        await fs.promises.writeFile(sourceMarker, JSON.stringify({ source: sourceMode, refreshId, updatedAt: new Date().toISOString() }), 'utf8');
+        const actualSource = buildResult && buildResult.source === 'neon' ? 'neon' : 'github';
+        const refreshId = actualSource === 'neon' && buildResult.refreshId ? buildResult.refreshId : null;
+        await fs.promises.writeFile(sourceMarker, JSON.stringify({ source: actualSource, refreshId, updatedAt: new Date().toISOString() }), 'utf8');
         await fs.promises.rm(cachePath + '.gz', { force: true }).catch(() => {});
         console.log('CACHE REFRESHED:', name, '| SOURCE:', sourceMode.toUpperCase(), '| CACHE UPDATED:', new Date().toISOString());
       } catch (error) {
@@ -369,6 +371,7 @@ async function buildSohCacheFromGitHub(cachePath) {
   await fs.promises.writeFile(temp, JSON.stringify({ data: rows }));
   await fs.promises.rename(temp, cachePath);
   console.log('DATA SOURCE: GITHUB LATEST RELEASE | SOH cache ready:', rows.length, 'rows from', sheetName, '| CACHE UPDATED:', new Date().toISOString(), '|', await githubReleaseAssetTimes());
+  return { source: 'github' };
 }
 
 
