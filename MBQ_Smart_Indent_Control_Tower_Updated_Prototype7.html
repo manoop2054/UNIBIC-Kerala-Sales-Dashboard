@@ -2612,6 +2612,7 @@ function printToReport(mode='details'){
   cards.innerHTML=snapshots.map(x=>'<article class="flash-cfa-kpi-card '+x.cls+'"><h4>'+esc(x.label)+'</h4><div class="flash-cfa-kpi-values"><div class="flash-cfa-kpi-value"><small>INDENT</small><strong>'+esc(x.indent)+'</strong></div><div class="flash-cfa-kpi-value"><small>PERIOD BILLED</small><strong>'+esc(x.billed)+'</strong><em>'+esc(from||'—')+' to '+esc(to||'—')+'</em></div><div class="flash-cfa-kpi-value"><small>ACHIEVEMENT</small><strong>'+esc(x.achievement)+'</strong></div><div class="flash-cfa-kpi-value"><small>BALANCE %</small><strong>'+esc(x.balance)+'</strong></div></div></article>').join('');
   panel.style.display='block';
  }
+ window.renderCfaKpis=renderCfaKpis;
  window.renderFlash=function(){if(typeof originalRenderFlash==='function')originalRenderFlash();renderCfaKpis();};
  window.mbqExportCfaKpiExcel=function(){
   const data=window.mbqCfaGroupKpiSnapshot||[];
@@ -2983,6 +2984,7 @@ function renderFlash(){
   if(note)note.style.display='';
   if(summaryCard)summaryCard.style.display='';
   renderFlashSingle();
+  if(typeof window.renderCfaKpis==='function')window.renderCfaKpis();
   return;
  }
  const reports=[];
@@ -3000,6 +3002,7 @@ function renderFlash(){
   host.style.display='grid';
   host.innerHTML=reports.map(r=>'<section class="flash-compare-col '+r.cls+'"><h3>'+r.key+' CFA</h3><pre>'+mbqEscape(r.text)+'</pre></section>').join('');
  }
+ if(typeof window.renderCfaKpis==='function')window.renderCfaKpis();
 }
 function copyFlash(){
  const reports=window.mbqFlashCompareReports||[];
