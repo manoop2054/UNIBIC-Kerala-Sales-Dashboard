@@ -94,7 +94,7 @@ async function writeActiveDatasetJson(kind, filePath, transform) {
     await new Promise((resolve, reject) => stream.end(error => error ? reject(error) : resolve()));
     stream = null;
     await fs.promises.rename(temp, filePath);
-    return { rows: count, loadedAt: meta.updated_at, refreshId: meta.refresh_id };
+    return { rows: count, loadedAt: meta.updated_at, refreshId: meta.refresh_id, source: 'neon' };
   } catch (error) {
     if (stream) stream.destroy();
     await fs.promises.rm(temp, { force: true }).catch(() => {});
