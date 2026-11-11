@@ -319,19 +319,31 @@ async function getCache(name, builder) {
   const sourceMarker = cachePath + '.source';
   let exists = false;
   let stale = true;
-  let cachedSource = '';
-  try { cachedSource = (await fs.promises.readFile(sourceMarker, 'utf8')).trim(); } catch (_) {}
+  let cachedSource = '', cachedRefreshId = null;
+  try {
+    const marker = (await fs.promises.readFile(sourceMarker, 'utf8')).trim();
+    try { const parsed = JSON.parse(marker); cachedSource = parsed.source || ''; cachedRefreshId = parsed.refreshId || null; }
+    catch (_) { cachedSource = marker; }
+  } catch (_) {}
+  let activeVersion = null;
+  if (useNeon) {
+    const kind = name.startsWith('gsv') ? 'gsv' : 'soh';
+    try { activeVersion = await sharedCache.getActiveDatasetVersion(kind); }
+    catch (error) { console.warn('Neon cache version check failed:', name, error.message); }
+  }
   try {
     const stat = await fs.promises.stat(cachePath);
     exists = stat.isFile();
-    stale = !exists || cachedSource !== sourceMode || (Date.now() - stat.mtimeMs) >= refreshMs;
+    const versionChanged = useNeon && (!activeVersion || cachedRefreshId !== activeVersion.refreshId);
+    stale = !exists || cachedSource !== sourceMode || versionChanged || (Date.now() - stat.mtimeMs) >= refreshMs;
   } catch (_) {}
   if (!stale) return cachePath;
   if (!inFlight.has(name)) {
     inFlight.set(name, (async () => {
       try {
-        await builder(cachePath);
-        await fs.promises.writeFile(sourceMarker, sourceMode, 'utf8');
+        const buildResult = await builder(cachePath);
+        const refreshId = buildResult && buildResult.refreshId ? buildResult.refreshId : (activeVersion && activeVersion.refreshId) || null;
+        await fs.promises.writeFile(sourceMarker, JSON.stringify({ source: sourceMode, refreshId, updatedAt: new Date().toISOString() }), 'utf8');
         await fs.promises.rm(cachePath + '.gz', { force: true }).catch(() => {});
         console.log('CACHE REFRESHED:', name, '| SOURCE:', sourceMode.toUpperCase(), '| CACHE UPDATED:', new Date().toISOString());
       } catch (error) {
@@ -370,8 +382,8 @@ async function buildGsvCache(cachePath) {
       gsvStatus.rows = result.rows;
       gsvStatus.updatedAt = result.loadedAt || new Date().toISOString();
       gsvStatus.error = null;
-      console.log('DATA SOURCE: NEON CACHE | GSV rows:', result.rows, '| NEON CACHE UPDATED:', result.loadedAt || 'unknown', '|', await githubReleaseAssetTimes());
-      return;
+      console.log('DATA SOURCE: NEON CACHE | GSV rows:', result.rows, '| NEON CACHE UPDATED:', result.loadedAt || 'unknown', '| REFRESH ID:', result.refreshId, '|', await githubReleaseAssetTimes());
+      return result;
     } catch (error) {
       console.warn('GSV Neon shared cache unavailable; using existing GitHub loader:', error.message);
       await fs.promises.rm(cachePath, { force: true }).catch(() => {});
@@ -384,8 +396,8 @@ async function buildSohCache(cachePath) {
   if (sharedCache.isConfigured && await isSharedCacheEnabled()) {
     try {
       const result = await sharedCache.writeActiveDatasetJson('soh', cachePath);
-      console.log('DATA SOURCE: NEON CACHE | LIVE SOH rows:', result.rows, '| NEON CACHE UPDATED:', result.loadedAt || 'unknown', '|', await githubReleaseAssetTimes());
-      return;
+      console.log('DATA SOURCE: NEON CACHE | LIVE SOH rows:', result.rows, '| NEON CACHE UPDATED:', result.loadedAt || 'unknown', '| REFRESH ID:', result.refreshId, '|', await githubReleaseAssetTimes());
+      return result;
     } catch (error) {
       console.warn('LIVE SOH Neon shared cache unavailable; using existing GitHub loader:', error.message);
       await fs.promises.rm(cachePath, { force: true }).catch(() => {});
