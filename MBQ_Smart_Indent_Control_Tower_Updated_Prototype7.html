@@ -5410,7 +5410,9 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
   const NAV_ID = 'mbqLiveSohPivotNav';
   const PAGE_ID = 'page-livepivot';
   const DETAIL_COLUMNS = [
-    ['WAREHOUSE', ['WAREHOUSE', 'Warehouse']],
+    ['WAREHOUSE', ['WAREHOUSE', 'Warehouse', 'CFA', 'Location']],
+    ['ITEM CODE', ['ItemId', 'Item ID', 'Item Code', 'ItemCode', 'FG Code', 'Product Code', 'Item No', 'MATERIAL_CODE']],
+    ['DESCRIPTION', ['DESCRIPTION', 'Description', 'ITEM DESCRIPTION', 'Item Description', 'Product Description', 'Material Description', 'Name']],
     ['BATCHNO', ['BATCHNO', 'BATCH NO', 'BATCH NUMBER', 'BATCHNUM']],
     ['MRP', ['MRP']],
     ['MFG', ['MFG', 'MFG DATE', 'MANUFACTURING DATE']],
@@ -5742,7 +5744,7 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
     ];
     rawRowsToExport.forEach(raw => aoa.push(DETAIL_COLUMNS.map(col => detailValue(raw, col[1]))));
     const ws = window.XLSX.utils.aoa_to_sheet(aoa);
-    styleExcelSheet(ws,aoa,{cols:[18,16,10,14,14,12,16,12,22,12,12,19],headerRow:3,freezeCols:1,numericCols:[2,5,6,7,10,11]});
+    styleExcelSheet(ws,aoa,{cols:[18,16,34,16,10,14,14,12,16,12,22,12,12,19],headerRow:3,freezeCols:1,numericCols:[2,5,6,7,10,11]});
     const wb = window.XLSX.utils.book_new();
     window.XLSX.utils.book_append_sheet(wb, ws, sheetName || 'LIVE SOH Details');
     window.XLSX.writeFile(wb, fileName, { compression: true });
@@ -5783,7 +5785,7 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
     ];
     detailRows.forEach(raw => detailAoa.push(DETAIL_COLUMNS.map(col => detailValue(raw, col[1]))));
     const detailWs = window.XLSX.utils.aoa_to_sheet(detailAoa);
-    styleExcelSheet(detailWs,detailAoa,{cols:[18,16,10,14,14,12,16,12,22,12,12,19],headerRow:3,freezeCols:1,numericCols:[2,5,6,7,10,11]});
+    styleExcelSheet(detailWs,detailAoa,{cols:[18,16,34,16,10,14,14,12,16,12,22,12,12,19],headerRow:3,freezeCols:1,numericCols:[2,5,6,7,10,11]});
 
     const wb=window.XLSX.utils.book_new();
     window.XLSX.utils.book_append_sheet(wb,pivotWs,'LIVE SOH Pivot');
