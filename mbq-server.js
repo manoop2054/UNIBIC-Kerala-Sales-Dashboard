@@ -178,7 +178,7 @@ async function buildMbqGsvAggregate() {
   if (sharedCache.isConfigured && await isSharedCacheEnabled()) {
     try {
       const result = await sharedCache.readMbqGsvAggregate();
-      console.log("DATA SOURCE: NEON CACHE | MBQ GSV:", result.rows, "source rows,", result.aggregateRows, "aggregate rows | NEON CACHE UPDATED:", result.loadedAt || "unknown", "|", await githubReleaseAssetTimes());
+      console.log("DATA SOURCE: NEON CACHE | MBQ GSV:", result.rows, "source rows,", result.aggregateRows, "aggregate rows | NEON CACHE UPDATED:", result.loadedAt || "unknown", "| REFRESH ID:", result.refreshId || "unknown", "| RELEASE:", result.releaseTag || "unknown", "| CHECKSUM:", result.checksum || "unknown", "|", await githubReleaseAssetTimes());
       return result;
     } catch (error) {
       console.warn("MBQ GSV Neon cache unavailable; using existing GitHub loader:", error.message);
@@ -275,7 +275,7 @@ async function loadSohRows() {
         const shared = await sharedCache.readMbqSohRows();
         const payload = { ...shared, source: "neon-shared-cache" };
         await fs.promises.writeFile(cache, JSON.stringify(payload));
-        console.log("DATA SOURCE: NEON CACHE | MBQ LIVE SOH:", payload.rows, "rows | NEON CACHE UPDATED:", payload.loadedAt || "unknown", "|", await githubReleaseAssetTimes());
+        console.log("DATA SOURCE: NEON CACHE | MBQ LIVE SOH:", payload.rows, "rows | NEON CACHE UPDATED:", payload.loadedAt || "unknown", "| REFRESH ID:", payload.refreshId || "unknown", "| RELEASE:", payload.releaseTag || "unknown", "| CHECKSUM:", payload.checksum || "unknown", "|", await githubReleaseAssetTimes());
         return payload;
       } catch (error) {
         console.warn("MBQ LIVE SOH Neon cache unavailable; using existing GitHub loader:", error.message);
