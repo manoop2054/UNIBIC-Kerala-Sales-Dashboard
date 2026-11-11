@@ -4789,7 +4789,7 @@ document.getElementById('skuCount').textContent='Loading…';renderWatch();rende
   ['stock','CFA-wise Stock'],['totracker','Open TO Tracker'],['advanced','Advanced Controls'],
   ['allocation','CFA Allocation'],['distributor','Distributor Performance'],['peak','Peak Billing Planner'],['loading','CFA Loading Plan'],
   ['flash','Daily WhatsApp Flash'],['reports','Reports & Export'],['excelview','MBQ Excel View'],['manualindent','Manual Indent Entry'],
-  ['settings','Master Data & Settings']
+  ['settings','Master Data & Settings'],['livepivot','LIVE SOH Pivot']
  ];
  let employees=[];
  const card=()=>document.getElementById('mbqEmployeeAccessCard');
@@ -5438,7 +5438,7 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
       const button = document.createElement('button');
       button.type = 'button';
       button.id = NAV_ID;
-      button.dataset.page = 'stock'; // Reuse existing CFA-wise Stock permission.
+      button.dataset.page = 'livepivot'; // Reuse existing CFA-wise Stock permission.
       button.innerHTML = '<span>▦</span>LIVE SOH Pivot';
       button.title = 'Excel-style LIVE SOH Pivot';
       const stockButton = nav.querySelector('button[data-page="stock"]');
