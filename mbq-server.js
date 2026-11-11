@@ -193,12 +193,13 @@ async function readMbqGsvCache() {
   const cache = path.join(CACHE_DIR, "gsv-aggregate.json");
   const useNeon = sharedCache.isConfigured && await isSharedCacheEnabled();
   const expectedSource = useNeon ? "neon-shared-cache" : "github";
+  const activeVersion = useNeon ? await sharedCache.getActiveDatasetVersion('gsv').catch(error => { console.warn('MBQ GSV Neon version check failed:', error.message); return null; }) : null;
   try {
     const stat = await fs.promises.stat(cache);
     const cached = JSON.parse(await fs.promises.readFile(cache, "utf8"));
     const cachedSource = cached.source === "neon-shared-cache" ? "neon-shared-cache" : "github";
     const cacheTtl = 15 * 60 * 1000;
-    if (cachedSource === expectedSource && Date.now() - stat.mtimeMs < cacheTtl) {
+    if (cachedSource === expectedSource && (!useNeon || (activeVersion && cached.refreshId === activeVersion.refreshId)) && Date.now() - stat.mtimeMs < cacheTtl) {
       if (cached.schemaVersion === 4 && Array.isArray(cached.data) && cached.data.every(row => row && /^\d{4}-\d{2}-\d{2}$/.test(String(row.date || "")))) return cached;
       console.log("MBQ GSV cache schema outdated; rebuilding with posting dates");
     }
@@ -262,12 +263,13 @@ async function loadSohRows() {
   const cache = path.join(CACHE_DIR, "soh.json");
   const useNeon = sharedCache.isConfigured && await isSharedCacheEnabled();
   const expectedSource = useNeon ? "neon-shared-cache" : "github";
+  const activeVersion = useNeon ? await sharedCache.getActiveDatasetVersion("soh").catch(error => { console.warn("MBQ LIVE SOH Neon version check failed:", error.message); return null; }) : null;
   try {
     const st = await fs.promises.stat(cache);
     const cached = JSON.parse(await fs.promises.readFile(cache, "utf8"));
     const cachedSource = cached.source === "neon-shared-cache" ? "neon-shared-cache" : "github";
     const cacheTtl = 15 * 60 * 1000;
-    if (cachedSource === expectedSource && Date.now() - st.mtimeMs < cacheTtl) return cached;
+    if (cachedSource === expectedSource && (!useNeon || (activeVersion && cached.refreshId === activeVersion.refreshId)) && Date.now() - st.mtimeMs < cacheTtl) return cached;
   } catch (_) {}
   if (!sohLoadPromise) sohLoadPromise = (async () => {
     if (sharedCache.isConfigured && await isSharedCacheEnabled()) {
