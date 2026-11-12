@@ -1,6 +1,9 @@
 name: Shared Neon reader validation
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     paths:
       - "server.js"
