@@ -1675,8 +1675,9 @@ function mbqStockReportRows(){
  const allocationRows=Array.isArray(allocationData)?allocationData:[];
  allowedCfas.forEach(cfa=>{
   if(cf!=='all'&&cf!==cfa)return;
+  const seenGroups=new Set();
   officialGroups.forEach(officialSku=>{
-   const g=groupKey(officialSku);if(!g)return;
+   const g=groupKey(officialSku);if(!g||seenGroups.has(g))return;seenGroups.add(g);
    const sourceGroup=sourceRows.find(group=>groupKey(group[0])===g),sku=String(sourceGroup?.[0]||officialSku).trim();
    const eligible=[];
    [...(itemCodesByGroup.get(g)?.values()||[])].forEach(code=>{
