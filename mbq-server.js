@@ -181,7 +181,15 @@ async function buildMbqGsvAggregate() {
       console.log("DATA SOURCE: NEON CACHE | MBQ GSV:", result.rows, "source rows,", result.aggregateRows, "aggregate rows | NEON CACHE UPDATED:", result.loadedAt || "unknown", "| REFRESH ID:", result.refreshId || "unknown", "| RELEASE:", result.releaseTag || "unknown", "| CHECKSUM:", result.checksum || "unknown", "|", await githubReleaseAssetTimes());
       return result;
     } catch (error) {
-      console.warn("MBQ GSV Neon cache unavailable; using existing GitHub loader:", error.message);
+      console.warn("MBQ GSV Neon cache unavailable:", error.message);
+      try {
+        const cache = path.join(CACHE_DIR, "gsv-aggregate.json");
+        const cached = JSON.parse(await fs.promises.readFile(cache, "utf8"));
+        if (cached && cached.schemaVersion === 4 && Array.isArray(cached.data)) {
+          console.warn("MBQ GSV: preserving last known-good local cache; Neon will be checked again on the next request.");
+          return cached;
+        }
+      } catch (_) {}
     }
   }
   return buildMbqGsvAggregateFromGitHub();
@@ -286,11 +294,20 @@ async function loadSohRows() {
       try {
         const shared = await sharedCache.readMbqSohRows();
         const payload = { ...shared, source: "neon-shared-cache" };
-        await fs.promises.writeFile(cache, JSON.stringify(payload));
+        const cacheTmp = cache + ".tmp";
+        await fs.promises.writeFile(cacheTmp, JSON.stringify(payload));
+        await fs.promises.rename(cacheTmp, cache);
         console.log("DATA SOURCE: NEON CACHE | MBQ LIVE SOH:", payload.rows, "rows | NEON CACHE UPDATED:", payload.loadedAt || "unknown", "| REFRESH ID:", payload.refreshId || "unknown", "| RELEASE:", payload.releaseTag || "unknown", "| CHECKSUM:", payload.checksum || "unknown", "|", await githubReleaseAssetTimes());
         return payload;
       } catch (error) {
-        console.warn("MBQ LIVE SOH Neon cache unavailable; using existing GitHub loader:", error.message);
+        console.warn("MBQ LIVE SOH Neon cache unavailable:", error.message);
+        try {
+          const cached = JSON.parse(await fs.promises.readFile(cache, "utf8"));
+          if (cached && Array.isArray(cached.data)) {
+            console.warn("MBQ LIVE SOH: preserving last known-good local cache; Neon will be checked again on the next request.");
+            return cached;
+          }
+        } catch (_) {}
       }
     }
     const source = path.join(CACHE_DIR, "LIVE.STOCK.xlsb");
@@ -299,7 +316,9 @@ async function loadSohRows() {
     const sheetName = wb.SheetNames.includes(SOH_SHEET) ? SOH_SHEET : wb.SheetNames[0];
     if (!sheetName) throw new Error("No worksheet found in LIVE SOH workbook");
     const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: "" });
-    await fs.promises.writeFile(cache, JSON.stringify({ data: rows, sheet: sheetName, rows: rows.length, loadedAt: new Date().toISOString() }));
+    const cacheTmp = cache + ".tmp";
+    await fs.promises.writeFile(cacheTmp, JSON.stringify({ data: rows, sheet: sheetName, rows: rows.length, loadedAt: new Date().toISOString() }));
+    await fs.promises.rename(cacheTmp, cache);
     console.log("DATA SOURCE: GITHUB LATEST RELEASE | MBQ LIVE SOH loaded:", rows.length, "rows from", sheetName, "| CACHE UPDATED:", new Date().toISOString(), "|", await githubReleaseAssetTimes());
     return { data: rows, sheet: sheetName, rows: rows.length, loadedAt: new Date().toISOString(), source: "github" };
   })().finally(() => { sohLoadPromise = null; });
