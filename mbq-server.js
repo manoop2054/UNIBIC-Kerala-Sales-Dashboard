@@ -8,6 +8,7 @@ const ExcelJS = require("exceljs");
 const { Pool } = require("pg");
 const sharedCache = require("./shared-cache/read-from-neon");
 const sharedCacheControl = require("./shared-cache/manual-control");
+const { installOpsLogging } = require("./shared-cache/ops-logger");
 const { getAccessControlPool } = require("./employee-access-control/postgres-db");
 const { authenticateCredentials, resolveSession, revokeSession, extractSessionToken, sessionCookie, clearSessionCookie, SUPER_ADMIN_ID } = require("./employee-access-control/session-auth");
 // Use explicit libpq-compatible secure SSL semantics for both isolated MBQ databases.
@@ -175,10 +176,14 @@ async function buildMbqGsvAggregateFromGitHub() {
   return payload;
 }
 async function buildMbqGsvAggregate() {
+  const runId = opsLogger.runId();
+  const runStartedAt = Date.now();
+  console.info('MBQ GSV RUN START', JSON.stringify({ runId, sourcePreference: sharedCache.isConfigured ? 'NEON_THEN_GITHUB' : 'GITHUB', sheet: GSV_SHEET }));
   if (sharedCache.isConfigured && await isSharedCacheEnabled()) {
     try {
       const result = await sharedCache.readMbqGsvAggregate();
       console.log("DATA SOURCE: NEON CACHE | MBQ GSV:", result.rows, "source rows,", result.aggregateRows, "aggregate rows | NEON CACHE UPDATED:", result.loadedAt || "unknown", "| REFRESH ID:", result.refreshId || "unknown", "| RELEASE:", result.releaseTag || "unknown", "| CHECKSUM:", result.checksum || "unknown", "|", await githubReleaseAssetTimes());
+      console.info("MBQ GSV RUN COMPLETE", JSON.stringify({ runId, source: "NEON", status: "SUCCESS", rows: result.rows, aggregateRows: result.aggregateRows, refreshId: result.refreshId || null, durationMs: Date.now() - runStartedAt }));
       return result;
     } catch (error) {
       console.warn("MBQ GSV Neon cache unavailable:", error.message);
@@ -192,7 +197,14 @@ async function buildMbqGsvAggregate() {
       } catch (_) {}
     }
   }
-  return buildMbqGsvAggregateFromGitHub();
+  try {
+    const result = await buildMbqGsvAggregateFromGitHub();
+    console.info("MBQ GSV RUN COMPLETE", JSON.stringify({ runId, source: "GITHUB", status: "SUCCESS", rows: result.rows, aggregateRows: result.aggregateRows, durationMs: Date.now() - runStartedAt, dateCoverage: result.dateCoverage }));
+    return result;
+  } catch (error) {
+    console.error("MBQ GSV RUN FAILED", JSON.stringify({ runId, source: "GITHUB_FALLBACK", durationMs: Date.now() - runStartedAt, error: error.message }));
+    throw error;
+  }
 }
 
 async function readMbqGsvCache() {
@@ -217,6 +229,7 @@ async function readMbqGsvCache() {
     }
   } catch (_) {}
   if (!gsvLoadPromise) {
+    console.info('MBQ GSV CACHE LOAD QUEUED', JSON.stringify({ cache: 'gsv-aggregate.json', reason: 'cache missing, stale, or version changed' }));
     gsvLoadError = null;
     gsvLoadPromise = buildMbqGsvAggregate().then(async result => {
       // Persist Neon results to the same local cache used by subsequent API requests.
@@ -289,7 +302,11 @@ async function loadSohRows() {
       return cached;
     }
   } catch (_) {}
-  if (!sohLoadPromise) sohLoadPromise = (async () => {
+  if (!sohLoadPromise) {
+    const runId = opsLogger.runId();
+    const runStartedAt = Date.now();
+    console.info("MBQ LIVE SOH RUN START", JSON.stringify({ runId, sourcePreference: useNeon ? "NEON_THEN_GITHUB" : "GITHUB", cache: "soh.json" }));
+    sohLoadPromise = (async () => {
     if (sharedCache.isConfigured && await isSharedCacheEnabled()) {
       try {
         const shared = await sharedCache.readMbqSohRows();
@@ -321,11 +338,19 @@ async function loadSohRows() {
     await fs.promises.rename(cacheTmp, cache);
     console.log("DATA SOURCE: GITHUB LATEST RELEASE | MBQ LIVE SOH loaded:", rows.length, "rows from", sheetName, "| CACHE UPDATED:", new Date().toISOString(), "|", await githubReleaseAssetTimes());
     return { data: rows, sheet: sheetName, rows: rows.length, loadedAt: new Date().toISOString(), source: "github" };
-  })().finally(() => { sohLoadPromise = null; });
+    })().then(result => {
+      console.info("MBQ LIVE SOH RUN COMPLETE", JSON.stringify({ runId, source: result.source || "GITHUB", status: "SUCCESS", rows: result.rows || (result.data || []).length, refreshId: result.refreshId || null, durationMs: Date.now() - runStartedAt, loadedAt: result.loadedAt || null }));
+      return result;
+    }, error => {
+      console.error("MBQ LIVE SOH RUN FAILED", JSON.stringify({ runId, durationMs: Date.now() - runStartedAt, error: error.message }));
+      throw error;
+    }).finally(() => { sohLoadPromise = null; });
+  }
   return sohLoadPromise;
 }
 
 const app = express();
+const opsLogger = installOpsLogging({ service: "MBQ-SMART-INDENT-DASHBOARD", app });
 const PORT = process.env.PORT || 10000;
 
 // Respect the shared endpoint's global ON/OFF switch before opening a Neon
@@ -1016,5 +1041,5 @@ app.get("/", (req, res) => {
 });
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`MBQ Smart Indent Dashboard running on port ${PORT}`);
+  console.info("SERVICE STARTED", JSON.stringify({ port: PORT, environment: process.env.NODE_ENV || "production", timezone: "Asia/Kolkata", release: process.env.RENDER_GIT_COMMIT || "unknown", instance: process.env.RENDER_INSTANCE_ID || "unknown" }));
 });
