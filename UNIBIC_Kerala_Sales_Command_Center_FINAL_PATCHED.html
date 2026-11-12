@@ -9687,4 +9687,122 @@ document.addEventListener('click', function(event){
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
 </script>
+
+<style id="manual-neon-sync-style">
+#sharedCacheControl{display:none!important}body.manual-neon-sync-authorized #sharedCacheControl{display:inline-flex!important}
+#manualNeonSyncPanel{display:inline-flex;align-items:center;gap:7px;margin:4px 8px 4px 0;font:600 11px/1.35 Arial,sans-serif;flex-wrap:wrap}
+#manualNeonSyncPanel .sync-state{padding:6px 9px;border:1px solid #cbd5e1;border-radius:99px;background:#f3f6fa;color:#334155}
+#manualNeonSyncPanel .sync-state.running{background:#fff7e6;border-color:#f3d18a;color:#8a5a00}
+#manualNeonSyncPanel .sync-state.success{background:#e8f7ef;border-color:#b8e4cb;color:#147a54}
+#manualNeonSyncPanel .sync-state.failed{background:#fff0f0;border-color:#f2c4c8;color:#b42332}
+#manualNeonSyncPanel button{border:1px solid #1d4ed8;border-radius:8px;background:#1d4ed8;color:#fff;padding:7px 11px;font-weight:700;font-size:11px;cursor:pointer}
+#manualNeonSyncPanel button:disabled{opacity:.55;cursor:not-allowed}
+#manualNeonSyncPanel details{position:relative}
+#manualNeonSyncPanel summary{cursor:pointer;color:#334155;font-weight:700;padding:6px 8px;border:1px solid #cbd5e1;border-radius:8px;background:#fff}
+#manualNeonSyncPanel .sync-details{position:absolute;z-index:9999;right:0;top:30px;width:min(560px,88vw);max-height:65vh;overflow:auto;padding:12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#1e293b;box-shadow:0 12px 35px rgba(15,23,42,.18);font:12px/1.5 Arial,sans-serif;white-space:normal}
+#manualNeonSyncPanel .sync-details table{width:100%;border-collapse:collapse;margin:7px 0 12px}
+#manualNeonSyncPanel .sync-details th,#manualNeonSyncPanel .sync-details td{border-bottom:1px solid #e2e8f0;padding:5px;text-align:left;vertical-align:top;word-break:break-word}
+#manualNeonSyncPanel .sync-details th{background:#f8fafc}
+#manualNeonSyncPanel .sync-details code{font-size:10px;word-break:break-all}
+@media(max-width:760px){#manualNeonSyncPanel{width:100%;margin:5px 0}#manualNeonSyncPanel .sync-details{right:auto;left:0}}
+</style>
+<script id="manual-neon-sync-superadmin">
+(function(){
+ 'use strict';
+ var panel=null,busy=false,attempts=0,pollCount=0;
+ var host=document.querySelector('.top .actions')||document.querySelector('.top-right');
+ if(!host)return;
+ function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+ function time(v){if(!v)return 'Unavailable';var d=new Date(v);return Number.isNaN(d.getTime())?'Unavailable':d.toLocaleString('en-IN',{timeZone:'Asia/Kolkata',hour12:true})+' IST';}
+ function size(v){var n=Number(v)||0;return n?((n/1048576).toFixed(2)+' MB'):'Unavailable';}
+ function ensure(){
+  if(panel)return panel;
+  panel=document.createElement('div');panel.id='manualNeonSyncPanel';
+  panel.innerHTML='<span class="sync-state">Neon Sync: checking</span><button type="button" disabled>Checking…</button><details><summary>Sync Details</summary><div class="sync-details">Loading diagnostics…</div></details>';
+  var before=document.getElementById('refresh')||document.getElementById('month');
+  if(before&&before.parentNode===host)host.insertBefore(panel,before);else host.appendChild(panel);
+  panel.querySelector('button').addEventListener('click',push);
+  return panel;
+ }
+ function sourceTable(rows){
+  if(!Array.isArray(rows)||!rows.length)return '<p>No active Neon cache record available.</p>';
+  return '<table><thead><tr><th>Source</th><th>Rows</th><th>Refresh ID</th><th>Cache Updated</th></tr></thead><tbody>'+
+   rows.map(function(x){return '<tr><td><b>'+esc(x.source)+'</b><br>'+esc(x.status||'')+'</td><td>'+esc(Number(x.rows||0).toLocaleString('en-IN'))+'</td><td><code>'+esc(x.refreshId||'Unavailable')+'</code></td><td>'+esc(time(x.completedAt))+'</td></tr>';}).join('')+
+   '</tbody></table>';
+ }
+ function renderDetails(data){
+  var d=data.diagnostics||{},g=d.github||{},assets=g.assets||{},run=d.latestRun||null;
+  var html='<b>GitHub Latest Release:</b> '+esc(g.tag||'Unavailable')+
+   '<table><thead><tr><th>Excel</th><th>Last Upload</th><th>File Size</th></tr></thead><tbody>';
+  ['GSV','LIVE_SOH'].forEach(function(key){var a=assets[key]||{};html+='<tr><td>'+esc(key==='GSV'?'GSV':'LIVE SOH')+'</td><td>'+esc(time(a.uploadedAt))+'</td><td>'+esc(size(a.sizeBytes))+'</td></tr>';});
+  html+='</tbody></table><b>Currently Active Neon Cache</b>'+sourceTable(d.activeDatasets);
+  if(run){
+   html+='<b>Last Manual Push</b><p>Status: <b>'+esc(String(run.status||'').toUpperCase())+'</b><br>Started: '+esc(time(run.startedAt))+'<br>Completed: '+esc(time(run.completedAt))+'<br>Release: '+esc(run.release||'Unavailable')+'<br>Run ID: <code>'+esc(run.runId||'')+'</code></p>';
+   var results=run.sourceResults||{};
+   html+='<table><thead><tr><th>Source</th><th>Result</th><th>Old Refresh ID</th><th>Active Refresh ID</th><th>Rows</th></tr></thead><tbody>';
+   ['GSV','LIVE_SOH'].forEach(function(key){var x=results[key]||{};html+='<tr><td>'+esc(key)+'</td><td><b>'+esc(x.status|| (run.status==='running'?'Import in progress':'Not recorded'))+'</b></td><td><code>'+esc(x.oldRefreshId||'—')+'</code></td><td><code>'+esc(x.activeRefreshId||'—')+'</code></td><td>'+esc(x.rows==null?'—':Number(x.rows).toLocaleString('en-IN'))+'</td></tr>';});
+   html+='</tbody></table>';
+   if(run.error)html+='<p style="color:#b42332"><b>Error:</b> '+esc(run.error)+'</p>';
+   if(Array.isArray(run.logs)&&run.logs.length)html+='<details><summary>Importer log</summary><pre style="white-space:pre-wrap;max-height:220px;overflow:auto">'+esc(run.logs.join('\n'))+'</pre></details>';
+  }else html+='<p>No manual push has been recorded yet.</p>';
+  if(data.diagnosticsError)html+='<p style="color:#b42332"><b>Diagnostics unavailable:</b> '+esc(data.diagnosticsError)+'</p>';
+  return html;
+ }
+ function render(data){
+  document.body.classList.add('manual-neon-sync-authorized');
+  ensure();
+  var d=data.diagnostics||{},run=d.latestRun||null,state=run&&run.status==='running'?'running':run&&run.status==='failed'?'failed':run&&run.status==='success'?'success':'';
+  var status=panel.querySelector('.sync-state'),button=panel.querySelector('button');
+  status.className='sync-state '+state;
+  status.textContent=state==='running'?'Neon Sync: RUNNING':state==='success'?'Neon Sync: SUCCESS':state==='failed'?'Neon Sync: FAILED':'Neon Sync: READY';
+  button.disabled=busy||state==='running';
+  button.textContent=state==='running'?'Sync in progress…':'Push Both Excel to Neon';
+  panel.querySelector('.sync-details').innerHTML=renderDetails(data);
+ }
+ async function getStatus(){
+  var r=await fetch('/api/shared-cache/control',{credentials:'same-origin',cache:'no-store'});
+  var d=await r.json().catch(function(){return{}});
+  if(r.status===401||r.status===403){document.body.classList.remove('manual-neon-sync-authorized');if(panel){panel.remove();panel=null;}var oldControl=document.getElementById('sharedCacheControl');if(oldControl)oldControl.remove();return {authorized:false};}
+  if(!r.ok||!d.success)throw new Error(d.error||('HTTP '+r.status));
+  render(d);return {authorized:true,data:d};
+ }
+ async function poll(){
+  try{
+   var result=await getStatus();
+   if(!result.authorized)return;
+   var run=result.data.diagnostics&&result.data.diagnostics.latestRun;
+   if(run&&run.status==='running'&&pollCount<500){pollCount++;setTimeout(poll,3000);}
+   else{busy=false;pollCount=0;render(result.data);}
+  }catch(e){if(pollCount<500){pollCount++;setTimeout(poll,5000);}else{busy=false;pollCount=0;}}
+ }
+ async function push(){
+  if(busy||!panel)return;
+  if(!window.confirm('Push the latest GSV and LIVE SOH Excel files from GitHub into Neon cache? Both dashboards will use the new cache after successful activation.'))return;
+  busy=true;pollCount=0;var b=panel.querySelector('button');b.disabled=true;b.textContent='Starting…';
+  panel.querySelector('.sync-state').textContent='Neon Sync: STARTING';
+  try{
+   var r=await fetch('/api/shared-cache/push',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+   var d=await r.json().catch(function(){return{}});
+   if(!r.ok||!d.success)throw new Error(d.error||('HTTP '+r.status));
+   setTimeout(poll,1200);
+  }catch(e){
+   busy=false;b.disabled=false;b.textContent='Push Both Excel to Neon';
+   panel.querySelector('.sync-state').className='sync-state failed';
+   panel.querySelector('.sync-state').textContent='Neon Sync: FAILED';
+   panel.querySelector('.sync-details').innerHTML='<b>Push could not start:</b> '+esc(e.message);
+   window.alert('GitHub to Neon push failed: '+e.message);
+  }
+ }
+ async function start(){
+  try{
+   var result=await getStatus();
+   if(!result.authorized&&attempts<60){attempts++;setTimeout(start,1500);return;}
+   if(result.authorized){var run=result.data.diagnostics&&result.data.diagnostics.latestRun;if(run&&run.status==='running'){busy=true;pollCount=0;setTimeout(poll,1500);}}
+  }catch(e){if(attempts<20){attempts++;setTimeout(start,2000);}}
+ }
+ window.refreshManualNeonSyncStatus=start;
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+})();
+</script>
+
 </body></html>
