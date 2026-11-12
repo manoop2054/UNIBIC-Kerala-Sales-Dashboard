@@ -14,8 +14,10 @@ const { mountAccessControlRoutes } = require('./employee-access-control/access-c
 const { createDashboardSessionGuard, sendScopedJsonCache } = require('./employee-access-control/dashboard-data-security');
 const sharedCache = require('./shared-cache/read-from-neon');
 const sharedCacheControl = require('./shared-cache/manual-control');
+const { installOpsLogging } = require('./shared-cache/ops-logger');
 
 const app = express();
+const opsLogger = installOpsLogging({ service: 'KERALA-SALES-DASHBOARD', app });
 // Render terminates HTTPS at its trusted proxy; use one proxy hop for req.ip rate limiting.
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '24kb' }));
@@ -344,6 +346,9 @@ async function getCache(name, builder) {
   } catch (_) {}
   if (!stale) return cachePath;
   if (!inFlight.has(name)) {
+    const refreshRunId = opsLogger.runId();
+    const refreshStartedAt = performance.now();
+    console.info('CACHE RUN START', JSON.stringify({ runId: refreshRunId, cache: name, requestedSource: sourceMode, cachedSource: cachedSource || 'unknown', cacheExists: exists, activeRefreshId: activeVersion && activeVersion.refreshId || null }));
     inFlight.set(name, (async () => {
       try {
         const buildResult = await builder(cachePath);
@@ -351,15 +356,19 @@ async function getCache(name, builder) {
         const refreshId = actualSource === 'neon' && buildResult.refreshId ? buildResult.refreshId : null;
         await fs.promises.writeFile(sourceMarker, JSON.stringify({ source: actualSource, refreshId, updatedAt: new Date().toISOString() }), 'utf8');
         await fs.promises.rm(cachePath + '.gz', { force: true }).catch(() => {});
-        console.log('CACHE REFRESHED:', name, '| SOURCE:', actualSource.toUpperCase(), buildResult && buildResult.reusedLastGood ? '| STATUS: LAST KNOWN-GOOD' : '', '| CACHE UPDATED:', new Date().toISOString());
+        console.info('CACHE RUN COMPLETE', JSON.stringify({ runId: refreshRunId, cache: name, source: actualSource, status: buildResult && buildResult.reusedLastGood ? 'LAST_KNOWN_GOOD' : 'REFRESHED', refreshId, durationMs: Number((performance.now() - refreshStartedAt).toFixed(1)), cacheUpdatedAt: new Date().toISOString() }));
       } catch (error) {
         if (exists) {
-          console.warn('Cache refresh failed; keeping last good cache:', name, error.message);
+          console.error('CACHE RUN FAILED - LAST KNOWN-GOOD RETAINED', JSON.stringify({ runId: refreshRunId, cache: name, source: sourceMode, durationMs: Number((performance.now() - refreshStartedAt).toFixed(1)), error: error.message }));
           return cachePath;
         }
+        console.error('CACHE RUN FAILED - NO LOCAL CACHE', JSON.stringify({ runId: refreshRunId, cache: name, source: sourceMode, durationMs: Number((performance.now() - refreshStartedAt).toFixed(1)), error: error.message }));
         throw error;
       }
     })().finally(() => inFlight.delete(name)));
+  }
+  } else {
+    console.info('CACHE RUN JOINED', JSON.stringify({ cache: name, reason: 'another request is already refreshing this cache' }));
   }
   await inFlight.get(name);
   return cachePath;
@@ -663,7 +672,7 @@ sharedCacheControl.mount(app, {
 });
 
 app.listen(PORT, () => {
-  console.log('Server running on', PORT);
+  console.info('SERVICE STARTED', JSON.stringify({ port: PORT, environment: process.env.NODE_ENV || 'production', timezone: 'Asia/Kolkata', release: process.env.RENDER_GIT_COMMIT || 'unknown', instance: process.env.RENDER_INSTANCE_ID || 'unknown' }));
   // Initialize the isolated Employee Access Control database without blocking
   // startup of the existing dashboard if PostgreSQL is unavailable.
   initializeAccessControlDatabase()
