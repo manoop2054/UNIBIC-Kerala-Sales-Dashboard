@@ -2588,8 +2588,7 @@ function printToReport(mode='details'){
  const w=window.open('','_blank');if(!w){showToast('Print popup അനുവദിക്കുക.');return;}
  const title=summary?'Summary':'Item Details';
  const html=`<!doctype html><html><head><meta charset="utf-8"><title>Open TO Report</title><style>body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}</style></head><body><h2>Open TO ${escapeToHtml(title)}</h2><table><thead><tr>${heads}</tr></thead><tbody>${rows}</tbody></table><script>window.onload=function(){window.focus();window.print();};<\\/script></body></html>`;
- w.document.open();w.document.write(html);w.document.close();w.focus();
-}w.focus();w.print();
+ w.document.open();w.document.write(html);w.document.close();w.focus();w.print();
 }
 (function(){
  const cfas=[{key:'ALU',label:'ALU CFA',cls:'flash-cfa-alu'},{key:'TVD',label:'TVD CFA',cls:'flash-cfa-tvd'},{key:'PAY',label:'PAY CFA',cls:'flash-cfa-pay'}];
