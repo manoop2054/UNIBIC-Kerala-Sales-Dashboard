@@ -73,7 +73,7 @@ function writeChunk(stream, chunk) {
 
 async function getActiveDatasetVersion(kind) {
   if (!pool) throw new Error('SHARED_CACHE_DATABASE_URL is not configured');
-  const client = await pool.connect();
+  const client = await connectWithRetry();
   try {
     const meta = await activeDataset(client, kind);
     return { refreshId: meta.refresh_id, updatedAt: meta.dataset_completed_at || meta.updated_at, releaseTag: meta.release_tag, assetName: meta.asset_name, checksum: meta.file_checksum, rows: Number(meta.row_count || 0) };
@@ -83,7 +83,7 @@ async function getActiveDatasetVersion(kind) {
 async function writeActiveDatasetJson(kind, filePath, transform) {
   if (!pool) throw new Error('SHARED_CACHE_DATABASE_URL is not configured');
   const table = kind === 'gsv' ? 'gsv_sales' : 'live_stock';
-  const client = await pool.connect();
+  const client = await connectWithRetry();
   const temp = filePath + '.neon.tmp';
   let stream;
   try {
@@ -131,7 +131,7 @@ async function writeActiveDatasetJson(kind, filePath, transform) {
 async function readActiveRows(kind) {
   if (!pool) throw new Error('SHARED_CACHE_DATABASE_URL is not configured');
   const table = kind === 'gsv' ? 'gsv_sales' : 'live_stock';
-  const client = await pool.connect();
+  const client = await connectWithRetry();
   try {
     const meta = await activeDataset(client, kind);
     const expected = Number(meta.row_count || 0);
@@ -160,7 +160,7 @@ async function readActiveRows(kind) {
 
 async function readMbqGsvAggregate() {
   if (!pool) throw new Error('SHARED_CACHE_DATABASE_URL is not configured');
-  const client = await pool.connect();
+  const client = await connectWithRetry();
   try {
     const meta = await activeDataset(client, 'gsv');
     // Preferred path: the importer materializes this exact aggregation when
