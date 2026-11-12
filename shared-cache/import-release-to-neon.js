@@ -9,7 +9,7 @@ const ExcelJS=require('exceljs'),XLSX=require('xlsx'),{Pool}=require('pg');
 const REPO='manoop2054/UNIBIC-Kerala-Sales-Dashboard';
 const GSV='KL.LIVE.GSV.LINK-MANOOB.xlsx',SOH='LIVE.STOCK.xlsb';
 const GSV_SHEET=process.env.GSV_SHEET_NAME||'ACX_Sales_Register',SOH_SHEET=process.env.SOH_SHEET_NAME||'LIVE STOCK REPORT';
-const DIR=path.join(os.tmpdir(),'unibic-neon-import'),BATCH=100;
+const DIR=path.join(os.tmpdir(),'unibic-neon-import'),BATCH=1000;
 const pool=new Pool({connectionString:process.env.SHARED_CACHE_DATABASE_URL,ssl:process.env.SHARED_CACHE_SSL==='false'?false:{rejectUnauthorized:false},max:2,connectionTimeoutMillis:15000,statement_timeout:120000});
 function get(url,n=0){return new Promise((resolve,reject)=>{if(n>8)return reject(Error('Too many redirects'));const c=url.startsWith('https:')?https:http;const headers={'User-Agent':'UNIBIC-Shared-Cache-Importer','Accept':'application/vnd.github+json'};if(url.startsWith('https://api.github.com/')&&process.env.GITHUB_TOKEN)headers.Authorization='Bearer '+process.env.GITHUB_TOKEN;const q=c.get(url,{headers},r=>{if([301,302,303,307,308].includes(r.statusCode)&&r.headers.location){r.resume();return resolve(get(new URL(r.headers.location,url).toString(),n+1));}if(r.statusCode!==200){r.resume();return reject(Error('HTTP '+r.statusCode+' for '+url));}const a=[];r.on('data',x=>a.push(x));r.on('end',()=>resolve(Buffer.concat(a)));r.on('error',reject);});q.setTimeout(180000,()=>q.destroy(Error('Download timeout')));q.on('error',reject);});}
 async function download(url,file){
