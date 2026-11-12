@@ -1425,6 +1425,21 @@ function exportAISuggestedIndentExcel(){
    }
   }
   styleBody(ws2,5,aoa2.length-1,pivotHeaders.length,{riskColumns:[2+metrics.length-2,2+2*metrics.length-2,2+3*metrics.length-2]});
+  const cfaBodyFills={TVD:['FFFCF6','FFF8ED'],PAY:['F8FBFF','EFF6FF'],ALU:['F7FDF9','EFFCF5']};
+  for(let r=5;r<aoa2.length;r++){
+   cfaNames.forEach((cfa,block)=>{
+    const fills=cfaBodyFills[cfa],startCol=2+block*metrics.length;
+    for(let j=0;j<metrics.length;j++){
+     const cell=ws2[XLSX.utils.encode_cell({r,c:startCol+j})];if(!cell)continue;
+     cell.s={...(cell.s||{}),fill:{patternType:'solid',fgColor:{rgb:fills[r%2]}},border,alignment:{vertical:'center',horizontal:j===6?'center':j===7?'left':'right',wrapText:j===7}};
+    }
+    const riskCell=ws2[XLSX.utils.encode_cell({r,c:startCol+6})];
+    if(riskCell){
+     const v=String(riskCell.v||'').toLowerCase(),bg=v==='high'?'FCE4D6':v==='review'?'FFF2CC':v==='normal'?'E2F0D9':'E7E6E6',fg=v==='high'?'C00000':v==='review'?'9C6500':v==='normal'?'548235':'666666';
+     riskCell.s={font:{name:'Aptos',sz:9,bold:true,color:{rgb:fg}},fill:{patternType:'solid',fgColor:{rgb:bg}},alignment:{horizontal:'center',vertical:'center'},border};
+    }
+   });
+  }
   ws2['!cols']=[{wch:28},{wch:16},...cfaNames.flatMap(()=>[{wch:18},{wch:14},{wch:13},{wch:22},{wch:15},{wch:18},{wch:13},{wch:25}])];
   ws2['!rows'][3]={hpt:26};ws2['!rows'][4]={hpt:38};
   ws2['!autofilter']={ref:XLSX.utils.encode_range({s:{r:4,c:0},e:{r:Math.max(4,aoa2.length-1),c:pivotHeaders.length-1}})};
