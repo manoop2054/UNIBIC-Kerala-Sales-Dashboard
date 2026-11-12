@@ -1089,7 +1089,7 @@ body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,t
         <div class="excel-stat"><small>Closed PO CBB</small><strong id="mbqPoCloseCbb">—</strong><span class="mbq-fr-foot">Closed PO quantity</span></div>
         <div class="excel-stat"><small>Overall Fill Rate</small><strong id="mbqPoFillRate">—</strong><span class="mbq-fr-foot">Invoice CBB ÷ PO CBB</span></div>
       </div>
-      <div class="card-head" style="padding:18px 18px 10px"><div><h3>DBR-wise Fill Rate</h3><small>DBR Code is taken from Ship To Code in the Fill Rate Report.</small></div></div>
+      <div class="card-head" style="padding:18px 18px 10px"><div><h3>DBR-wise Fill Rate</h3><small>DBR Code is taken from Ship To Code in the Fill Rate Report.</small></div><button class="btn" type="button" onclick="mbqExportDbrFillRateExcel()">⇩ Export Excel</button></div>
       <div class="excel-toolbar mbq-fr-filters">
         <div class="field"><label for="mbqPoCfaSelect">CFA</label><select id="mbqPoCfaSelect" onchange="renderMbqPoPreview()"><option value="ALL">All CFA</option></select></div>
         <div class="field"><label for="mbqFrDbrCode">DBR Code · Ship To Code</label><select id="mbqFrDbrCode" onchange="renderMbqPoPreview()"><option value="ALL">All DBRs</option></select></div>
@@ -4696,6 +4696,77 @@ function renderMbqFillRateAnalysis(){
  const skuHtml=skuRows.sort((a,b)=>a.code.localeCompare(b.code)||a.sku.localeCompare(b.sku)).map(a=>{const q=a.po>0?mbqFrRate(a.invoice,a.po):null,balance=a.po-a.invoice;return '<tr'+(a.manual?' style="background:#fee2e2;color:#991b1b;font-weight:700" title="GSV item not found in uploaded PO lines"':'')+'><td>'+mbqEscape(a.code||'—')+'</td><td>'+mbqEscape(a.sku)+'</td><td>'+fmt(a.po)+'</td><td>'+(gsv.available?fmt(a.invoice):'No Data Available')+'</td><td class="mbq-fr-balance '+(balance<0?'negative':'')+'">'+(gsv.available?fmt(balance):'No Data Available')+'</td><td class="mbq-fr-rate">'+(q===null?(gsv.available?'N/A':'No Data Available'):q.toFixed(1)+'%')+'</td><td>'+fmt(a.rows)+'</td></tr>';}).join('');
  mbqRenderFrTable('mbqSkuFillRateHost',['DBR Code','SKU Group / Item','PO CBB','Invoice CBB','Balance CBB','Fill Rate %','PO Lines'],skuHtml,'No DBR / SKU Group rows match the selected filters.');
  const gsvHost=document.getElementById('mbqGsvDbrHost');if(gsvHost){if(gsv.available){const gh=dbrs.map(a=>{const code=mbqCodeKey(a.key);return '<tr><td>'+mbqEscape(a.key)+'</td><td>'+mbqEscape(a.name||gsv.dbrNames.get(code)||'—')+'</td><td>'+fmt(gsv.dbrTotals.get(code)||0)+'</td><td>GSV connected</td></tr>';}).join('');mbqRenderFrTable('mbqGsvDbrHost',['DBR Code','DBR Name','Current Month GSV Billing CBB','Source'],gh,'No GSV customer rows found.');}else gsvHost.innerHTML='<div class="excel-empty">GSV data is not available. Invoice CBB is not taken from the uploaded report.</div>';}
+}
+function mbqExportDbrFillRateExcel(){
+ if(!window.XLSX){showToast('Excel library loading. Refresh ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.');return;}
+ if(!Array.isArray(mbqPoRecords)||!mbqPoRecords.length){showToast('Fill Rate Report data ലഭ്യമല്ല.');return;}
+ const filtered=mbqFrFilteredRows();
+ if(!filtered.length){showToast('Selected filters-ൽ export ചെയ്യാൻ DBR rows ലഭ്യമല്ല.');return;}
+ const cfaSel=document.getElementById('mbqPoCfaSelect')?.value||'ALL';
+ const codeSel=document.getElementById('mbqFrDbrCode')?.value||'ALL';
+ const nameSel=document.getElementById('mbqFrDbrName')?.value||'ALL';
+ const skuSel=document.getElementById('mbqFrSkuGroup')?.value||'ALL';
+ const searchSel=mbqText(document.getElementById('mbqPoSearch')?.value).toLowerCase();
+ const gsv=mbqFrBuildGsvSkuMap(cfaSel,codeSel,nameSel,skuSel,searchSel);
+ const dbrs=mbqFrAggregate(filtered,mbqFrDbr).sort((a,b)=>a.key.localeCompare(b.key));
+ const fmt=mbqFrFmt;
+ const dbrRows=dbrs.map(a=>{
+  const code=mbqCodeKey(a.key),invoice=gsv.dbrTotals.get(code)||0;
+  const itemList=[...a.items.values()];
+  const itemDone=itemList.filter(x=>x.po>0&&(gsv.items.get(code+'||'+x.sku)?.invoice||0)>=x.po).length;
+  return [a.key,a.name||gsv.dbrNames.get(code)||'—',a.po,gsv.available?invoice:'No Data Available',gsv.available?a.po-invoice:'No Data Available',gsv.available&&a.po>0?invoice/a.po:null,itemList.length?itemDone/itemList.length:null,a.rows];
+ });
+ const codeToGroup=new Map();
+ if(!mbqSkuCodesByGroup.size&&typeof mbqBuildSkuGroupCodeIndex==='function')mbqBuildSkuGroupCodeIndex();
+ mbqSkuCodesByGroup.forEach((codes,group)=>codes.forEach(code=>{if(!codeToGroup.has(mbqCodeKey(code)))codeToGroup.set(mbqCodeKey(code),group);}));
+ const poMap=new Map();
+ filtered.forEach(r=>{
+  const code=mbqFrDbr(r),sku=mbqFrRowSku(r,codeToGroup);
+  if(!code||!sku)return;
+  const key=mbqCodeKey(code)+'||'+sku;
+  let a=poMap.get(key);if(!a){a={code,sku,po:0,rows:0};poMap.set(key,a);}
+  a.po+=mbqFrNum(mbqPoVal(r,['PO_QTY']));a.rows++;
+ });
+ const skuRows=[];
+ poMap.forEach((a,key)=>{const invoice=gsv.items.get(key)?.invoice||0;skuRows.push({...a,invoice,manual:a.po<=0&&invoice>0});});
+ if(gsv.available)gsv.items.forEach((a,key)=>{if(!poMap.has(key))skuRows.push({code:a.code,sku:a.sku,po:0,invoice:a.invoice,rows:0,manual:true});});
+ skuRows.sort((a,b)=>a.code.localeCompare(b.code)||a.sku.localeCompare(b.sku));
+ const skuData=skuRows.map(a=>[a.code,a.sku,a.po,gsv.available?a.invoice:'No Data Available',gsv.available?a.po-a.invoice:'No Data Available',gsv.available&&a.po>0?a.invoice/a.po:null,a.rows,a.manual?'GSV item not found in uploaded PO lines':'']);
+ const gsvRows=gsv.available?dbrs.map(a=>{const code=mbqCodeKey(a.key);return [a.key,a.name||gsv.dbrNames.get(code)||'—',gsv.dbrTotals.get(code)||0,'GSV connected'];}):[['No Data Available','No Data Available','No Data Available','GSV source unavailable']];
+ const sourceHeaders=(Array.isArray(mbqPoHeaders)&&mbqPoHeaders.length?mbqPoHeaders:Object.keys(filtered[0]||{}));
+ const sourceLabels={CFA:'CFA',SHIP_TO_CODE:'DBR Code · Ship To Code',SHIP_TO_NAME:'DBR Name',BILL_TO_NAME:'DBR / Bill To Name',PO_NUMBER:'PO Number',PO_OPEN_CLOSE:'PO Open / Close',PO_DATE:'PO Date',ARTICLE_CODE:'Article Code',FG_CODE:'FG Code',FG_DESCRIPTION:'FG Description',SKU_GROUP:'SKU Group',PO_QTY:'PO CBB',INVOICE_QTY:'Invoice CBB',DIFF_QTY:'Diff. Qty',PERC:'Source Fill Rate %'};
+ const sourceRows=filtered.map(r=>sourceHeaders.map(h=>r[h]??''));
+ const wb=XLSX.utils.book_new();
+ const addSheet=(name,headers,rows,opts={})=>{
+  const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
+  const endRow=Math.max(0,rows.length),endCol=Math.max(0,headers.length-1);
+  ws['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:endRow,c:endCol}})};
+  ws['!freeze']={xSplit:0,ySplit:1};
+  ws['!cols']=headers.map((h,i)=>({wch:Math.min(38,Math.max(13,String(h).length+3,...rows.slice(0,250).map(r=>String(r[i]??'').length+2)))}));
+  for(let c=0;c<headers.length;c++){const cell=ws[XLSX.utils.encode_cell({r:0,c})];if(cell)cell.s={fill:{patternType:'solid',fgColor:{rgb:'17365D'}},font:{name:'Aptos',sz:10,bold:true,color:{rgb:'FFFFFF'}},alignment:{vertical:'center',horizontal:'center',wrapText:true},border:{bottom:{style:'medium',color:{rgb:'0EA5A4'}}}};}
+  for(let r=0;r<rows.length;r++){
+   for(let c=0;c<headers.length;c++){
+    const cell=ws[XLSX.utils.encode_cell({r:r+1,c})];if(!cell)continue;
+    cell.s={font:{name:'Aptos',sz:9,color:{rgb:'24364B'}},alignment:{vertical:'center',horizontal:opts.leftCols&&opts.leftCols.includes(c)?'left':(typeof rows[r][c]==='number'?'right':'left'),wrapText:true},fill:{patternType:'solid',fgColor:{rgb:r%2?'F3F6FA':'FFFFFF'}},border:{bottom:{style:'thin',color:{rgb:'D9E2F0'}}}};
+   }
+   (opts.percentCols||[]).forEach(c=>{const cell=ws[XLSX.utils.encode_cell({r:r+1,c})];if(cell&&typeof rows[r][c]==='number')cell.z='0.0%';});
+   (opts.negativeCols||[]).forEach(c=>{const cell=ws[XLSX.utils.encode_cell({r:r+1,c})];if(cell&&typeof rows[r][c]==='number'&&rows[r][c]<0)cell.s={font:{name:'Aptos',sz:9,bold:true,color:{rgb:'C00000'}},fill:{patternType:'solid',fgColor:{rgb:'FCE4D6'}},alignment:{horizontal:'right',vertical:'center'}};});
+   if(opts.statusCol!==undefined){const cell=ws[XLSX.utils.encode_cell({r:r+1,c:opts.statusCol})];if(cell&&String(rows[r][opts.statusCol]||'').startsWith('GSV item'))cell.s={font:{name:'Aptos',sz:9,bold:true,color:{rgb:'9C0006'}},fill:{patternType:'solid',fgColor:{rgb:'FCE4D6'}},alignment:{vertical:'center',wrapText:true}};}
+  }
+  XLSX.utils.book_append_sheet(wb,ws,name);
+ };
+ addSheet('DBR Summary',['DBR Code','DBR Name','PO CBB','Invoice CBB','Balance CBB','Quantity Fill Rate %','Item Fill Rate %','PO Lines'],dbrRows,{percentCols:[5,6],negativeCols:[4]});
+ addSheet('SKU Group Details',['DBR Code','SKU Group / Item','PO CBB','Invoice CBB','Balance CBB','Fill Rate %','PO Lines','Review'],skuData,{percentCols:[5],negativeCols:[4],statusCol:7});
+ addSheet('GSV Billing',['DBR Code','DBR Name','Current Month GSV Billing CBB','Source'],gsvRows);
+ addSheet('PO Source Lines',sourceHeaders.map(h=>sourceLabels[h]||h),sourceRows);
+ const filters=['CFA: '+cfaSel,'DBR Code: '+codeSel,'DBR Name: '+nameSel,'SKU Group: '+skuSel,'Search: '+(searchSel||'All'),'Source File: '+(mbqPoFileName||'Name unavailable'),'Exported: '+new Date().toLocaleString('en-IN')];
+ const info=XLSX.utils.aoa_to_sheet([['DBR-wise Fill Rate · Export Details'],...filters.map(x=>[x])]);
+ info['!cols']=[{wch:34},{wch:55}];
+ const title=info['A1'];if(title)title.s={font:{name:'Aptos',sz:14,bold:true,color:{rgb:'17365D'}}};
+ XLSX.utils.book_append_sheet(wb,info,'Export Info');
+ const stamp=new Date().toISOString().slice(0,10);
+ XLSX.writeFile(wb,'DBR_Wise_Fill_Rate_'+stamp+'_Colour.xlsx',{compression:true});
+ showToast('DBR-wise Fill Rate: 5-sheet colour Excel downloaded.');
 }
 function renderMbqPoPreview(){
  const fileStatus=document.getElementById('mbqPoUploadStatus');if(fileStatus){const hasName=!!mbqPoFileName;fileStatus.classList.toggle('ready',hasName);fileStatus.innerHTML='<span class="dot"></span><span>'+(hasName?'Saved Fill Rate file: '+mbqEscape(mbqPoFileName):mbqPoRecords.length?'Saved Fill Rate report is loaded; filename details are unavailable.':'No shared Fill Rate report uploaded.')+'</span>';}
