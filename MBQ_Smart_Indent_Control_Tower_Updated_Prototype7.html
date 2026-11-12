@@ -1326,17 +1326,14 @@ const mbqAcceptedSuggestionBySku=window.mbqAcceptedSuggestionBySku||(window.mbqA
 function acceptAISuggestion(sku,qty){const key=String(sku||'').trim().toLowerCase();if(!key||!Number.isFinite(Number(qty))||Number(qty)<0){showToast('Valid AI suggestion ലഭ്യമല്ല.');return;}mbqAcceptedSuggestionBySku[key]=Number(qty);allocationData=[];runCfaAllocation();renderSuggestions();showToast('AI suggestion accepted for allocation: '+Number(qty).toLocaleString('en-IN')+' CBB. Original Sales Head IND remains unchanged.');}
 
 function exportAISuggestedIndentExcel(){
- if(!window.XLSX){showToast('Excel library loading. Refresh ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.');return;}
+ if(!window.XLSX||!XLSX.utils||!XLSX.utils.book_new){showToast('Excel library loading. Refresh ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.');return;}
  const filter=document.getElementById('cfaFilter'),risk=document.getElementById('riskFilter'),search=document.getElementById('suggestSearch');
  if(!filter){showToast('CFA filter unavailable.');return;}
- const originalCfa=filter.value,originalRisk=risk?.value||'all',originalSearch=search?.value||'';
- const headers=['CFA','SKU Group','Sales Head IND','CFA Allocated IND','L2M Avg','SOH (CBB)','Stock Cover (15-Day Target)','Open TO (CBB)','AI Suggested IND','Risk','Action'];
- const cleanCell=cell=>{
-  let value=String(cell?.innerText||cell?.textContent||'').replace(/\s+/g,' ').trim();
-  value=value.replace(/\bView\b/gi,'').replace(/\s+/g,' ').trim();
-  return value;
- };
- const collectCfa=cfa=>{
+ const originalCfa=filter.value||'all',originalRisk=risk?.value||'all',originalSearch=search?.value||'';
+ const cfaNames=['TVD','PAY','ALU'];
+ const metrics=['CFA Allocated IND','L2M Avg','SOH (CBB)','Stock Cover (15-Day Target)','Open TO (CBB)','AI Suggested IND','Risk','Action'];
+ const cleanCell=cell=>String(cell?.innerText||cell?.textContent||'').replace(/\\s+/g,' ').trim().replace(/\\bView\\b/gi,'').replace(/\\s+/g,' ').trim();
+ const captureRows=cfa=>{
   filter.value=cfa;
   renderSuggestions();
   const body=document.querySelector('#page-suggest #suggestRows');
@@ -1344,65 +1341,103 @@ function exportAISuggestedIndentExcel(){
   return [...body.querySelectorAll('tr')].filter(tr=>!tr.querySelector('td.empty')).map(tr=>{
    const cells=[...tr.querySelectorAll('td')];
    if(cells.length<11)return null;
-   const values=cells.map(cleanCell);
-   return [cfa,values[0],values[1],values[2],values[3],values[4],values[5],values[6],values[7],values[8],values[10]];
+   const v=cells.map(cleanCell);
+   return [cfa,v[0],v[1],v[2],v[3],v[4],v[5],v[6],v[7],v[8],v[10]];
   }).filter(Boolean);
  };
- const allCfas=['TVD','PAY','ALU'];
- const makeSheet=(title,subtitle,records)=>{
-  const aoa=[[title], [subtitle], [''], headers, ...records];
-  const ws=XLSX.utils.aoa_to_sheet(aoa);
-  const lastRow=Math.max(3,aoa.length-1),lastCol=headers.length;
-  const border={top:{style:'thin',color:{rgb:'D9E2EC'}},bottom:{style:'thin',color:{rgb:'D9E2EC'}},left:{style:'thin',color:{rgb:'D9E2EC'}},right:{style:'thin',color:{rgb:'D9E2EC'}}};
-  const titleStyle={font:{name:'Aptos Display',sz:16,bold:true,color:{rgb:'FFFFFF'}},fill:{patternType:'solid',fgColor:{rgb:'12233F'}},alignment:{vertical:'center',horizontal:'left'},border};
-  const subStyle={font:{name:'Aptos',sz:10,color:{rgb:'DCE8F5'}},fill:{patternType:'solid',fgColor:{rgb:'1B3458'}},alignment:{vertical:'center',horizontal:'left'},border};
-  const headStyle={font:{name:'Aptos',sz:10,bold:true,color:{rgb:'FFFFFF'}},fill:{patternType:'solid',fgColor:{rgb:'0E8F8C'}},alignment:{vertical:'center',horizontal:'center',wrapText:true},border};
+ const border={top:{style:'thin',color:{rgb:'D9E2EC'}},bottom:{style:'thin',color:{rgb:'D9E2EC'}},left:{style:'thin',color:{rgb:'D9E2EC'}},right:{style:'thin',color:{rgb:'D9E2EC'}}};
+ const titleStyle={font:{name:'Aptos Display',sz:16,bold:true,color:{rgb:'FFFFFF'}},fill:{patternType:'solid',fgColor:{rgb:'12233F'}},alignment:{vertical:'center',horizontal:'left'},border};
+ const subStyle={font:{name:'Aptos',sz:10,color:{rgb:'DCE8F5'}},fill:{patternType:'solid',fgColor:{rgb:'1B3458'}},alignment:{vertical:'center',horizontal:'left'},border};
+ const headerStyle={font:{name:'Aptos',sz:10,bold:true,color:{rgb:'FFFFFF'}},fill:{patternType:'solid',fgColor:{rgb:'0E8F8C'}},alignment:{vertical:'center',horizontal:'center',wrapText:true},border};
+ const applyTitle=(ws,lastCol,title,subtitle)=>{
   for(let c=0;c<lastCol;c++){
-   const titleCell=ws[XLSX.utils.encode_cell({r:0,c})];if(titleCell)titleCell.s=titleStyle;
-   const subCell=ws[XLSX.utils.encode_cell({r:1,c})];if(subCell)subCell.s=subStyle;
-   const headerCell=ws[XLSX.utils.encode_cell({r:3,c})];if(headerCell)headerCell.s=headStyle;
+   const a=ws[XLSX.utils.encode_cell({r:0,c})];if(a)a.s=titleStyle;
+   const b=ws[XLSX.utils.encode_cell({r:1,c})];if(b)b.s=subStyle;
   }
-  for(let r=4;r<=lastRow;r++){
+  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:lastCol-1}},{s:{r:1,c:0},e:{r:1,c:lastCol-1}}];
+  ws['!rows']=[{hpt:30},{hpt:22},{hpt:8}];
+ };
+ const styleBody=(ws,startRow,endRow,lastCol,opts={})=>{
+  for(let r=startRow;r<=endRow;r++){
    for(let c=0;c<lastCol;c++){
     const cell=ws[XLSX.utils.encode_cell({r,c})];if(!cell)continue;
     const fill=r%2===0?'F3F6FA':'FFFFFF';
-    cell.s={font:{name:'Aptos',sz:9,bold:c===0,color:{rgb:c===0?'0E6F70':'24364B'}},fill:{patternType:'solid',fgColor:{rgb:c===0?'E7F5F3':fill}},alignment:{vertical:'center',horizontal:c>=2&&c<=8?'right':'left',wrapText:c===10},border};
-    if(c===9){
+    cell.s={font:{name:'Aptos',sz:9,color:{rgb:'24364B'}},fill:{patternType:'solid',fgColor:{rgb:fill}},alignment:{vertical:'center',horizontal:'left',wrapText:c===lastCol-1},border};
+    if(opts.riskColumns&&opts.riskColumns.includes(c)){
      const v=String(cell.v||'').toLowerCase();
-     const fillRisk=v==='high'?'FCE4D6':v==='review'?'FFF2CC':v==='normal'?'E2F0D9':'E7E6E6';
-     const fontRisk=v==='high'?'C00000':v==='review'?'9C6500':v==='normal'?'548235':'666666';
-     cell.s={font:{name:'Aptos',sz:9,bold:true,color:{rgb:fontRisk}},fill:{patternType:'solid',fgColor:{rgb:fillRisk}},alignment:{horizontal:'center',vertical:'center'},border};
+     const bg=v==='high'?'FCE4D6':v==='review'?'FFF2CC':v==='normal'?'E2F0D9':'E7E6E6';
+     const fg=v==='high'?'C00000':v==='review'?'9C6500':v==='normal'?'548235':'666666';
+     cell.s={font:{name:'Aptos',sz:9,bold:true,color:{rgb:fg}},fill:{patternType:'solid',fgColor:{rgb:bg}},alignment:{horizontal:'center',vertical:'center'},border};
     }
    }
   }
-  ws['!cols']=[{wch:12},{wch:28},{wch:16},{wch:18},{wch:14},{wch:13},{wch:22},{wch:15},{wch:18},{wch:13},{wch:25}];
-  ws['!rows']=[{hpt:30},{hpt:22},{hpt:7},{hpt:34}];
-  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:lastCol-1}},{s:{r:1,c:0},e:{r:1,c:lastCol-1}}];
-  ws['!autofilter']={ref:XLSX.utils.encode_range({s:{r:3,c:0},e:{r:lastRow,c:lastCol-1}})};
-  ws['!freeze']={xSplit:2,ySplit:4};
-  return ws;
  };
  try{
-  let primaryRows=[];
-  if(originalCfa.toLowerCase()==='all')allCfas.forEach(cfa=>primaryRows.push(...collectCfa(cfa)));
-  else primaryRows=collectCfa(normalCfa(originalCfa));
-  if(!primaryRows.length){showToast('Export ചെയ്യാൻ report rows ലഭ്യമല്ല.');return;}
-  const cfaRows=[];
-  allCfas.forEach(cfa=>cfaRows.push(...collectCfa(cfa)));
-  if(!cfaRows.length){showToast('CFA-wise report rows ലഭ്യമല്ല.');return;}
-  const wb=XLSX.utils.book_new();
-  const exportedAt=new Date().toLocaleString('en-IN');
-  XLSX.utils.book_append_sheet(wb,makeSheet('AI SUGGESTED INDENT','Dashboard report · CFA filter: '+(originalCfa.toUpperCase()==='ALL'?'ALL CFAs':originalCfa)+' · Exported: '+exportedAt,primaryRows),'AI Suggested Indent');
-  XLSX.utils.book_append_sheet(wb,makeSheet('CFA-WISE REPORT','TVD → PAY → ALU · Individual CFA values · Exported: '+exportedAt,cfaRows),'CFA-wise Report');
-  XLSX.writeFile(wb,'AI_Suggested_Indent_'+(originalCfa.toLowerCase()==='all'?'ALL_CFA':originalCfa)+ '_Colour.xlsx',{compression:true});
-  showToast('2-sheet Dashboard colour Excel report downloaded.');
+  const selectedRows=captureRows(originalCfa);
+  if(!selectedRows.length){showToast('Export ചെയ്യാൻ report rows ലഭ്യമല്ല.');return;}
+  const cfaRows={};
+  cfaNames.forEach(cfa=>{cfaRows[cfa]=captureRows(cfa);});
+  const wb=XLSX.utils.book_new(),exportedAt=new Date().toLocaleString('en-IN');
+  const sheet1Headers=['CFA','SKU Group','Sales Head IND',...metrics];
+  const sheet1Data=selectedRows;
+  const aoa1=[['AI SUGGESTED INDENT – DASHBOARD REPORT'],['CFA filter: '+(String(originalCfa).toLowerCase()==='all'?'ALL CFAs':originalCfa)+' · Exported: '+exportedAt],[],sheet1Headers,...sheet1Data];
+  const ws1=XLSX.utils.aoa_to_sheet(aoa1);
+  applyTitle(ws1,sheet1Headers.length);
+  for(let c=0;c<sheet1Headers.length;c++){const h=ws1[XLSX.utils.encode_cell({r:3,c})];if(h)h.s=headerStyle;}
+  styleBody(ws1,4,aoa1.length-1,sheet1Headers.length,{riskColumns:[9]});
+  ws1['!cols']=[{wch:12},{wch:28},{wch:16},{wch:18},{wch:14},{wch:13},{wch:22},{wch:15},{wch:18},{wch:13},{wch:25}];
+  ws1['!rows'][3]={hpt:34};
+  ws1['!autofilter']={ref:XLSX.utils.encode_range({s:{r:3,c:0},e:{r:Math.max(3,aoa1.length-1),c:sheet1Headers.length-1}})};
+  ws1['!freeze']={xSplit:2,ySplit:4};
+  XLSX.utils.book_append_sheet(wb,ws1,'Dashboard Report');
+
+  // One CFA-wise comparison report: one SKU per row, with TVD/PAY/ALU data blocks side-by-side.
+  const skuMap=new Map();
+  cfaNames.forEach(cfa=>{
+   (cfaRows[cfa]||[]).forEach(row=>{
+    const key=String(row[1]||'').trim().toLowerCase();if(!key)return;
+    if(!skuMap.has(key))skuMap.set(key,{sku:row[1],salesHead:row[2],cfa:{}});
+    const item=skuMap.get(key);if(item.salesHead===''||item.salesHead==null)item.salesHead=row[2];
+    item.cfa[cfa]=row.slice(3);
+   });
+  });
+  const pivotHeaders=['SKU Group','Sales Head IND',...cfaNames.flatMap(()=>metrics)];
+  const pivotRows=[...skuMap.values()].sort((a,b)=>String(a.sku).localeCompare(String(b.sku))).map(item=>[
+   item.sku,item.salesHead,...cfaNames.flatMap(cfa=>item.cfa[cfa]||Array(metrics.length).fill(''))
+  ]);
+  const aoa2=[['AI SUGGESTED INDENT – CFA-WISE SKU DETAILS'],['One consolidated SKU-wise report · CFA values shown side-by-side · Exported: '+exportedAt],[],['SKU DETAILS','',...cfaNames.flatMap(cfa=>Array(metrics.length).fill(cfa+' CFA'))],pivotHeaders,...pivotRows];
+  const ws2=XLSX.utils.aoa_to_sheet(aoa2);
+  applyTitle(ws2,pivotHeaders.length);
+  const groupColors={TVD:{bg:'FFF8ED',border:'FEDEB8',font:'9A5B12'},PAY:{bg:'EFF6FF',border:'C8DEFE',font:'1D4F91'},ALU:{bg:'EFFCF5',border:'C5EFD9',font:'16734A'}};
+  const baseGroup={font:{name:'Aptos',sz:10,bold:true,color:{rgb:'17365D'}},fill:{patternType:'solid',fgColor:{rgb:'DCE6F1'}},alignment:{horizontal:'center',vertical:'center'},border};
+  for(let c=0;c<2;c++){const h=ws2[XLSX.utils.encode_cell({r:3,c})];if(h){h.s=baseGroup;h.v=c===0?'SKU DETAILS':'';}}
+  let col=2;
+  cfaNames.forEach(cfa=>{
+   const p=groupColors[cfa],st={font:{name:'Aptos',sz:10,bold:true,color:{rgb:p.font}},fill:{patternType:'solid',fgColor:{rgb:p.bg}},alignment:{horizontal:'center',vertical:'center'},border:{...border,top:{style:'medium',color:{rgb:p.border}},bottom:{style:'medium',color:{rgb:p.border}}}};
+   for(let j=0;j<metrics.length;j++){const h=ws2[XLSX.utils.encode_cell({r:3,c:col+j})];if(h){h.v=cfa+' CFA';h.s=st;}}
+   ws2['!merges'].push({s:{r:3,c:col},e:{r:3,c:col+metrics.length-1}});
+   col+=metrics.length;
+  });
+  for(let c=0;c<pivotHeaders.length;c++){
+   const h=ws2[XLSX.utils.encode_cell({r:4,c})];if(h){
+    if(c<2)h.s=headerStyle;
+    else {const cfa=c<2+metrics.length?'TVD':c<2+2*metrics.length?'PAY':'ALU',p=groupColors[cfa];h.s={font:{name:'Aptos',sz:9,bold:true,color:{rgb:p.font}},fill:{patternType:'solid',fgColor:{rgb:p.bg}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border};}
+   }
+  }
+  styleBody(ws2,5,aoa2.length-1,pivotHeaders.length,{riskColumns:[2+metrics.length-2,2+2*metrics.length-2,2+3*metrics.length-2]});
+  ws2['!cols']=[{wch:28},{wch:16},...cfaNames.flatMap(()=>[{wch:18},{wch:14},{wch:13},{wch:22},{wch:15},{wch:18},{wch:13},{wch:25}])];
+  ws2['!rows'][3]={hpt:26};ws2['!rows'][4]={hpt:38};
+  ws2['!autofilter']={ref:XLSX.utils.encode_range({s:{r:4,c:0},e:{r:Math.max(4,aoa2.length-1),c:pivotHeaders.length-1}})};
+  ws2['!freeze']={xSplit:2,ySplit:5};
+  XLSX.utils.book_append_sheet(wb,ws2,'CFA-wise SKU Details');
+  XLSX.writeFile(wb,'AI_Suggested_Indent_'+(String(originalCfa).toLowerCase()==='all'?'ALL_CFA':String(originalCfa).toUpperCase())+'_Colour.xlsx',{compression:true});
+  showToast('2-sheet CFA-wise colour Excel report downloaded.');
  }catch(error){console.error('AI Suggested Indent export failed:',error);showToast('Excel export failed: '+(error.message||'Unknown error'));}
  finally{
   filter.value=originalCfa;if(risk)risk.value=originalRisk;if(search)search.value=originalSearch;
   renderSuggestions();
  }
 }
-
 function renderSuggestions(){
  const q=String(document.getElementById('suggestSearch')?.value||'').trim().toLowerCase();
  const rf=String(document.getElementById('riskFilter')?.value||'all').trim().toLowerCase();
