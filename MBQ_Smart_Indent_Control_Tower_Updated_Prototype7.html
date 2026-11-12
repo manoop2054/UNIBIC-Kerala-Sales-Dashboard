@@ -1398,7 +1398,8 @@ function exportAISuggestedIndentExcel(){
   XLSX.utils.book_append_sheet(wb,ws1,'Dashboard Report');
 
   // Sheet 2 is one continuous table: every SKU/CFA combination has its own row and CFA name in column A.
-  const detailRows=cfaNames.flatMap(cfa=>cfaRows[cfa]||[]);
+  const exportCfas=String(originalCfa).toLowerCase()==='all'?cfaNames:[normalCfa(originalCfa)];
+  const detailRows=exportCfas.flatMap(cfa=>cfaRows[cfa]||[]);
   const aoa2=[['AI SUGGESTED INDENT – CFA-WISE SKU DETAILS'],['One consolidated row-per-CFA-and-SKU report · Exported: '+exportedAt],[],headers,...detailRows];
   const ws2=XLSX.utils.aoa_to_sheet(aoa2);
   applyTitle(ws2,headers.length);
