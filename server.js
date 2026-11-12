@@ -333,8 +333,14 @@ async function getCache(name, builder) {
   try {
     const stat = await fs.promises.stat(cachePath);
     exists = stat.isFile();
-    const versionChanged = useNeon && (!activeVersion || cachedRefreshId !== activeVersion.refreshId);
-    stale = !exists || cachedSource !== sourceMode || versionChanged || (Date.now() - stat.mtimeMs) >= refreshMs;
+    const versionChanged = useNeon && activeVersion && cachedRefreshId !== activeVersion.refreshId;
+    stale = !exists || cachedSource !== sourceMode || Boolean(versionChanged) || (Date.now() - stat.mtimeMs) >= refreshMs;
+    // If Neon is temporarily unreachable, keep serving the last verified local
+    // cache. The next request will check Neon again and refresh when reachable.
+    if (useNeon && !activeVersion && exists) {
+      stale = false;
+      console.warn('Neon version check unavailable; serving last known-good local cache:', name);
+    }
   } catch (_) {}
   if (!stale) return cachePath;
   if (!inFlight.has(name)) {
