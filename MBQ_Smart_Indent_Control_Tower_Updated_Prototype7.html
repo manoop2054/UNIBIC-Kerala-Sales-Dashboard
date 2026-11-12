@@ -1679,53 +1679,75 @@ function mbqStockReportRows(){
  const cleanCode=v=>String(v??'').trim().toUpperCase().replace(/\s+/g,'');
  const groupKey=v=>mbqSkuGroupKey(String(v??'').trim());
  const itemCodesByGroup=new Map();
- rows.forEach(item=>{
-  const g=groupKey(item.sku),code=String(item.code||'').trim();
-  if(!g||!code)return;
-  if(!itemCodesByGroup.has(g))itemCodesByGroup.set(g,new Map());
-  itemCodesByGroup.get(g).set(cleanCode(code),code);
- });
+ const addCode=(g,code)=>{
+  const key=groupKey(g),value=String(code||'').trim(),normalized=cleanCode(value);
+  if(!key||!value||!normalized)return;
+  if(!itemCodesByGroup.has(key))itemCodesByGroup.set(key,new Map());
+  itemCodesByGroup.get(key).set(normalized,value);
+ };
+ rows.forEach(item=>addCode(item.sku,item.code));
  const stockMap=new Map();
  liveSohRows.forEach(raw=>{
   const type=String(keyValue(raw,['TYPE','Type'])||'').trim().toUpperCase();
   if(type&&type!=='SOH')return;
   const cfa=normalCfa(keyValue(raw,['WAREHOUSE','Warehouse','CFA','LocationCode','Location Code','Location_Code','Location Name','Location','Branch','Site','Store']));
-  const sku=String(keyValue(raw,['ItemAttribute.SKUGroup','SKUGroup','SKU Group'])||'').trim(),g=groupKey(sku);
-  const code=String(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No'])||'').trim();
+  const sku=String(keyValue(raw,['ItemAttribute.SKUGroup','SKUGroup','SKU Group'])||'').trim();
+  const g=groupKey(sku),code=String(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No'])||'').trim();
   if(!g||!code||!allowedCfas.includes(cfa))return;
+  addCode(sku,code);
   const shelfRaw=keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%']);
   const shelfNum=Number(String(shelfRaw??'').replace('%','').replace(/,/g,''));
   if(shelfRaw===''||!Number.isFinite(shelfNum)||shelfNum<60)return;
   const qtyRaw=keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity','Available Quantity','Inventory','Stock Quantity']);
   const qty=Number(String(qtyRaw??0).replace(/,/g,''))||0;
   const k=cfa+'|'+g+'|'+cleanCode(code),prev=stockMap.get(k)||{stock:0,shelf:null,description:'',code};
-  prev.stock+=qty;prev.shelf=prev.shelf===null?shelfNum:Math.min(prev.shelf,shelfNum);
+  prev.stock+=qty;
+  prev.shelf=prev.shelf===null?shelfNum:Math.min(prev.shelf,shelfNum);
   if(!prev.description)prev.description=String(keyValue(raw,['DESCRIPTION','Description','Item Description','Product Name','Item Name'])||'').trim();
   stockMap.set(k,prev);
-  if(!itemCodesByGroup.has(g))itemCodesByGroup.set(g,new Map());
-  itemCodesByGroup.get(g).set(cleanCode(code),code);
  });
- const months=mbqLastCompletedMonths(periodCount),officialGroups=Array.isArray(window.mbqOfficialAssortmentGroupKeys)?window.mbqOfficialAssortmentGroupKeys:[],data=[];
+ const months=mbqLastCompletedMonths(periodCount);
  const allocationRows=Array.isArray(allocationData)?allocationData:[];
+ const groupMeta=new Map();
+ allocationRows.forEach(row=>{
+  const g=groupKey(row.sku),qty=Number(row.allocation)||0;
+  if(!g||qty<=0)return;
+  if(!groupMeta.has(g))groupMeta.set(g,{sku:String(row.sku||'').trim(),rows:[]});
+  groupMeta.get(g).rows.push(row);
+ });
+ const data=[];
  allowedCfas.forEach(cfa=>{
   if(cf!=='all'&&cf!==cfa)return;
-  const seenGroups=new Set();
-  officialGroups.forEach(officialSku=>{
-   const g=groupKey(officialSku);if(!g||seenGroups.has(g))return;seenGroups.add(g);
-   const sourceGroup=sourceRows.find(group=>groupKey(group[0])===g),sku=String(sourceGroup?.[0]||officialSku).trim();
+  groupMeta.forEach((meta,g)=>{
+   const allocMatches=meta.rows.filter(x=>normalCfa(x.cfaKey||x.cfa)===cfa&&Number(x.allocation)>0);
+   const allocatedInd=allocMatches.reduce((sum,x)=>sum+(Number(x.allocation)||0),0);
+   if(allocatedInd<=0)return;
+   const sku=String(sourceRows.find(group=>groupKey(group[0])===g)?.[0]||meta.sku||g).trim();
+   allocMatches.forEach(x=>addCode(sku,x.code));
+   const allCodes=[...(itemCodesByGroup.get(g)?.values()||[])];
    const eligible=[];
-   [...(itemCodesByGroup.get(g)?.values()||[])].forEach(code=>{
+   allCodes.forEach(code=>{
     const stockRec=stockMap.get(cfa+'|'+g+'|'+cleanCode(code));
     if(stockRec)eligible.push({code,stockRec});
    });
-   if(!eligible.length)return;
    const totalStock=eligible.reduce((sum,x)=>sum+x.stockRec.stock,0);
-   // Display the eligible code with the highest current stock; ties use stable code order.
-   const display=eligible.slice().sort((a,b)=>b.stockRec.stock-a.stockRec.stock||cleanCode(a.code).localeCompare(cleanCode(b.code)))[0];
-   const eligibleCodes=eligible.map(x=>x.code);
+   eligible.sort((a,b)=>b.stockRec.stock-a.stockRec.stock||cleanCode(a.code).localeCompare(cleanCode(b.code)));
+   let display=eligible[0]||null,referenceCfa='';
+   if(!display){
+    const references=[];
+    allowedCfas.filter(other=>other!==cfa).forEach(other=>{
+     allCodes.forEach(code=>{
+      const stockRec=stockMap.get(other+'|'+g+'|'+cleanCode(code));
+      if(stockRec)references.push({code,stockRec,cfa:other});
+     });
+    });
+    references.sort((a,b)=>b.stockRec.stock-a.stockRec.stock||cleanCode(a.code).localeCompare(cleanCode(b.code))||a.cfa.localeCompare(b.cfa));
+    if(references.length){display=references[0];referenceCfa=display.cfa;}
+   }
+   if(!display)display={code:allCodes[0]||String(allocMatches[0]?.code||'No FG Code Mapped'),stockRec:{description:'',shelf:null}};
    const monthKeys=months.map(m=>m.year+'-'+String(m.month).padStart(2,'0'));
    const salesSourceComplete=mbqGsvRows.length&&monthKeys.every(month=>mbqGsvRows.some(x=>String(x.month||'')===month&&normalCfa(x.cfa)===cfa));
-   const monthTotals=salesSourceComplete?monthKeys.map(month=>eligibleCodes.reduce((sum,code)=>{
+   const monthTotals=salesSourceComplete?monthKeys.map(month=>allCodes.reduce((sum,code)=>{
     const value=mbqGsvItemMonth(code,month,cfa);
     return sum+(value===null?0:Number(value)||0);
    },0)):null;
@@ -1735,18 +1757,18 @@ function mbqStockReportRows(){
     const poCode=String(mbqPoVal(pr,['ITEM_ID','ITEMID','ITEM_CODE','FG_CODE','PRODUCT_CODE','MATERIAL_CODE'])||'').trim();
     const poCfa=normalCfa(mbqPoVal(pr,['CFA','PUSHED_TEMPLATE_ID','COLUMN1','CFA NAME','WAREHOUSE']));
     const poStatus=String(mbqPoVal(pr,['PO_OPEN_CLOSE'])||'').trim().toUpperCase();
-    if(!poCode||!eligibleCodes.some(code=>cleanCode(code)===cleanCode(poCode))||poCfa!==cfa||poStatus!=='OPEN')continue;
+    if(!poCode||!allCodes.some(code=>cleanCode(code)===cleanCode(poCode))||poCfa!==cfa||poStatus!=='OPEN')continue;
     const raw=mbqPoVal(pr,['PO_QTY']),n=Number(String(raw??'').replace(/,/g,'').trim());
     if(raw!==''&&raw!==null&&raw!==undefined&&Number.isFinite(n)){poTotal+=n;poFound=true;}
    }
    if(poFound)openPo=poTotal;
-   const cover=salesDay!==null&&salesDay>0?totalStock/salesDay:null,status=cover!==null&&cover<6?'Low cover':cover!==null?'Normal':'No data available';
-   const allocMatches=allocationRows.filter(x=>normalCfa(x.cfaKey||x.cfa)===cfa&&groupKey(x.sku)===g);
-   const allocatedInd=allocMatches.length?allocMatches.reduce((sum,x)=>sum+(Number(x.allocation)||0),0):null;
-   data.push({cfa,sku,code:display.code,stock:totalStock,codes:eligibleCodes,salesDay,cover,status,desc:display.stockRec.description,shelf:display.stockRec.shelf,openPo,allocatedInd,eligibleCodes});
+   const cover=totalStock>0&&salesDay!==null&&salesDay>0?totalStock/salesDay:null;
+   const status=cover!==null&&cover<6?'Low cover':cover!==null?'Normal':'No data available';
+   const eligibleCodes=eligible.map(x=>x.code);
+   data.push({cfa,sku,code:display.code,stock:totalStock,codes:eligibleCodes,salesDay,cover,status,desc:display.stockRec.description||'',shelf:display.stockRec.shelf??null,openPo,allocatedInd,eligibleCodes,referenceCfa});
   });
  });
- return data.filter(r=>(r.sku.toLowerCase().includes(q)||r.code.toLowerCase().includes(q)||r.desc.toLowerCase().includes(q))&&(st==='all'||r.status===st));
+ return data.filter(r=>(r.sku.toLowerCase().includes(q)||String(r.code||'').toLowerCase().includes(q)||String(r.desc||'').toLowerCase().includes(q))&&(st==='all'||r.status===st));
 }
 function mbqExportStockWorkbook(){
  if(!window.XLSX){showToast('Excel library loading. Refresh ചെയ്ത് വീണ്ടും ശ്രമിക്കുക.');return;}
