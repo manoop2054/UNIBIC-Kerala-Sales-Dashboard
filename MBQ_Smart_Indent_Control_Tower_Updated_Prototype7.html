@@ -2589,7 +2589,7 @@ function printToReport(mode='details'){
  const title=summary?'Summary':'Item Details';
  const html='<!doctype html><html><head><meta charset="utf-8"><title>Open TO Report</title><style>body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}</style></head><body><h2>Open TO '+title+'</h2><table><thead><tr>'+heads+'</tr></thead><tbody>'+rows+'</tbody></table>
 <style id="manual-neon-sync-style">
-#manualNeonSyncPanel{display:inline-flex;align-items:center;gap:7px;margin:4px 8px 4px 0;font:600 11px/1.35 Arial,sans-serif;flex-wrap:wrap}
+#sharedCacheControl{display:none!important}body.manual-neon-sync-authorized #sharedCacheControl{display:inline-flex!important}\n#manualNeonSyncPanel{display:inline-flex;align-items:center;gap:7px;margin:4px 8px 4px 0;font:600 11px/1.35 Arial,sans-serif;flex-wrap:wrap}
 #manualNeonSyncPanel .sync-state{padding:6px 9px;border:1px solid #cbd5e1;border-radius:99px;background:#f3f6fa;color:#334155}
 #manualNeonSyncPanel .sync-state.running{background:#fff7e6;border-color:#f3d18a;color:#8a5a00}
 #manualNeonSyncPanel .sync-state.success{background:#e8f7ef;border-color:#b8e4cb;color:#147a54}
@@ -2648,6 +2648,7 @@ function printToReport(mode='details'){
   return html;
  }
  function render(data){
+  document.body.classList.add('manual-neon-sync-authorized');
   ensure();
   var d=data.diagnostics||{},run=d.latestRun||null,state=run&&run.status==='running'?'running':run&&run.status==='failed'?'failed':run&&run.status==='success'?'success':'';
   var status=panel.querySelector('.sync-state'),button=panel.querySelector('button');
@@ -2660,7 +2661,7 @@ function printToReport(mode='details'){
  async function getStatus(){
   var r=await fetch('/api/shared-cache/control',{credentials:'same-origin',cache:'no-store'});
   var d=await r.json().catch(function(){return{}});
-  if(r.status===401||r.status===403){if(panel){panel.remove();panel=null;}var oldControl=document.getElementById('sharedCacheControl');if(oldControl)oldControl.remove();return {authorized:false};}
+  if(r.status===401||r.status===403){document.body.classList.remove('manual-neon-sync-authorized');if(panel){panel.remove();panel=null;}var oldControl=document.getElementById('sharedCacheControl');if(oldControl)oldControl.remove();return {authorized:false};}
   if(!r.ok||!d.success)throw new Error(d.error||('HTTP '+r.status));
   render(d);return {authorized:true,data:d};
  }
