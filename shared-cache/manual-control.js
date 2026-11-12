@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const { Pool } = require('pg');
 
 let refreshProcess = null;
+let refreshStarting = false;
 let refreshState = { status: 'idle', startedAt: null, completedAt: null, error: null };
 let statusPool = null;
 let statusSchemaReady = null;
@@ -189,7 +190,9 @@ async function getDiagnostics() {
 }
 
 async function startReleaseRefresh(requestedBy) {
-  if (refreshProcess) return { ...refreshState, status: 'running' };
+  if (refreshProcess || refreshStarting) return { ...refreshState, status: 'running' };
+  refreshStarting = true;
+  try {
   const script = path.join(__dirname, 'import-release-to-neon.js');
   if (!process.env.SHARED_CACHE_DATABASE_URL) throw new Error('SHARED_CACHE_DATABASE_URL is missing; GitHub-to-Neon sync cannot start.');
   if (!fs.existsSync(script)) throw new Error('GitHub-to-Neon importer is missing from this Render release.');
@@ -212,7 +215,9 @@ async function startReleaseRefresh(requestedBy) {
 
   const child = spawn(process.execPath, [script], { env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
   refreshProcess = child;
+  refreshStarting = false;
   const logLines = [];
+  let finished = false;
   const pipe = (stream, label) => {
     let pending = '';
     stream.setEncoding('utf8');
@@ -241,6 +246,8 @@ async function startReleaseRefresh(requestedBy) {
   pipe(child.stderr, 'ERR');
 
   const finish = async (code, error) => {
+    if (finished) return;
+    finished = true;
     try {
       const after = await getActiveSnapshot();
       const sourceResults = compareSources(before, after, code);
@@ -263,6 +270,11 @@ async function startReleaseRefresh(requestedBy) {
   child.on('error', error => { finish(1, error.message); });
   child.on('close', code => { finish(code, code === 0 ? null : 'Importer exited with code ' + code); });
   return { ...refreshState };
+  } catch (error) {
+    refreshStarting = false;
+    refreshProcess = null;
+    throw error;
+  }
 }
 
 // Central manual gate for the shared Neon cache endpoint.
