@@ -1337,7 +1337,7 @@ function exportAISuggestedIndentExcel(){
   if(!table)return [];
   const rows=[...table.querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map((cell,index)=>{
    let value=(cell.innerText||cell.textContent||'').replace(/\s+/g,' ').trim();
-   if(index===5)value=value.replace(/\\s*\\((?:Above|Below|At) 15-day target|Required stock or billing data unavailable\)/gi,'').trim();
+   if(index===5)value=value.replace(' (Above 15-day target)','').replace(' (Below 15-day target)','').replace(' (At 15-day target)','').replace(' (Required stock or billing data unavailable)','').trim();
    value=value.replace(/\bView\b/gi,'').replace(/\s+/g,' ').trim();
    return value;
   }));
