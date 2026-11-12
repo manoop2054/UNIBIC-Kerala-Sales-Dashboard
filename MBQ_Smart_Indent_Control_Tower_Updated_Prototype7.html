@@ -1332,11 +1332,11 @@ function exportAISuggestedIndentExcel(){
  const originalCfa=filter.value||'all',originalRisk=risk?.value||'all',originalSearch=search?.value||'';
  const cfaNames=['TVD','PAY','ALU'];
  const headers=['CFA','SKU Group','Sales Head IND','CFA Allocated IND','L2M Avg','SOH (CBB)','Stock Cover (15-Day Target)','Open TO (CBB)','AI Suggested IND','Risk','Action'];
- const cleanCell=cell=>String(cell?.innerText||cell?.textContent||'').replace(/\\s+/g,' ').trim().replace(/\\bView\\b/gi,'').replace(/\\s+/g,' ').trim();
+ const cleanCell=cell=>String(cell?.innerText||cell?.textContent||'').replace(/\s+/g,' ').trim().replace(/\bView\b/gi,'').replace(/\s+/g,' ').trim();
  const numericCover=value=>{
   const raw=String(value??'').trim();
   if(!raw||/^no$/i.test(raw)||/no data/i.test(raw))return 'No';
-  const match=raw.match(/-?\\d+(?:,\\d{3})*(?:\\.\\d+)?/);
+  const match=raw.match(/-?\d+(?:,\d{3})*(?:\.\d+)?/);
   return match?Number(match[0].replace(/,/g,'')):'No';
  };
  const captureRows=cfa=>{
