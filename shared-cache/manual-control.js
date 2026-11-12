@@ -3,49 +3,135 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
+const { Pool } = require('pg');
+
 let refreshProcess = null;
 let refreshState = { status: 'idle', startedAt: null, completedAt: null, error: null };
+let statusPool = null;
+let statusSchemaReady = null;
+let releaseCache = { expiresAt: 0, value: null };
 
-function startReleaseRefresh() {
-  if (refreshProcess) return { ...refreshState, status: 'running' };
-  const script = path.join(__dirname, 'import-release-to-neon.js');
-  if (!process.env.SHARED_CACHE_DATABASE_URL) throw new Error('SHARED_CACHE_DATABASE_URL is missing; Neon was enabled but automatic refresh cannot start.');
-  if (!fs.existsSync(script)) throw new Error('GitHub-to-Neon importer is missing from this Render release.');
-  refreshState = { status: 'running', startedAt: new Date().toISOString(), completedAt: null, error: null };
-  console.log('[NEON REFRESH] START | source=GitHub latest release | startedAt=' + refreshState.startedAt);
-  const child = spawn(process.execPath, [script], { env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
-  refreshProcess = child;
-  const pipe = (stream, label) => {
-    let pending = '';
-    stream.setEncoding('utf8');
-    stream.on('data', chunk => {
-      pending += chunk;
-      const lines = pending.split(/\r?\n/); pending = lines.pop() || '';
-      for (const line of lines) if (line) console.log('[NEON REFRESH][' + label + '] ' + line);
-    });
-    stream.on('end', () => { if (pending) console.log('[NEON REFRESH][' + label + '] ' + pending); });
-  };
-  pipe(child.stdout, 'OUT'); pipe(child.stderr, 'ERR');
-  child.on('error', error => {
-    refreshState = { ...refreshState, status: 'failed', completedAt: new Date().toISOString(), error: error.message };
-    refreshProcess = null;
-    console.error('[NEON REFRESH] FAILED |', error.message);
-  });
-  child.on('close', code => {
-    refreshState = { ...refreshState, status: code === 0 ? 'success' : 'failed', completedAt: new Date().toISOString(), error: code === 0 ? null : 'Importer exited with code ' + code };
-    refreshProcess = null;
-    console.log('[NEON REFRESH] ' + (code === 0 ? 'SUCCESS' : 'FAILED') + ' | completedAt=' + refreshState.completedAt + ' | exitCode=' + code);
-  });
-  return { ...refreshState };
-}
-
-
-// Central manual gate for the shared Neon cache endpoint.
-// "OFF" sets endpoint.disabled=true, which blocks normal DB connections from
-// waking the compute. "ON" clears that restriction; the first DB query may wake it.
 const PROJECT_ID = process.env.SHARED_CACHE_PROJECT_ID || 'snowy-sky-65564833';
 const ENDPOINT_ID = process.env.SHARED_CACHE_ENDPOINT_ID || 'ep-rapid-dust-a1197lo4';
 const API_BASE = 'https://console.neon.tech/api/v2';
+const REPO = 'manoop2054/UNIBIC-Kerala-Sales-Dashboard';
+const ASSETS = {
+  GSV: 'KL.LIVE.GSV.LINK-MANOOB.xlsx',
+  LIVE_SOH: 'LIVE.STOCK.xlsb'
+};
+
+function getStatusPool() {
+  if (!process.env.SHARED_CACHE_DATABASE_URL) {
+    const error = new Error('SHARED_CACHE_DATABASE_URL is missing; sync diagnostics cannot connect to Neon.');
+    error.status = 503;
+    throw error;
+  }
+  if (!statusPool) {
+    statusPool = new Pool({
+      connectionString: process.env.SHARED_CACHE_DATABASE_URL,
+      ssl: process.env.SHARED_CACHE_SSL === 'false' ? false : { rejectUnauthorized: false },
+      max: 2,
+      connectionTimeoutMillis: 15000,
+      statement_timeout: 30000
+    });
+  }
+  return statusPool;
+}
+
+async function ensureStatusStore() {
+  if (!statusSchemaReady) {
+    statusSchemaReady = (async () => {
+      const pool = getStatusPool();
+      await pool.query(
+        'CREATE TABLE IF NOT EXISTS public.shared_cache_sync_runs (' +
+        'run_id uuid PRIMARY KEY, status text NOT NULL, requested_by text NOT NULL DEFAULT \'SUPER_ADMIN\',' +
+        'started_at timestamptz NOT NULL DEFAULT NOW(), completed_at timestamptz,' +
+        'github_release text, github_assets jsonb NOT NULL DEFAULT \'{}\'::jsonb,' +
+        'before_active jsonb NOT NULL DEFAULT \'[]\'::jsonb, after_active jsonb NOT NULL DEFAULT \'[]\'::jsonb,' +
+        'source_results jsonb NOT NULL DEFAULT \'{}\'::jsonb, log_lines jsonb NOT NULL DEFAULT \'[]\'::jsonb,' +
+        'error_message text)'
+      );
+      await pool.query('CREATE INDEX IF NOT EXISTS shared_cache_sync_runs_started_idx ON public.shared_cache_sync_runs(started_at DESC)');
+    })().catch(error => {
+      statusSchemaReady = null;
+      throw error;
+    });
+  }
+  return statusSchemaReady;
+}
+
+async function getGithubReleaseInfo() {
+  if (releaseCache.expiresAt > Date.now() && releaseCache.value) return releaseCache.value;
+  const headers = { 'User-Agent': 'UNIBIC-Manual-Neon-Sync', 'Accept': 'application/vnd.github+json' };
+  if (process.env.GITHUB_TOKEN) headers.Authorization = 'Bearer ' + process.env.GITHUB_TOKEN;
+  const response = await fetch('https://api.github.com/repos/' + REPO + '/releases/latest', { headers });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !Array.isArray(payload.assets)) {
+    throw new Error('Unable to read latest GitHub release metadata (HTTP ' + response.status + ').');
+  }
+  const assets = {};
+  for (const [key, name] of Object.entries(ASSETS)) {
+    const asset = payload.assets.find(item => item.name === name);
+    if (!asset) throw new Error('Latest GitHub release ' + (payload.tag_name || '') + ' is missing ' + name + '.');
+    assets[key] = {
+      name: asset.name,
+      uploadedAt: asset.created_at || null,
+      updatedAt: asset.updated_at || null,
+      sizeBytes: Number(asset.size) || 0,
+      downloadUrl: asset.browser_download_url || null
+    };
+  }
+  const value = { tag: payload.tag_name || '', publishedAt: payload.published_at || null, assets };
+  releaseCache = { expiresAt: Date.now() + 30000, value };
+  return value;
+}
+
+async function getActiveSnapshot() {
+  const pool = getStatusPool();
+  const result = await pool.query(
+    'WITH active AS (' +
+    ' SELECT \'GSV\'::text AS source_name, active_gsv_refresh_id AS id FROM public.cache_active_datasets WHERE singleton=TRUE' +
+    ' UNION ALL SELECT \'LIVE_SOH\'::text, active_live_soh_refresh_id FROM public.cache_active_datasets WHERE singleton=TRUE' +
+    ') SELECT a.source_name, d.id::text AS refresh_id, d.refresh_status, d.row_count,' +
+    ' d.started_at, d.completed_at, d.asset_name, d.file_checksum, d.file_bytes, d.validation_summary' +
+    ' FROM active a LEFT JOIN public.data_refresh_log d ON d.id=a.id WHERE a.id IS NOT NULL ORDER BY a.source_name'
+  );
+  return result.rows.map(row => ({
+    source: row.source_name,
+    refreshId: row.refresh_id,
+    status: row.refresh_status,
+    rows: Number(row.row_count) || 0,
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    asset: row.asset_name,
+    checksum: row.file_checksum,
+    sizeBytes: Number(row.file_bytes) || 0,
+    validation: row.validation_summary
+  }));
+}
+
+function compareSources(before, after, exitCode) {
+  const result = {};
+  for (const source of ['GSV', 'LIVE_SOH']) {
+    const oldRow = (before || []).find(item => item.source === source);
+    const newRow = (after || []).find(item => item.source === source);
+    if (exitCode !== 0) {
+      result[source] = { status: 'FAILED — OLD CACHE RETAINED', oldRefreshId: oldRow && oldRow.refreshId || null, activeRefreshId: newRow && newRow.refreshId || null };
+    } else if (oldRow && newRow && oldRow.refreshId === newRow.refreshId) {
+      result[source] = { status: 'ALREADY CURRENT — NO NEW IMPORT NEEDED', oldRefreshId: oldRow.refreshId, activeRefreshId: newRow.refreshId };
+    } else {
+      result[source] = { status: 'UPDATED — NEW CACHE ACTIVE', oldRefreshId: oldRow && oldRow.refreshId || null, activeRefreshId: newRow && newRow.refreshId || null };
+    }
+    if (newRow) {
+      result[source].rows = newRow.rows;
+      result[source].cacheUpdatedAt = newRow.completedAt;
+      result[source].asset = newRow.asset;
+      result[source].checksum = newRow.checksum;
+    }
+  }
+  return result;
+}
 
 async function neonRequest(method, body) {
   const apiKey = process.env.NEON_API_KEY;
@@ -73,25 +159,139 @@ async function neonRequest(method, body) {
   return payload.endpoint;
 }
 
+async function getDiagnostics() {
+  await ensureStatusStore();
+  const pool = getStatusPool();
+  const [release, active, latest] = await Promise.all([
+    getGithubReleaseInfo(),
+    getActiveSnapshot(),
+    pool.query('SELECT run_id::text, status, requested_by, started_at, completed_at, github_release, github_assets, before_active, after_active, source_results, log_lines, error_message FROM public.shared_cache_sync_runs ORDER BY started_at DESC LIMIT 1')
+  ]);
+  const row = latest.rows[0];
+  return {
+    github: release,
+    activeDatasets: active,
+    latestRun: row ? {
+      runId: row.run_id,
+      status: row.status,
+      requestedBy: row.requested_by,
+      startedAt: row.started_at,
+      completedAt: row.completed_at,
+      release: row.github_release,
+      githubAssets: row.github_assets,
+      before: row.before_active,
+      after: row.after_active,
+      sourceResults: row.source_results,
+      logs: row.log_lines,
+      error: row.error_message
+    } : null
+  };
+}
+
+async function startReleaseRefresh(requestedBy) {
+  if (refreshProcess) return { ...refreshState, status: 'running' };
+  const script = path.join(__dirname, 'import-release-to-neon.js');
+  if (!process.env.SHARED_CACHE_DATABASE_URL) throw new Error('SHARED_CACHE_DATABASE_URL is missing; GitHub-to-Neon sync cannot start.');
+  if (!fs.existsSync(script)) throw new Error('GitHub-to-Neon importer is missing from this Render release.');
+
+  await ensureStatusStore();
+  const [release, before] = await Promise.all([getGithubReleaseInfo(), getActiveSnapshot()]);
+  const endpoint = await neonRequest('GET');
+  if (endpoint.disabled) await neonRequest('PATCH', { endpoint: { disabled: false } });
+
+  const runId = crypto.randomUUID();
+  const startedAt = new Date().toISOString();
+  const pool = getStatusPool();
+  await pool.query(
+    'INSERT INTO public.shared_cache_sync_runs(run_id,status,requested_by,started_at,github_release,github_assets,before_active)' +
+    ' VALUES($1,\'running\',$2,$3,$4,$5::jsonb,$6::jsonb)',
+    [runId, requestedBy || 'SUPER_ADMIN', startedAt, release.tag, JSON.stringify(release.assets), JSON.stringify(before)]
+  );
+  refreshState = { runId, status: 'running', startedAt, completedAt: null, error: null, release: release.tag };
+  console.log('[NEON MANUAL PUSH] START | runId=' + runId + ' | release=' + release.tag + ' | startedAt=' + startedAt);
+
+  const child = spawn(process.execPath, [script], { env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+  refreshProcess = child;
+  const logLines = [];
+  const pipe = (stream, label) => {
+    let pending = '';
+    stream.setEncoding('utf8');
+    stream.on('data', chunk => {
+      pending += chunk;
+      const lines = pending.split(/\r?\n/);
+      pending = lines.pop() || '';
+      for (const line of lines) {
+        if (!line) continue;
+        const entry = '[' + label + '] ' + line;
+        logLines.push(entry);
+        if (logLines.length > 40) logLines.shift();
+        console.log('[NEON REFRESH][' + label + '] ' + line);
+      }
+    });
+    stream.on('end', () => {
+      if (pending) {
+        const entry = '[' + label + '] ' + pending;
+        logLines.push(entry);
+        if (logLines.length > 40) logLines.shift();
+        console.log('[NEON REFRESH][' + label + '] ' + pending);
+      }
+    });
+  };
+  pipe(child.stdout, 'OUT');
+  pipe(child.stderr, 'ERR');
+
+  const finish = async (code, error) => {
+    try {
+      const after = await getActiveSnapshot();
+      const sourceResults = compareSources(before, after, code);
+      const status = code === 0 ? 'success' : 'failed';
+      const message = code === 0 ? null : (error || 'Importer exited with code ' + code);
+      await pool.query(
+        'UPDATE public.shared_cache_sync_runs SET status=$2,completed_at=NOW(),after_active=$3::jsonb,source_results=$4::jsonb,log_lines=$5::jsonb,error_message=$6 WHERE run_id=$1',
+        [runId, status, JSON.stringify(after), JSON.stringify(sourceResults), JSON.stringify(logLines), message]
+      );
+      refreshState = { runId, status, startedAt, completedAt: new Date().toISOString(), error: message, release: release.tag, sourceResults };
+      console.log('[NEON MANUAL PUSH] ' + status.toUpperCase() + ' | runId=' + runId + ' | GSV=' + sourceResults.GSV.status + ' | LIVE_SOH=' + sourceResults.LIVE_SOH.status);
+    } catch (persistError) {
+      refreshState = { runId, status: 'failed', startedAt, completedAt: new Date().toISOString(), error: 'Sync finished but diagnostics could not be saved: ' + persistError.message, release: release.tag };
+      console.error('[NEON MANUAL PUSH] DIAGNOSTICS SAVE FAILED |', persistError.message);
+    } finally {
+      refreshProcess = null;
+    }
+  };
+
+  child.on('error', error => { finish(1, error.message); });
+  child.on('close', code => { finish(code, code === 0 ? null : 'Importer exited with code ' + code); });
+  return { ...refreshState };
+}
+
+// Central manual gate for the shared Neon cache endpoint.
+// OFF blocks normal database connections; ON permits both dashboards to use Neon.
 async function getStatus() {
   const endpoint = await neonRequest('GET');
+  let diagnostics = null;
+  let diagnosticsError = null;
+  try { diagnostics = await getDiagnostics(); }
+  catch (error) { diagnosticsError = error.message; }
   return {
     enabled: !endpoint.disabled,
     disabled: Boolean(endpoint.disabled),
     computeState: endpoint.current_state || 'unknown',
     endpointId: endpoint.id,
-    refresh: { ...refreshState }
+    refresh: { ...refreshState },
+    diagnostics,
+    diagnosticsError
   };
 }
 
-async function setEnabled(enabled) {
+async function setEnabled(enabled, requestedBy) {
   if (typeof enabled !== 'boolean') {
     const error = new Error('A boolean enabled value is required.');
     error.status = 400;
     throw error;
   }
   const endpoint = await neonRequest('PATCH', { endpoint: { disabled: !enabled } });
-  const refresh = enabled ? startReleaseRefresh() : { ...refreshState };
+  const refresh = enabled ? await startReleaseRefresh(requestedBy) : { ...refreshState };
   if (!enabled) console.log('[NEON CACHE] OFF | GitHub mode will be used by dashboard loaders.');
   return {
     enabled: !endpoint.disabled,
@@ -105,10 +305,14 @@ async function setEnabled(enabled) {
 function mount(app, options) {
   const middleware = options.middleware ? (Array.isArray(options.middleware) ? options.middleware : [options.middleware]) : [];
   const authorize = options.authorize || (async () => false);
+  async function allowed(req, res) {
+    const result = await authorize(req, res);
+    return Boolean(result);
+  }
   app.get('/api/shared-cache/control', ...middleware, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     try {
-      if (!(await authorize(req, res))) {
+      if (!(await allowed(req, res))) {
         if (!res.headersSent) res.status(403).json({ success: false, error: 'Protected Super Admin access required.' });
         return;
       }
@@ -120,16 +324,29 @@ function mount(app, options) {
   app.post('/api/shared-cache/control', ...middleware, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     try {
-      if (!(await authorize(req, res))) {
+      if (!(await allowed(req, res))) {
         if (!res.headersSent) res.status(403).json({ success: false, error: 'Protected Super Admin access required.' });
         return;
       }
-      const status = await setEnabled(req.body && req.body.enabled);
+      const status = await setEnabled(req.body && req.body.enabled, 'SUPER_ADMIN');
       res.json({ success: true, ...status });
     } catch (error) {
       res.status(error.status || 503).json({ success: false, error: error.message || 'Unable to update shared cache control.' });
     }
   });
+  app.post('/api/shared-cache/push', ...middleware, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      if (!(await allowed(req, res))) {
+        if (!res.headersSent) res.status(403).json({ success: false, error: 'Protected Super Admin access required.' });
+        return;
+      }
+      const refresh = await startReleaseRefresh('SUPER_ADMIN');
+      res.status(refresh.status === 'running' ? 202 : 200).json({ success: true, refresh });
+    } catch (error) {
+      res.status(error.status || 503).json({ success: false, error: error.message || 'Unable to start GitHub-to-Neon sync.' });
+    }
+  });
 }
 
-module.exports = { mount, getStatus, setEnabled };
+module.exports = { mount, getStatus, setEnabled, startReleaseRefresh, getDiagnostics };
