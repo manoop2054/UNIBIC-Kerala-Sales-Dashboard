@@ -197,10 +197,10 @@ async function startReleaseRefresh(requestedBy) {
   if (!process.env.SHARED_CACHE_DATABASE_URL) throw new Error('SHARED_CACHE_DATABASE_URL is missing; GitHub-to-Neon sync cannot start.');
   if (!fs.existsSync(script)) throw new Error('GitHub-to-Neon importer is missing from this Render release.');
 
-  await ensureStatusStore();
-  const [release, before] = await Promise.all([getGithubReleaseInfo(), getActiveSnapshot()]);
   const endpoint = await neonRequest('GET');
   if (endpoint.disabled) await neonRequest('PATCH', { endpoint: { disabled: false } });
+  await ensureStatusStore();
+  const [release, before] = await Promise.all([getGithubReleaseInfo(), getActiveSnapshot()]);
 
   const runId = crypto.randomUUID();
   const startedAt = new Date().toISOString();
@@ -283,8 +283,11 @@ async function getStatus() {
   const endpoint = await neonRequest('GET');
   let diagnostics = null;
   let diagnosticsError = null;
-  try { diagnostics = await getDiagnostics(); }
-  catch (error) { diagnosticsError = error.message; }
+  if (endpoint.disabled) diagnosticsError = 'Neon endpoint is OFF; cache details will be available after it is enabled.';
+  else {
+    try { diagnostics = await getDiagnostics(); }
+    catch (error) { diagnosticsError = error.message; }
+  }
   return {
     enabled: !endpoint.disabled,
     disabled: Boolean(endpoint.disabled),
