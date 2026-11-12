@@ -1333,25 +1333,18 @@ function exportAISuggestedIndentExcel(){
  if(!filter){showToast('CFA filter unavailable.');return;}
  const originalCfa=filter.value,originalRisk=risk?.value||'all',originalSearch=search?.value||'';
  const cleanCurrent=()=>{
-  const table=document.querySelector('#page-suggest table');
+  const table=document.querySelector('#page-suggest .table-wrap table');
   if(!table)return [];
   const rows=[...table.querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map((cell,index)=>{
-   let value=(cell.innerText||cell.textContent||'').replace(/\s+/g,' ').trim();
+   let value=(cell.innerText||cell.textContent||'').replace(/\\s+/g,' ').trim();
    if(index===5)value=value.replace(' (Above 15-day target)','').replace(' (Below 15-day target)','').replace(' (At 15-day target)','').replace(' (Required stock or billing data unavailable)','').trim();
-   value=value.replace(/\bView\b/gi,'').replace(/\s+/g,' ').trim();
+   value=value.replace(/\\bView\\b/gi,'').replace(/\\s+/g,' ').trim();
    return value;
   }));
-  if(!rows.length)return rows;
-  // Export omits explanatory Why? and interactive Action columns.
-  return rows.map(row=>row.filter((_,index)=>index!==9&&index!==10));
+  // Keep the existing report columns and Action text; remove only Why?.
+  return rows.map(row=>row.filter((_,index)=>index!==9));
  };
  try{
-  if(search)search.value='';
-  if(risk)risk.value='all';
-  filter.value=originalCfa;
-  renderSuggestions();
-  const primary=cleanCurrent();
-  if(!primary.length||primary.length<2){showToast('Export ചെയ്യാൻ report rows ലഭ്യമല്ല.');return;}
   const wb=XLSX.utils.book_new();
   const addSheet=(name,aoa)=>{
    const ws=XLSX.utils.aoa_to_sheet(aoa);
@@ -1360,15 +1353,21 @@ function exportAISuggestedIndentExcel(){
    if(aoa.length){for(let c=0;c<cols;c++){const cell=ws[XLSX.utils.encode_cell({r:0,c})];if(cell)cell.s={font:{bold:true,color:{rgb:'FFFFFF'}},fill:{patternType:'solid',fgColor:{rgb:'17365D'}},alignment:{wrapText:true,vertical:'center'}};}}
    XLSX.utils.book_append_sheet(wb,ws,name);
   };
+  const primary=cleanCurrent();
+  if(!primary.length||primary.length<2){showToast('Export ചെയ്യാൻ report rows ലഭ്യമല്ല.');return;}
   addSheet('AI Suggested Indent',primary);
   if(originalCfa.toLowerCase()==='all'){
-   const combined=[['CFA',...primary[0]]];
+   const cfaReport=[];
    ['TVD','PAY','ALU'].forEach(cfa=>{
-    filter.value=cfa;renderSuggestions();
+    filter.value=cfa;
+    renderSuggestions();
     const part=cleanCurrent();
-    if(part.length>1)part.slice(1).forEach(row=>combined.push([cfa,...row]));
+    if(cfaReport.length)cfaReport.push([]);
+    cfaReport.push([cfa+' CFA']);
+    if(part.length)cfaReport.push(...part);
+    else cfaReport.push(['No Data Available']);
    });
-   addSheet('CFA-wise Report',combined);
+   addSheet('CFA-wise Report',cfaReport);
   }
   XLSX.writeFile(wb,'AI_Suggested_Indent_'+(originalCfa==='all'?'ALL_CFA':originalCfa)+'.xlsx',{compression:true});
   showToast(originalCfa.toLowerCase()==='all'?'2-sheet CFA-wise Excel report downloaded.':'AI Suggested Indent Excel report downloaded.');
