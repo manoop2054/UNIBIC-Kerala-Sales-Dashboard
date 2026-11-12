@@ -197,8 +197,14 @@ async function readMbqGsvCache() {
     const cached = JSON.parse(await fs.promises.readFile(cache, "utf8"));
     const cachedSource = cached.source === "neon-shared-cache" ? "neon-shared-cache" : "github";
     const cacheTtl = 15 * 60 * 1000;
-    if (cachedSource === expectedSource && (!useNeon || (activeVersion && cached.refreshId === activeVersion.refreshId)) && Date.now() - stat.mtimeMs < cacheTtl) {
-      if (cached.schemaVersion === 4 && Array.isArray(cached.data) && cached.data.every(row => row && /^\d{4}-\d{2}-\d{2}$/.test(String(row.date || "")))) return cached;
+    const neonVersionUnavailable = useNeon && !activeVersion;
+    if ((cachedSource === expectedSource || neonVersionUnavailable) &&
+        (!useNeon || neonVersionUnavailable || cached.refreshId === activeVersion.refreshId) &&
+        (Date.now() - stat.mtimeMs < cacheTtl || neonVersionUnavailable)) {
+      if (cached.schemaVersion === 4 && Array.isArray(cached.data) && cached.data.every(row => row && /^\d{4}-\d{2}-\d{2}$/.test(String(row.date || "")))) {
+        if (neonVersionUnavailable) console.warn("MBQ GSV Neon version check unavailable; serving last known-good local cache.");
+        return cached;
+      }
       console.log("MBQ GSV cache schema outdated; rebuilding with posting dates");
     }
   } catch (_) {}
@@ -267,7 +273,13 @@ async function loadSohRows() {
     const cached = JSON.parse(await fs.promises.readFile(cache, "utf8"));
     const cachedSource = cached.source === "neon-shared-cache" ? "neon-shared-cache" : "github";
     const cacheTtl = 15 * 60 * 1000;
-    if (cachedSource === expectedSource && (!useNeon || (activeVersion && cached.refreshId === activeVersion.refreshId)) && Date.now() - st.mtimeMs < cacheTtl) return cached;
+    const neonVersionUnavailable = useNeon && !activeVersion;
+    if ((cachedSource === expectedSource || neonVersionUnavailable) &&
+        (!useNeon || neonVersionUnavailable || cached.refreshId === activeVersion.refreshId) &&
+        (Date.now() - st.mtimeMs < cacheTtl || neonVersionUnavailable)) {
+      if (neonVersionUnavailable) console.warn("MBQ LIVE SOH Neon version check unavailable; serving last known-good local cache.");
+      return cached;
+    }
   } catch (_) {}
   if (!sohLoadPromise) sohLoadPromise = (async () => {
     if (sharedCache.isConfigured && await isSharedCacheEnabled()) {
