@@ -12,13 +12,40 @@ const pool = connectionString ? new Pool({
   connectionString,
   ssl: { rejectUnauthorized: false },
   max: 3,
-  connectionTimeoutMillis: 3500,
-  idleTimeoutMillis: 10000,
-  query_timeout: 60000,
-  statement_timeout: 60000
+  // Allow Neon compute to wake after idle periods instead of failing during
+  // the previous 3.5-second connection window.
+  connectionTimeoutMillis: 15000,
+  idleTimeoutMillis: 30000,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
+  maxUses: 500,
+  query_timeout: 120000,
+  statement_timeout: 120000
 }) : null;
 
 if (pool) pool.on('error', error => console.warn('[shared-cache] idle connection error:', error.message));
+ 
+const TRANSIENT_NEON_CODES = new Set(['ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'EPIPE', '57P01', '57P02', '57P03', '08000', '08003', '08006']);
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+async function connectWithRetry() {
+  if (!pool) throw new Error('SHARED_CACHE_DATABASE_URL is not configured');
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      return await pool.connect();
+    } catch (error) {
+      lastError = error;
+      const transient = TRANSIENT_NEON_CODES.has(error.code) ||
+        /connection terminated|connection timeout|timeout expired|server closed the connection/i.test(error.message || '');
+      if (!transient || attempt === 3) throw error;
+      const delay = 1000 * attempt + Math.floor(Math.random() * 500);
+      console.warn('[shared-cache] Neon connection retry', attempt, 'of 3 after', delay, 'ms:', error.message);
+      await sleep(delay);
+    }
+  }
+  throw lastError;
+}
 
 async function activeDataset(client, kind) {
   const isGsv = kind === 'gsv';
