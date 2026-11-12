@@ -1681,7 +1681,7 @@ function mbqStockReportRows(){
    const eligible=[];
    [...(itemCodesByGroup.get(g)?.values()||[])].forEach(code=>{
     const stockRec=stockMap.get(cfa+'|'+g+'|'+cleanCode(code));
-    if(stockRec&&stockRec.stock>0)eligible.push({code,stockRec});
+    if(stockRec)eligible.push({code,stockRec});
    });
    if(!eligible.length)return;
    const totalStock=eligible.reduce((sum,x)=>sum+x.stockRec.stock,0);
