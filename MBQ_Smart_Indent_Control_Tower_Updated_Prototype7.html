@@ -2660,7 +2660,7 @@ function printToReport(mode='details'){
  async function getStatus(){
   var r=await fetch('/api/shared-cache/control',{credentials:'same-origin',cache:'no-store'});
   var d=await r.json().catch(function(){return{}});
-  if(r.status===401||r.status===403){if(panel){panel.remove();panel=null;}return {authorized:false};}
+  if(r.status===401||r.status===403){if(panel){panel.remove();panel=null;}var oldControl=document.getElementById('sharedCacheControl');if(oldControl)oldControl.remove();return {authorized:false};}
   if(!r.ok||!d.success)throw new Error(d.error||('HTTP '+r.status));
   render(d);return {authorized:true,data:d};
  }
@@ -2694,7 +2694,8 @@ function printToReport(mode='details'){
  async function start(){
   try{
    var result=await getStatus();
-   if(!result.authorized&&attempts<60){attempts++;setTimeout(start,1500);}
+   if(!result.authorized&&attempts<60){attempts++;setTimeout(start,1500);return;}
+   if(result.authorized){var run=result.data.diagnostics&&result.data.diagnostics.latestRun;if(run&&run.status==='running'){busy=true;pollCount=0;setTimeout(poll,1500);}}
   }catch(e){if(attempts<20){attempts++;setTimeout(start,2000);}}
  }
  window.refreshManualNeonSyncStatus=start;
