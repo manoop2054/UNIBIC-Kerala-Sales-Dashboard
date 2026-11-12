@@ -1274,13 +1274,13 @@ function mbqRefreshDashboardKpis(){
   }else mbqSetKpi('stockLowCoverKpi','No Data Available');
   const officialKeys=new Set((Array.isArray(window.mbqOfficialAssortmentGroupKeys)?window.mbqOfficialAssortmentGroupKeys:[]).map(x=>mbqSkuGroupKey(x)));
   const matchedCodes=new Set();
-  rows.forEach(r=>{if(r.code&&officialKeys.has(mbqSkuGroupKey(r.sku)))matchedCodes.add(String(r.code).trim().toUpperCase().replace(/\\s+/g,''))});
+  rows.forEach(r=>{if(r.code&&officialKeys.has(mbqSkuGroupKey(r.sku)))matchedCodes.add(String(r.code).trim().toUpperCase().replace(/\s+/g,''))});
   const pairStock=new Map(),shelfAlerts=new Set();
   liveSohRows.forEach(raw=>{
    const type=String(keyValue(raw,['TYPE','Type'])||'').trim().toUpperCase();if(type&&type!=='SOH')return;
    const cfa=normalCfa(keyValue(raw,['WAREHOUSE','Warehouse','CFA','LocationCode','Location Code','Location_Code','Location Name','Location','Branch','Site','Store']));
    const code=String(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No'])||'').trim();
-   const codeKey=code.toUpperCase().replace(/\\s+/g,'');if(!['ALU','PAY','TVD'].includes(cfa)||!matchedCodes.has(codeKey))return;
+   const codeKey=code.toUpperCase().replace(/\s+/g,'');if(!['ALU','PAY','TVD'].includes(cfa)||!matchedCodes.has(codeKey))return;
    const key=cfa+'|'+codeKey,qtyRaw=keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity','Available Quantity','Inventory','Stock Quantity']);
    const qty=Number(String(qtyRaw??'').replace(/,/g,''));if(Number.isFinite(qty)){pairStock.set(key,(pairStock.get(key)||0)+qty)}
    const shelfRaw=keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%']);
@@ -1336,9 +1336,9 @@ function exportAISuggestedIndentExcel(){
   const table=document.querySelector('#page-suggest table');
   if(!table)return [];
   const rows=[...table.querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map((cell,index)=>{
-   let value=(cell.innerText||cell.textContent||'').replace(/\\s+/g,' ').trim();
-   if(index===5)value=value.replace(/\\s*\\((?:Above|Below|At) 15-day target|Required stock or billing data unavailable\\)/gi,'').trim();
-   value=value.replace(/\\bView\\b/gi,'').replace(/\\s+/g,' ').trim();
+   let value=(cell.innerText||cell.textContent||'').replace(/\s+/g,' ').trim();
+   if(index===5)value=value.replace(/\\s*\\((?:Above|Below|At) 15-day target|Required stock or billing data unavailable\)/gi,'').trim();
+   value=value.replace(/\bView\b/gi,'').replace(/\s+/g,' ').trim();
    return value;
   }));
   if(!rows.length)return rows;
@@ -1601,7 +1601,7 @@ function renderStock(){
  const cf=document.getElementById('stockCfa')?.value||'all';
  const st=document.getElementById('stockStatus')?.value||'all';
  const allowedCfas=['ALU','PAY','TVD'];
- const cleanCode=v=>String(v??'').trim().toUpperCase().replace(/\\s+/g,'');
+ const cleanCode=v=>String(v??'').trim().toUpperCase().replace(/\s+/g,'');
  const groupKey=v=>mbqSkuGroupKey(String(v??'').trim());
  const itemCodesByGroup=new Map();
  rows.forEach(item=>{
@@ -4261,9 +4261,9 @@ function mbqRecalcContributionRows(sheet){
   source.forEach(raw=>{
     const row=raw.slice(),sku=skuIx>=0?String(row[skuIx]??'').trim():'';
     if(!sku){other.push(row);return;}
-    const key=typeof mbqSkuGroupKey==='function'?mbqSkuGroupKey(sku):sku.toUpperCase().replace(/[\\u00A0\\u2007\\u202F\\uFFFD]/g,' ').replace(/\\s+/g,' ').trim();
+    const key=typeof mbqSkuGroupKey==='function'?mbqSkuGroupKey(sku):sku.toUpperCase().replace(/[\\u00A0\\u2007\\u202F\\uFFFD]/g,' ').replace(/\s+/g,' ').trim();
     if(!key){other.push(row);return;}
-    if(!merged.has(key)){row[skuIx]=sku.normalize('NFKC').replace(/[\\u00A0\\u2007\\u202F\\uFFFD]/g,' ').replace(/\\s+/g,' ').trim();merged.set(key,row);return;}
+    if(!merged.has(key)){row[skuIx]=sku.normalize('NFKC').replace(/[\\u00A0\\u2007\\u202F\\uFFFD]/g,' ').replace(/\s+/g,' ').trim();merged.set(key,row);return;}
     const target=merged.get(key);
     headers.forEach((h,i)=>{
       const name=norm(h),a=numeric(target[i]),b=numeric(row[i]);
