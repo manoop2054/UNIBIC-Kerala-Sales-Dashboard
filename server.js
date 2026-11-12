@@ -392,8 +392,14 @@ async function buildGsvCache(cachePath) {
       console.log('DATA SOURCE: NEON CACHE | GSV rows:', result.rows, '| NEON CACHE UPDATED:', result.loadedAt || 'unknown', '| REFRESH ID:', result.refreshId, '| RELEASE:', result.releaseTag || 'unknown', '| CHECKSUM:', result.checksum || 'unknown', '|', await githubReleaseAssetTimes());
       return result;
     } catch (error) {
-      console.warn('GSV Neon shared cache unavailable; using existing GitHub loader:', error.message);
-      await fs.promises.rm(cachePath, { force: true }).catch(() => {});
+      console.warn('GSV Neon shared cache unavailable:', error.message);
+      try {
+        const stat = await fs.promises.stat(cachePath);
+        if (stat.isFile() && stat.size > 0) {
+          console.warn('GSV: preserving last known-good local cache; Neon will be checked again on the next request.');
+          return { source: 'github', reusedLastGood: true };
+        }
+      } catch (_) {}
     }
   }
   return buildGsvCacheFromGitHub(cachePath);
@@ -406,8 +412,14 @@ async function buildSohCache(cachePath) {
       console.log('DATA SOURCE: NEON CACHE | LIVE SOH rows:', result.rows, '| NEON CACHE UPDATED:', result.loadedAt || 'unknown', '| REFRESH ID:', result.refreshId, '| RELEASE:', result.releaseTag || 'unknown', '| CHECKSUM:', result.checksum || 'unknown', '|', await githubReleaseAssetTimes());
       return result;
     } catch (error) {
-      console.warn('LIVE SOH Neon shared cache unavailable; using existing GitHub loader:', error.message);
-      await fs.promises.rm(cachePath, { force: true }).catch(() => {});
+      console.warn('LIVE SOH Neon shared cache unavailable:', error.message);
+      try {
+        const stat = await fs.promises.stat(cachePath);
+        if (stat.isFile() && stat.size > 0) {
+          console.warn('LIVE SOH: preserving last known-good local cache; Neon will be checked again on the next request.');
+          return { source: 'github', reusedLastGood: true };
+        }
+      } catch (_) {}
     }
   }
   return buildSohCacheFromGitHub(cachePath);
