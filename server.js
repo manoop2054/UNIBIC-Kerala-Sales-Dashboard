@@ -351,7 +351,7 @@ async function getCache(name, builder) {
         const refreshId = actualSource === 'neon' && buildResult.refreshId ? buildResult.refreshId : null;
         await fs.promises.writeFile(sourceMarker, JSON.stringify({ source: actualSource, refreshId, updatedAt: new Date().toISOString() }), 'utf8');
         await fs.promises.rm(cachePath + '.gz', { force: true }).catch(() => {});
-        console.log('CACHE REFRESHED:', name, '| SOURCE:', sourceMode.toUpperCase(), '| CACHE UPDATED:', new Date().toISOString());
+        console.log('CACHE REFRESHED:', name, '| SOURCE:', actualSource.toUpperCase(), buildResult && buildResult.reusedLastGood ? '| STATUS: LAST KNOWN-GOOD' : '', '| CACHE UPDATED:', new Date().toISOString());
       } catch (error) {
         if (exists) {
           console.warn('Cache refresh failed; keeping last good cache:', name, error.message);
