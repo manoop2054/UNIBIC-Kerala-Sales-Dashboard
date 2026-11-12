@@ -4942,6 +4942,7 @@ document.getElementById('skuCount').textContent='Loading…';renderWatch();rende
     if(typeof window.mbqApplyUserAccess==='function')window.mbqApplyUserAccess(user);
     if(typeof window.mbqStartAuthenticatedDataLoad==='function')window.mbqStartAuthenticatedDataLoad();
     if(typeof window.mbqRefreshSharedCacheControl==='function')window.mbqRefreshSharedCacheControl();
+    if(typeof window.refreshManualNeonSyncStatus==='function')window.refreshManualNeonSyncStatus();
     const id=document.getElementById('mbqEmployeeIdDisplay');
     if(id)id.textContent=(user.employeeName||'Employee')+' · '+(user.maskedEmployeeId||'');
   }
