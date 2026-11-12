@@ -366,7 +366,6 @@ async function getCache(name, builder) {
         throw error;
       }
     })().finally(() => inFlight.delete(name)));
-  }
   } else {
     console.info('CACHE RUN JOINED', JSON.stringify({ cache: name, reason: 'another request is already refreshing this cache' }));
   }
