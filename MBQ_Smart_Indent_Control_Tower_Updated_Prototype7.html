@@ -1424,13 +1424,12 @@ function renderSuggestions(){
   const suggestion=hasSales?Math.max(0,Math.ceil(l2mAvg*1.08)-(openQty===null?0:openQty)):null;
   const risk=hasSales?(coverDays===null?'Review':coverDays<7?'High':coverDays<15?'Review':'Normal'):'No data available';
   if(rf!=='all'&&risk.toLowerCase()!==rf)return '';
-  const coverLabel=coverDays!==null?coverDays.toFixed(1)+' days':'No data available';
-  const coverNote=coverDays!==null?(coverDays<15?'Below 15-day target':coverDays>15?'Above 15-day target':'At 15-day target'):'Required stock or billing data unavailable';
+  const coverLabel=coverDays!==null?Math.round(coverDays)+' days':'No';
   const salesHeadInd=mbqUploadedIndentForSku(r.sku);
   const allocatedInd=allocatedRows.filter(x=>String(x.sku||'').trim().toLowerCase()===String(r.sku||'').trim().toLowerCase()).reduce((sum,x)=>sum+(Number(x.allocation)||0),0);
   const skuArg=encodeURIComponent(String(r.sku||''));
   const acceptAction=suggestion===null?'<span class="small-note">No suggestion</span>':'<button class="btn btn-sm" type="button" onclick="acceptAISuggestion(decodeURIComponent(\''+skuArg+'\'),'+Number(suggestion)+')">Accept Suggestion</button>';
-  return '<tr><td class="sku">'+r.sku+'</td><td><b>'+(salesHeadInd===null?'No Data Available':fmt(salesHeadInd))+'</b></td><td><b>'+(allocatedRows.length?fmt(allocatedInd):'Not Allocated')+'</b></td><td>'+(hasSales?fmt(l2mAvg):'No data available')+'</td><td>'+(hasStock?fmt(soh):'No data available')+' '+mbqBatchViewButtonForCodes(codes,cfas,r.sku)+'</td><td title="'+coverNote+'">'+coverLabel+' <span class="small-note">('+coverNote+')</span></td><td>'+(openQty===null?'No data available':fmt(openQty))+'</td><td><b>'+(suggestion===null?'No data available':fmt(suggestion))+'</b></td><td>'+riskPill(risk)+'</td><td>'+(hasSales?(risk==='High'?'Urgent: low cover against CFA billing':risk==='Review'?'Review CFA cover and incoming supply':'Monitor CFA billing and cover'):'CFA-wise billing data unavailable for both selected months')+'</td><td>'+acceptAction+'</td></tr>';
+  return '<tr><td class="sku">'+r.sku+'</td><td><b>'+(salesHeadInd===null?'No Data Available':fmt(salesHeadInd))+'</b></td><td><b>'+(allocatedRows.length?fmt(allocatedInd):'Not Allocated')+'</b></td><td>'+(hasSales?fmt(l2mAvg):'No data available')+'</td><td>'+(hasStock?fmt(soh):'No data available')+' '+mbqBatchViewButtonForCodes(codes,cfas,r.sku)+'</td><td>'+coverLabel+'</td><td>'+(openQty===null?'No data available':fmt(openQty))+'</td><td><b>'+(suggestion===null?'No data available':fmt(suggestion))+'</b></td><td>'+riskPill(risk)+'</td><td>'+(hasSales?(risk==='High'?'Urgent: low cover against CFA billing':risk==='Review'?'Review CFA cover and incoming supply':'Monitor CFA billing and cover'):'CFA-wise billing data unavailable for both selected months')+'</td><td>'+acceptAction+'</td></tr>';
  }).join('')||'<tr><td colspan="9" class="empty">No matching SKU groups or verified CFA-wise billing data. Clear the search or select All risk levels / All CFAs.</td></tr>';
 }
 let liveSohRows=[];let liveSohMeta=null;let liveSohError='';
