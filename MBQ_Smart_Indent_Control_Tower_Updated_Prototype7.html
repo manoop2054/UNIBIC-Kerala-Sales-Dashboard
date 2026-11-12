@@ -1766,7 +1766,7 @@ function mbqExportStockWorkbook(){
  data.forEach(r=>aoa.push([
   r.cfa+' CFA',r.sku,r.code,r.desc||'No Data Available',
   r.allocatedInd===null?'Not Allocated':r.allocatedInd,
-  r.stock,r.salesDay===null?'No Data Available':r.salesDay,
+  r.stock,r.salesDay===null?'No Data Available':Math.round(r.salesDay),
   r.openPo===null?'No Data Available':r.openPo,
   r.cover===null?'No Data Available':Math.round(r.cover),
   r.status
@@ -1786,7 +1786,7 @@ function mbqExportStockWorkbook(){
   else if(r===3)style={font:{name:'Aptos',sz:10,bold:true,color:{rgb:'FFFFFF'}},fill:{patternType:'solid',fgColor:{rgb:'1B3458'}},alignment:{vertical:'center',horizontal:'center',wrapText:true},border};
   else style={font:{name:'Aptos',sz:10,color:{rgb:'24354B'}},fill:{patternType:'solid',fgColor:{rgb:r%2===0?'F3F7FB':'FFFFFF'}},alignment:{vertical:'center',horizontal:c===3?'left':'center',wrapText:c===3},border};
   cell.s=style;
-  if(r>=4&&c===8&&typeof cell.v==='number')cell.z='0';
+  if(r>=4&&(c===6||c===8)&&typeof cell.v==='number')cell.z='0';
  }
  ws['!rows']=[{hpt:28},{hpt:23},{hpt:30},{hpt:34}];
  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'CFA Stock');
@@ -1801,7 +1801,7 @@ function renderStock(){
  if(!liveSohRows.length){tbody.innerHTML='<tr><td colspan="10" class="empty">'+(liveSohError?'LIVE SOH unavailable: '+liveSohError.replace(/[<>&"]/g,''):'LIVE SOH workbook load cheyyunnu…')+'</td></tr>';mbqRefreshDashboardKpis();return}
  tbody.innerHTML=data.map(r=>{
   const batchBtn=mbqStockGroupViewButton(r.codes,r.cfa,r.sku);
-  return '<tr><td>'+r.cfa+' CFA</td><td class="sku">'+mbqEscape(r.sku)+'</td><td>'+mbqEscape(r.code)+'</td><td class="item-description">'+(r.desc?mbqEscape(r.desc):'No Data Available')+'</td><td>'+(r.allocatedInd===null?'Not Allocated':r.allocatedInd.toLocaleString('en-IN'))+'</td><td>'+r.stock.toLocaleString('en-IN')+' '+batchBtn+'</td><td>'+(r.salesDay!==null?r.salesDay.toLocaleString('en-IN',{maximumFractionDigits:2}):'No data available')+'</td><td>'+(r.openPo===null?'No data available':r.openPo.toLocaleString('en-IN'))+'</td><td>'+(r.cover!==null?r.cover.toFixed(1)+' days':'No data available')+'</td><td>'+riskPill(r.status==='Low cover'?'High':r.status)+'</td></tr>';
+  return '<tr><td>'+r.cfa+' CFA</td><td class="sku">'+mbqEscape(r.sku)+'</td><td>'+mbqEscape(r.code)+'</td><td class="item-description">'+(r.desc?mbqEscape(r.desc):'No Data Available')+'</td><td>'+(r.allocatedInd===null?'Not Allocated':r.allocatedInd.toLocaleString('en-IN'))+'</td><td>'+r.stock.toLocaleString('en-IN')+' '+batchBtn+'</td><td>'+(r.salesDay!==null?Math.round(r.salesDay).toLocaleString('en-IN'):'No data available')+'</td><td>'+(r.openPo===null?'No data available':r.openPo.toLocaleString('en-IN'))+'</td><td>'+(r.cover!==null?String(Math.round(r.cover)):'No data available')+'</td><td>'+riskPill(r.status==='Low cover'?'High':r.status)+'</td></tr>';
  }).join('')||'<tr><td colspan="10" class="empty">No item has 60%+ Remaining Shelf Life stock for the selected CFA / filter.</td></tr>';
  const period=document.getElementById('stockSalesPeriod')?.value||'L3M',periodCount=period==='L2M'?2:3;
  const small=document.querySelector('#page-stock .card-head small');if(small)small.textContent='KERALA ASSORTMENT × LIVE STOCK REPORT · '+(Array.isArray(window.mbqOfficialAssortmentGroupKeys)?window.mbqOfficialAssortmentGroupKeys.length:0).toLocaleString('en-IN')+' SKU Groups · 60%+ Shelf Life · Days Cover: '+period+' Average Sales (Last '+periodCount+' Completed Months)';
