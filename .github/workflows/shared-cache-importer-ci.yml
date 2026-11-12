@@ -1,6 +1,9 @@
 name: Shared cache importer validation
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     paths:
       - "shared-cache/**"
