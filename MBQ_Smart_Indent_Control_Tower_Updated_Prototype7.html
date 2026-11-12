@@ -4825,6 +4825,7 @@ document.getElementById('skuCount').textContent='Loading…';renderWatch();rende
     gate.hidden=true;
     if(typeof window.mbqApplyUserAccess==='function')window.mbqApplyUserAccess(user);
     if(typeof window.mbqStartAuthenticatedDataLoad==='function')window.mbqStartAuthenticatedDataLoad();
+    if(typeof window.mbqRefreshSharedCacheControl==='function')window.mbqRefreshSharedCacheControl();
     const id=document.getElementById('mbqEmployeeIdDisplay');
     if(id)id.textContent=(user.employeeName||'Employee')+' · '+(user.maskedEmployeeId||'');
   }
@@ -5354,6 +5355,7 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
      window.alert('Shared cache control failed: '+e.message);
    }
  }
+ window.mbqRefreshSharedCacheControl=load;
  function start(){make();load();}
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
