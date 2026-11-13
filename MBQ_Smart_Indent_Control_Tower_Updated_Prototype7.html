@@ -5442,27 +5442,70 @@ function mbqExportMbqTwoSheetWorkbook(){
  const trs=[...table.querySelectorAll('tr')];if(trs.length<2){showToast('Export ചെയ്യാൻ rows ലഭ്യമല്ല.');return;}
  const headerTr=trs.find(tr=>[...tr.querySelectorAll('th,td')].some(c=>String(c.innerText||c.textContent||'').trim().toUpperCase()==='SKU GROUP'));
  if(!headerTr){showToast('SKU GROUP header കണ്ടെത്താനായില്ല.');return;}
- const headers=[...headerTr.querySelectorAll('th,td')].map(c=>String(c.innerText||c.textContent||'').replace(/\s+/g,' ').trim().toUpperCase());
+ const headers=[...headerTr.querySelectorAll('th,td')].map(c=>String(c.innerText||c.textContent||'').replace(/\\s+/g,' ').trim().toUpperCase());
  const idx=(...names)=>{for(const n of names){const i=headers.indexOf(n);if(i>=0)return i;}return -1;};
- const skuI=idx('SKU GROUP'),mrpI=idx('MRP NEW','MRP'),catI=idx('CATEGORY','CAT'),conI=idx('CONTRI %','CONTRI%','CONTI%'),indI=idx('INDENT','IND'),sohI=idx('SOH>60%'),transI=idx('INTRANSIT'),salesI=idx('SALES','SALE');
- const num=(v)=>{const t=String(v??'').replace(/,/g,'').replace(/CBB/ig,'').replace(/%/g,'').trim();if(!t||/no data|—|^-$|^n\/a$/i.test(t))return 'No Data Available';const n=Number(t);return Number.isFinite(n)?n:'No Data Available';};
- const rows=trs.slice(trs.indexOf(headerTr)+1).filter(tr=>!tr.classList.contains('mbq-total-row')).map(tr=>[...tr.querySelectorAll('td')].map(c=>String(c.innerText||c.textContent||'').replace(/\s+/g,' ').trim())).filter(c=>c.length&&c[skuI]&&!['TOTAL','GRAND TOTAL','OVERALL TOTAL'].includes(c[skuI].toUpperCase()));
- const output=rows.map(c=>[c[skuI]||'No Data Available',mrpI>=0?num(c[mrpI]):'No Data Available',catI>=0&&c[catI]?c[catI]:'No Data Available',conI>=0?num(c[conI]):'No Data Available',indI>=0?num(c[indI]):'No Data Available',sohI>=0?num(c[sohI]):'No Data Available',transI>=0?num(c[transI]):'No Data Available',salesI>=0?num(c[salesI]):'No Data Available']);
+ const skuI=idx('SKU GROUP'),catI=idx('CATEGORY','CAT'),conI=idx('CONTRI %','CONTRI%','CONTI%'),indI=idx('INDENT','IND'),sohI=idx('SOH>60%'),transI=idx('INTRANSIT'),salesI=idx('SALES','SALE');
+ const num=(v)=>{const t=String(v??'').replace(/,/g,'').replace(/CBB/ig,'').trim();if(!t||/no data|—|^-$|^n\\/a$/i.test(t))return 0;const n=Number(t.replace(/%/g,''));return Number.isFinite(n)?n:0;};
+ const cleanCode=v=>String(v??'').trim().toUpperCase().replace(/\\s+/g,'');
+ const groupKey=v=>mbqSkuGroupKey(String(v??'').trim());
+ const itemCodesByGroup=new Map();
+ (Array.isArray(rows)?rows:[]).forEach(item=>{const g=groupKey(item.sku),code=cleanCode(item.code);if(!g||!code)return;if(!itemCodesByGroup.has(g))itemCodesByGroup.set(g,new Set());itemCodesByGroup.get(g).add(code);});
+ const mrpByGroup=new Map();
+ (Array.isArray(liveSohRows)?liveSohRows:[]).forEach(raw=>{
+  const type=String(keyValue(raw,['TYPE','Type'])||'').trim().toUpperCase();if(type&&type!=='SOH')return;
+  const rawGroup=String(keyValue(raw,['ItemAttribute.SKUGroup','SKUGroup','SKU Group'])||'').trim(),g=groupKey(rawGroup);
+  const code=cleanCode(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']));
+  if(!g||!code||!itemCodesByGroup.get(g)?.has(code))return;
+  const rawMrp=keyValue(raw,['MRP','MRP NEW','Mrp','Maximum Retail Price']);
+  const mrp=Number(String(rawMrp??'').replace(/[₹,\\s]/g,''));
+  if(rawMrp===null||rawMrp===undefined||String(rawMrp).trim()===''||!Number.isFinite(mrp))return;
+  if(!mrpByGroup.has(g))mrpByGroup.set(g,new Set());
+  mrpByGroup.get(g).add(mrp);
+ });
+ const mrpForSku=sku=>{const values=[...(mrpByGroup.get(groupKey(sku))||[])].sort((a,b)=>a-b);return values.length?values.join(' / '):0;};
+ const rowsOut=trs.slice(trs.indexOf(headerTr)+1).filter(tr=>!tr.classList.contains('mbq-total-row')).map(tr=>[...tr.querySelectorAll('td')].map(c=>String(c.innerText||c.textContent||'').replace(/\\s+/g,' ').trim())).filter(c=>c.length&&c[skuI]&&!['TOTAL','GRAND TOTAL','OVERALL TOTAL'].includes(c[skuI].toUpperCase()));
+ const output=rowsOut.map(c=>[c[skuI]||0,mrpForSku(c[skuI]),catI>=0&&c[catI]?c[catI]:0,conI>=0?num(c[conI]):0,indI>=0?num(c[indI]):0,sohI>=0?num(c[sohI]):0,transI>=0?num(c[transI]):0,salesI>=0?num(c[salesI]):0]);
  if(!output.length){showToast('Export ചെയ്യാൻ visible SKU rows ലഭ്യമല്ല.');return;}
  const headers2=['SKU GROUP','MRP NEW','Category','Contri %','Indent','SOH','INTRANSIT','Sales','Coverage %','Overall Coverage','Days Coverage'];
- const aoa=[[],[],headers2,...output.map(()=>Array(headers2.length).fill(''))],ws=XLSX.utils.aoa_to_sheet(aoa);
- ws.A1={t:'n',f:'DATE(YEAR(TODAY()),MONTH(TODAY()),1)',z:'dd-mm-yyyy',s:{font:{name:'Aptos',bold:true,color:{rgb:'17365D'}},numFmt:'dd-mm-yyyy'}};
- ws.B1={t:'n',f:'(TODAY()-A1)/31',z:'0.00',s:{font:{name:'Aptos',bold:true,color:{rgb:'17365D'}},numFmt:'0.00'}};
+ const aoa=[[],[],headers2,...output.map(()=>Array(headers2.length).fill(0))],ws=XLSX.utils.aoa_to_sheet(aoa);
+ ws.A1={t:'n',f:'DATE(YEAR(TODAY()),MONTH(TODAY()),1)',z:'dd-mm-yyyy'};
+ ws.B1={t:'n',f:'(TODAY()-A1)/31',z:'0.00'};
  ws.A2={t:'s',v:'Current Month Start'};ws.B2={t:'s',v:'Month Factor'};
- headers2.forEach((h,c)=>{const cell=XLSX.utils.encode_cell({r:2,c});ws[cell]={t:'s',v:h,s:{fill:{patternType:'solid',fgColor:{rgb:'17365D'}},font:{name:'Aptos',sz:10,bold:true,color:{rgb:'FFFFFF'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{bottom:{style:'medium',color:{rgb:'0EA5A4'}}}}};});
- output.forEach((r,i)=>{const rn=i+4;for(let c=0;c<8;c++){const cell=XLSX.utils.encode_cell({r:rn-1,c});const v=r[c];if(v==='No Data Available'){ws[cell]={t:'s',v,s:{font:{name:'Aptos',sz:9,color:{rgb:'777777'}},alignment:{vertical:'center'}}};}else if(c===0||c===2){ws[cell]={t:'s',v:String(v),s:{font:{name:'Aptos',sz:9,color:{rgb:'24364B'}},alignment:{vertical:'center'}}};}else{const n=Number(v);const stored=c===3&&String(r[c]).includes('%')?n/100:n;ws[cell]=Number.isFinite(stored)?{t:'n',v:stored,s:{font:{name:'Aptos',sz:9,color:{rgb:'24364B'}},numFmt:c===3?'0.00%':'#,##0.00'}}:{t:'s',v:String(v),s:{font:{name:'Aptos',sz:9,color:{rgb:'777777'}}}};}}
- const formulas={I:'IFERROR((H'+rn+'+F'+rn+'+G'+rn+')/E'+rn+',0)',J:'IF(((G'+rn+'+H'+rn+'+F'+rn+')/(E'+rn+'*$B$1))>100%,100%,((G'+rn+'+H'+rn+'+F'+rn+')/(E'+rn+'*$B$1)))',K:'IFERROR((H'+rn+'+F'+rn+'+G'+rn+')/(E'+rn+'/30),0)'};
- Object.entries(formulas).forEach(([col,f])=>{const cell=col+rn;ws[cell]={t:'n',f,v:0,z:col==='K'?'0':'0%',s:{font:{name:'Aptos',sz:9,color:{rgb:'24364B'}},numFmt:col==='K'?'0':'0.0%',alignment:{horizontal:'right'}}};});
- for(let c=0;c<headers2.length;c++){const cell=ws[XLSX.utils.encode_cell({r:rn-1,c})];if(cell&&!cell.s)cell.s={font:{name:'Aptos',sz:9,color:{rgb:'24364B'}},fill:{patternType:'solid',fgColor:{rgb:i%2?'F3F6FA':'FFFFFF'}},border:{bottom:{style:'thin',color:{rgb:'D9E2F0'}}}};}
+ const border={top:{style:'thin',color:{rgb:'CBD5E1'}},bottom:{style:'thin',color:{rgb:'CBD5E1'}},left:{style:'thin',color:{rgb:'CBD5E1'}},right:{style:'thin',color:{rgb:'CBD5E1'}}};
+ const headerStyle={font:{name:'Aptos',sz:10,bold:true,color:{rgb:'FFFFFF'}},fill:{patternType:'solid',fgColor:{rgb:'17365D'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border};
+ const bodyStyle=i=>({font:{name:'Aptos',sz:9,color:{rgb:'24364B'}},fill:{patternType:'solid',fgColor:{rgb:i%2?'EEF4FA':'FFFFFF'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border});
+ headers2.forEach((h,c)=>{const cell=XLSX.utils.encode_cell({r:2,c});ws[cell]={t:'s',v:h,s:headerStyle};});
+ output.forEach((r,i)=>{
+  const rn=i+4;
+  for(let c=0;c<8;c++){
+   const cell=XLSX.utils.encode_cell({r:rn-1,c}),v=r[c],style=bodyStyle(i);
+   if(c===0||c===2){ws[cell]={t:'s',v:String(v??0),s:style};}
+   else if(c===1&&typeof v==='string'&&v.includes('/')){ws[cell]={t:'s',v,s:style};}
+   else {const n=Number(v);ws[cell]={t:'n',v:Number.isFinite(n)?n:0,s:{...style,numFmt:c===3?'0.00%':'#,##0.00'}};if(c===3&&String(rowsOut[i]?.[conI]||'').includes('%'))ws[cell].v=n/100;}
+  }
+  const formulas={I:'IFERROR((H'+rn+'+F'+rn+'+G'+rn+')/E'+rn+',0)',J:'IFERROR(MIN(1,(G'+rn+'+H'+rn+'+F'+rn+')/(E'+rn+'*$B$1)),0)',K:'IFERROR((H'+rn+'+F'+rn+'+G'+rn+')/(E'+rn+'/30),0)'};
+  Object.entries(formulas).forEach(([col,f])=>{const cell=col+rn;ws[cell]={t:'n',f,v:0,z:col==='K'?'0':'0%',s:bodyStyle(i)};});
  });
- ws['!ref']='A1:K'+(output.length+3);ws['!cols']=[{wch:34},{wch:14},{wch:16},{wch:13},{wch:13},{wch:13},{wch:14},{wch:13},{wch:14},{wch:18},{wch:14}];ws['!freeze']={xSplit:0,ySplit:3};ws['!autofilter']={ref:'A3:K'+(output.length+3)};
- const wb=XLSX.utils.book_new();const fullRows=trs.map(tr=>[...tr.querySelectorAll('th,td')].map(c=>(c.innerText||c.textContent||'').replace(/\s+/g,' ').trim())).filter(r=>r.length);const first=XLSX.utils.aoa_to_sheet(fullRows);first['!cols']=Array.from({length:Math.max(1,...fullRows.map(r=>r.length))},(_,c)=>({wch:Math.min(38,Math.max(12,...fullRows.map(r=>String(r[c]??'').length+2)))}));first['!freeze']={xSplit:0,ySplit:1};XLSX.utils.book_append_sheet(wb,first,'Full MBQ');XLSX.utils.book_append_sheet(wb,ws,'Coverage Summary');
- XLSX.writeFile(wb,'MBQ_Excel_View_'+(document.getElementById('mbqSheetSelect')?.value||'DATA')+'_Colour.xlsx',{compression:true});showToast('2-sheet MBQ Excel report downloaded.');
+ ws['!ref']='A1:K'+(output.length+3);ws['!cols']=[{wch:32},{wch:20},{wch:16},{wch:13},{wch:13},{wch:13},{wch:14},{wch:13},{wch:14},{wch:18},{wch:14}];
+ ws['!rows']=[{hpt:24},{hpt:24},{hpt:38},...output.map(()=>({hpt:25}))];
+ ws['!freeze']={xSplit:0,ySplit:3};ws['!autofilter']={ref:'A3:K'+(output.length+3)};
+ for(let r=0;r<3;r++)for(let c=0;c<2;c++){const cell=ws[XLSX.utils.encode_cell({r,c})];if(cell)cell.s={font:{name:'Aptos',sz:10,bold:r<2,color:{rgb:'17365D'}},fill:{patternType:'solid',fgColor:{rgb:r<2?'E5EEF8':'F1F7F8'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border};}
+ const wb=XLSX.utils.book_new();
+ const fullRows=trs.map(tr=>[...tr.querySelectorAll('th,td')].map(c=>(c.innerText||c.textContent||'').replace(/\\s+/g,' ').trim())).filter(r=>r.length).map(r=>r.map(v=>/^no data available$/i.test(String(v).trim())?0:v));
+ const first=XLSX.utils.aoa_to_sheet(fullRows);
+ const fullCols=Math.max(1,...fullRows.map(r=>r.length));
+ first['!cols']=Array.from({length:fullCols},(_,c)=>{const max=Math.max(10,...fullRows.map(r=>String(r[c]??'').length+2));return {wch:Math.min(c===0?36:42,Math.max(c===0?24:12,max))};});
+ first['!rows']=fullRows.map((r,i)=>({hpt:i===0?30:i===1?42:26}));
+ first['!freeze']={xSplit:0,ySplit:2};
+ first['!autofilter']={ref:XLSX.utils.encode_range({s:{r:1,c:0},e:{r:Math.max(1,fullRows.length-1),c:fullCols-1}})};
+ const fullBorder={top:{style:'thin',color:{rgb:'CBD5E1'}},bottom:{style:'thin',color:{rgb:'CBD5E1'}},left:{style:'thin',color:{rgb:'CBD5E1'}},right:{style:'thin',color:{rgb:'CBD5E1'}}};
+ for(let r=0;r<fullRows.length;r++)for(let c=0;c<fullCols;c++){
+  const addr=XLSX.utils.encode_cell({r,c});let cell=first[addr];if(!cell){cell=first[addr]={t:'s',v:''};}
+  cell.s={font:{name:'Aptos',sz:r<2?10:9,bold:r<2,color:{rgb:r<2?'FFFFFF':'24364B'}},fill:{patternType:'solid',fgColor:{rgb:r===0?'12233F':r===1?'087F8C':r%2===0?'F1F6FB':'FFFFFF'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:fullBorder};
+ }
+ XLSX.utils.book_append_sheet(wb,first,'Full MBQ');XLSX.utils.book_append_sheet(wb,ws,'Coverage Summary');
+ XLSX.writeFile(wb,'MBQ_Excel_View_'+(document.getElementById('mbqSheetSelect')?.value||'DATA')+'_Colour.xlsx',{compression:true});
+ showToast('2-sheet MBQ Excel report downloaded.');
 }
 function mbqExportTargetPdf(target,title){
  let root=target?document.querySelector(target):null;if(root&&(root.tagName==='TBODY'||root.tagName==='TR'))root=root.closest('table')||root;if(!root){showToast('PDF report area unavailable.');return;}
