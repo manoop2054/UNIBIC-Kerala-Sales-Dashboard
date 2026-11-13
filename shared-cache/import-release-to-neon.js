@@ -49,6 +49,24 @@ async function queryBatch(sql,params){
     }
   }
 }
+async function cleanupAbandonedCandidates(c){
+  const active=await c.query('SELECT active_gsv_refresh_id,active_live_soh_refresh_id FROM public.cache_active_datasets WHERE singleton=TRUE');
+  const activeIds=new Set(active.rows.flatMap(row=>[row.active_gsv_refresh_id,row.active_live_soh_refresh_id]).filter(Boolean).map(String));
+  const pending=await c.query("SELECT id,source_name FROM public.data_refresh_log WHERE refresh_status IN ('processing','validated') AND source_name IN ('GSV','LIVE_SOH') ORDER BY started_at");
+  for(const row of pending.rows){
+    const id=String(row.id);
+    if(activeIds.has(id))continue;
+    if(row.source_name==='GSV'){
+      const aggregateTable=await c.query("SELECT to_regclass('public.gsv_mbq_aggregate') AS name");
+      if(aggregateTable.rows[0]?.name)await c.query('DELETE FROM public.gsv_mbq_aggregate WHERE refresh_id=$1',[id]);
+      await c.query('DELETE FROM public.gsv_sales WHERE refresh_id=$1',[id]);
+    }else{
+      await c.query('DELETE FROM public.live_stock WHERE refresh_id=$1',[id]);
+    }
+    await c.query("UPDATE public.data_refresh_log SET refresh_status='failed',completed_at=NOW(),error_message='Previous importer ended before activation; abandoned candidate rows were removed safely before retry.',validation_summary=$2::jsonb WHERE id=$1 AND refresh_status='processing'",[id,JSON.stringify({stage:'recovered-abandoned-import',preservedPreviousActiveCache:true})]);
+    console.warn('[IMPORT RECOVERY] Removed incomplete '+row.source_name+' candidate '+id+'; active cache unchanged.');
+  }
+}
 async function insert(client,table,id,rows){
   for(let i=0;i<rows.length;i+=BATCH){
     const p=rows.slice(i,i+BATCH).map(x=>({...x,refresh_id:id}));
@@ -122,6 +140,7 @@ async function importGsv(c,id,file){
       for(let i=1;i<header.length;i++){const k=String(header[i]||'').trim(),v=val(a[i]);if(k&&v!==null&&v!=='')raw[k]=v;}
       if(!Object.keys(raw).length)continue;
       sourceRows++;
+      if(sourceRows%1000===0)console.log('[GSV IMPORT] progress sourceRows='+sourceRows+' validRows='+count+' pendingRows='+batch.length);
       const item=String(pick(raw,'ItemId','Item ID','ItemCode','Item Code')||'').trim();
       const postingDate=date(pick(raw,'PostingDate','Posting Date','Date','Invoice Date'));
       const qty=num(pick(raw,'QuantityinCBO','Quantity in CBO','QuantityinCBD','CBO','CBB','Quantity'));
@@ -334,6 +353,7 @@ async function main(){
     // open while ExcelJS parses the large workbook and sends individual batches.
     await c.query("SELECT pg_advisory_lock(hashtext('unibic-shared-cache-import'))");
     lockHeld=true;
+    await cleanupAbandonedCandidates(c);
     const active=await c.query('SELECT active_gsv_refresh_id,active_live_soh_refresh_id FROM public.cache_active_datasets WHERE singleton=TRUE');
     const old=active.rows[0]||{};
     const prev=await c.query("SELECT id,source_name,file_checksum FROM public.data_refresh_log WHERE refresh_status='active' AND source_name IN ('GSV','LIVE_SOH') ORDER BY started_at DESC");
