@@ -832,7 +832,72 @@ body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,t
 .flash-cfa-tvd{background:#e9f4ea;border-color:#a9ceaf}.flash-cfa-tvd h4{color:#28723d}
 .flash-cfa-pay{background:#fff0e5;border-color:#e6bfa4}.flash-cfa-pay h4{color:#a65320}
 @media(max-width:760px){.flash-cfa-kpi-grid{grid-template-columns:1fr}.flash-cfa-kpi-head{align-items:flex-start;flex-direction:column}.flash-cfa-kpi-head .btn{width:100%}.flash-cfa-kpi-compare{margin:0 10px 13px;padding:8px}.flash-cfa-kpi-value strong{font-size:11px}.flash-cfa-kpi-card{padding:6px}.flash-cfa-kpi-values{grid-template-columns:repeat(4,minmax(0,1fr))}}
-</style></head>
+</style>
+<style id="laptop-alignment-fix">
+/* Laptop layout: keep the existing visual theme; only correct wrapping and alignment. */
+@media (min-width: 1051px) {
+  .topbar {
+    height: auto;
+    min-height: 66px;
+    flex-wrap: wrap;
+    padding: 9px 20px;
+    row-gap: 8px;
+  }
+  .top-right {
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .top-right > * { flex-shrink: 0; }
+
+  #page-allocation .page-head:has(> #allocRunStatus) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(250px, auto);
+    align-items: start;
+    column-gap: 22px;
+    row-gap: 14px;
+    margin-bottom: 16px;
+  }
+  #page-allocation .page-head:has(> #allocRunStatus) > div:first-child {
+    min-width: 0;
+  }
+  #page-allocation .page-head:has(> #allocRunStatus) .actions {
+    grid-column: 2;
+    grid-row: 1;
+    justify-content: flex-end;
+    align-items: center;
+    max-width: 360px;
+  }
+  #page-allocation .page-head:has(> #allocRunStatus) #allocRunStatus {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    line-height: 1.55;
+  }
+  #page-allocation > .notice {
+    width: 100%;
+    line-height: 1.65;
+    padding: 12px 15px;
+    margin: 0 0 16px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+@media (min-width: 1051px) and (max-width: 1250px) {
+  #page-allocation .page-head:has(> #allocRunStatus) {
+    grid-template-columns: minmax(0, 1fr) 280px;
+    column-gap: 14px;
+  }
+  #page-allocation .page-head:has(> #allocRunStatus) .actions {
+    max-width: 280px;
+  }
+}
+</style>
+
+</head>
 <body><div id="mbqLoginGate"><div class="mbq-login-card"><div class="mbq-login-brand">UNIBIC · EMPLOYEE ACCESS</div><div id="mbqLoginFormWrap"><h1>MBQ Smart Indent</h1><p>Sign in using your existing UNIBIC Dashboard Employee ID and password.</p><form id="mbqLoginForm"><label for="mbqEmployeeId">Employee ID</label><input id="mbqEmployeeId" name="employee_id" autocomplete="username" required><label for="mbqEmployeePassword">Password</label><input id="mbqEmployeePassword" name="password" type="password" autocomplete="current-password" required><button id="mbqLoginButton" type="submit">Login</button><div id="mbqLoginMessage" role="alert"></div></form></div><div id="mbqAccessPending"><h1>Access not assigned yet</h1><p id="mbqPendingMessage">Your MBQ tab access has not been assigned by Super Admin.</p><button type="button" id="mbqPendingLogout">Logout</button></div></div></div><div class="app"><aside class="sidebar"><div class="brand"><div class="logo">MB</div><div><strong>SMART INDENT</strong><small>Kerala · CFA Replenishment</small></div></div><div class="nav-label">WORKSPACE</div><nav class="nav" id="nav"><button class="active" data-page="overview"><span>◫</span>Overview Dashboard</button><button data-page="indent"><span>＋</span>Monthly Indent Entry</button><button data-page="suggest"><span>✦</span>AI Suggested Indent</button><button data-page="stock"><span>▦</span>CFA-wise Stock</button><button data-page="totracker"><span>⇄</span>Open TO Tracker</button><button data-page="advanced"><span>✦</span>Advanced Controls</button><button data-page="allocation"><span>⇄</span>CFA Allocation</button><button data-page="distributor"><span>▥</span>Distributor Performance</button><button data-page="peak"><span>◷</span>Peak Billing Planner</button><button data-page="loading"><span>▤</span>CFA Loading Plan</button><button data-page="flash"><span>◉</span>Daily WhatsApp Flash</button><button data-page="reports"><span>⇩</span>Reports & Export</button><button data-page="excelview"><span>▤</span>MBQ Excel View</button><button data-page="settings"><span>⚙</span>Master Data & Settings</button></nav><div class="sidebar-foot"><span class="dot"></span>MBQ workspace<br><br>Data will appear after the relevant source is connected.</div></aside>
 <main class="main"><header class="topbar"><div class="crumb">Workspace / <b id="crumb">Overview Dashboard</b></div><div class="top-right"><div id="gsvConnectionStatus" class="gsv-connection loading" role="status" aria-live="polite"><span class="gsv-dot"></span><span id="gsvConnectionLabel">GSV Loading</span></div><select class="select" id="month" onchange="renderMbqExcelView()"><option>November 2026</option><option>October 2026</option><option>December 2026</option></select><select class="select" id="cfa"><option>All CFAs</option><option>TVD CFA</option><option>PAY CFA</option><option>ALU CFA</option></select><div class="user" id="mbqEmployeeIdDisplay">Employee</div><button class="mbq-logout-link" id="mbqLogoutButton" type="button">Logout</button></div></header><div class="content">
 <section class="section active" id="page-overview">
