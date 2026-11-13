@@ -160,8 +160,25 @@ async function neonRequest(method, body) {
   return payload.endpoint;
 }
 
+async function reconcileInterruptedRun() {
+  // A Render restart kills the importer child process but leaves its DB row marked
+  // RUNNING. Only reconcile when this process has no importer running locally.
+  if (refreshProcess || refreshStarting) return;
+  const pool = getStatusPool();
+  const result = await pool.query(
+    "UPDATE public.shared_cache_sync_runs SET status='interrupted', completed_at=NOW(), " +
+    "error_message=COALESCE(error_message, 'Render process restarted before the sync completed; start a new sync.'), " +
+    "log_lines=COALESCE(log_lines, '[]'::jsonb) || jsonb_build_array('[RECOVERY] Previous sync was interrupted by a service restart; a new sync can be started.') " +
+    "WHERE status='running' AND started_at < NOW() - INTERVAL '2 minutes' RETURNING run_id::text"
+  );
+  if (result.rowCount) {
+    console.warn('[NEON MANUAL PUSH] Reconciled interrupted sync run(s): ' + result.rows.map(row => row.run_id).join(', '));
+  }
+}
+
 async function getDiagnostics() {
   await ensureStatusStore();
+  await reconcileInterruptedRun();
   const pool = getStatusPool();
   const [release, active, latest] = await Promise.all([
     getGithubReleaseInfo(),
