@@ -6273,7 +6273,7 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
    var result=await getStatus();
    if(!result.authorized)return;
    var run=result.data.diagnostics&&result.data.diagnostics.latestRun;
-   if(run&&run.status==='running'&&pollCount<500){pollCount++;setTimeout(poll,3000);}
+   if(run&&run.status==='running'&&pollCount<500){pollCount++;setTimeout(poll,15000);}
    else{busy=false;pollCount=0;render(result.data);}
   }catch(e){if(pollCount<500){pollCount++;setTimeout(poll,5000);}else{busy=false;pollCount=0;}}
  }

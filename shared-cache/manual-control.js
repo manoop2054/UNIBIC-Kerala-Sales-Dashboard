@@ -12,6 +12,8 @@ let refreshState = { status: 'idle', startedAt: null, completedAt: null, error: 
 let statusPool = null;
 let statusSchemaReady = null;
 let releaseCache = { expiresAt: 0, value: null };
+let autoSyncTimer = null;
+let autoSyncCheck = null;
 
 const PROJECT_ID = process.env.SHARED_CACHE_PROJECT_ID || 'snowy-sky-65564833';
 const ENDPOINT_ID = process.env.SHARED_CACHE_ENDPOINT_ID || 'ep-rapid-dust-a1197lo4';
@@ -160,8 +162,68 @@ async function neonRequest(method, body) {
   return payload.endpoint;
 }
 
+async function reconcileInterruptedRun() {
+  // A Render restart kills the importer child process but leaves its DB row marked
+  // RUNNING. Only reconcile when this process has no importer running locally.
+  if (refreshProcess || refreshStarting) return;
+  const pool = getStatusPool();
+  const result = await pool.query(
+    "UPDATE public.shared_cache_sync_runs SET status='interrupted', completed_at=NOW(), " +
+    "error_message=COALESCE(error_message, 'Render process restarted before the sync completed; start a new sync.'), " +
+    "log_lines=COALESCE(log_lines, '[]'::jsonb) || jsonb_build_array('[RECOVERY] Previous sync was interrupted by a service restart; a new sync can be started.') " +
+    "WHERE status='running' AND started_at < NOW() - INTERVAL '2 minutes' RETURNING run_id::text"
+  );
+  if (result.rowCount) {
+    console.warn('[NEON MANUAL PUSH] Reconciled interrupted sync run(s): ' + result.rows.map(row => row.run_id).join(', '));
+  }
+}
+
+async function autoSyncIfOutdated(){
+  if(autoSyncCheck)return autoSyncCheck;
+  autoSyncCheck=(async()=>{
+    await ensureStatusStore();
+    const endpoint=await neonRequest('GET');
+    if(endpoint.disabled)return{status:'disabled'};
+    if(refreshProcess||refreshStarting)return{status:'running'};
+    await reconcileInterruptedRun();
+    const [release,active]=await Promise.all([getGithubReleaseInfo(),getActiveSnapshot()]);
+    const needsSync=Object.keys(ASSETS).some(source=>{
+      const asset=release.assets[source];
+      const current=active.find(row=>row.source===source);
+      if(!current)return true;
+      const assetTime=Date.parse(asset.updatedAt||asset.uploadedAt||'');
+      const cacheTime=Date.parse(current.completedAt||'');
+      const sizeChanged=Number(asset.sizeBytes)>0&&Number(current.sizeBytes)>0&&Number(asset.sizeBytes)!==Number(current.sizeBytes);
+      return sizeChanged||(Number.isFinite(assetTime)&&Number.isFinite(cacheTime)&&assetTime>cacheTime);
+    });
+    if(!needsSync)return{status:'current',release:release.tag};
+    const pool=getStatusPool();
+    const latest=await pool.query('SELECT status,started_at FROM public.shared_cache_sync_runs ORDER BY started_at DESC LIMIT 1');
+    const previous=latest.rows[0];
+    if(previous&&previous.status==='failed'&&Date.now()-new Date(previous.started_at).getTime()<15*60*1000){
+      return{status:'retry-cooldown',release:release.tag};
+    }
+    console.log('[NEON AUTO SYNC] Newer GitHub release asset detected; starting safe import.');
+    return await startReleaseRefresh('AUTO_GITHUB_CHECK');
+  })().finally(()=>{autoSyncCheck=null;});
+  return autoSyncCheck;
+}
+
+function startAutoSyncMonitor(){
+  if(autoSyncTimer)return;
+  autoSyncTimer=setInterval(()=>{
+    autoSyncIfOutdated().catch(error=>console.error('[NEON AUTO SYNC] Check failed:',error.message));
+  },5*60*1000);
+  if(autoSyncTimer.unref)autoSyncTimer.unref();
+  const initial=setTimeout(()=>{
+    autoSyncIfOutdated().catch(error=>console.error('[NEON AUTO SYNC] Initial check failed:',error.message));
+  },15000);
+  if(initial.unref)initial.unref();
+}
+
 async function getDiagnostics() {
   await ensureStatusStore();
+  await reconcileInterruptedRun();
   const pool = getStatusPool();
   const [release, active, latest] = await Promise.all([
     getGithubReleaseInfo(),
@@ -200,6 +262,7 @@ async function startReleaseRefresh(requestedBy) {
   const endpoint = await neonRequest('GET');
   if (endpoint.disabled) await neonRequest('PATCH', { endpoint: { disabled: false } });
   await ensureStatusStore();
+  await reconcileInterruptedRun();
   const [release, before] = await Promise.all([getGithubReleaseInfo(), getActiveSnapshot()]);
 
   const runId = crypto.randomUUID();
@@ -210,7 +273,7 @@ async function startReleaseRefresh(requestedBy) {
     ' VALUES($1,\'running\',$2,$3,$4,$5::jsonb,$6::jsonb)',
     [runId, requestedBy || 'SUPER_ADMIN', startedAt, release.tag, JSON.stringify(release.assets), JSON.stringify(before)]
   );
-  refreshState = { runId, status: 'running', startedAt, completedAt: null, error: null, release: release.tag };
+  refreshState = { runId, status: 'running', startedAt, completedAt: null, error: null, release: release.tag, logs: [], progress: { stage: 'starting', sourceRows: 0 } };
   console.log('[NEON MANUAL PUSH] START | runId=' + runId + ' | release=' + release.tag + ' | startedAt=' + startedAt);
 
   const child = spawn(process.execPath, [script], { env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -218,6 +281,44 @@ async function startReleaseRefresh(requestedBy) {
   refreshStarting = false;
   const logLines = [];
   let finished = false;
+  let persistChain = Promise.resolve();
+  let currentStage = 'download';
+  let lastProgressAt = Date.now();
+  let lastProgressRows = 0;
+  let forcedError = null;
+  let watchdogTimer = null;
+  let killTimer = null;
+  const recordLine = (label, line) => {
+    const entry = '[' + label + '] ' + line;
+    logLines.push(entry);
+    if (logLines.length > 40) logLines.shift();
+    const progress = line.match(/\[GSV IMPORT\] progress sourceRows=(\d+)/);
+    if (line.includes('[GSV IMPORT] started')) {
+      currentStage = 'GSV';
+      lastProgressAt = Date.now();
+      lastProgressRows = 0;
+    } else if (progress) {
+      const rows = Number(progress[1]);
+      if (rows > lastProgressRows) {
+        lastProgressRows = rows;
+        lastProgressAt = Date.now();
+        refreshState = { ...refreshState, progress: { stage: 'GSV import', sourceRows: rows } };
+      }
+    } else if (line.includes('[GSV IMPORT] validated')) {
+      currentStage = 'post-GSV';
+      refreshState = { ...refreshState, progress: { stage: 'GSV validated', sourceRows: lastProgressRows } };
+    } else if (line.includes('[LIVE SOH IMPORT] started')) {
+      currentStage = 'LIVE SOH';
+      refreshState = { ...refreshState, progress: { stage: 'LIVE SOH import' } };
+    }
+    refreshState = { ...refreshState, logs: logLines.slice(-40) };
+    console.log('[NEON REFRESH][' + label + '] ' + line);
+    const snapshot = JSON.stringify(logLines.slice(-40));
+    persistChain = persistChain.then(() => pool.query(
+      'UPDATE public.shared_cache_sync_runs SET log_lines=$2::jsonb WHERE run_id=$1',
+      [runId, snapshot]
+    )).catch(error => console.error('[NEON REFRESH] Could not persist progress log:', error.message));
+  };
   const pipe = (stream, label) => {
     let pending = '';
     stream.setEncoding('utf8');
@@ -225,50 +326,56 @@ async function startReleaseRefresh(requestedBy) {
       pending += chunk;
       const lines = pending.split(/\r?\n/);
       pending = lines.pop() || '';
-      for (const line of lines) {
-        if (!line) continue;
-        const entry = '[' + label + '] ' + line;
-        logLines.push(entry);
-        if (logLines.length > 40) logLines.shift();
-        console.log('[NEON REFRESH][' + label + '] ' + line);
-      }
+      for (const line of lines) if (line) recordLine(label, line);
     });
     stream.on('end', () => {
-      if (pending) {
-        const entry = '[' + label + '] ' + pending;
-        logLines.push(entry);
-        if (logLines.length > 40) logLines.shift();
-        console.log('[NEON REFRESH][' + label + '] ' + pending);
-      }
+      if (pending) recordLine(label, pending);
     });
   };
   pipe(child.stdout, 'OUT');
   pipe(child.stderr, 'ERR');
 
+  watchdogTimer = setInterval(() => {
+    if (!finished && currentStage === 'GSV' && Date.now() - lastProgressAt > 10 * 60 * 1000 && !forcedError) {
+      forcedError = 'GSV import stalled: no source-row progress for 10 minutes. The previous Active cache was preserved; the incomplete candidate will be cleaned safely on the next sync.';
+      console.error('[NEON REFRESH] ' + forcedError);
+      child.kill('SIGTERM');
+      killTimer = setTimeout(() => {
+        if (!finished && refreshProcess === child) child.kill('SIGKILL');
+      }, 15000);
+      if (killTimer.unref) killTimer.unref();
+    }
+  }, 30000);
+  if (watchdogTimer.unref) watchdogTimer.unref();
+
   const finish = async (code, error) => {
     if (finished) return;
     finished = true;
+    if (watchdogTimer) clearInterval(watchdogTimer);
+    if (killTimer) clearTimeout(killTimer);
     try {
+      await persistChain;
       const after = await getActiveSnapshot();
-      const sourceResults = compareSources(before, after, code);
-      const status = code === 0 ? 'success' : 'failed';
-      const message = code === 0 ? null : (error || 'Importer exited with code ' + code);
+      const success = code === 0 && !forcedError;
+      const sourceResults = compareSources(before, after, success ? 0 : 1);
+      const status = success ? 'success' : 'failed';
+      const message = success ? null : (forcedError || error || 'Importer exited with code ' + code);
       await pool.query(
         'UPDATE public.shared_cache_sync_runs SET status=$2,completed_at=NOW(),after_active=$3::jsonb,source_results=$4::jsonb,log_lines=$5::jsonb,error_message=$6 WHERE run_id=$1',
         [runId, status, JSON.stringify(after), JSON.stringify(sourceResults), JSON.stringify(logLines), message]
       );
-      refreshState = { runId, status, startedAt, completedAt: new Date().toISOString(), error: message, release: release.tag, sourceResults };
+      refreshState = { runId, status, startedAt, completedAt: new Date().toISOString(), error: message, release: release.tag, sourceResults, logs: logLines.slice(-40), progress: refreshState.progress || null };
       console.log('[NEON MANUAL PUSH] ' + status.toUpperCase() + ' | runId=' + runId + ' | GSV=' + sourceResults.GSV.status + ' | LIVE_SOH=' + sourceResults.LIVE_SOH.status);
     } catch (persistError) {
-      refreshState = { runId, status: 'failed', startedAt, completedAt: new Date().toISOString(), error: 'Sync finished but diagnostics could not be saved: ' + persistError.message, release: release.tag };
+      refreshState = { runId, status: 'failed', startedAt, completedAt: new Date().toISOString(), error: 'Sync finished but diagnostics could not be saved: ' + persistError.message, release: release.tag, logs: logLines.slice(-40) };
       console.error('[NEON MANUAL PUSH] DIAGNOSTICS SAVE FAILED |', persistError.message);
     } finally {
       refreshProcess = null;
     }
   };
 
-  child.on('error', error => { finish(1, error.message); });
-  child.on('close', code => { finish(code, code === 0 ? null : 'Importer exited with code ' + code); });
+  child.on('error', error => { finish(1, forcedError || error.message); });
+  child.on('close', code => { finish(code, forcedError || (code === 0 ? null : 'Importer exited with code ' + code)); });
   return { ...refreshState };
   } catch (error) {
     refreshStarting = false;
@@ -318,6 +425,7 @@ async function setEnabled(enabled, requestedBy) {
 }
 
 function mount(app, options) {
+  startAutoSyncMonitor();
   const middleware = options.middleware ? (Array.isArray(options.middleware) ? options.middleware : [options.middleware]) : [];
   const authorize = options.authorize || (async () => false);
   async function allowed(req, res) {

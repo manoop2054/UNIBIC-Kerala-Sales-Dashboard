@@ -9,7 +9,7 @@ const ExcelJS=require('exceljs'),XLSX=require('xlsx'),{Pool}=require('pg');
 const REPO='manoop2054/UNIBIC-Kerala-Sales-Dashboard';
 const GSV='KL.LIVE.GSV.LINK-MANOOB.xlsx',SOH='LIVE.STOCK.xlsb';
 const GSV_SHEET=process.env.GSV_SHEET_NAME||'ACX_Sales_Register',SOH_SHEET=process.env.SOH_SHEET_NAME||'LIVE STOCK REPORT';
-const DIR=path.join(os.tmpdir(),'unibic-neon-import'),BATCH=100;
+const DIR=path.join(os.tmpdir(),'unibic-neon-import'),BATCH=200;
 const pool=new Pool({connectionString:process.env.SHARED_CACHE_DATABASE_URL,ssl:process.env.SHARED_CACHE_SSL==='false'?false:{rejectUnauthorized:false},max:2,connectionTimeoutMillis:15000,statement_timeout:120000});
 function get(url,n=0){return new Promise((resolve,reject)=>{if(n>8)return reject(Error('Too many redirects'));const c=url.startsWith('https:')?https:http;const headers={'User-Agent':'UNIBIC-Shared-Cache-Importer','Accept':'application/vnd.github+json'};if(url.startsWith('https://api.github.com/')&&process.env.GITHUB_TOKEN)headers.Authorization='Bearer '+process.env.GITHUB_TOKEN;const q=c.get(url,{headers},r=>{if([301,302,303,307,308].includes(r.statusCode)&&r.headers.location){r.resume();return resolve(get(new URL(r.headers.location,url).toString(),n+1));}if(r.statusCode!==200){r.resume();return reject(Error('HTTP '+r.statusCode+' for '+url));}const a=[];r.on('data',x=>a.push(x));r.on('end',()=>resolve(Buffer.concat(a)));r.on('error',reject);});q.setTimeout(180000,()=>q.destroy(Error('Download timeout')));q.on('error',reject);});}
 async function download(url,file){
@@ -37,11 +37,41 @@ function norm(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');}
 function pick(o,...names){const m=new Map(Object.entries(o).map(([k,v])=>[norm(k),v]));for(const n of names){const v=m.get(norm(n));if(v!==undefined&&v!==null&&v!=='')return v;}return null;}
 function num(v){if(v==null||v==='')return null;const n=Number(String(v).replace(/,/g,''));return Number.isFinite(n)?n:null;}
 function date(v){if(v==null||v==='')return null;const serial=typeof v==='number'?v:(/^\\d+(?:\\.\\d+)?$/.test(String(v).trim())?Number(v):NaN);if(Number.isFinite(serial)&&serial>=1&&serial<=100000){const d=new Date(Date.UTC(1899,11,30)+Math.floor(serial)*86400000);return d.toISOString().slice(0,10);}const s=String(v).trim();let m=s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/);if(m){let y=+m[3];if(y<100)y+=y>=70?1900:2000;const d=new Date(Date.UTC(y,+m[2]-1,+m[1]));return d.getUTCFullYear()===y&&d.getUTCMonth()===+m[2]-1&&d.getUTCDate()===+m[1]?d.toISOString().slice(0,10):null;}m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[0]:null;}
+async function queryBatch(sql,params){
+  const retryable=new Set(['08P01','08006','08003','57P01','57P02','57P03','53300']);
+  for(let attempt=0;attempt<4;attempt++){
+    try{return await pool.query(sql,params);}
+    catch(error){
+      const transient=retryable.has(String(error.code||''))||/connection terminated|connection reset|socket hang up|server closed the connection/i.test(String(error.message||''));
+      if(!transient||attempt===3)throw error;
+      console.warn('[NEON BATCH RETRY] code='+(error.code||'unknown')+' attempt='+(attempt+1)+'; retrying the same idempotent batch');
+      await new Promise(resolve=>setTimeout(resolve,500*(attempt+1)));
+    }
+  }
+}
+async function cleanupAbandonedCandidates(c){
+  const active=await c.query('SELECT active_gsv_refresh_id,active_live_soh_refresh_id FROM public.cache_active_datasets WHERE singleton=TRUE');
+  const activeIds=new Set(active.rows.flatMap(row=>[row.active_gsv_refresh_id,row.active_live_soh_refresh_id]).filter(Boolean).map(String));
+  const pending=await c.query("SELECT id,source_name FROM public.data_refresh_log WHERE refresh_status IN ('processing','validated') AND source_name IN ('GSV','LIVE_SOH') ORDER BY started_at");
+  for(const row of pending.rows){
+    const id=String(row.id);
+    if(activeIds.has(id))continue;
+    if(row.source_name==='GSV'){
+      const aggregateTable=await c.query("SELECT to_regclass('public.gsv_mbq_aggregate') AS name");
+      if(aggregateTable.rows[0]?.name)await c.query('DELETE FROM public.gsv_mbq_aggregate WHERE refresh_id=$1',[id]);
+      await c.query('DELETE FROM public.gsv_sales WHERE refresh_id=$1',[id]);
+    }else{
+      await c.query('DELETE FROM public.live_stock WHERE refresh_id=$1',[id]);
+    }
+    await c.query("UPDATE public.data_refresh_log SET refresh_status='failed',completed_at=NOW(),error_message='Previous importer ended before activation; abandoned candidate rows were removed safely before retry.',validation_summary=$2::jsonb WHERE id=$1 AND refresh_status='processing'",[id,JSON.stringify({stage:'recovered-abandoned-import',preservedPreviousActiveCache:true})]);
+    console.warn('[IMPORT RECOVERY] Removed incomplete '+row.source_name+' candidate '+id+'; active cache unchanged.');
+  }
+}
 async function insert(client,table,id,rows){
   for(let i=0;i<rows.length;i+=BATCH){
     const p=rows.slice(i,i+BATCH).map(x=>({...x,refresh_id:id}));
     if(table==='gsv_sales'){
-      await client.query(`INSERT INTO public.gsv_sales(
+      await queryBatch(`INSERT INTO public.gsv_sales(
         refresh_id,source_row_number,transaction_type,return_invoices,line_discount_amount,
         invoice_no,posting_date,order_no,order_date,sell_to_customer_name,sell_to_customer_no,
         billed_to_code,billed_to_name,ship_to_code,ship_to_name,external_doc_no,location_code,
@@ -81,9 +111,9 @@ async function insert(client,table,id,rows){
         anchor_zone_name text,category_name text,brand_basket text,brand text,brand_family text,
         sku_group text,pack_family text,brand_short_name text,city_group text,quantity_kg numeric,
         gsv_in_lakh numeric,mrp_value numeric,bg text,raw_data jsonb
-      )`,[JSON.stringify(p)]);
+      ) ON CONFLICT (refresh_id, source_row_number) DO NOTHING`,[JSON.stringify(p)]);
     }else{
-      await client.query('INSERT INTO public.live_stock(refresh_id,source_row_number,item_id,description,warehouse,batch_no,mrp,mfg_date,expiry_date,cbo,quarantine_qty_cbo,total_main_qrt,shelf_life,remaining_shelf_life,case_size,units,total_qty_in_units,quarantine_units,net_weight,total_weight,hsn_code,brand_code,brand_family,pack_family,brand_basket_code,brand_short_name,category,data_area_id,inventory_location_type,type,sku_group,raw_data) SELECT refresh_id,source_row_number,item_id,description,warehouse,batch_no,mrp,mfg_date,expiry_date,cbo,quarantine_qty_cbo,total_main_qrt,shelf_life,remaining_shelf_life,case_size,units,total_qty_in_units,quarantine_units,net_weight,total_weight,hsn_code,brand_code,brand_family,pack_family,brand_basket_code,brand_short_name,category,data_area_id,inventory_location_type,type,sku_group,raw_data FROM jsonb_to_recordset($1::jsonb) AS x(refresh_id uuid,source_row_number bigint,item_id text,description text,warehouse text,batch_no text,mrp numeric,mfg_date date,expiry_date date,cbo numeric,quarantine_qty_cbo numeric,total_main_qrt numeric,shelf_life numeric,remaining_shelf_life numeric,case_size numeric,units numeric,total_qty_in_units numeric,quarantine_units numeric,net_weight numeric,total_weight numeric,hsn_code text,brand_code text,brand_family text,pack_family text,brand_basket_code text,brand_short_name text,category text,data_area_id text,inventory_location_type text,type text,sku_group text,raw_data jsonb)',[JSON.stringify(p)]);
+      await queryBatch('INSERT INTO public.live_stock(refresh_id,source_row_number,item_id,description,warehouse,batch_no,mrp,mfg_date,expiry_date,cbo,quarantine_qty_cbo,total_main_qrt,shelf_life,remaining_shelf_life,case_size,units,total_qty_in_units,quarantine_units,net_weight,total_weight,hsn_code,brand_code,brand_family,pack_family,brand_basket_code,brand_short_name,category,data_area_id,inventory_location_type,type,sku_group,raw_data) SELECT refresh_id,source_row_number,item_id,description,warehouse,batch_no,mrp,mfg_date,expiry_date,cbo,quarantine_qty_cbo,total_main_qrt,shelf_life,remaining_shelf_life,case_size,units,total_qty_in_units,quarantine_units,net_weight,total_weight,hsn_code,brand_code,brand_family,pack_family,brand_basket_code,brand_short_name,category,data_area_id,inventory_location_type,type,sku_group,raw_data FROM jsonb_to_recordset($1::jsonb) AS x(refresh_id uuid,source_row_number bigint,item_id text,description text,warehouse text,batch_no text,mrp numeric,mfg_date date,expiry_date date,cbo numeric,quarantine_qty_cbo numeric,total_main_qrt numeric,shelf_life numeric,remaining_shelf_life numeric,case_size numeric,units numeric,total_qty_in_units numeric,quarantine_units numeric,net_weight numeric,total_weight numeric,hsn_code text,brand_code text,brand_family text,pack_family text,brand_basket_code text,brand_short_name text,category text,data_area_id text,inventory_location_type text,type text,sku_group text,raw_data jsonb) ON CONFLICT (refresh_id, source_row_number) DO NOTHING',[JSON.stringify(p)]);
     }
   }
 }
@@ -110,6 +140,7 @@ async function importGsv(c,id,file){
       for(let i=1;i<header.length;i++){const k=String(header[i]||'').trim(),v=val(a[i]);if(k&&v!==null&&v!=='')raw[k]=v;}
       if(!Object.keys(raw).length)continue;
       sourceRows++;
+      if(sourceRows%1000===0)console.log('[GSV IMPORT] progress sourceRows='+sourceRows+' validRows='+count+' pendingRows='+batch.length);
       const item=String(pick(raw,'ItemId','Item ID','ItemCode','Item Code')||'').trim();
       const postingDate=date(pick(raw,'PostingDate','Posting Date','Date','Invoice Date'));
       const qty=num(pick(raw,'QuantityinCBO','Quantity in CBO','QuantityinCBD','CBO','CBB','Quantity'));
@@ -191,7 +222,7 @@ async function importGsv(c,id,file){
       };
       batch.push({source_row_number:sourceRows,...structured,raw_data:safeRaw});
       count++;
-      if(batch.length===BATCH){await insert(c,'gsv_sales',id,batch);batch=[];}
+      if(batch.length===BATCH){await insert(c,'gsv_sales',id,batch);batch=[];if(count%10000===0)console.log('[GSV IMPORT] committed rows='+count+' sourceRows='+sourceRows);}
     }
     break;
   }
@@ -238,7 +269,7 @@ async function importSoh(c,id,file){
       inventory_location_type:pick(raw,'INVENTLOCATIONTYPE','INVENT LOCATION TYPE'),
       type:pick(raw,'TYPE'),sku_group:pick(raw,'ItemAttribute.SKUGroup','SKUGroup','SKU GROUP'),raw_data:raw
     });
-    if(batch.length===BATCH){await insert(c,'live_stock',id,batch);batch=[];}
+    if(batch.length===BATCH){await insert(c,'live_stock',id,batch);batch=[];if(count%5000===0)console.log('[LIVE SOH IMPORT] committed rows='+count);}
   }
   if(count<Number(process.env.MIN_SOH_ROWS||100))throw Error('LIVE SOH validation failed: only '+count+' valid rows (minimum '+(process.env.MIN_SOH_ROWS||100)+')');
   if(batch.length)await insert(c,'live_stock',id,batch);
@@ -298,4 +329,94 @@ async function ensureMbqGsvAggregate(client,refreshId){
   if(!built.rowCount)throw Error('MBQ GSV aggregate materialization returned no rows for refresh '+refreshId);
   console.log('MBQ GSV aggregate materialized:',built.rowCount,'rows');
 }
-async function main(){if(!process.env.SHARED_CACHE_DATABASE_URL)throw Error('Set SHARED_CACHE_DATABASE_URL; existing dashboard DB variables are not used.');await fs.promises.mkdir(DIR,{recursive:true});const meta=JSON.parse((await get('https://api.github.com/repos/'+REPO+'/releases/latest')).toString());const assets=new Map((meta.assets||[]).map(a=>[a.name,a.browser_download_url]));const urls=[assets.get(GSV),assets.get(SOH)];if(urls.some(x=>!x))throw Error('Both GSV and SOH assets are required in release '+meta.tag_name);const files=[path.join(DIR,'gsv.xlsx'),path.join(DIR,'soh.xlsb')];console.log('[GITHUB CHECK] Latest release='+meta.tag_name+' | GSV upload='+(meta.assets.find(a=>a.name===GSV)?.created_at||'unknown')+' | LIVE SOH upload='+(meta.assets.find(a=>a.name===SOH)?.created_at||'unknown'));console.log('Downloading release '+meta.tag_name);const [gm,sm]=await Promise.all([download(urls[0],files[0]),download(urls[1],files[1])]);const c=await pool.connect();let gid=null,sid=null;const attempted=[];try{if(process.env.SHARED_CACHE_REQUIRE_TEST_BRANCH==='true'){const guard=await c.query('SELECT marker FROM public.shared_cache_test_guard WHERE id=1');if(guard.rows[0]?.marker!=='only-this-test-branch')throw Error('Safety check failed: connection is not the isolated Neon test branch.');}await c.query('BEGIN');await c.query("SELECT pg_advisory_xact_lock(hashtext('unibic-shared-cache-import'))");const active=await c.query('SELECT active_gsv_refresh_id,active_live_soh_refresh_id FROM public.cache_active_datasets WHERE singleton=TRUE FOR UPDATE');const old=active.rows[0]||{};const prev=await c.query('SELECT id,source_name,file_checksum FROM public.data_refresh_log WHERE refresh_status=\'active\' AND source_name IN (\'GSV\',\'LIVE_SOH\') ORDER BY started_at DESC');const checks=new Map(prev.rows.map(x=>[x.source_name,x.file_checksum]));console.log('[CACHE CHECK] GSV='+(checks.get('GSV')===gm.sha?'MATCH - keep existing':'CHANGED - import new')+' | LIVE SOH='+(checks.get('LIVE_SOH')===sm.sha?'MATCH - keep existing':'CHANGED - import new'));if(process.env.SHARED_CACHE_FORCE_REIMPORT==='true'||checks.get('GSV')!==gm.sha){gid=crypto.randomUUID();attempted.push({id:gid,source:'GSV',asset:GSV,sha:gm.sha,bytes:gm.bytes});await c.query('INSERT INTO public.data_refresh_log(id,source_name,release_tag,asset_name,file_checksum,file_bytes,refresh_status) VALUES($1,\'GSV\',$2,$3,$4,$5,\'processing\')',[gid,meta.tag_name,GSV,gm.sha,gm.bytes]);const n=await importGsv(c,gid,files[0]);await c.query('UPDATE public.data_refresh_log SET row_count=$2,refresh_status=\'validated\',completed_at=NOW(),validation_summary=$3::jsonb WHERE id=$1',[gid,n.rows,JSON.stringify({sheet:GSV_SHEET,sha256:gm.sha,...n})]);}if(process.env.SHARED_CACHE_FORCE_REIMPORT==='true'||checks.get('LIVE_SOH')!==sm.sha){sid=crypto.randomUUID();attempted.push({id:sid,source:'LIVE_SOH',asset:SOH,sha:sm.sha,bytes:sm.bytes});await c.query('INSERT INTO public.data_refresh_log(id,source_name,release_tag,asset_name,file_checksum,file_bytes,refresh_status) VALUES($1,\'LIVE_SOH\',$2,$3,$4,$5,\'processing\')',[sid,meta.tag_name,SOH,sm.sha,sm.bytes]);const n=await importSoh(c,sid,files[1]);await c.query('UPDATE public.data_refresh_log SET row_count=$2,refresh_status=\'validated\',completed_at=NOW(),validation_summary=$3::jsonb WHERE id=$1',[sid,n.rows,JSON.stringify({sheet:SOH_SHEET,sha256:sm.sha,...n})]);}if(gid)await c.query('ANALYZE public.gsv_sales');if(sid)await c.query('ANALYZE public.live_stock');const ng=gid||old.active_gsv_refresh_id,ns=sid||old.active_live_soh_refresh_id;if(!ng||!ns)throw Error('Both data sources must be imported and validated before first activation.');await ensureMbqGsvAggregate(c,ng);await c.query('INSERT INTO public.cache_active_datasets(singleton,active_gsv_refresh_id,active_live_soh_refresh_id,updated_at) VALUES(TRUE,$1,$2,NOW()) ON CONFLICT(singleton) DO UPDATE SET active_gsv_refresh_id=EXCLUDED.active_gsv_refresh_id,active_live_soh_refresh_id=EXCLUDED.active_live_soh_refresh_id,updated_at=NOW()',[ng,ns]);if(gid)await c.query("UPDATE public.data_refresh_log SET refresh_status='superseded' WHERE source_name='GSV' AND refresh_status='active' AND id<>$1",[gid]);if(sid)await c.query("UPDATE public.data_refresh_log SET refresh_status='superseded' WHERE source_name='LIVE_SOH' AND refresh_status='active' AND id<>$1",[sid]);for(const id of [gid,sid].filter(Boolean))await c.query('UPDATE public.data_refresh_log SET refresh_status=\'active\' WHERE id=$1',[id]);await c.query('COMMIT');console.log('[NEON CACHE] ACTIVATED | release='+meta.tag_name+' | cacheUpdatedAt='+new Date().toISOString()+' | GSV='+(gid?'UPDATED':'UNCHANGED')+' | LIVE_SOH='+(sid?'UPDATED':'UNCHANGED'));}catch(e){await c.query('ROLLBACK').catch(()=>{});for(const item of attempted){try{await pool.query('INSERT INTO public.data_refresh_log(id,source_name,release_tag,asset_name,file_checksum,file_bytes,refresh_status,error_message,completed_at,validation_summary) VALUES($1,$2,$3,$4,$5,$6,\'failed\',$7,NOW(),$8::jsonb)',[item.id,item.source,meta.tag_name,item.asset,item.sha,item.bytes,String(e.message||e).slice(0,4000),JSON.stringify({stage:'import',preservedPreviousActiveCache:true})]);}catch(logError){console.error('Could not persist failure log for '+item.source+':',logError.message);}}throw e;}finally{c.release();}}main().catch(e=>{console.error('Import failed:',e.stack||e.message);process.exitCode=1;}).finally(()=>pool.end().catch(()=>{}));
+async function main(){
+  if(!process.env.SHARED_CACHE_DATABASE_URL)throw Error('Set SHARED_CACHE_DATABASE_URL; existing dashboard DB variables are not used.');
+  await fs.promises.mkdir(DIR,{recursive:true});
+  const meta=JSON.parse((await get('https://api.github.com/repos/'+REPO+'/releases/latest')).toString());
+  const assets=new Map((meta.assets||[]).map(a=>[a.name,a.browser_download_url]));
+  const urls=[assets.get(GSV),assets.get(SOH)];
+  if(urls.some(x=>!x))throw Error('Both GSV and SOH assets are required in release '+meta.tag_name);
+  const files=[path.join(DIR,'gsv.xlsx'),path.join(DIR,'soh.xlsb')];
+  console.log('[GITHUB CHECK] Latest release='+meta.tag_name+' | GSV upload='+(meta.assets.find(a=>a.name===GSV)?.created_at||'unknown')+' | LIVE SOH upload='+(meta.assets.find(a=>a.name===SOH)?.created_at||'unknown'));
+  console.log('Downloading release '+meta.tag_name);
+  const [gm,sm]=await Promise.all([download(urls[0],files[0]),download(urls[1],files[1])]);
+  const c=await pool.connect();
+  let gid=null,sid=null,lockHeld=false,inFinalTransaction=false;
+  const attempted=[];
+  c.on('error',e=>console.error('[NEON CLIENT ERROR]',e.message));
+  try{
+    if(process.env.SHARED_CACHE_REQUIRE_TEST_BRANCH==='true'){
+      const guard=await c.query('SELECT marker FROM public.shared_cache_test_guard WHERE id=1');
+      if(guard.rows[0]?.marker!=='only-this-test-branch')throw Error('Safety check failed: connection is not the isolated Neon test branch.');
+    }
+    // A session lock serializes importers without keeping a database transaction
+    // open while ExcelJS parses the large workbook and sends individual batches.
+    await c.query("SELECT pg_advisory_lock(hashtext('unibic-shared-cache-import'))");
+    lockHeld=true;
+    await cleanupAbandonedCandidates(c);
+    const active=await c.query('SELECT active_gsv_refresh_id,active_live_soh_refresh_id FROM public.cache_active_datasets WHERE singleton=TRUE');
+    const old=active.rows[0]||{};
+    const prev=await c.query("SELECT id,source_name,file_checksum FROM public.data_refresh_log WHERE refresh_status='active' AND source_name IN ('GSV','LIVE_SOH') ORDER BY started_at DESC");
+    const checks=new Map(prev.rows.map(x=>[x.source_name,x.file_checksum]));
+    console.log('[CACHE CHECK] GSV='+(checks.get('GSV')===gm.sha?'MATCH - keep existing':'CHANGED - import new')+' | LIVE SOH='+(checks.get('LIVE_SOH')===sm.sha?'MATCH - keep existing':'CHANGED - import new'));
+    if(process.env.SHARED_CACHE_FORCE_REIMPORT==='true'||checks.get('GSV')!==gm.sha){
+      gid=crypto.randomUUID();
+      attempted.push({id:gid,source:'GSV',asset:GSV,sha:gm.sha,bytes:gm.bytes});
+      await c.query("INSERT INTO public.data_refresh_log(id,source_name,release_tag,asset_name,file_checksum,file_bytes,refresh_status) VALUES($1,'GSV',$2,$3,$4,$5,'processing')",[gid,meta.tag_name,GSV,gm.sha,gm.bytes]);
+      console.log('[GSV IMPORT] started refresh='+gid+' fileBytes='+gm.bytes);
+      const n=await importGsv(c,gid,files[0]);
+      await c.query("UPDATE public.data_refresh_log SET row_count=$2,refresh_status='validated',completed_at=NOW(),validation_summary=$3::jsonb WHERE id=$1",[gid,n.rows,JSON.stringify({sheet:GSV_SHEET,sha256:gm.sha,...n})]);
+      console.log('[GSV IMPORT] validated rows='+n.rows+' sourceRows='+n.sourceRows+' dates='+n.minDate+'..'+n.maxDate);
+    }
+    if(process.env.SHARED_CACHE_FORCE_REIMPORT==='true'||checks.get('LIVE_SOH')!==sm.sha){
+      sid=crypto.randomUUID();
+      attempted.push({id:sid,source:'LIVE_SOH',asset:SOH,sha:sm.sha,bytes:sm.bytes});
+      await c.query("INSERT INTO public.data_refresh_log(id,source_name,release_tag,asset_name,file_checksum,file_bytes,refresh_status) VALUES($1,'LIVE_SOH',$2,$3,$4,$5,'processing')",[sid,meta.tag_name,SOH,sm.sha,sm.bytes]);
+      console.log('[LIVE SOH IMPORT] started refresh='+sid+' fileBytes='+sm.bytes);
+      const n=await importSoh(c,sid,files[1]);
+      await c.query("UPDATE public.data_refresh_log SET row_count=$2,refresh_status='validated',completed_at=NOW(),validation_summary=$3::jsonb WHERE id=$1",[sid,n.rows,JSON.stringify({sheet:SOH_SHEET,sha256:sm.sha,...n})]);
+      console.log('[LIVE SOH IMPORT] validated rows='+n.rows);
+    }
+    if(gid)await c.query('ANALYZE public.gsv_sales');
+    if(sid)await c.query('ANALYZE public.live_stock');
+    const ng=gid||old.active_gsv_refresh_id,ns=sid||old.active_live_soh_refresh_id;
+    if(!ng||!ns)throw Error('Both data sources must be imported and validated before first activation.');
+
+    // Only the short activation phase is transactional. The active pointers and
+    // previous active datasets remain untouched if parsing/import/aggregation fails.
+    await c.query('BEGIN');
+    inFinalTransaction=true;
+    await c.query('SELECT pg_advisory_xact_lock(hashtext(\'unibic-shared-cache-import-activate\'))');
+    await c.query('SELECT singleton FROM public.cache_active_datasets WHERE singleton=TRUE FOR UPDATE');
+    await ensureMbqGsvAggregate(c,ng);
+    await c.query('INSERT INTO public.cache_active_datasets(singleton,active_gsv_refresh_id,active_live_soh_refresh_id,updated_at) VALUES(TRUE,$1,$2,NOW()) ON CONFLICT(singleton) DO UPDATE SET active_gsv_refresh_id=EXCLUDED.active_gsv_refresh_id,active_live_soh_refresh_id=EXCLUDED.active_live_soh_refresh_id,updated_at=NOW()',[ng,ns]);
+    if(gid)await c.query("UPDATE public.data_refresh_log SET refresh_status='superseded' WHERE source_name='GSV' AND refresh_status='active' AND id<>$1",[gid]);
+    if(sid)await c.query("UPDATE public.data_refresh_log SET refresh_status='superseded' WHERE source_name='LIVE_SOH' AND refresh_status='active' AND id<>$1",[sid]);
+    for(const id of [gid,sid].filter(Boolean))await c.query("UPDATE public.data_refresh_log SET refresh_status='active' WHERE id=$1",[id]);
+    await c.query('COMMIT');
+    inFinalTransaction=false;
+    console.log('[NEON CACHE] ACTIVATED | release='+meta.tag_name+' | cacheUpdatedAt='+new Date().toISOString()+' | GSV='+(gid?'UPDATED':'UNCHANGED')+' | LIVE_SOH='+(sid?'UPDATED':'UNCHANGED'));
+  }catch(e){
+    if(inFinalTransaction)await c.query('ROLLBACK').catch(()=>{});
+    // Remove only this failed candidate's rows; never touch the active refresh IDs.
+    for(const item of attempted){
+      try{
+        if(item.source==='GSV'){
+          await c.query('DELETE FROM public.gsv_mbq_aggregate WHERE refresh_id=$1',[item.id]);
+          await c.query('DELETE FROM public.gsv_sales WHERE refresh_id=$1',[item.id]);
+        }else{
+          await c.query('DELETE FROM public.live_stock WHERE refresh_id=$1',[item.id]);
+        }
+        await c.query("UPDATE public.data_refresh_log SET refresh_status='failed',error_message=$2,completed_at=NOW(),validation_summary=$3::jsonb WHERE id=$1",[item.id,String(e.message||e).slice(0,4000),JSON.stringify({stage:'import-or-activation',preservedPreviousActiveCache:true})]);
+      }catch(cleanupError){
+        console.error('Candidate cleanup failed for '+item.source+':',cleanupError.message);
+        await c.query("UPDATE public.data_refresh_log SET refresh_status='failed',error_message=$2,completed_at=NOW(),validation_summary=$3::jsonb WHERE id=$1",[item.id,String(e.message||e).slice(0,4000),JSON.stringify({stage:'cleanup-required',preservedPreviousActiveCache:true})]).catch(()=>{});
+      }
+    }
+    throw e;
+  }finally{
+    if(lockHeld)await c.query("SELECT pg_advisory_unlock(hashtext('unibic-shared-cache-import'))").catch(e=>console.error('Could not release importer advisory lock:',e.message));
+    c.release();
+  }
+}
+main().catch(e=>{console.error('Import failed:',e.stack||e.message);process.exitCode=1;}).finally(()=>pool.end().catch(()=>{}));
