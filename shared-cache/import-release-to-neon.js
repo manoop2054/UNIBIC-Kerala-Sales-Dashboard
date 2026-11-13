@@ -52,7 +52,7 @@ async function queryBatch(sql,params){
 async function cleanupAbandonedCandidates(c){
   const active=await c.query('SELECT active_gsv_refresh_id,active_live_soh_refresh_id FROM public.cache_active_datasets WHERE singleton=TRUE');
   const activeIds=new Set(active.rows.flatMap(row=>[row.active_gsv_refresh_id,row.active_live_soh_refresh_id]).filter(Boolean).map(String));
-  const pending=await c.query("SELECT id,source_name FROM public.data_refresh_log WHERE refresh_status='processing' AND source_name IN ('GSV','LIVE_SOH') ORDER BY started_at");
+  const pending=await c.query("SELECT id,source_name FROM public.data_refresh_log WHERE refresh_status IN ('processing','validated') AND source_name IN ('GSV','LIVE_SOH') ORDER BY started_at");
   for(const row of pending.rows){
     const id=String(row.id);
     if(activeIds.has(id))continue;
