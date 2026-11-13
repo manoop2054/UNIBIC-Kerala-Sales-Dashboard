@@ -1596,7 +1596,7 @@ function mbqBuildGsvDailyIndex(){
  const byItemDateCfa=new Map();
  (Array.isArray(mbqGsvRows)?mbqGsvRows:[]).forEach(x=>{
   const code=mbqGsvNormCode(x.itemId),date=String(x.date||""),cfa=normalCfa(x.cfa),qty=Number(x.quantity)||0;
-  if(!code||!/^\\d{4}-\\d{2}-\\d{2}$/.test(date))return;
+  if(!code||!/^\d{4}-\d{2}-\d{2}$/.test(date))return;
   const key=code+"|"+date,cfKey=key+"|"+cfa;
   byItemDateCfa.set(cfKey,(byItemDateCfa.get(cfKey)||0)+qty);
  });
@@ -1609,7 +1609,7 @@ function mbqExcelSelectedDateRange(){
 function mbqSetDefaultSalesDateRange(){
  const fromEl=document.getElementById("mbqSalesFromDate"),toEl=document.getElementById("mbqSalesToDate");
  const latest=String(mbqGsvMeta?.dateCoverage?.to||"").slice(0,10);
- if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(latest))return;
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(latest))return;
  if(fromEl&&!fromEl.value)fromEl.value=latest.slice(0,7)+"-01";
  if(toEl&&!toEl.value)toEl.value=latest;
  if(fromEl&&toEl){fromEl.max=latest;toEl.max=latest;}
@@ -4487,7 +4487,7 @@ function mbqExcelPlantSohForGroup(sku){const codes=[...new Set(rows.filter(r=>r.
 function mbqExcelGroupSoh(sku,cfa,under60){const codes=[...new Set(rows.filter(r=>r.sku===sku&&r.code).map(r=>mbqCodeKey(r.code)))];if(!codes.length||!liveSohRows.length)return null;let total=0,found=false;liveSohRows.forEach(raw=>{const code=mbqCodeKey(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']));const c=normalCfa(keyValue(raw,['WAREHOUSE','Warehouse','CFA','LocationCode','Location Code','Location Name','Location']));if(!codes.includes(code)||!['ALU','PAY','TVD'].includes(c)||(cfa!=='DATA'&&c!==cfa))return;const q=Number(String(keyValue(raw,['CBO','CBB','SOH','Stock CBO','QuantityinCBO','Quantity in CBO','Qty','Quantity'])??'').replace(/,/g,''));if(!Number.isFinite(q))return;const rawShelf=keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%']);const shelf=Number(String(rawShelf??'').replace('%','').replace(/,/g,''));if(rawShelf===''||!Number.isFinite(shelf))return;const include=under60?(shelf<60&&shelf>=20):(shelf>=60);if(include){total+=q;found=true;}});return found?total:null;}
 function mbqUploadedIndentForSku(sku){const key=String(sku||'').trim().toLowerCase();if(!key)return null;const line=[...indentLines].reverse().find(x=>x.mode==='group'&&String(x.sku||'').trim().toLowerCase()===key);if(line&&line.qty!==''&&line.qty!==null&&line.qty!==undefined&&Number.isFinite(Number(line.qty)))return Number(line.qty);const sr=sourceRows.find(r=>String(r[0]||'').trim().toLowerCase()===key);if(sr&&sr[1]!==''&&sr[1]!==null&&sr[1]!==undefined&&Number.isFinite(Number(sr[1])))return Number(sr[1]);return null;}
 function mbqCfaAllocatedIndentForSku(sku,cfaKey){if(!cfaKey||cfaKey==='DATA')return mbqUploadedIndentForSku(sku);if(!Array.isArray(allocationData)||!allocationData.length)return 'ALLOCATION NOT DONE';const key=String(sku||'').trim().toLowerCase();const matches=allocationData.filter(r=>String(r.sku||'').trim().toLowerCase()===key&&String(r.cfaKey||'').toUpperCase()===String(cfaKey).toUpperCase());if(!matches.length)return 'ALLOCATION NOT DONE';return matches.reduce((sum,r)=>sum+(Number(r.allocation)||0),0);}
-const MBQ_NUMERIC_VIEW_HEADERS=new Set(['JUL','AUG','SEP','OCT','NOV','DEC','JAN','FEB','MAR','APR','MAY','JUN','L3M AVG SALES','IND','INDENT','RANK','CONTRI%','CUM CONTRI%','CL PO','OPEN PO','SOH<60%','SOH>60%','PLANT SOH','SALES','PROD FREQ','MBQ DAYS (BASED ON PROD FREQ)','TRANSIT DAYS','MBQ DAYS','MBQ','NXT 10D','FC%','FR','S. TREND','SHRT/EXC','DOS','REQ','REQUIRED','REQ LOADING','REQUIRED LOADING']);function mbqExcelFmt(v,header){const h=String(header||'').trim().toUpperCase();if(v===null||v===undefined||v===''||String(v).trim()==='No Data Available')return MBQ_NUMERIC_VIEW_HEADERS.has(h)?'0':'';if(typeof v==='number')return v.toLocaleString('en-IN',{maximumFractionDigits:0});return String(v);}
+const MBQ_NUMERIC_VIEW_HEADERS=new Set(['JUL','AUG','SEP','OCT','NOV','DEC','JAN','FEB','MAR','APR','MAY','JUN','L3M AVG SALES','IND','INDENT','RANK','CONTRI%','CUM CONTRI%','CL PO','OPEN PO','SOH<60%','SOH>60%','PLANT SOH','SALES','PROD FREQ','MBQ DAYS (BASED ON PROD FREQ)','TRANSIT DAYS','MBQ DAYS','MBQ','NXT 10D','FC%','FR','S. TREND','SHRT/EXC','DOS','REQ','REQUIRED','REQ LOADING','REQUIRED LOADING']);function mbqExcelFmt(v,header){const h=String(header||'').trim().toUpperCase();if(v===null||v===undefined||v===''||String(v).trim()==='No Data Available')return h==='SALES'?'No Data Available':(MBQ_NUMERIC_VIEW_HEADERS.has(h)?'0':'');if(typeof v==='number')return v.toLocaleString('en-IN',{maximumFractionDigits:0});return String(v);}
 function mbqLastCompletedMonths(count=3){
   const now=new Date(),months=['January','February','March','April','May','June','July','August','September','October','November','December'];
   return Array.from({length:Math.max(0,Number(count)||0)},(_,i)=>{
