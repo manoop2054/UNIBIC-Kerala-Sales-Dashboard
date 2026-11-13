@@ -13,6 +13,37 @@ let statusPool = null;
 let statusSchemaReady = null;
 let releaseCache = { expiresAt: 0, value: null };
 
+// Keep the endpoint switch check lightweight for dashboard data loaders.
+// The previous status path also queried Neon diagnostics and GitHub metadata,
+// which could block every GSV/SOH load while Neon was waking up.
+let endpointStateCache = { expiresAt: 0, value: null, pending: null };
+let diagnosticsCache = { expiresAt: 0, value: null, error: null, pending: null };
+const ENDPOINT_STATE_TTL_MS = 5000;
+const DIAGNOSTICS_TTL_MS = 30000;
+
+async function getEndpointState(force = false) {
+  if (!force && endpointStateCache.value && endpointStateCache.expiresAt > Date.now()) return endpointStateCache.value;
+  if (!force && endpointStateCache.pending) return endpointStateCache.pending;
+  endpointStateCache.pending = neonRequest('GET').then(endpoint => {
+    endpointStateCache.value = endpoint;
+    endpointStateCache.expiresAt = Date.now() + ENDPOINT_STATE_TTL_MS;
+    return endpoint;
+  }).finally(() => { endpointStateCache.pending = null; });
+  return endpointStateCache.pending;
+}
+
+function refreshDiagnosticsInBackground() {
+  if (diagnosticsCache.pending || (diagnosticsCache.value && diagnosticsCache.expiresAt > Date.now())) return;
+  diagnosticsCache.pending = getDiagnostics().then(value => {
+    diagnosticsCache.value = value;
+    diagnosticsCache.error = null;
+    diagnosticsCache.expiresAt = Date.now() + DIAGNOSTICS_TTL_MS;
+  }).catch(error => {
+    diagnosticsCache.error = error.message || String(error);
+    diagnosticsCache.expiresAt = Date.now() + 5000;
+  }).finally(() => { diagnosticsCache.pending = null; });
+}
+
 const PROJECT_ID = process.env.SHARED_CACHE_PROJECT_ID || 'snowy-sky-65564833';
 const ENDPOINT_ID = process.env.SHARED_CACHE_ENDPOINT_ID || 'ep-rapid-dust-a1197lo4';
 const API_BASE = 'https://console.neon.tech/api/v2';
@@ -279,22 +310,24 @@ async function startReleaseRefresh(requestedBy) {
 
 // Central manual gate for the shared Neon cache endpoint.
 // OFF blocks normal database connections; ON permits both dashboards to use Neon.
+async function getEnabled() {
+  const endpoint = await getEndpointState();
+  return !endpoint.disabled;
+}
+
 async function getStatus() {
-  const endpoint = await neonRequest('GET');
-  let diagnostics = null;
-  let diagnosticsError = null;
-  if (endpoint.disabled) diagnosticsError = 'Neon endpoint is OFF; cache details will be available after it is enabled.';
-  else {
-    try { diagnostics = await getDiagnostics(); }
-    catch (error) { diagnosticsError = error.message; }
-  }
+  const endpoint = await getEndpointState();
+  if (!endpoint.disabled) refreshDiagnosticsInBackground();
+  const diagnosticsError = endpoint.disabled
+    ? 'Neon endpoint is OFF; cache details will be available after it is enabled.'
+    : (diagnosticsCache.error || (!diagnosticsCache.value ? 'Cache diagnostics are loading.' : null));
   return {
     enabled: !endpoint.disabled,
     disabled: Boolean(endpoint.disabled),
     computeState: endpoint.current_state || 'unknown',
     endpointId: endpoint.id,
     refresh: { ...refreshState },
-    diagnostics,
+    diagnostics: endpoint.disabled ? null : diagnosticsCache.value,
     diagnosticsError
   };
 }
@@ -306,6 +339,8 @@ async function setEnabled(enabled, requestedBy) {
     throw error;
   }
   const endpoint = await neonRequest('PATCH', { endpoint: { disabled: !enabled } });
+  endpointStateCache = { expiresAt: Date.now() + ENDPOINT_STATE_TTL_MS, value: endpoint, pending: null };
+  diagnosticsCache = { expiresAt: 0, value: null, error: null, pending: null };
   const refresh = enabled ? await startReleaseRefresh(requestedBy) : { ...refreshState };
   if (!enabled) console.log('[NEON CACHE] OFF | GitHub mode will be used by dashboard loaders.');
   return {
@@ -364,4 +399,4 @@ function mount(app, options) {
   });
 }
 
-module.exports = { mount, getStatus, setEnabled, startReleaseRefresh, getDiagnostics };
+module.exports = { mount, getStatus, getEnabled, setEnabled, startReleaseRefresh, getDiagnostics };
