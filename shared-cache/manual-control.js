@@ -217,6 +217,7 @@ async function startReleaseRefresh(requestedBy) {
   const endpoint = await neonRequest('GET');
   if (endpoint.disabled) await neonRequest('PATCH', { endpoint: { disabled: false } });
   await ensureStatusStore();
+  await reconcileInterruptedRun();
   const [release, before] = await Promise.all([getGithubReleaseInfo(), getActiveSnapshot()]);
 
   const runId = crypto.randomUUID();
