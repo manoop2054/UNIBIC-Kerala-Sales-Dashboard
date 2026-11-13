@@ -199,7 +199,6 @@ async function buildMbqGsvAggregateFromGitHub() {
 async function buildMbqGsvAggregate() {
   const runId = opsLogger.runId();
   const runStartedAt = Date.now();
-  console.info("DATA LOAD CHECK | file=GSV | sourcePreference=" + (sharedCache.isConfigured ? "Neon then GitHub fallback" : "GitHub") + " | checkedAt=" + new Date().toISOString());
   if (sharedCache.isConfigured && await isSharedCacheEnabled()) {
     try {
       const result = await sharedCache.readMbqGsvAggregate();
@@ -325,7 +324,6 @@ async function loadSohRows() {
   if (!sohLoadPromise) {
     const runId = opsLogger.runId();
     const runStartedAt = Date.now();
-    console.info("DATA LOAD CHECK | file=LIVE SOH | sourcePreference=" + (useNeon ? "Neon then GitHub fallback" : "GitHub") + " | checkedAt=" + new Date().toISOString());
     sohLoadPromise = (async () => {
     if (sharedCache.isConfigured && await isSharedCacheEnabled()) {
       try {
