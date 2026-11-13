@@ -4208,7 +4208,7 @@ function installTabExcelButtons(){
   if(!actions){actions=document.createElement('div');actions.className='actions';head.appendChild(actions);}
   if(actions.querySelector('.tab-excel-export'))return;
   const button=document.createElement('button');button.type='button';button.className='btn tab-excel-export';button.textContent='⇩ Export · Excel / PDF / JPEG';button.title='Export this tab only in coloured Excel, PDF or JPEG format';
-  button.addEventListener('click',()=>mbqOpenReportExport(button,title,'#'+section.id));actions.appendChild(button);
+  button.addEventListener('click',()=>mbqOpenReportExport(button,title,'#'+section.id,section.id==='page-excelview'?mbqExportMbqTwoSheetWorkbook:null));actions.appendChild(button);
  });
 }
 installTabExcelButtons();
