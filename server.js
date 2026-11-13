@@ -25,8 +25,9 @@ const PORT = process.env.PORT || 10000;
 
 async function isSharedCacheEnabled() {
   try {
-    const status = await sharedCacheControl.getStatus();
-    return status.enabled === true;
+    // The loader needs only the ON/OFF flag. Keep the full cache diagnostics
+    // out of the GSV/SOH hot path so a cold Neon diagnostics query cannot stall it.
+    return await sharedCacheControl.getEnabled();
   } catch (error) {
     console.warn('Kerala shared cache control status unavailable; using GitHub loader:', error.message);
     return false;
