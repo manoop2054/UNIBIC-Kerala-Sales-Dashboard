@@ -217,6 +217,17 @@ async function startReleaseRefresh(requestedBy) {
   refreshProcess = child;
   refreshStarting = false;
   const logLines = [];
+  let persistQueue = Promise.resolve();
+  const persistLogs = () => {
+    const snapshot = JSON.stringify(logLines);
+    persistQueue = persistQueue.then(() => pool.query(
+      'UPDATE public.shared_cache_sync_runs SET log_lines=$2::jsonb WHERE run_id=$1 AND status=\'running\'',
+      [runId, snapshot]
+    )).catch(persistError => {
+      console.error('[NEON MANUAL PUSH] PROGRESS SAVE FAILED |', persistError.message);
+    });
+    return persistQueue;
+  };
   let finished = false;
   const pipe = (stream, label) => {
     let pending = '';
@@ -231,6 +242,7 @@ async function startReleaseRefresh(requestedBy) {
         logLines.push(entry);
         if (logLines.length > 40) logLines.shift();
         console.log('[NEON REFRESH][' + label + '] ' + line);
+        if (/committed rows=|IMPORT START|IMPORT COMPLETE|ERROR|FAILED/i.test(line)) persistLogs();
       }
     });
     stream.on('end', () => {
@@ -239,6 +251,7 @@ async function startReleaseRefresh(requestedBy) {
         logLines.push(entry);
         if (logLines.length > 40) logLines.shift();
         console.log('[NEON REFRESH][' + label + '] ' + pending);
+        persistLogs();
       }
     });
   };
@@ -249,6 +262,7 @@ async function startReleaseRefresh(requestedBy) {
     if (finished) return;
     finished = true;
     try {
+      await persistQueue;
       const after = await getActiveSnapshot();
       const sourceResults = compareSources(before, after, code);
       const status = code === 0 ? 'success' : 'failed';
