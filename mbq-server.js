@@ -378,8 +378,9 @@ const PORT = process.env.PORT || 10000;
 // continue through the existing GitHub loader.
 async function isSharedCacheEnabled() {
   try {
-    const status = await sharedCacheControl.getStatus();
-    return status.enabled === true;
+    // Data loaders need only the ON/OFF flag. Do not wait for the full
+    // diagnostics query (active rows + GitHub release metadata) on every load.
+    return await sharedCacheControl.getEnabled();
   } catch (error) {
     console.warn("MBQ shared cache control status unavailable; using GitHub loader:", error.message);
     return false;
