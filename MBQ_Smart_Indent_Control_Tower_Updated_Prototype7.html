@@ -1134,7 +1134,7 @@ body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,t
     </div>
     <div class="card">
       <div class="excel-toolbar">
-        <div class="field"><label for="mbqSheetSelect">CFA / Sheet</label><select id="mbqSheetSelect" onchange="renderMbqExcelView()"><option value="DATA">All CFA — DATA</option><option value="ALU">ALU CFA</option><option value="PAY">PAY CFA</option><option value="TVD">TVD CFA</option></select></div>
+        <div class="field"><label for="mbqSheetSelect">CFA / Sheet</label><select id="mbqSheetSelect" onchange="renderMbqExcelView()"><option value="DATA">All CFA — DATA</option><option value="ALU">ALU CFA</option><option value="PAY">PAY CFA</option><option value="TVD">TVD CFA</option></select></div><div class="field"><label for="mbqSalesFromDate">SALES From Date</label><input id="mbqSalesFromDate" type="date" onchange="renderMbqExcelView()"></div><div class="field"><label for="mbqSalesToDate">SALES To Date</label><input id="mbqSalesToDate" type="date" onchange="renderMbqExcelView()"></div>
         <div class="field"><label for="mbqViewSearch">Search SKU / value</label><input id="mbqViewSearch" type="search" placeholder="SKU group, category, rank…" oninput="renderMbqExcelView()"></div>
         <div class="field"><label for="mbqViewSort">Sort SKU Groups</label><select id="mbqViewSort" onchange="renderMbqExcelView()"><option value="mbq-desc">MBQ · High to Low</option><option value="mbq-asc">MBQ · Low to High</option><option value="rank" selected>CAT A → B → C · Rank Low to High</option></select></div><div class="field"><label for="mbqViewPageSize">Rows per view</label><select id="mbqViewPageSize" onchange="renderMbqExcelView()"><option value="100">100 rows</option><option value="250" selected>250 rows</option><option value="500">500 rows</option></select></div>
       </div>
@@ -1548,6 +1548,7 @@ function mbqSkuGroupKey(v){return String(v??"").normalize("NFKC").replace(/\uFFF
 function mbqIsOfficialSkuGroup(v){const key=mbqSkuGroupKey(v);const official=window.mbqOfficialAssortmentGroupKeys;return !!key&&Array.isArray(official)&&official.includes(key);}
 function mbqGsvNormCode(v){return String(v??"").trim().toUpperCase().replace(/\s+/g,"");}
 let mbqGsvMonthlyIndex=null;
+let mbqGsvDailyIndex=null;
 let mbqSkuCodesByGroup=new Map();
 let peakSohRowsByCode=new Map();
 let peakPlantSohByCode=new Map();
@@ -1590,6 +1591,47 @@ function mbqBuildGsvMonthlyIndex(){
   byItemMonthCfa.set(cfKey,(byItemMonthCfa.get(cfKey)||0)+qty);
  });
  mbqGsvMonthlyIndex={byItemMonth,byItemMonthCfa};
+}
+function mbqBuildGsvDailyIndex(){
+ const byItemDateCfa=new Map();
+ (Array.isArray(mbqGsvRows)?mbqGsvRows:[]).forEach(x=>{
+  const code=mbqGsvNormCode(x.itemId),date=String(x.date||""),cfa=normalCfa(x.cfa),qty=Number(x.quantity)||0;
+  if(!code||!/^\\d{4}-\\d{2}-\\d{2}$/.test(date))return;
+  const key=code+"|"+date,cfKey=key+"|"+cfa;
+  byItemDateCfa.set(cfKey,(byItemDateCfa.get(cfKey)||0)+qty);
+ });
+ mbqGsvDailyIndex=byItemDateCfa;
+}
+function mbqExcelSelectedDateRange(){
+ const from=document.getElementById("mbqSalesFromDate")?.value||"",to=document.getElementById("mbqSalesToDate")?.value||"";
+ return {from,to,valid:!!from&&!!to&&from<=to};
+}
+function mbqSetDefaultSalesDateRange(){
+ const fromEl=document.getElementById("mbqSalesFromDate"),toEl=document.getElementById("mbqSalesToDate");
+ const latest=String(mbqGsvMeta?.dateCoverage?.to||"").slice(0,10);
+ if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(latest))return;
+ if(fromEl&&!fromEl.value)fromEl.value=latest.slice(0,7)+"-01";
+ if(toEl&&!toEl.value)toEl.value=latest;
+ if(fromEl&&toEl){fromEl.max=latest;toEl.max=latest;}
+}
+function mbqGsvGroupDateRange(sku,cfa){
+ const range=mbqExcelSelectedDateRange();
+ if(!range.valid||!mbqGsvRows.length)return null;
+ if(!mbqGsvDailyIndex)mbqBuildGsvDailyIndex();
+ if(!mbqSkuCodesByGroup.size)mbqBuildSkuGroupCodeIndex();
+ const codes=mbqSkuCodesByGroup.get(mbqSkuGroupKey(sku));
+ if(!codes||!codes.size)return null;
+ let total=0,found=false;
+ codes.forEach(code=>{
+  const prefix=mbqGsvNormCode(code)+"|";
+  mbqGsvDailyIndex.forEach((qty,key)=>{
+   if(!key.startsWith(prefix))return;
+   const parts=key.split("|"),date=parts[1],loc=parts[2];
+   if(date<range.from||date>range.to||(cfa!=="DATA"&&normalCfa(cfa)!==loc))return;
+   found=true;total+=Number(qty)||0;
+  });
+ });
+ return found?total:null;
 }
 function mbqGsvItemMonth(code, month, cfa="DATA") {
  const key=mbqGsvNormCode(code),mo=String(month||"").trim();
@@ -1657,10 +1699,11 @@ async function loadMbqGsv(attempt=0){
     if(!response.ok||!result.success)throw new Error(result.detail||result.error||"GSV load failed");
     if(!Array.isArray(result.data)||result.data.length===0)throw new Error("GSV API returned no data rows");
     mbqGsvRows=result.data;
-    mbqGsvMonthlyIndex=null;
+    mbqGsvMonthlyIndex=null;mbqGsvDailyIndex=null;
     peakDailyIndex=null;
     setGsvConnectionStatus("connected","GSV Connected");
     mbqGsvMeta=result;
+    mbqSetDefaultSalesDateRange();
     mbqApplyGsvSales();
     const pill=[...document.querySelectorAll("#page-indent .excel-pill")].find(el=>el.textContent.includes("GSV source status pending"));
     if(pill)pill.textContent="Sales / Billing · GSV linked · "+Number(result.matchedRows||0).toLocaleString("en-IN")+" rows";
@@ -4569,7 +4612,7 @@ function mbqRenderLoadedWorkbook(key,host,label){
   const reqIx=original.findIndex(h=>['REQ','REQUIRED','REQ LOADING','REQUIRED LOADING'].includes(String(h||'').trim().toUpperCase()));
   if(reqIx>=0)totalValues[String(original[reqIx]).trim().toUpperCase()]=sumCol(String(original[reqIx]).trim().toUpperCase());
   const totalRowHtml='<tr class="mbq-total-row" style="font-weight:800;background:var(--surface-2,#eef2f7);border-bottom:2px solid var(--line)">'+displayCols.map(({h,i})=>{const hu=String(original[i]||h).trim().toUpperCase();let v=Object.prototype.hasOwnProperty.call(totalValues,hu)?totalValues[hu]:null;if(i===skuIndex)return '<td>TOTAL</td>';if(v===null||v===undefined)return '<td></td>';const pct=['FC%','FR','S. TREND','S.TREND'].includes(hu);const display=pct?(Math.round(Number(v)*100+1e-9)).toLocaleString('en-IN')+'%':mbqExcelFmt(v,hu);return '<td>'+mbqEscape(display)+'</td>';}).join('')+'</tr>';
-  const body=shown.map(row=>{const vals=row.slice();const sku=skuIndex>=0?vals[skuIndex]:'';const prodCfg=mbqProductionSettings()[String(sku||'').trim()];if(prodCfg){const freqIx=original.findIndex(h=>String(h).trim().toUpperCase()==='PROD FREQ'),prodDaysIx=original.findIndex(h=>String(h).trim().toUpperCase()==='MBQ DAYS (BASED ON PROD FREQ)'),transitIx=original.findIndex(h=>String(h).trim().toUpperCase()==='TRANSIT DAYS'),daysIx=original.findIndex(h=>String(h).trim().toUpperCase()==='MBQ DAYS'),avgIxForMbq=original.findIndex(h=>String(h).trim().toUpperCase()==='L3M AVG SALES'),mbqIx=original.findIndex(h=>String(h).trim().toUpperCase()==='MBQ');if(freqIx>=0&&prodCfg.freq!=='')vals[freqIx]=prodCfg.freq;if(transitIx>=0&&prodCfg.transitDays!=='')vals[transitIx]=prodCfg.transitDays;const mappedProdDays=mbqProdDaysFromFreq(prodCfg.freq!==''?prodCfg.freq:vals[freqIx]);const uploadedProdDays=prodCfg.prodDays!==''&&prodCfg.prodDays!==undefined&&prodCfg.prodDays!==null?Number(prodCfg.prodDays):null;const pd=uploadedProdDays!==null&&Number.isFinite(uploadedProdDays)?uploadedProdDays:(mappedProdDays!==null?mappedProdDays:Number(vals[prodDaysIx])),td=prodCfg.transitDays!==''&&prodCfg.transitDays!==undefined&&prodCfg.transitDays!==null?Number(prodCfg.transitDays):Number(vals[transitIx]);if(prodDaysIx>=0&&pd!==null&&Number.isFinite(pd))vals[prodDaysIx]=pd;if(daysIx>=0&&Number.isFinite(pd)&&Number.isFinite(td)){vals[daysIx]=pd+td;if(mbqIx>=0&&avgIxForMbq>=0){const avg=Number(vals[avgIxForMbq]);vals[mbqIx]=Number.isFinite(avg)?(avg/30)*(pd+td):'No Data Available';}}}let indIx=original.findIndex(h=>String(h).trim().toUpperCase()==='IND');if(indIx<0)indIx=original.findIndex(h=>String(h).trim().toUpperCase()==='INDENT');const cfaInd=mbqCfaAllocatedIndentForSku(sku,key);if(indIx>=0)vals[indIx]=cfaInd;const clPoIx=original.findIndex(h=>String(h).trim().toUpperCase()==='CL PO'),openPoIx=original.findIndex(h=>String(h).trim().toUpperCase()==='OPEN PO');if(clPoIx>=0){const clPo=mbqExcelGroupPo(sku,key,'CLOSE');vals[clPoIx]=clPo===null?'No Data Available':clPo;}if(openPoIx>=0){const openPo=mbqExcelGroupPo(sku,key,'OPEN');vals[openPoIx]=openPo===null?'No Data Available':openPo;}if(monthIx.length>=3&&sku)monthIx.slice(0,3).forEach((x,j)=>{const v=mbqLoadedSalesValue(sku,key,history[j].month);vals[x.i]=v===null?'No Data Available':v;});const avgIx=original.map((h,i)=>({h:String(h).trim().toUpperCase(),i})).filter(x=>x.h==='L3M AVG SALES');if(avgIx.length&&sku){const monthly=history.map(m=>mbqLoadedSalesValue(sku,key,m.month));avgIx.forEach(x=>vals[x.i]=monthly.every(v=>v!==null)?monthly.reduce((a,b)=>a+b,0)/3:'No Data Available');}mbqRecalcWorkbookFormulaCells(original,vals);const groupToStatus=mbqGroupPlantToStatus(sku,key);return '<tr class="'+(groupToStatus==='out'?'plant-stockout-row':'')+'">'+displayCols.map(({h,i})=>{const hu=String(h).trim().toUpperCase(),v=vals[i];if(hu==='BG')return '<td>'+mbqBgCell(sku,v)+'</td>';let display=mbqExcelFmt(v,hu);if((hu==='CONTRI%'||hu==='CUM CONTRI%')&&v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v)))display=(Number(v)*100).toLocaleString('en-IN',{maximumFractionDigits:0})+'%';return '<td class="'+[mbqColourClass(hu,v,vals[original.findIndex(x=>String(x).trim().toUpperCase()==='CAT')]),(hu==='SHRT/EXC'?mbqShortCellClass(v):'')].filter(Boolean).join(' ')+'">'+mbqEscape(display)+'</td>';}).join('')+'</tr>';}).join('');
+  const body=shown.map(row=>{const vals=row.slice();const sku=skuIndex>=0?vals[skuIndex]:'';const prodCfg=mbqProductionSettings()[String(sku||'').trim()];if(prodCfg){const freqIx=original.findIndex(h=>String(h).trim().toUpperCase()==='PROD FREQ'),prodDaysIx=original.findIndex(h=>String(h).trim().toUpperCase()==='MBQ DAYS (BASED ON PROD FREQ)'),transitIx=original.findIndex(h=>String(h).trim().toUpperCase()==='TRANSIT DAYS'),daysIx=original.findIndex(h=>String(h).trim().toUpperCase()==='MBQ DAYS'),avgIxForMbq=original.findIndex(h=>String(h).trim().toUpperCase()==='L3M AVG SALES'),mbqIx=original.findIndex(h=>String(h).trim().toUpperCase()==='MBQ');if(freqIx>=0&&prodCfg.freq!=='')vals[freqIx]=prodCfg.freq;if(transitIx>=0&&prodCfg.transitDays!=='')vals[transitIx]=prodCfg.transitDays;const mappedProdDays=mbqProdDaysFromFreq(prodCfg.freq!==''?prodCfg.freq:vals[freqIx]);const uploadedProdDays=prodCfg.prodDays!==''&&prodCfg.prodDays!==undefined&&prodCfg.prodDays!==null?Number(prodCfg.prodDays):null;const pd=uploadedProdDays!==null&&Number.isFinite(uploadedProdDays)?uploadedProdDays:(mappedProdDays!==null?mappedProdDays:Number(vals[prodDaysIx])),td=prodCfg.transitDays!==''&&prodCfg.transitDays!==undefined&&prodCfg.transitDays!==null?Number(prodCfg.transitDays):Number(vals[transitIx]);if(prodDaysIx>=0&&pd!==null&&Number.isFinite(pd))vals[prodDaysIx]=pd;if(daysIx>=0&&Number.isFinite(pd)&&Number.isFinite(td)){vals[daysIx]=pd+td;if(mbqIx>=0&&avgIxForMbq>=0){const avg=Number(vals[avgIxForMbq]);vals[mbqIx]=Number.isFinite(avg)?(avg/30)*(pd+td):'No Data Available';}}}let indIx=original.findIndex(h=>String(h).trim().toUpperCase()==='IND');if(indIx<0)indIx=original.findIndex(h=>String(h).trim().toUpperCase()==='INDENT');const cfaInd=mbqCfaAllocatedIndentForSku(sku,key);if(indIx>=0)vals[indIx]=cfaInd;const clPoIx=original.findIndex(h=>String(h).trim().toUpperCase()==='CL PO'),openPoIx=original.findIndex(h=>String(h).trim().toUpperCase()==='OPEN PO');if(clPoIx>=0){const clPo=mbqExcelGroupPo(sku,key,'CLOSE');vals[clPoIx]=clPo===null?'No Data Available':clPo;}if(openPoIx>=0){const openPo=mbqExcelGroupPo(sku,key,'OPEN');vals[openPoIx]=openPo===null?'No Data Available':openPo;}if(monthIx.length>=3&&sku)monthIx.slice(0,3).forEach((x,j)=>{const v=mbqLoadedSalesValue(sku,key,history[j].month);vals[x.i]=v===null?'No Data Available':v;});const avgIx=original.map((h,i)=>({h:String(h).trim().toUpperCase(),i})).filter(x=>x.h==='L3M AVG SALES');if(avgIx.length&&sku){const monthly=history.map(m=>mbqLoadedSalesValue(sku,key,m.month));avgIx.forEach(x=>vals[x.i]=monthly.every(v=>v!==null)?monthly.reduce((a,b)=>a+b,0)/3:'No Data Available');}const liveSalesIx=original.findIndex(h=>String(h||'').trim().toUpperCase()==='SALES');if(liveSalesIx>=0&&sku){const liveSales=mbqGsvGroupDateRange(sku,key);vals[liveSalesIx]=liveSales===null?'No Data Available':liveSales;}mbqRecalcWorkbookFormulaCells(original,vals);const groupToStatus=mbqGroupPlantToStatus(sku,key);return '<tr class="'+(groupToStatus==='out'?'plant-stockout-row':'')+'">'+displayCols.map(({h,i})=>{const hu=String(h).trim().toUpperCase(),v=vals[i];if(hu==='BG')return '<td>'+mbqBgCell(sku,v)+'</td>';let display=mbqExcelFmt(v,hu);if((hu==='CONTRI%'||hu==='CUM CONTRI%')&&v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v)))display=(Number(v)*100).toLocaleString('en-IN',{maximumFractionDigits:0})+'%';return '<td class="'+[mbqColourClass(hu,v,vals[original.findIndex(x=>String(x).trim().toUpperCase()==='CAT')]),(hu==='SHRT/EXC'?mbqShortCellClass(v):'')].filter(Boolean).join(' ')+'">'+mbqEscape(display)+'</td>';}).join('')+'</tr>';}).join('');
   const head='<thead><tr>'+displayCols.map(({h})=>'<th>'+mbqEscape(h)+'</th>').join('')+'</tr></thead>';
   host.innerHTML=kpis+'<div class="excel-status ready" style="margin:0 0 8px"><span class="dot"></span><span>Loaded '+mbqEscape(mbqWorkbookName)+' · SALES '+mbqSalesRows.length.toLocaleString('en-IN')+' rows · '+mbqEscape(history.map(m=>m.label).join(' · '))+' sales history · '+mbqEscape(label)+' · INDENT source '+mbqIndentRows.length.toLocaleString('en-IN')+' rows</span></div><div class="excel-table-wrap"><table class="excel-table">'+head+'<tbody>'+totalRowHtml+(body||'<tr><td colspan="'+headers.length+'" class="empty">No matching SKU groups.</td></tr>')+'</tbody></table></div>';return true;
 }
@@ -4731,7 +4774,7 @@ function mbqExcelFormulaDisplayRows(skus,cfa){
 function renderMbqExcelView(){const key=document.getElementById('mbqSheetSelect')?.value||'DATA',host=document.getElementById('mbqExcelTableHost');if(!host)return;const label=key==='DATA'?'All CFA':key+' CFA';if(mbqExcelSheets[key]&&mbqSalesRows.length){mbqRenderLoadedWorkbook(key,host,label);return;}document.getElementById('mbqStatCfa').textContent=label;const unique=[...new Set(rows.filter(r=>r&&r.sku&&mbqIsOfficialSkuGroup(r.sku)&&(!mbqHideEmptyIndents||mbqGroupHasIndent(r.sku))).map(r=>r.sku))].sort((a,b)=>a.localeCompare(b));const q=mbqText(document.getElementById('mbqViewSearch')?.value).toLowerCase(),size=Number(document.getElementById('mbqViewPageSize')?.value)||250;const filtered=unique.filter(sku=>!q||sku.toLowerCase().includes(q)||rows.some(r=>r.sku===sku&&[r.code,r.description,r.mrp].some(v=>mbqText(v).toLowerCase().includes(q))));const sortMode=mbqViewSortMode();if(sortMode!=='rank')filtered.sort((a,b)=>{const av=mbqFallbackMbqValue(a,key),bv=mbqFallbackMbqValue(b,key);if(av===null&&bv===null)return a.localeCompare(b);if(av===null)return 1;if(bv===null)return -1;return (sortMode==='mbq-asc'?av-bv:bv-av)||a.localeCompare(b);});const shown=filtered.slice(0,size);document.getElementById('mbqStatRows').textContent=filtered.length.toLocaleString('en-IN');document.getElementById('mbqStatCols').textContent=MBQ_OFFICIAL_HEADERS.length;const hasAssortment=unique.length>0,hasSoh=liveSohRows.length>0,hasGsv=mbqGsvRows.length>0;document.getElementById('mbqStatSource').textContent=[hasAssortment?'Assortment':'',hasSoh?'LIVE SOH':'',hasGsv?'GSV':''].filter(Boolean).join(' + ')||'Source unavailable';const status=document.getElementById('mbqWorkbookStatus');if(status){status.classList.toggle('ready',hasAssortment&&(hasSoh||hasGsv));status.innerHTML='<span class="dot"></span><span>'+mbqEscape((hasAssortment?'Assortment '+unique.length+' SKU groups':'Assortment unavailable')+' · '+(hasSoh?'LIVE SOH '+liveSohRows.length+' rows':'LIVE SOH unavailable')+' · '+(hasGsv?'GSV '+mbqGsvRows.length+' item/month/CFA aggregates':'GSV unavailable')+' · '+(!Object.keys(mbqExcelSheets).length?'Official MBQ workbook not uploaded: CTG/GT/ECOM/MT/BG, PO and planning fields are awaiting workbook data; missing numeric cells show 0':'Official workbook available'))+'</span>';}if(!hasAssortment){host.innerHTML='<div class="excel-empty"><strong>Assortment source unavailable</strong>SKU Group headings remain ready, but rows will appear when the GitHub Kerala Assortment source loads.</div>';return;}const sourceMonths=mbqExcelSourceMonths(),headers=MBQ_OFFICIAL_HEADERS.map(h=>h);if(sourceMonths.length===3){headers[10]=sourceMonths[0].label;headers[11]=sourceMonths[1].label;headers[12]=sourceMonths[2].label;}const formulaRows=mbqExcelFormulaDisplayRows(unique,key);const displayHeaders=key==='ALU'?headers:headers.filter(h=>!['GT','ECOM','MT'].includes(String(h).trim().toUpperCase()));
 const mbqTotalSumHeaders=new Set(['IND','CL PO','OPEN PO','SOH<60%','SOH>60%','PLANT SOH','SALES','L3M AVG SALES','MBQ','NXT 10D','SHRT/EXC',...sourceMonths.map(m=>m.label)]);const mbqTotals=Object.create(null),mbqTotalCounts=Object.create(null);
 const body=shown.slice().sort((a,b)=>{if(sortMode==='rank'){const ar=formulaRows.get(a)?.rank,br=formulaRows.get(b)?.rank;return (Number.isFinite(ar)?ar:Infinity)-(Number.isFinite(br)?br:Infinity)||a.localeCompare(b);}const av=mbqFallbackMbqValue(a,key),bv=mbqFallbackMbqValue(b,key);if(av===null&&bv===null)return a.localeCompare(b);if(av===null)return 1;if(bv===null)return -1;return (sortMode==='mbq-asc'?av-bv:bv-av)||a.localeCompare(b);}).map(sku=>{
- const monthly=sourceMonths.map(m=>mbqExcelGroupSales(sku,m.key,key));const avg=monthly.length===3&&monthly.every(v=>v!==null)?monthly.reduce((a,b)=>a+Number(b),0)/3:null;const latest=monthly.length?monthly[monthly.length-1]:null;
+ const monthly=sourceMonths.map(m=>mbqExcelGroupSales(sku,m.key,key));const avg=monthly.length===3&&monthly.every(v=>v!==null)?monthly.reduce((a,b)=>a+Number(b),0)/3:null;const latest=mbqGsvGroupDateRange(sku,key);
  const under=mbqExcelGroupSoh(sku,key,true),over=mbqExcelGroupSoh(sku,key,false),plant=mbqExcelPlantSohForGroup(sku),cfg=mbqProductionSettings()[String(sku||'').trim()]||{};
  const freq=cfg.freq!==undefined&&cfg.freq!==''?cfg.freq:null,transit=cfg.transitDays!==undefined&&cfg.transitDays!==''?cfg.transitDays:null,prodDays=mbqProdDaysFromFreq(freq),mbqDays=(prodDays!==null?Number(prodDays):0)+(transit!==null?Number(transit):0);
  const ind=mbqCfaAllocatedIndentForSku(sku,key),ranking=formulaRows.get(sku)||{},clPo=mbqExcelGroupPo(sku,key,'CLOSE'),openPo=mbqExcelGroupPo(sku,key,'OPEN');
