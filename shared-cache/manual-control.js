@@ -18,8 +18,10 @@ let releaseCache = { expiresAt: 0, value: null };
 // which could block every GSV/SOH load while Neon was waking up.
 let endpointStateCache = { expiresAt: 0, value: null, pending: null };
 let diagnosticsCache = { expiresAt: 0, value: null, error: null, pending: null };
-const ENDPOINT_STATE_TTL_MS = 5000;
-const DIAGNOSTICS_TTL_MS = 30000;
+const ENDPOINT_STATE_TTL_MS = 15000;
+const ENDPOINT_STATE_STALE_MS = 5 * 60 * 1000;
+const NEON_CONTROL_TIMEOUT_MS = 6000;
+const DIAGNOSTICS_TTL_MS = 60000;
 
 async function getEndpointState(force = false) {
   if (!force && endpointStateCache.value && endpointStateCache.expiresAt > Date.now()) return endpointStateCache.value;
@@ -28,6 +30,15 @@ async function getEndpointState(force = false) {
     endpointStateCache.value = endpoint;
     endpointStateCache.expiresAt = Date.now() + ENDPOINT_STATE_TTL_MS;
     return endpoint;
+  }).catch(error => {
+    console.warn('[NEON CONTROL] Endpoint state unavailable; retaining safe read-through fallback:', error.message);
+    if (endpointStateCache.value && Date.now() <= endpointStateCache.expiresAt + ENDPOINT_STATE_STALE_MS) {
+      return endpointStateCache.value;
+    }
+    // Read-only data loaders may still try Neon; if it is OFF/unreachable they
+    // fall back to the existing GitHub loader. Control writes always require a
+    // fresh successful Neon API response.
+    return { id: ENDPOINT_ID, disabled: false, current_state: 'unknown', controlFallback: true };
   }).finally(() => { endpointStateCache.pending = null; });
   return endpointStateCache.pending;
 }
@@ -172,28 +183,55 @@ async function neonRequest(method, body) {
     error.status = 503;
     throw error;
   }
-  const response = await fetch(API_BASE + '/projects/' + encodeURIComponent(PROJECT_ID) +
-    '/endpoints/' + encodeURIComponent(ENDPOINT_ID), {
-      method,
-      headers: {
-        'Authorization': 'Bearer ' + apiKey,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      ...(body ? { body: JSON.stringify(body) } : {})
-    });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok || !payload.endpoint) {
-    const error = new Error('Neon control API request failed (HTTP ' + response.status + ').');
-    error.status = response.status >= 400 && response.status < 500 ? 502 : 503;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), NEON_CONTROL_TIMEOUT_MS);
+  try {
+    const response = await fetch(API_BASE + '/projects/' + encodeURIComponent(PROJECT_ID) +
+      '/endpoints/' + encodeURIComponent(ENDPOINT_ID), {
+        method,
+        signal: controller.signal,
+        headers: {
+          'Authorization': 'Bearer ' + apiKey,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        ...(body ? { body: JSON.stringify(body) } : {})
+      });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.endpoint) {
+      const error = new Error('Neon control API request failed (HTTP ' + response.status + ').');
+      error.status = response.status >= 400 && response.status < 500 ? 502 : 503;
+      throw error;
+    }
+    return payload.endpoint;
+  } catch (cause) {
+    const error = new Error(cause && cause.name === 'AbortError'
+      ? 'Neon control API timed out after ' + NEON_CONTROL_TIMEOUT_MS + ' ms.'
+      : (cause.message || 'Neon control API request failed.'));
+    error.status = 503;
     throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  return payload.endpoint;
+}
+
+async function reconcileInterruptedRun(pool) {
+  if (refreshProcess || refreshStarting) return;
+  const result = await pool.query(
+    "UPDATE public.shared_cache_sync_runs SET status='interrupted', completed_at=NOW(), " +
+    "error_message=COALESCE(error_message,'Render process ended before importer completion; active cache was retained.'), " +
+    "log_lines=COALESCE(log_lines,'[]'::jsonb) || jsonb_build_array('Interrupted run recovered automatically after service restart; active cache retained.') " +
+    "WHERE status='running' AND started_at < NOW() - INTERVAL '3 minutes' RETURNING run_id::text"
+  );
+  if (result.rowCount) {
+    console.warn('[NEON MANUAL PUSH] Recovered ' + result.rowCount + ' stale RUNNING run(s) as INTERRUPTED; active cache unchanged.');
+  }
 }
 
 async function getDiagnostics() {
   await ensureStatusStore();
   const pool = getStatusPool();
+  await reconcileInterruptedRun(pool);
   const [release, active, latest] = await Promise.all([
     getGithubReleaseInfo(),
     getActiveSnapshot(),
@@ -236,6 +274,7 @@ async function startReleaseRefresh(requestedBy) {
   const runId = crypto.randomUUID();
   const startedAt = new Date().toISOString();
   const pool = getStatusPool();
+  await reconcileInterruptedRun(pool);
   await pool.query(
     'INSERT INTO public.shared_cache_sync_runs(run_id,status,requested_by,started_at,github_release,github_assets,before_active)' +
     ' VALUES($1,\'running\',$2,$3,$4,$5::jsonb,$6::jsonb)',
@@ -312,6 +351,8 @@ async function startReleaseRefresh(requestedBy) {
 // OFF blocks normal database connections; ON permits both dashboards to use Neon.
 async function getEnabled() {
   const endpoint = await getEndpointState();
+  // During a Neon control-plane outage, allow the read-only DB attempt. The
+  // existing loader catches connection failure and uses GitHub as fallback.
   return !endpoint.disabled;
 }
 
@@ -326,6 +367,8 @@ async function getStatus() {
     disabled: Boolean(endpoint.disabled),
     computeState: endpoint.current_state || 'unknown',
     endpointId: endpoint.id,
+    controlFallback: Boolean(endpoint.controlFallback),
+    controlWarning: endpoint.controlFallback ? 'Neon control API is temporarily unavailable; dashboard data uses read-only fallback.' : null,
     refresh: { ...refreshState },
     diagnostics: endpoint.disabled ? null : diagnosticsCache.value,
     diagnosticsError
