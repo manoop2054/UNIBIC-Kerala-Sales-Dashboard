@@ -6240,6 +6240,12 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
   html+='</tbody></table><b>Currently Active Neon Cache</b>'+sourceTable(d.activeDatasets);
   if(run){
    html+='<b>Last Manual Push</b><p>Status: <b>'+esc(String(run.status||'').toUpperCase())+'</b><br>Started: '+esc(time(run.startedAt))+'<br>Completed: '+esc(time(run.completedAt))+'<br>Release: '+esc(run.release||'Unavailable')+'<br>Run ID: <code>'+esc(run.runId||'')+'</code></p>';
+   var progressLines=Array.isArray(run.logs)?run.logs.filter(function(line){return /committed rows=/.test(line);}):[];
+   if(run.status==='running'&&progressLines.length){
+    var latestProgress=progressLines[progressLines.length-1];
+    var progressMatch=latestProgress.match(/\\[(GSV|LIVE SOH) IMPORT\\] committed rows=([0-9]+)/i);
+    if(progressMatch)html+='<p><b>Import Progress:</b> '+esc(progressMatch[1])+' — '+esc(Number(progressMatch[2]).toLocaleString('en-IN'))+' rows committed</p>';
+   }
    var results=run.sourceResults||{};
    html+='<table><thead><tr><th>Source</th><th>Result</th><th>Old Refresh ID</th><th>Active Refresh ID</th><th>Rows</th></tr></thead><tbody>';
    ['GSV','LIVE_SOH'].forEach(function(key){var x=results[key]||{};html+='<tr><td>'+esc(key)+'</td><td><b>'+esc(x.status|| (run.status==='running'?'Import in progress':'Not recorded'))+'</b></td><td><code>'+esc(x.oldRefreshId||'—')+'</code></td><td><code>'+esc(x.activeRefreshId||'—')+'</code></td><td>'+esc(x.rows==null?'—':Number(x.rows).toLocaleString('en-IN'))+'</td></tr>';});
