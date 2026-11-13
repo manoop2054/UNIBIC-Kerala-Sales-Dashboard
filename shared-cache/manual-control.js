@@ -292,7 +292,7 @@ async function startReleaseRefresh(requestedBy) {
     const entry = '[' + label + '] ' + line;
     logLines.push(entry);
     if (logLines.length > 40) logLines.shift();
-    const progress = line.match(/\\[GSV IMPORT\\] progress sourceRows=(\\d+)/);
+    const progress = line.match(/\[GSV IMPORT\] progress sourceRows=(\d+)/);
     if (line.includes('[GSV IMPORT] started')) {
       currentStage = 'GSV';
       lastProgressAt = Date.now();
