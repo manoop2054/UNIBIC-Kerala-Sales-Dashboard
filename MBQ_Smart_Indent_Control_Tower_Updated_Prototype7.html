@@ -5486,11 +5486,11 @@ async function mbqExportMbqTwoSheetWorkbook(){
  if(trs.length<2){showToast('Export ചെയ്യാൻ rows ലഭ്യമല്ല.');return;}
  const headerTr=trs.find(tr=>[...tr.querySelectorAll('th,td')].some(c=>String(c.innerText||c.textContent||'').trim().toUpperCase()==='SKU GROUP'));
  if(!headerTr){showToast('SKU GROUP header കണ്ടെത്താനായില്ല.');return;}
- const headers=[...headerTr.querySelectorAll('th,td')].map(c=>String(c.innerText||c.textContent||'').replace(/\\s+/g,' ').trim().toUpperCase());
+ const headers=[...headerTr.querySelectorAll('th,td')].map(c=>String(c.innerText||c.textContent||'').replace(/\s+/g,' ').trim().toUpperCase());
  const idx=(...names)=>{for(const n of names){const i=headers.indexOf(n);if(i>=0)return i;}return -1;};
  const skuI=idx('SKU GROUP'),catI=idx('CATEGORY','CAT'),conI=idx('CONTRI %','CONTRI%','CONTI%'),indI=idx('INDENT','IND'),sohI=idx('SOH>60%'),transI=idx('INTRANSIT'),salesI=idx('SALES','SALE');
- const num=(v)=>{const t=String(v??'').replace(/,/g,'').replace(/CBB/ig,'').trim();if(!t||/no data|—|^-$|^n\\/a$/i.test(t))return 0;const n=Number(t.replace(/%/g,''));return Number.isFinite(n)?n:0;};
- const cleanCode=v=>String(v??'').trim().toUpperCase().replace(/\\s+/g,'');
+ const num=(v)=>{const t=String(v??'').replace(/,/g,'').replace(/CBB/ig,'').trim();if(!t||/no data|—|^-$|^n\/a$/i.test(t))return 0;const n=Number(t.replace(/%/g,''));return Number.isFinite(n)?n:0;};
+ const cleanCode=v=>String(v??'').trim().toUpperCase().replace(/\s+/g,'');
  const groupKey=v=>mbqSkuGroupKey(String(v??'').trim());
  const itemCodesByGroup=new Map(),codeToGroup=new Map();
  (Array.isArray(rows)?rows:[]).forEach(item=>{
@@ -5521,7 +5521,7 @@ async function mbqExportMbqTwoSheetWorkbook(){
   return (preferred[0]||fallback[0])?.mrp??0;
  };
  const rowsOut=trs.slice(trs.indexOf(headerTr)+1).filter(tr=>!tr.classList.contains('mbq-total-row'))
-  .map(tr=>[...tr.querySelectorAll('td')].map(c=>String(c.innerText||c.textContent||'').replace(/\\s+/g,' ').trim()))
+  .map(tr=>[...tr.querySelectorAll('td')].map(c=>String(c.innerText||c.textContent||'').replace(/\s+/g,' ').trim()))
   .filter(c=>c.length&&c[skuI]&&!['TOTAL','GRAND TOTAL','OVERALL TOTAL'].includes(c[skuI].toUpperCase()));
  const output=rowsOut.map(c=>[c[skuI]||0,mrpForSku(c[skuI]),catI>=0&&c[catI]?c[catI]:0,conI>=0?num(c[conI]):0,indI>=0?num(c[indI]):0,sohI>=0?num(c[sohI]):0,transI>=0?num(c[transI]):0,salesI>=0?num(c[salesI]):0]);
  if(!output.length){showToast('Export ചെയ്യാൻ visible SKU rows ലഭ്യമല്ല.');return;}
@@ -5549,7 +5549,7 @@ async function mbqExportMbqTwoSheetWorkbook(){
  ws['!freeze']={xSplit:0,ySplit:3};ws['!autofilter']={ref:'A3:K'+(output.length+3)};
  for(let r=0;r<3;r++)for(let c=0;c<2;c++){const cell=ws[XLSX.utils.encode_cell({r,c})];if(cell)cell.s={font:{name:'Aptos',sz:10,bold:r<2,color:{rgb:'17365D'}},fill:{patternType:'solid',fgColor:{rgb:r<2?'E5EEF8':'F1F7F8'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border};}
  const wb=XLSX.utils.book_new();
- const fullRows=trs.map(tr=>[...tr.querySelectorAll('th,td')].map(c=>(c.innerText||c.textContent||'').replace(/\\s+/g,' ').trim())).filter(r=>r.length).map(r=>r.map(v=>/^no data available$/i.test(String(v).trim())?0:v));
+ const fullRows=trs.map(tr=>[...tr.querySelectorAll('th,td')].map(c=>(c.innerText||c.textContent||'').replace(/\s+/g,' ').trim())).filter(r=>r.length).map(r=>r.map(v=>/^no data available$/i.test(String(v).trim())?0:v));
  const first=XLSX.utils.aoa_to_sheet(fullRows),fullCols=Math.max(1,...fullRows.map(r=>r.length));
  first['!cols']=Array.from({length:fullCols},(_,c)=>{const max=Math.max(10,...fullRows.map(r=>String(r[c]??'').length+2));return {wch:Math.min(c===0?36:42,Math.max(c===0?24:12,max))};});
  first['!rows']=fullRows.map((r,i)=>({hpt:i===0?30:i===1?42:26}));first['!freeze']={xSplit:0,ySplit:2};
