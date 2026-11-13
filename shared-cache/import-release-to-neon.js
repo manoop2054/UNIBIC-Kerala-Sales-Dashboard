@@ -9,7 +9,7 @@ const ExcelJS=require('exceljs'),XLSX=require('xlsx'),{Pool}=require('pg');
 const REPO='manoop2054/UNIBIC-Kerala-Sales-Dashboard';
 const GSV='KL.LIVE.GSV.LINK-MANOOB.xlsx',SOH='LIVE.STOCK.xlsb';
 const GSV_SHEET=process.env.GSV_SHEET_NAME||'ACX_Sales_Register',SOH_SHEET=process.env.SOH_SHEET_NAME||'LIVE STOCK REPORT';
-const DIR=path.join(os.tmpdir(),'unibic-neon-import'),BATCH=500;
+const DIR=path.join(os.tmpdir(),'unibic-neon-import'),BATCH=200;
 const pool=new Pool({connectionString:process.env.SHARED_CACHE_DATABASE_URL,ssl:process.env.SHARED_CACHE_SSL==='false'?false:{rejectUnauthorized:false},max:2,connectionTimeoutMillis:15000,statement_timeout:120000});
 function get(url,n=0){return new Promise((resolve,reject)=>{if(n>8)return reject(Error('Too many redirects'));const c=url.startsWith('https:')?https:http;const headers={'User-Agent':'UNIBIC-Shared-Cache-Importer','Accept':'application/vnd.github+json'};if(url.startsWith('https://api.github.com/')&&process.env.GITHUB_TOKEN)headers.Authorization='Bearer '+process.env.GITHUB_TOKEN;const q=c.get(url,{headers},r=>{if([301,302,303,307,308].includes(r.statusCode)&&r.headers.location){r.resume();return resolve(get(new URL(r.headers.location,url).toString(),n+1));}if(r.statusCode!==200){r.resume();return reject(Error('HTTP '+r.statusCode+' for '+url));}const a=[];r.on('data',x=>a.push(x));r.on('end',()=>resolve(Buffer.concat(a)));r.on('error',reject);});q.setTimeout(180000,()=>q.destroy(Error('Download timeout')));q.on('error',reject);});}
 async function download(url,file){
@@ -37,11 +37,23 @@ function norm(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');}
 function pick(o,...names){const m=new Map(Object.entries(o).map(([k,v])=>[norm(k),v]));for(const n of names){const v=m.get(norm(n));if(v!==undefined&&v!==null&&v!=='')return v;}return null;}
 function num(v){if(v==null||v==='')return null;const n=Number(String(v).replace(/,/g,''));return Number.isFinite(n)?n:null;}
 function date(v){if(v==null||v==='')return null;const serial=typeof v==='number'?v:(/^\\d+(?:\\.\\d+)?$/.test(String(v).trim())?Number(v):NaN);if(Number.isFinite(serial)&&serial>=1&&serial<=100000){const d=new Date(Date.UTC(1899,11,30)+Math.floor(serial)*86400000);return d.toISOString().slice(0,10);}const s=String(v).trim();let m=s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/);if(m){let y=+m[3];if(y<100)y+=y>=70?1900:2000;const d=new Date(Date.UTC(y,+m[2]-1,+m[1]));return d.getUTCFullYear()===y&&d.getUTCMonth()===+m[2]-1&&d.getUTCDate()===+m[1]?d.toISOString().slice(0,10):null;}m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[0]:null;}
+async function queryBatch(sql,params){
+  const retryable=new Set(['08P01','08006','08003','57P01','57P02','57P03','53300']);
+  for(let attempt=0;attempt<4;attempt++){
+    try{return await pool.query(sql,params);}
+    catch(error){
+      const transient=retryable.has(String(error.code||''))||/connection terminated|connection reset|socket hang up|server closed the connection/i.test(String(error.message||''));
+      if(!transient||attempt===3)throw error;
+      console.warn('[NEON BATCH RETRY] code='+(error.code||'unknown')+' attempt='+(attempt+1)+'; retrying the same idempotent batch');
+      await new Promise(resolve=>setTimeout(resolve,500*(attempt+1)));
+    }
+  }
+}
 async function insert(client,table,id,rows){
   for(let i=0;i<rows.length;i+=BATCH){
     const p=rows.slice(i,i+BATCH).map(x=>({...x,refresh_id:id}));
     if(table==='gsv_sales'){
-      await client.query(`INSERT INTO public.gsv_sales(
+      await queryBatch(`INSERT INTO public.gsv_sales(
         refresh_id,source_row_number,transaction_type,return_invoices,line_discount_amount,
         invoice_no,posting_date,order_no,order_date,sell_to_customer_name,sell_to_customer_no,
         billed_to_code,billed_to_name,ship_to_code,ship_to_name,external_doc_no,location_code,
@@ -81,9 +93,9 @@ async function insert(client,table,id,rows){
         anchor_zone_name text,category_name text,brand_basket text,brand text,brand_family text,
         sku_group text,pack_family text,brand_short_name text,city_group text,quantity_kg numeric,
         gsv_in_lakh numeric,mrp_value numeric,bg text,raw_data jsonb
-      )`,[JSON.stringify(p)]);
+      ) ON CONFLICT (refresh_id, source_row_number) DO NOTHING`,[JSON.stringify(p)]);
     }else{
-      await client.query('INSERT INTO public.live_stock(refresh_id,source_row_number,item_id,description,warehouse,batch_no,mrp,mfg_date,expiry_date,cbo,quarantine_qty_cbo,total_main_qrt,shelf_life,remaining_shelf_life,case_size,units,total_qty_in_units,quarantine_units,net_weight,total_weight,hsn_code,brand_code,brand_family,pack_family,brand_basket_code,brand_short_name,category,data_area_id,inventory_location_type,type,sku_group,raw_data) SELECT refresh_id,source_row_number,item_id,description,warehouse,batch_no,mrp,mfg_date,expiry_date,cbo,quarantine_qty_cbo,total_main_qrt,shelf_life,remaining_shelf_life,case_size,units,total_qty_in_units,quarantine_units,net_weight,total_weight,hsn_code,brand_code,brand_family,pack_family,brand_basket_code,brand_short_name,category,data_area_id,inventory_location_type,type,sku_group,raw_data FROM jsonb_to_recordset($1::jsonb) AS x(refresh_id uuid,source_row_number bigint,item_id text,description text,warehouse text,batch_no text,mrp numeric,mfg_date date,expiry_date date,cbo numeric,quarantine_qty_cbo numeric,total_main_qrt numeric,shelf_life numeric,remaining_shelf_life numeric,case_size numeric,units numeric,total_qty_in_units numeric,quarantine_units numeric,net_weight numeric,total_weight numeric,hsn_code text,brand_code text,brand_family text,pack_family text,brand_basket_code text,brand_short_name text,category text,data_area_id text,inventory_location_type text,type text,sku_group text,raw_data jsonb)',[JSON.stringify(p)]);
+      await queryBatch('INSERT INTO public.live_stock(refresh_id,source_row_number,item_id,description,warehouse,batch_no,mrp,mfg_date,expiry_date,cbo,quarantine_qty_cbo,total_main_qrt,shelf_life,remaining_shelf_life,case_size,units,total_qty_in_units,quarantine_units,net_weight,total_weight,hsn_code,brand_code,brand_family,pack_family,brand_basket_code,brand_short_name,category,data_area_id,inventory_location_type,type,sku_group,raw_data) SELECT refresh_id,source_row_number,item_id,description,warehouse,batch_no,mrp,mfg_date,expiry_date,cbo,quarantine_qty_cbo,total_main_qrt,shelf_life,remaining_shelf_life,case_size,units,total_qty_in_units,quarantine_units,net_weight,total_weight,hsn_code,brand_code,brand_family,pack_family,brand_basket_code,brand_short_name,category,data_area_id,inventory_location_type,type,sku_group,raw_data FROM jsonb_to_recordset($1::jsonb) AS x(refresh_id uuid,source_row_number bigint,item_id text,description text,warehouse text,batch_no text,mrp numeric,mfg_date date,expiry_date date,cbo numeric,quarantine_qty_cbo numeric,total_main_qrt numeric,shelf_life numeric,remaining_shelf_life numeric,case_size numeric,units numeric,total_qty_in_units numeric,quarantine_units numeric,net_weight numeric,total_weight numeric,hsn_code text,brand_code text,brand_family text,pack_family text,brand_basket_code text,brand_short_name text,category text,data_area_id text,inventory_location_type text,type text,sku_group text,raw_data jsonb) ON CONFLICT (refresh_id, source_row_number) DO NOTHING',[JSON.stringify(p)]);
     }
   }
 }
