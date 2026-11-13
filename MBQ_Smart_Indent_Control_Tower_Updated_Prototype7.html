@@ -4195,12 +4195,20 @@ function exportActivePageExcel(button){
  XLSX.writeFile(wb,pageName+'_Export.xlsx',{compression:true});showToast('ഈ Tab-ലെ data Excel ആയി download ചെയ്തു.');
 }
 function installTabExcelButtons(){
- document.querySelectorAll('.section').forEach(section=>{
-  const head=section.querySelector('.page-head');if(!head)return;
+ document.querySelectorAll('.section').forEach((section,index)=>{
+  if(!section.id)return;
+  let head=section.querySelector(':scope > .page-head');
+  const title=section.querySelector('h1')?.innerText?.trim()||document.querySelector('.nav button[onclick*="'+section.id.replace('page-','')+'"]')?.innerText?.trim()||section.id.replace(/^page-/,'').replace(/-/g,' ').replace(/\\b\\w/g,c=>c.toUpperCase())||('Dashboard Tab '+(index+1));
+  if(!head){
+   head=document.createElement('div');head.className='page-head mbq-auto-export-head';
+   const titleWrap=document.createElement('div'),h=document.createElement('h1');h.textContent=title;titleWrap.appendChild(h);head.appendChild(titleWrap);
+   section.insertBefore(head,section.firstChild);
+  }
   let actions=head.querySelector('.actions');
   if(!actions){actions=document.createElement('div');actions.className='actions';head.appendChild(actions);}
   if(actions.querySelector('.tab-excel-export'))return;
-  const button=document.createElement('button');button.type='button';button.className='btn tab-excel-export';button.textContent='⇩ Export';button.addEventListener('click',()=>mbqOpenReportExport(button,section.querySelector('h1')?.innerText||'Report','#'+section.id));actions.appendChild(button);
+  const button=document.createElement('button');button.type='button';button.className='btn tab-excel-export';button.textContent='⇩ Export · Excel / PDF / JPEG';button.title='Export this tab only in coloured Excel, PDF or JPEG format';
+  button.addEventListener('click',()=>mbqOpenReportExport(button,title,'#'+section.id));actions.appendChild(button);
  });
 }
 installTabExcelButtons();
@@ -5430,6 +5438,17 @@ function mbqExportTargetExcel(target,title){
   let base=String(name||'Report').replace(/[^A-Za-z0-9 ]/g,'').trim().slice(0,27)||'Report',sheet=base,n=2;while(wb.SheetNames.includes(sheet))sheet=(base.slice(0,24)+' '+n++).slice(0,31);
   XLSX.utils.book_append_sheet(wb,ws,sheet);added++;
  };
+ const summaryNodes=[...root.querySelectorAll('.kpi,.excel-stat,.mbq-trend-kpi,.peak-kpi,.stat-card,.summary-card')];
+ if(summaryNodes.length){
+  const summaryRows=[['Metric','Value','Details']];
+  summaryNodes.forEach(node=>{
+   const label=node.querySelector('.label,.k-label,.kpi-label,.stat-label,small,h3,h4')?.innerText?.trim()||'Metric';
+   const value=node.querySelector('.value,.k-value,.kpi-value,strong,.stat-value')?.innerText?.trim()||'';
+   const details=node.querySelector('.sub,.k-foot,.description,p')?.innerText?.trim()||'';
+   if(label||value||details)summaryRows.push([label,value,details]);
+  });
+  if(summaryRows.length>1)addSheet('KPI Summary',summaryRows,null);
+ }
  if(root.querySelector('#flashText')&&root.querySelector('#flashText').innerText.trim())addSheet('Flash Summary',root.querySelector('#flashText').innerText.trim().split(/\r?\n/).map(x=>[x]),null);
  tables.forEach((table,i)=>{const rows=[...table.querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(cell=>(cell.innerText||cell.textContent||'').replace(/\s+/g,' ').trim()));addSheet(table.closest('.card')?.querySelector('h3,h2')?.innerText||title+' '+(i+1),rows,table);});
  if(!added){const txt=root.innerText.trim();if(txt)addSheet('Report',txt.split(/\r?\n/).map(x=>[x]),null);}
