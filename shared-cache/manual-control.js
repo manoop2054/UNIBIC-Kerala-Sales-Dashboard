@@ -324,7 +324,7 @@ async function startReleaseRefresh(requestedBy) {
     stream.setEncoding('utf8');
     stream.on('data', chunk => {
       pending += chunk;
-      const lines = pending.split(/\\r?\\n/);
+      const lines = pending.split(/\r?\n/);
       pending = lines.pop() || '';
       for (const line of lines) if (line) recordLine(label, line);
     });
