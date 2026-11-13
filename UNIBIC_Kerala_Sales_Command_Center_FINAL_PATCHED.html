@@ -9771,7 +9771,8 @@ document.addEventListener('click', function(event){
    var result=await getStatus();
    if(!result.authorized)return;
    var run=result.data.diagnostics&&result.data.diagnostics.latestRun;
-   if(run&&run.status==='running'&&pollCount<500){pollCount++;setTimeout(poll,3000);}
+   var diagnosticsPending=!result.data.disabled&&!result.data.diagnostics&&pollCount<20;
+   if((run&&run.status==='running'&&pollCount<500)||diagnosticsPending){pollCount++;setTimeout(poll,diagnosticsPending?2000:3000);}
    else{busy=false;pollCount=0;render(result.data);}
   }catch(e){if(pollCount<500){pollCount++;setTimeout(poll,5000);}else{busy=false;pollCount=0;}}
  }
@@ -9797,7 +9798,7 @@ document.addEventListener('click', function(event){
   try{
    var result=await getStatus();
    if(!result.authorized&&attempts<60){attempts++;setTimeout(start,1500);return;}
-   if(result.authorized){var run=result.data.diagnostics&&result.data.diagnostics.latestRun;if(run&&run.status==='running'){busy=true;pollCount=0;setTimeout(poll,1500);}}
+   if(result.authorized){var run=result.data.diagnostics&&result.data.diagnostics.latestRun;if((run&&run.status==='running')||(!result.data.disabled&&!result.data.diagnostics)){busy=Boolean(run&&run.status==='running');pollCount=0;setTimeout(poll,1200);}}
   }catch(e){if(attempts<20){attempts++;setTimeout(start,2000);}}
  }
  window.refreshManualNeonSyncStatus=start;
