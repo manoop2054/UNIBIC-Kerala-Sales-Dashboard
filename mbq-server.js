@@ -70,6 +70,25 @@ async function githubReleaseAssetTimes() {
     return "GitHub release metadata unavailable: " + error.message;
   }
 }
+async function githubAssetUploadedAt(name) {
+  try {
+    const release = await githubReleaseMetadata();
+    const asset = release.assets.find(item => item.name === name);
+    return asset && asset.created_at ? new Intl.DateTimeFormat("en-IN", {
+      timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric",
+      hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true
+    }).format(new Date(asset.created_at)) + " IST" : "not available";
+  } catch (_) { return "not available"; }
+}
+function sohReportDateRange(rows) {
+  const first = rows && rows[0] || {};
+  const keys = Object.keys(first);
+  const candidates = ["reportdate", "stockdate", "asofdate", "asondatetime", "postingdate", "date"];
+  const key = keys.find(name => candidates.includes(gsvNorm(name)));
+  if (!key) return "not available in workbook";
+  const dates = (rows || []).map(row => gsvDateISO(row[key])).filter(Boolean).sort();
+  return dates.length ? dates[0] + " to " + dates[dates.length - 1] : "not available in workbook";
+}
 
 let gsvLoadPromise = null;
 let gsvLoadError = null;
@@ -113,7 +132,9 @@ async function buildMbqGsvAggregateFromGitHub() {
   const source = path.join(CACHE_DIR, "KL.LIVE.GSV.LINK-MANOOB.xlsx");
   const cache = path.join(CACHE_DIR, "gsv-aggregate.json");
   const tmp = cache + ".tmp";
-  console.log("MBQ GSV: downloading source workbook");
+  const loadStartedAt = Date.now();
+  const uploadAt = await githubAssetUploadedAt("KL.LIVE.GSV.LINK-MANOOB.xlsx");
+  console.info("DATA LOAD START | file=GSV | source=GitHub | GitHub upload=" + uploadAt + " | started=" + new Date().toISOString());
   await downloadToFileWithRetry(await githubReleaseAssetUrl("KL.LIVE.GSV.LINK-MANOOB.xlsx"), source, 3);
   const stats = { sourceBytes: (await fs.promises.stat(source)).size, sheet: GSV_SHEET };
   const aggregate = new Map();
@@ -162,7 +183,7 @@ async function buildMbqGsvAggregateFromGitHub() {
       old.rows++;
       aggregate.set(key, old);
       matchedRows++;
-      if (rowCount % 20000 === 0) console.log("MBQ GSV progress:", rowCount, "rows", "|", await githubReleaseAssetTimes());
+      if (rowCount % 20000 === 0) console.info("DATA LOAD PROGRESS | file=GSV | source=GitHub | processedRows=" + rowCount + " | matchedRows=" + matchedRows + " | dataDateRange=" + (minDate || "pending") + " to " + (maxDate || "pending"));
     }
     break;
   }
@@ -171,19 +192,18 @@ async function buildMbqGsvAggregateFromGitHub() {
   const payload = { success: true, schemaVersion: 4, data: Array.from(aggregate.values()), rows: rowCount, matchedRows, aggregateRows: aggregate.size, loadedAt: new Date().toISOString(), dateCoverage: { from: minDate, to: maxDate }, detected: stats.detected, headers: stats.headers, sourceBytes: stats.sourceBytes, source: "github" };
   await fs.promises.writeFile(tmp, JSON.stringify(payload), "utf8");
   await fs.promises.rename(tmp, cache);
-  console.log("MBQ GSV ready:", JSON.stringify({ rows: rowCount, matchedRows, aggregateRows: aggregate.size, detected: stats.detected }), "|", await githubReleaseAssetTimes());
+  console.info("DATA LOAD COMPLETE | file=GSV | source=GitHub | GitHub upload=" + uploadAt + " | dataDateRange=" + minDate + " to " + maxDate + " | processedRows=" + rowCount + " | matchedRows=" + matchedRows + " | aggregateRows=" + aggregate.size + " | completed=" + new Date().toISOString() + " | durationMs=" + (Date.now() - loadStartedAt));
   gsvLoadError = null;
   return payload;
 }
 async function buildMbqGsvAggregate() {
   const runId = opsLogger.runId();
   const runStartedAt = Date.now();
-  console.info('MBQ GSV RUN START', JSON.stringify({ runId, sourcePreference: sharedCache.isConfigured ? 'NEON_THEN_GITHUB' : 'GITHUB', sheet: GSV_SHEET }));
+  console.info("DATA LOAD CHECK | file=GSV | sourcePreference=" + (sharedCache.isConfigured ? "Neon then GitHub fallback" : "GitHub") + " | checkedAt=" + new Date().toISOString());
   if (sharedCache.isConfigured && await isSharedCacheEnabled()) {
     try {
       const result = await sharedCache.readMbqGsvAggregate();
-      console.log("DATA SOURCE: NEON CACHE | MBQ GSV:", result.rows, "source rows,", result.aggregateRows, "aggregate rows | NEON CACHE UPDATED:", result.loadedAt || "unknown", "| REFRESH ID:", result.refreshId || "unknown", "| RELEASE:", result.releaseTag || "unknown", "| CHECKSUM:", result.checksum || "unknown", "|", await githubReleaseAssetTimes());
-      console.info("MBQ GSV RUN COMPLETE", JSON.stringify({ runId, source: "NEON", status: "SUCCESS", rows: result.rows, aggregateRows: result.aggregateRows, refreshId: result.refreshId || null, durationMs: Date.now() - runStartedAt }));
+      console.info("DATA LOAD COMPLETE | file=GSV | source=Neon | dataDateRange=" + ((result.dateCoverage && result.dateCoverage.from) || "not available") + " to " + ((result.dateCoverage && result.dateCoverage.to) || "not available") + " | processedRows=" + result.rows + " | aggregateRows=" + result.aggregateRows + " | Neon cache updated=" + (result.loadedAt || "unknown") + " | completed=" + new Date().toISOString() + " | durationMs=" + (Date.now() - runStartedAt));
       return result;
     } catch (error) {
       console.warn("MBQ GSV Neon cache unavailable:", error.message);
@@ -199,7 +219,7 @@ async function buildMbqGsvAggregate() {
   }
   try {
     const result = await buildMbqGsvAggregateFromGitHub();
-    console.info("MBQ GSV RUN COMPLETE", JSON.stringify({ runId, source: "GITHUB", status: "SUCCESS", rows: result.rows, aggregateRows: result.aggregateRows, durationMs: Date.now() - runStartedAt, dateCoverage: result.dateCoverage }));
+    // GitHub loader already emits the concise completion line with upload time and data-date coverage.
     return result;
   } catch (error) {
     console.error("MBQ GSV RUN FAILED", JSON.stringify({ runId, source: "GITHUB_FALLBACK", durationMs: Date.now() - runStartedAt, error: error.message }));
@@ -229,7 +249,7 @@ async function readMbqGsvCache() {
     }
   } catch (_) {}
   if (!gsvLoadPromise) {
-    console.info('MBQ GSV CACHE LOAD QUEUED', JSON.stringify({ cache: 'gsv-aggregate.json', reason: 'cache missing, stale, or version changed' }));
+    // Cache rebuild is reported by the DATA LOAD START line below.
     gsvLoadError = null;
     gsvLoadPromise = buildMbqGsvAggregate().then(async result => {
       // Persist Neon results to the same local cache used by subsequent API requests.
@@ -305,7 +325,7 @@ async function loadSohRows() {
   if (!sohLoadPromise) {
     const runId = opsLogger.runId();
     const runStartedAt = Date.now();
-    console.info("MBQ LIVE SOH RUN START", JSON.stringify({ runId, sourcePreference: useNeon ? "NEON_THEN_GITHUB" : "GITHUB", cache: "soh.json" }));
+    console.info("DATA LOAD CHECK | file=LIVE SOH | sourcePreference=" + (useNeon ? "Neon then GitHub fallback" : "GitHub") + " | checkedAt=" + new Date().toISOString());
     sohLoadPromise = (async () => {
     if (sharedCache.isConfigured && await isSharedCacheEnabled()) {
       try {
@@ -314,7 +334,7 @@ async function loadSohRows() {
         const cacheTmp = cache + ".tmp";
         await fs.promises.writeFile(cacheTmp, JSON.stringify(payload));
         await fs.promises.rename(cacheTmp, cache);
-        console.log("DATA SOURCE: NEON CACHE | MBQ LIVE SOH:", payload.rows, "rows | NEON CACHE UPDATED:", payload.loadedAt || "unknown", "| REFRESH ID:", payload.refreshId || "unknown", "| RELEASE:", payload.releaseTag || "unknown", "| CHECKSUM:", payload.checksum || "unknown", "|", await githubReleaseAssetTimes());
+        console.info("DATA LOAD COMPLETE | file=LIVE SOH | source=Neon | reportDateRange=" + sohReportDateRange(payload.data) + " | processedRows=" + payload.rows + " | Neon cache updated=" + (payload.loadedAt || "unknown") + " | completed=" + new Date().toISOString() + " | durationMs=" + (Date.now() - runStartedAt));
         return payload;
       } catch (error) {
         console.warn("MBQ LIVE SOH Neon cache unavailable:", error.message);
@@ -328,6 +348,8 @@ async function loadSohRows() {
       }
     }
     const source = path.join(CACHE_DIR, "LIVE.STOCK.xlsb");
+    const uploadAt = await githubAssetUploadedAt("LIVE.STOCK.xlsb");
+    console.info("DATA LOAD START | file=LIVE SOH | source=GitHub | GitHub upload=" + uploadAt + " | started=" + new Date().toISOString());
     await downloadToFile(await githubReleaseAssetUrl("LIVE.STOCK.xlsb"), source);
     const wb = XLSX.readFile(source, { cellDates: true });
     const sheetName = wb.SheetNames.includes(SOH_SHEET) ? SOH_SHEET : wb.SheetNames[0];
@@ -336,10 +358,10 @@ async function loadSohRows() {
     const cacheTmp = cache + ".tmp";
     await fs.promises.writeFile(cacheTmp, JSON.stringify({ data: rows, sheet: sheetName, rows: rows.length, loadedAt: new Date().toISOString() }));
     await fs.promises.rename(cacheTmp, cache);
-    console.log("DATA SOURCE: GITHUB LATEST RELEASE | MBQ LIVE SOH loaded:", rows.length, "rows from", sheetName, "| CACHE UPDATED:", new Date().toISOString(), "|", await githubReleaseAssetTimes());
+    console.info("DATA LOAD COMPLETE | file=LIVE SOH | source=GitHub | GitHub upload=" + uploadAt + " | reportDateRange=" + sohReportDateRange(rows) + " | processedRows=" + rows.length + " | sheet=" + sheetName + " | completed=" + new Date().toISOString() + " | durationMs=" + (Date.now() - runStartedAt));
     return { data: rows, sheet: sheetName, rows: rows.length, loadedAt: new Date().toISOString(), source: "github" };
     })().then(result => {
-      console.info("MBQ LIVE SOH RUN COMPLETE", JSON.stringify({ runId, source: result.source || "GITHUB", status: "SUCCESS", rows: result.rows || (result.data || []).length, refreshId: result.refreshId || null, durationMs: Date.now() - runStartedAt, loadedAt: result.loadedAt || null }));
+      // Source-specific DATA LOAD COMPLETE line is emitted when the data is actually read.
       return result;
     }, error => {
       console.error("MBQ LIVE SOH RUN FAILED", JSON.stringify({ runId, durationMs: Date.now() - runStartedAt, error: error.message }));
