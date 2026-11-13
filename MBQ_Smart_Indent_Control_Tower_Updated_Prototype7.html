@@ -5478,6 +5478,66 @@ function mbqExportTargetExcel(target,title){
  if(!added){showToast('Export ചെയ്യാൻ rows ലഭ്യമല്ല.');return;}
  XLSX.writeFile(wb,String(title||'Report').replace(/[^A-Za-z0-9]+/g,'_')+'_Colour.xlsx',{compression:true});showToast('Colour Excel report downloaded.');
 }
+function mbqEnsureExcelJs(){
+ if(window.ExcelJS&&window.ExcelJS.Workbook)return Promise.resolve(window.ExcelJS);
+ if(window.__mbqExcelJsPromise)return window.__mbqExcelJsPromise;
+ window.__mbqExcelJsPromise=new Promise((resolve,reject)=>{
+  const urls=['https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js','https://unpkg.com/exceljs@4.4.0/dist/exceljs.min.js'];
+  let index=0;
+  const next=()=>{
+   if(window.ExcelJS&&window.ExcelJS.Workbook){resolve(window.ExcelJS);return;}
+   if(index>=urls.length){window.__mbqExcelJsPromise=null;reject(new Error('Excel Conditional Formatting library could not be loaded. Please check internet/CDN access and retry.'));return;}
+   const script=document.createElement('script');script.src=urls[index++];script.async=true;
+   script.onload=()=>window.ExcelJS&&window.ExcelJS.Workbook?resolve(window.ExcelJS):next();
+   script.onerror=next;document.head.appendChild(script);
+  };
+  next();
+ });
+ return window.__mbqExcelJsPromise;
+}
+function mbqExcelColumnLetter(number){
+ let n=number,out='';
+ while(n>0){const rem=(n-1)%26;out=String.fromCharCode(65+rem)+out;n=Math.floor((n-1)/26);}
+ return out;
+}
+async function mbqWriteExcelWithCoverageFormatting(sourceWorkbook,fileName){
+ const ExcelJS=await mbqEnsureExcelJs();
+ const sourceBytes=XLSX.write(sourceWorkbook,{bookType:'xlsx',type:'array',compression:true});
+ const workbook=new ExcelJS.Workbook();
+ await workbook.xlsx.load(sourceBytes);
+ const wanted=new Set(['COVERAGE %','OVERALL COVERAGE','DAYS COVERAGE']);
+ let formatted=0;
+ workbook.eachSheet(sheet=>{
+  const scanRows=Math.min(sheet.rowCount||0,20),scanCols=Math.min(sheet.columnCount||0,80);
+  for(let r=1;r<=scanRows;r++){
+   const found=[];
+   for(let c=1;c<=scanCols;c++){
+    const value=sheet.getCell(r,c).value;
+    const label=String(value&&typeof value==='object'?(value.text||value.result||''):value??'').replace(/\s+/g,' ').trim().toUpperCase();
+    if(wanted.has(label))found.push(c);
+   }
+   if(!found.length)continue;
+   const firstDataRow=r+1,lastDataRow=sheet.rowCount;
+   if(lastDataRow<firstDataRow)continue;
+   found.forEach(c=>{
+    const letter=mbqExcelColumnLetter(c);
+    sheet.addConditionalFormatting({
+     ref:letter+firstDataRow+':'+letter+lastDataRow,
+     rules:[{type:'colorScale',cfvo:[{type:'min'},{type:'percentile',value:50},{type:'max'}],color:[{argb:'FFF8696B'},{argb:'FFFFEB84'},{argb:'FF63BE7B'}]}]
+    });
+    formatted++;
+   });
+   break;
+  }
+ });
+ if(!formatted)throw new Error('Coverage % / Overall Coverage / Days Coverage columns were not found in the export workbook. No file was downloaded.');
+ const output=await workbook.xlsx.writeBuffer();
+ const blob=new Blob([output],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+ const url=URL.createObjectURL(blob),link=document.createElement('a');
+ link.href=url;link.download=fileName;document.body.appendChild(link);link.click();link.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),1500);
+ return formatted;
+}
 async function mbqExportMbqTwoSheetWorkbook(){
  try{await mbqEnsureXlsx();}catch(e){showToast(e.message||'Excel library unavailable.');return;}
  const root=document.querySelector('#mbqExcelTableHost'),table=root?.querySelector('table');
@@ -5596,7 +5656,9 @@ async function mbqExportMbqTwoSheetWorkbook(){
   cell.s={font:{name:'Aptos',sz:r<3?10:9,bold:r<4,color:{rgb:r<4?'FFFFFF':'24364B'}},fill:{patternType:'solid',fgColor:{rgb:r===0?'12233F':r===1?'087F8C':r===2?'EAF5F5':r===3?'17365D':r%2===0?'F1F6FB':'FFFFFF'}},alignment:{horizontal:c<2?'left':'center',vertical:'center',wrapText:true},border:detailBorder};
  }
  XLSX.utils.book_append_sheet(wb,detailWs,'CFA-wise Details');
- XLSX.writeFile(wb,'MBQ_Excel_View_'+(document.getElementById('mbqSheetSelect')?.value||'DATA')+'_Colour.xlsx',{compression:true});
+ const exportName='MBQ_Excel_View_'+(document.getElementById('mbqSheetSelect')?.value||'DATA')+'_Colour.xlsx';
+ try{const formattedCount=await mbqWriteExcelWithCoverageFormatting(wb,exportName);showToast('Excel downloaded with live colour formatting on '+formattedCount+' Coverage columns.');}
+ catch(formatError){console.error('MBQ Excel conditional formatting failed:',formatError);showToast('Excel export failed: '+(formatError.message||'Conditional formatting could not be applied.'));}
  showToast('3-sheet MBQ Excel report downloaded: Full MBQ · Total · CFA-wise Details.');
 }
 function mbqExportTargetPdf(target,title){
