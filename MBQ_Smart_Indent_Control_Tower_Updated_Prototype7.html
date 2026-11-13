@@ -1120,7 +1120,7 @@ body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,t
 <section class="section" id="page-reports"><div class="page-head"><div><div class="eyebrow">Output center</div><h1>Reports & Export</h1><p>Choose a report and export it for review, planning or sharing.</p></div></div><div class="grid report-grid"><div class="card report-tile"><div class="icon">▤</div><h3>Monthly Indent Summary</h3><p>Sales Head indent vs suggested indent, by SKU group.</p><button class="btn" onclick="mbqOpenReportExport(this,'Monthly Indent Summary','#page-suggest')">⇩ Export Report</button></div><div class="card report-tile"><div class="icon">▦</div><h3>CFA Stock & Cover</h3><p>Stock, cover, Open TO and risk indicators by CFA.</p><button class="btn" onclick="mbqOpenReportExport(this,'CFA Stock & Cover','#page-stock')">⇩ Export Report</button></div><div class="card report-tile"><div class="icon">⇄</div><h3>CFA Allocation Sheet</h3><p>Requirement and proposed allocation reconciliation.</p><button class="btn" onclick="mbqOpenReportExport(this,'CFA Allocation Sheet','#page-allocation')">⇩ Export Report</button></div><div class="card report-tile"><div class="icon">◷</div><h3>Peak Billing Readiness</h3><p>Mid-month and month-end stock readiness checklist.</p><button class="btn" onclick="go('peak')">Open planner</button></div><div class="card report-tile"><div class="icon">◉</div><h3>Daily WhatsApp Flash</h3><p>Daily indent vs billing, balance and over-billing summary.</p><button class="btn" onclick="go('flash')">Open flash report</button></div><div class="card report-tile"><div class="icon">⚑</div><h3>Risk & Exception Report</h3><p>Low cover, excess stock, ageing and PO dependency.</p><button class="btn" onclick="go('stock')">Review stock risks</button></div></div><div class="notice" style="margin-top:16px">Exports include only the data currently loaded in the selected table. No source data is fabricated.</div></section>
 
 <section class="section" id="page-excelview">
-  <div class="page-head"><div><div class="eyebrow">Official workbook workspace</div><h1>MBQ Excel View</h1><p>നിങ്ങളുടെ official MBQ workbook format-ൽ CFA-wise data കാണുക. Existing dashboard tabs അതേപടി നിലനിർത്തിയിരിക്കുന്നു.</p></div><div class="actions"><button class="btn" id="toggleHideEmptyIndentsExcelBtn" onclick="toggleHideEmptyIndents()">Hide Empty Indents</button><button class="btn" onclick="mbqOpenReportExport(this,'MBQ Excel View','#mbqExcelTableHost',mbqExportMbqTwoSheetWorkbook)">⇩ Export visible data</button></div></div>
+  <div class="page-head"><div><div class="eyebrow">Official workbook workspace</div><h1>MBQ Excel View</h1><p>നിങ്ങളുടെ official MBQ workbook format-ൽ CFA-wise data കാണുക. Existing dashboard tabs അതേപടി നിലനിർത്തിയിരിക്കുന്നു.</p></div><div class="actions"><button class="btn" id="toggleHideEmptyIndentsExcelBtn" onclick="toggleHideEmptyIndents()">Hide Empty Indents</button><button class="btn" id="mbqExcelViewExportBtn" type="button" onclick="mbqExportMbqTwoSheetWorkbook()" title="Download the visible MBQ table and coverage summary as an Excel workbook">⇩ Export visible data</button></div></div>
   <div class="excel-workspace">
     <div class="excel-hero"><div><div class="eyebrow">KERALA · CFA REPLENISHMENT</div><h2>Official MBQ Workbook</h2><p>DATA / ALU / PAY / TVD · Official MBQ headings · Source-backed values · CFA-wise filtering</p><div class="excel-status" id="mbqWorkbookStatus" style="margin-top:13px;color:#d5e5f7"><span class="dot"></span><span>Connecting to Assortment and LIVE SOH sources…</span></div></div><div class="excel-hero-icon">▤</div></div>
     <div class="card">
@@ -4195,12 +4195,20 @@ function exportActivePageExcel(button){
  XLSX.writeFile(wb,pageName+'_Export.xlsx',{compression:true});showToast('ഈ Tab-ലെ data Excel ആയി download ചെയ്തു.');
 }
 function installTabExcelButtons(){
- document.querySelectorAll('.section').forEach(section=>{
-  const head=section.querySelector('.page-head');if(!head)return;
+ document.querySelectorAll('.section').forEach((section,index)=>{
+  if(!section.id)return;
+  let head=section.querySelector('.page-head');
+  const title=section.querySelector('h1')?.innerText?.trim()||document.querySelector('.nav button[onclick*="'+section.id.replace('page-','')+'"]')?.innerText?.trim()||section.id.replace(/^page-/,'').replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase())||('Dashboard Tab '+(index+1));
+  if(!head){
+   head=document.createElement('div');head.className='page-head mbq-auto-export-head';
+   const titleWrap=document.createElement('div'),h=document.createElement('h1');h.textContent=title;titleWrap.appendChild(h);head.appendChild(titleWrap);
+   section.insertBefore(head,section.firstChild);
+  }
   let actions=head.querySelector('.actions');
   if(!actions){actions=document.createElement('div');actions.className='actions';head.appendChild(actions);}
-  if(actions.querySelector('.tab-excel-export'))return;
-  const button=document.createElement('button');button.type='button';button.className='btn tab-excel-export';button.textContent='⇩ Export';button.addEventListener('click',()=>mbqOpenReportExport(button,section.querySelector('h1')?.innerText||'Report','#'+section.id));actions.appendChild(button);
+  if(actions.querySelector('.tab-excel-export')||(section.id!=='page-excelview'&&section.querySelector('button[onclick*="mbqOpenReportExport"]')))return;
+  const button=document.createElement('button');button.type='button';button.className='btn tab-excel-export';button.textContent='⇩ Export · Excel / PDF / JPEG';button.title='Export this tab only in coloured Excel, PDF or JPEG format';
+  button.addEventListener('click',()=>mbqOpenReportExport(button,title,'#'+section.id,section.id==='page-excelview'?mbqExportMbqTwoSheetWorkbook:null));actions.appendChild(button);
  });
 }
 installTabExcelButtons();
@@ -5430,6 +5438,17 @@ function mbqExportTargetExcel(target,title){
   let base=String(name||'Report').replace(/[^A-Za-z0-9 ]/g,'').trim().slice(0,27)||'Report',sheet=base,n=2;while(wb.SheetNames.includes(sheet))sheet=(base.slice(0,24)+' '+n++).slice(0,31);
   XLSX.utils.book_append_sheet(wb,ws,sheet);added++;
  };
+ const summaryNodes=[...root.querySelectorAll('.kpi,.excel-stat,.mbq-trend-kpi,.peak-kpi,.stat-card,.summary-card')];
+ if(summaryNodes.length){
+  const summaryRows=[['Metric','Value','Details']];
+  summaryNodes.forEach(node=>{
+   const label=node.querySelector('.label,.k-label,.kpi-label,.stat-label,small,h3,h4')?.innerText?.trim()||'Metric';
+   const value=node.querySelector('.value,.k-value,.kpi-value,strong,.stat-value')?.innerText?.trim()||'';
+   const details=node.querySelector('.sub,.k-foot,.description,p')?.innerText?.trim()||'';
+   if(label||value||details)summaryRows.push([label,value,details]);
+  });
+  if(summaryRows.length>1)addSheet('KPI Summary',summaryRows,null);
+ }
  if(root.querySelector('#flashText')&&root.querySelector('#flashText').innerText.trim())addSheet('Flash Summary',root.querySelector('#flashText').innerText.trim().split(/\r?\n/).map(x=>[x]),null);
  tables.forEach((table,i)=>{const rows=[...table.querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(cell=>(cell.innerText||cell.textContent||'').replace(/\s+/g,' ').trim()));addSheet(table.closest('.card')?.querySelector('h3,h2')?.innerText||title+' '+(i+1),rows,table);});
  if(!added){const txt=root.innerText.trim();if(txt)addSheet('Report',txt.split(/\r?\n/).map(x=>[x]),null);}
