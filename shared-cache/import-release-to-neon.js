@@ -57,7 +57,8 @@ async function cleanupAbandonedCandidates(c){
     const id=String(row.id);
     if(activeIds.has(id))continue;
     if(row.source_name==='GSV'){
-      await c.query('DELETE FROM public.gsv_mbq_aggregate WHERE refresh_id=$1',[id]);
+      const aggregateTable=await c.query("SELECT to_regclass('public.gsv_mbq_aggregate') AS name");
+      if(aggregateTable.rows[0]?.name)await c.query('DELETE FROM public.gsv_mbq_aggregate WHERE refresh_id=$1',[id]);
       await c.query('DELETE FROM public.gsv_sales WHERE refresh_id=$1',[id]);
     }else{
       await c.query('DELETE FROM public.live_stock WHERE refresh_id=$1',[id]);
