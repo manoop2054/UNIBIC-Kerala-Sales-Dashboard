@@ -4197,7 +4197,7 @@ function exportActivePageExcel(button){
 function installTabExcelButtons(){
  document.querySelectorAll('.section').forEach((section,index)=>{
   if(!section.id)return;
-  let head=section.querySelector(':scope > .page-head');
+  let head=section.querySelector('.page-head');
   const title=section.querySelector('h1')?.innerText?.trim()||document.querySelector('.nav button[onclick*="'+section.id.replace('page-','')+'"]')?.innerText?.trim()||section.id.replace(/^page-/,'').replace(/-/g,' ').replace(/\\b\\w/g,c=>c.toUpperCase())||('Dashboard Tab '+(index+1));
   if(!head){
    head=document.createElement('div');head.className='page-head mbq-auto-export-head';
