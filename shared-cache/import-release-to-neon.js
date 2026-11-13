@@ -63,7 +63,7 @@ async function cleanupAbandonedCandidates(c){
     }else{
       await c.query('DELETE FROM public.live_stock WHERE refresh_id=$1',[id]);
     }
-    await c.query("UPDATE public.data_refresh_log SET refresh_status='failed',completed_at=NOW(),error_message='Previous importer stopped before validation; incomplete candidate rows were removed safely before retry.',validation_summary=$2::jsonb WHERE id=$1 AND refresh_status='processing'",[id,JSON.stringify({stage:'recovered-abandoned-import',preservedPreviousActiveCache:true})]);
+    await c.query("UPDATE public.data_refresh_log SET refresh_status='failed',completed_at=NOW(),error_message='Previous importer ended before activation; abandoned candidate rows were removed safely before retry.',validation_summary=$2::jsonb WHERE id=$1 AND refresh_status='processing'",[id,JSON.stringify({stage:'recovered-abandoned-import',preservedPreviousActiveCache:true})]);
     console.warn('[IMPORT RECOVERY] Removed incomplete '+row.source_name+' candidate '+id+'; active cache unchanged.');
   }
 }
