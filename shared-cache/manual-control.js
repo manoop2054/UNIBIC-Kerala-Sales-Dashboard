@@ -392,7 +392,7 @@ async function getStatus() {
   let diagnosticsError = null;
   if (endpoint.disabled) diagnosticsError = 'Neon endpoint is OFF; cache details will be available after it is enabled.';
   else {
-    try { await autoSyncIfOutdated(); diagnostics = await getDiagnostics(); }
+    try { diagnostics = await getDiagnostics(); }
     catch (error) { diagnosticsError = error.message; }
   }
   return {
