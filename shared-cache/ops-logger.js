@@ -26,13 +26,11 @@ function installOpsLogging({ service, app }) {
     const started = process.hrtime.bigint();
     res.setHeader("X-Request-ID", requestId);
     if (req.path.startsWith("/api/")) {
-      console.info("HTTP REQUEST START", JSON.stringify({
-        requestId, method: req.method, path: req.path, ip: req.ip || "unknown"
-      }));
+      // Keep successful API polling out of Render logs. Log only failed requests.
       res.on("finish", () => {
+        if (res.statusCode < 400) return;
         const durationMs = Number(process.hrtime.bigint() - started) / 1e6;
-        const level = res.statusCode >= 500 ? "error" : res.statusCode >= 400 ? "warn" : "info";
-        console[level]("HTTP REQUEST END", JSON.stringify({
+        console.error("API ERROR", JSON.stringify({
           requestId, method: req.method, path: req.path, status: res.statusCode,
           durationMs: Number(durationMs.toFixed(1))
         }));
