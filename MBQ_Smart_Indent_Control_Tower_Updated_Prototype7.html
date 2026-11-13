@@ -5487,7 +5487,7 @@ async function mbqExportMbqTwoSheetWorkbook(){
  const headers=[...headerTr.querySelectorAll('th,td')].map(c=>String(c.innerText||c.textContent||'').replace(/\\s+/g,' ').trim().toUpperCase());
  const idx=(...names)=>{for(const n of names){const i=headers.indexOf(n);if(i>=0)return i;}return -1;};
  const skuI=idx('SKU GROUP'),catI=idx('CATEGORY','CAT'),conI=idx('CONTRI %','CONTRI%','CONTI%'),indI=idx('INDENT','IND'),sohI=idx('SOH>60%'),transI=idx('INTRANSIT'),salesI=idx('SALES','SALE');
- const num=(v)=>{const t=String(v??'').replace(/,/g,'').replace(/CBB/ig,'').trim();if(!t||/no data|—|^-$|^n\\/a$/i.test(t))return 0;const n=Number(t.replace(/%/g,''));return Number.isFinite(n)?n:0;};
+ const num=(v)=>{const t=String(v??'').replace(/,/g,'').replace(/CBB/ig,'').trim();if(!t||/no data|—|^-$|^n\/a$/i.test(t))return 0;const n=Number(t.replace(/%/g,''));return Number.isFinite(n)?n:0;};
  const cleanCode=v=>String(v??'').trim().toUpperCase().replace(/\\s+/g,'');
  const groupKey=v=>mbqSkuGroupKey(String(v??'').trim());
  const itemCodesByGroup=new Map();
