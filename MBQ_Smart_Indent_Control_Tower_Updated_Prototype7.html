@@ -5526,9 +5526,10 @@ async function mbqExportMbqTwoSheetWorkbook(){
  const rowsOut=trs.slice(trs.indexOf(headerTr)+1).filter(tr=>!tr.classList.contains('mbq-total-row'))
   .map(tr=>[...tr.querySelectorAll('td')].map(c=>String(c.innerText||c.textContent||'').replace(/\s+/g,' ').trim()))
   .filter(c=>c.length&&c[skuI]&&!['TOTAL','GRAND TOTAL','OVERALL TOTAL'].includes(c[skuI].toUpperCase()));
- const output=rowsOut.map(c=>[c[skuI]||0,mrpForSku(c[skuI]),catI>=0&&c[catI]?c[catI]:0,conI>=0?num(c[conI]):0,indI>=0?num(c[indI]):0,sohI>=0?num(c[sohI]):0,transI>=0?num(c[transI]):0,salesI>=0?num(c[salesI]):0]);
+ const exportCfaKey=String(document.getElementById('mbqSheetSelect')?.value||'DATA').toUpperCase();
+ const output=rowsOut.map(c=>[c[skuI]||0,mrpForSku(c[skuI]),catI>=0&&c[catI]?c[catI]:0,conI>=0?num(c[conI]):0,indI>=0?num(c[indI]):0,sohI>=0?num(c[sohI]):0,transI>=0?num(c[transI]):0,salesI>=0?num(c[salesI]):0,Number(mbqFallbackMbqValue(c[skuI],exportCfaKey))||0]);
  if(!output.length){showToast('Export ചെയ്യാൻ visible SKU rows ലഭ്യമല്ല.');return;}
- const headers2=['SKU GROUP','MRP NEW','Category','Contri %','Indent','SOH','INTRANSIT','Sales','Coverage %','Overall Coverage','Days Coverage'];
+ const headers2=['SKU GROUP','MRP NEW','Category','Contri %','Indent','SOH','INTRANSIT','Sales','MBQ','Coverage %','Overall Coverage','Days Coverage'];
  const aoa=[[],[],headers2,...output.map(()=>Array(headers2.length).fill(0))],ws=XLSX.utils.aoa_to_sheet(aoa);
  ws.A1={t:'n',f:'DATE(YEAR(TODAY()),MONTH(TODAY()),1)',z:'dd-mm-yyyy'};
  ws.B1={t:'n',f:'(TODAY()-A1)/31',z:'0.00'};
@@ -5539,17 +5540,17 @@ async function mbqExportMbqTwoSheetWorkbook(){
  headers2.forEach((h,c)=>{const cell=XLSX.utils.encode_cell({r:2,c});ws[cell]={t:'s',v:h,s:headerStyle};});
  output.forEach((r,i)=>{
   const rn=i+4;
-  for(let c=0;c<8;c++){
+  for(let c=0;c<9;c++){
    const cell=XLSX.utils.encode_cell({r:rn-1,c}),v=r[c],style=bodyStyle(i);
    if(c===0||c===2){ws[cell]={t:'s',v:String(v??0),s:style};}
    else {const n=Number(v);ws[cell]={t:'n',v:Number.isFinite(n)?n:0,s:{...style,numFmt:c===3?'0.00%':'#,##0.00'}};if(c===3&&String(rowsOut[i]?.[conI]||'').includes('%'))ws[cell].v=n/100;}
   }
-  const formulas={I:'IFERROR((H'+rn+'+F'+rn+'+G'+rn+')/E'+rn+',0)',J:'IFERROR(MIN(1,(G'+rn+'+H'+rn+'+F'+rn+')/(E'+rn+'*$B$1)),0)',K:'IFERROR((H'+rn+'+F'+rn+'+G'+rn+')/(E'+rn+'/30),0)'};
+  const formulas={J:'IFERROR((H'+rn+'+F'+rn+'+G'+rn+')/E'+rn+',0)',K:'IFERROR(MIN(1,(G'+rn+'+H'+rn+'+F'+rn+')/(E'+rn+'*$B$1)),0)',L:'IFERROR((H'+rn+'+F'+rn+'+G'+rn+')/(E'+rn+'/30),0)'};
   Object.entries(formulas).forEach(([col,f])=>{const cell=col+rn;ws[cell]={t:'n',f,v:0,z:col==='K'?'0':'0%',s:bodyStyle(i)};});
  });
- ws['!ref']='A1:K'+(output.length+3);ws['!cols']=[{wch:32},{wch:20},{wch:16},{wch:13},{wch:13},{wch:13},{wch:14},{wch:13},{wch:14},{wch:18},{wch:14}];
+ ws['!ref']='A1:L'+(output.length+3);ws['!cols']=[{wch:32},{wch:20},{wch:16},{wch:13},{wch:13},{wch:13},{wch:14},{wch:13},{wch:13},{wch:14},{wch:18},{wch:14}];
  ws['!rows']=[{hpt:24},{hpt:24},{hpt:38},...output.map(()=>({hpt:25}))];
- ws['!freeze']={xSplit:0,ySplit:3};ws['!autofilter']={ref:'A3:K'+(output.length+3)};
+ ws['!freeze']={xSplit:0,ySplit:3};ws['!autofilter']={ref:'A3:L'+(output.length+3)};
  for(let r=0;r<3;r++)for(let c=0;c<2;c++){const cell=ws[XLSX.utils.encode_cell({r,c})];if(cell)cell.s={font:{name:'Aptos',sz:10,bold:r<2,color:{rgb:'17365D'}},fill:{patternType:'solid',fgColor:{rgb:r<2?'E5EEF8':'F1F7F8'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border};}
  const wb=XLSX.utils.book_new();
  const fullRows=trs.map(tr=>[...tr.querySelectorAll('th,td')].map(c=>(c.innerText||c.textContent||'').replace(/\s+/g,' ').trim())).filter(r=>r.length).map(r=>r.map(v=>/^no data available$/i.test(String(v).trim())?0:v));
