@@ -5619,9 +5619,9 @@ async function mbqExportMbqTwoSheetWorkbook(){
     const contributionValue=String(rowsOut.find(x=>groupKey(x[skuI])===key)?.[conI]??'').includes('%')?contribution/100:contribution;
     detailRows.push([
      cfaLabel,sku,Number(meta[1])||0,String(meta[2]??''),contributionValue,
-     indentValue,sohValue===null?'No Data Available':sohValue,
-     transitValue===null?'No Data Available':transitValue,
-     salesValue===null?'No Data Available':salesValue
+     indentValue,sohValue===null?0:sohValue,
+     transitValue===null?0:transitValue,
+     salesValue===null?0:salesValue
     ]);
    });
   });
@@ -5644,7 +5644,7 @@ async function mbqExportMbqTwoSheetWorkbook(){
    }
    const formulas={
     J:'IFERROR((F'+rn+'+G'+rn+'+H'+rn+')/F'+rn+',0)',
-    K:"IFERROR(MIN(1,(I"+rn+"+G"+rn+"+H"+rn+")/(F"+rn+"*'Full MBQ'!$B$1)),0)",
+    K:"IFERROR(MIN(1,(I"+rn+"+G"+rn+"+H"+rn+")/(F"+rn+"*'Total'!$B$1)),0)",
     L:'IFERROR((I'+rn+'+G'+rn+'+H'+rn+')/(F'+rn+'/30),0)'
    };
    Object.entries(formulas).forEach(([col,formula])=>{
