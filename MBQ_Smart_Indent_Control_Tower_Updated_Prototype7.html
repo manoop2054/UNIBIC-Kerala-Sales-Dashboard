@@ -5569,7 +5569,7 @@ async function mbqExportMbqTwoSheetWorkbook(){
  // intentionally keeps the existing two-sheet workbook unchanged.
  const selectedSheet=String(document.getElementById('mbqSheetSelect')?.value||'DATA').toUpperCase();
  if(selectedSheet==='DATA'){
-  const cfaDetailHeaders=['CFA NAME','SKU GROUP','MRP NEW','Category','Contri %','Indent','SOH','INTRANSIT','Sales','Coverage %','Overall Coverage','Days Coverage'];
+  const cfaDetailHeaders=['CFA NAME','SKU GROUP','MRP NEW','Category','Contri %','Indent','SOH','INTRANSIT','Sales','Coverage %','Overall Coverage','Days Coverage','BALANCE'];
   const cfaOrder=[['ALU','ALU CFA'],['PAY','PAY CFA'],['TVD','TVD CFA']];
   const detailRows=[];
   const strictCfa=value=>{
@@ -5648,17 +5648,18 @@ async function mbqExportMbqTwoSheetWorkbook(){
    const formulas={
     J:'IFERROR((F'+rn+'+G'+rn+'+H'+rn+')/F'+rn+',0)',
     K:"IFERROR(MIN(1,(I"+rn+"+G"+rn+"+H"+rn+")/(F"+rn+"*'Total'!$B$1)),0)",
-    L:'IFERROR((I'+rn+'+G'+rn+'+H'+rn+')/(F'+rn+'/30),0)'
+    L:'IFERROR((I'+rn+'+G'+rn+'+H'+rn+')/(F'+rn+'/30),0)',
+    M:'IFERROR(F'+rn+'-G'+rn+'-H'+rn+'-I'+rn+',0)'
    };
    Object.entries(formulas).forEach(([col,formula])=>{
     detailWs[col+rn]={t:'n',f:formula,v:0,z:col==='L'?'0':'0%',s:style};
    });
   });
-  detailWs['!ref']='A1:L'+(detailRows.length+1);
-  detailWs['!cols']=[{wch:16},{wch:34},{wch:16},{wch:16},{wch:13},{wch:13},{wch:13},{wch:14},{wch:13},{wch:14},{wch:18},{wch:14}];
+  detailWs['!ref']='A1:M'+(detailRows.length+1);
+  detailWs['!cols']=[{wch:16},{wch:34},{wch:16},{wch:16},{wch:13},{wch:13},{wch:13},{wch:14},{wch:13},{wch:14},{wch:18},{wch:14},{wch:14}];
   detailWs['!rows']=[{hpt:38},...detailRows.map(()=>({hpt:25}))];
   detailWs['!freeze']={xSplit:0,ySplit:1};
-  detailWs['!autofilter']={ref:'A1:L'+(detailRows.length+1)};
+  detailWs['!autofilter']={ref:'A1:M'+(detailRows.length+1)};
   XLSX.utils.book_append_sheet(wb,detailWs,'CFA-wise Details');
  }
 
