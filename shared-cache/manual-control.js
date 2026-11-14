@@ -315,6 +315,8 @@ async function startReleaseRefresh(requestedBy) {
         const entry = '[' + label + '] ' + pending;
         logLines.push(entry);
         if (logLines.length > 40) logLines.shift();
+        linesSincePersist++;
+        persistProgress();
         console.log('[NEON REFRESH][' + label + '] ' + pending);
       }
     });
