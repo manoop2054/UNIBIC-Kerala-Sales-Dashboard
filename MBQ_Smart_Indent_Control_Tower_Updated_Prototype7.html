@@ -5652,7 +5652,7 @@ async function mbqExportMbqTwoSheetWorkbook(){
     M:'IFERROR(F'+rn+'-G'+rn+'-H'+rn+'-I'+rn+',0)'
    };
    Object.entries(formulas).forEach(([col,formula])=>{
-    detailWs[col+rn]={t:'n',f:formula,v:0,z:col==='L'?'0':'0%',s:style};
+    detailWs[col+rn]={t:'n',f:formula,v:0,z:col==='L'?'0':col==='M'?'#,##0.00':'0%',s:style};
    });
   });
   detailWs['!ref']='A1:M'+(detailRows.length+1);
