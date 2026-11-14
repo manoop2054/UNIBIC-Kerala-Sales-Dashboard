@@ -287,6 +287,11 @@ async function startReleaseRefresh(requestedBy) {
   refreshProcess = child;
   refreshStarting = false;
   const logLines = [];
+  let linesSincePersist = 0;
+  let persistQueue = Promise.resolve();
+  const persistProgress = () => {
+    persistQueue = persistQueue.then(() => pool.query("UPDATE public.shared_cache_sync_runs SET log_lines=$2::jsonb WHERE run_id=$1 AND status='running'", [runId, JSON.stringify(logLines)])).catch(error => console.warn('[NEON MANUAL PUSH] Progress persistence warning:', error.message));
+  };
   let finished = false;
   const pipe = (stream, label) => {
     let pending = '';
@@ -300,6 +305,8 @@ async function startReleaseRefresh(requestedBy) {
         const entry = '[' + label + '] ' + line;
         logLines.push(entry);
         if (logLines.length > 40) logLines.shift();
+        linesSincePersist++;
+        if (linesSincePersist >= 5) { linesSincePersist = 0; persistProgress(); }
         console.log('[NEON REFRESH][' + label + '] ' + line);
       }
     });
@@ -319,6 +326,8 @@ async function startReleaseRefresh(requestedBy) {
     if (finished) return;
     finished = true;
     try {
+      if (linesSincePersist > 0) { linesSincePersist = 0; persistProgress(); }
+      await persistQueue;
       const after = await getActiveSnapshot();
       const sourceResults = compareSources(before, after, code);
       const status = code === 0 ? 'success' : 'failed';
