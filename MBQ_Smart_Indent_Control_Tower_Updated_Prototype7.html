@@ -5570,7 +5570,7 @@ async function mbqExportMbqTwoSheetWorkbook(){
  // intentionally keeps the existing two-sheet workbook unchanged.
  const selectedSheet=String(document.getElementById('mbqSheetSelect')?.value||'DATA').toUpperCase();
  if(selectedSheet==='DATA'){
-  const cfaDetailHeaders=['CFA NAME','SKU GROUP','MRP NEW','Category','Contri %','Indent','SOH','INTRANSIT','Sales','Coverage %','Overall Coverage','Days Coverage','BALANCE'];
+  const cfaDetailHeaders=['CFA NAME','SKU GROUP','MRP NEW','Category','Contri %','Indent','SOH','INTRANSIT','Sales','Coverage %','Overall Coverage','Days Coverage','MBQ','BALANCE'];
   const cfaOrder=[['ALU','ALU CFA'],['PAY','PAY CFA'],['TVD','TVD CFA']];
   const detailRows=[];
   const strictCfa=value=>{
@@ -5646,21 +5646,24 @@ async function mbqExportMbqTwoSheetWorkbook(){
      detailWs[cell]={t:'n',v:Number.isFinite(n)?n:0,s:{...style,numFmt:c===4?'0.00%':'#,##0.00'}};
     }
    }
+   const mbqValue=mbqFallbackMbqValue(r[1],String(r[0]).replace(/\s+CFA$/i,''));
+   const mbqNumber=Number(mbqValue);
+   detailWs['M'+rn]={t:'n',v:Number.isFinite(mbqNumber)?mbqNumber:0,s:{...style,numFmt:'#,##0.00'}};
    const formulas={
     J:'IFERROR((F'+rn+'+G'+rn+'+H'+rn+')/F'+rn+',0)',
     K:"IFERROR(MIN(1,(I"+rn+"+G"+rn+"+H"+rn+")/(F"+rn+"*'Total'!$B$1)),0)",
     L:'IFERROR((I'+rn+'+G'+rn+'+H'+rn+')/(F'+rn+'/30),0)',
-    M:'IFERROR(F'+rn+'-G'+rn+'-H'+rn+'-I'+rn+',0)'
+    N:'IFERROR(F'+rn+'-G'+rn+'-H'+rn+'-I'+rn+',0)'
    };
    Object.entries(formulas).forEach(([col,formula])=>{
-    detailWs[col+rn]={t:'n',f:formula,v:0,z:col==='L'?'0':col==='M'?'#,##0.00':'0%',s:style};
+    detailWs[col+rn]={t:'n',f:formula,v:0,z:col==='L'?'0':col==='N'?'#,##0.00':'0%',s:style};
    });
   });
-  detailWs['!ref']='A1:M'+(detailRows.length+1);
-  detailWs['!cols']=[{wch:16},{wch:34},{wch:16},{wch:16},{wch:13},{wch:13},{wch:13},{wch:14},{wch:13},{wch:14},{wch:18},{wch:14},{wch:14}];
+  detailWs['!ref']='A1:N'+(detailRows.length+1);
+  detailWs['!cols']=[{wch:16},{wch:34},{wch:16},{wch:16},{wch:13},{wch:13},{wch:13},{wch:14},{wch:13},{wch:14},{wch:18},{wch:14},{wch:13},{wch:14}];
   detailWs['!rows']=[{hpt:38},...detailRows.map(()=>({hpt:25}))];
   detailWs['!freeze']={xSplit:0,ySplit:1};
-  detailWs['!autofilter']={ref:'A1:M'+(detailRows.length+1)};
+  detailWs['!autofilter']={ref:'A1:N'+(detailRows.length+1)};
   XLSX.utils.book_append_sheet(wb,detailWs,'CFA-wise Details');
  }
 
