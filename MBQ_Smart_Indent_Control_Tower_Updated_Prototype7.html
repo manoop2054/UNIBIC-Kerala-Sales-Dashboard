@@ -5386,21 +5386,24 @@ document.getElementById('skuCount').textContent='Loading…';renderWatch();rende
 })();
 
 function mbqEnsureXlsx(){
- if(window.XLSX&&window.XLSX.utils&&typeof window.XLSX.writeFile==='function')return Promise.resolve(window.XLSX);
- if(window.__mbqXlsxPromise)return window.__mbqXlsxPromise;
- window.__mbqXlsxPromise=new Promise((resolve,reject)=>{
-  const urls=['https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js','https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'];
+ if(window.__mbqXlsxStyleReady&&window.XLSX&&window.XLSX.utils&&typeof window.XLSX.writeFile==='function')return Promise.resolve(window.XLSX);
+ if(window.__mbqXlsxStylePromise)return window.__mbqXlsxStylePromise;
+ window.__mbqXlsxStylePromise=new Promise((resolve,reject)=>{
+  const urls=['https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js','https://unpkg.com/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'];
   let index=0;
   const next=()=>{
-   if(window.XLSX&&window.XLSX.utils&&typeof window.XLSX.writeFile==='function'){resolve(window.XLSX);return;}
-   if(index>=urls.length){window.__mbqXlsxPromise=null;reject(new Error('Excel library could not be loaded. Check internet/CDN access and retry.'));return;}
-   const script=document.createElement('script');script.src=urls[index++];script.async=true;
-   script.onload=()=>{if(window.XLSX&&window.XLSX.utils&&typeof window.XLSX.writeFile==='function')resolve(window.XLSX);else next();};
+   if(index>=urls.length){window.__mbqXlsxStylePromise=null;reject(new Error('Colour Excel library could not be loaded. Check internet/CDN access and retry.'));return;}
+   const script=document.createElement('script');script.src=urls[index++];script.async=true;script.dataset.mbqXlsxStyle='1';
+   script.onload=()=>{
+    if(window.XLSX&&window.XLSX.utils&&typeof window.XLSX.writeFile==='function'){
+     window.__mbqXlsxStyleReady=true;resolve(window.XLSX);
+    }else next();
+   };
    script.onerror=next;document.head.appendChild(script);
   };
   next();
  });
- return window.__mbqXlsxPromise;
+ return window.__mbqXlsxStylePromise;
 }
 function mbqOpenReportExport(anchor,title,target,excelFn,pdfFn,jpgFn){
  const menu=document.getElementById('mbqReportExportMenu');if(!menu)return;
@@ -5453,7 +5456,7 @@ function mbqExportTargetExcel(target,title){
   const ws=XLSX.utils.aoa_to_sheet(rows),maxCols=Math.max(1,...rows.map(r=>r.length));
   ws['!cols']=Array.from({length:maxCols},(_,c)=>({wch:Math.min(38,Math.max(12,...rows.map(r=>String(r[c]??'').length+2)))}));
   if(table){[...table.querySelectorAll('tr')].forEach((tr,ri)=>[...tr.querySelectorAll('th,td')].forEach((cell,ci)=>{
-   const out=ws[XLSX.utils.encode_cell({r:ri,c:ci})];if(!out)return;const st=getComputedStyle(cell),rgb=v=>{const m=String(v).match(/\d+/g);return m&&m.length>=3?m.slice(0,3).map(x=>Number(x).toString(16).padStart(2,'0')).join('').toUpperCase():null;},bg=rgb(st.backgroundColor),fg=rgb(st.color);
+   const out=ws[XLSX.utils.encode_cell({r:ri,c:ci})];if(!out)return;const st=getComputedStyle(cell),rgb=v=>{const value=String(v||'').trim();if(!value||value==='transparent')return null;const m=value.match(/^rgba?\\(\\s*(\\d+(?:\\.\\d+)?)\\s*,\\s*(\\d+(?:\\.\\d+)?)\\s*,\\s*(\\d+(?:\\.\\d+)?)(?:\\s*,\\s*([\\d.]+))?\\s*\\)$/i);if(!m)return null;const alpha=m[4]===undefined?1:Number(m[4]);if(!Number.isFinite(alpha)||alpha<=0)return null;return [m[1],m[2],m[3]].map(x=>Math.max(0,Math.min(255,Math.round(Number(x)))).toString(16).padStart(2,'0')).join('').toUpperCase();},bg=rgb(st.backgroundColor),fg=rgb(st.color);
    out.s={font:{name:'Aptos',sz:9,bold:st.fontWeight==='700'||Number(st.fontWeight)>=700,color:{rgb:fg||'24364B'}},alignment:{vertical:'center',horizontal:st.textAlign==='right'?'right':'left',wrapText:true}};
    if(bg&&bg!=='FFFFFF')out.s.fill={patternType:'solid',fgColor:{rgb:bg}};
    if(st.borderBottomWidth!=='0px')out.s.border={bottom:{style:'thin',color:{rgb:'D7E1ED'}}};
@@ -5665,8 +5668,16 @@ async function mbqExportMbqTwoSheetWorkbook(){
 function mbqExportTargetPdf(target,title){
  let root=target?document.querySelector(target):null;if(root&&(root.tagName==='TBODY'||root.tagName==='TR'))root=root.closest('table')||root;if(!root){showToast('PDF report area unavailable.');return;}
  const w=window.open('','_blank');if(!w){showToast('PDF export ചെയ്യാൻ print popup അനുവദിക്കുക.');return;}
- const clone=root.cloneNode(true);clone.querySelectorAll('button,input,select,textarea').forEach(x=>x.remove());
- const css='*{box-sizing:border-box}body{font:10px Arial,sans-serif;color:#18253b;margin:14px}table{border-collapse:collapse;width:100%;font-size:9px}th,td{border:1px solid #cbd5e1;padding:5px;text-align:left;white-space:normal}th{background:#e8eef7}pre{white-space:pre-wrap;overflow-wrap:anywhere}.report-scroll,.table-wrap,.excel-table-wrap{max-height:none!important;overflow:visible!important}@page{size:A4 landscape;margin:8mm}@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}';
+ const clone=root.cloneNode(true),styleProps=['color','backgroundColor','backgroundImage','backgroundRepeat','backgroundPosition','backgroundSize','fontFamily','fontSize','fontWeight','fontStyle','lineHeight','textAlign','verticalAlign','whiteSpace','wordBreak','overflowWrap','textTransform','letterSpacing','borderTopWidth','borderTopStyle','borderTopColor','borderRightWidth','borderRightStyle','borderRightColor','borderBottomWidth','borderBottomStyle','borderBottomColor','borderLeftWidth','borderLeftStyle','borderLeftColor','borderRadius','paddingTop','paddingRight','paddingBottom','paddingLeft','marginTop','marginRight','marginBottom','marginLeft','width','minWidth','maxWidth','height','display'];
+ const copyStyles=(source,destination)=>{
+  const computed=getComputedStyle(source);
+  styleProps.forEach(prop=>{const value=computed[prop];if(value)destination.style[prop]=value;});
+  destination.style.webkitPrintColorAdjust='exact';destination.style.printColorAdjust='exact';
+  const src=[...source.children],dst=[...destination.children];for(let i=0;i<Math.min(src.length,dst.length);i++)copyStyles(src[i],dst[i]);
+ };
+ copyStyles(root,clone);
+ clone.querySelectorAll('button,input,select,textarea').forEach(x=>x.remove());
+ const css='*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{font:10px Arial,sans-serif;color:#18253b;margin:14px}table{border-collapse:collapse;max-width:100%;font-size:9px}th,td{white-space:normal;overflow-wrap:anywhere}thead{display:table-header-group}tr{break-inside:avoid}.report-scroll,.table-wrap,.excel-table-wrap{max-height:none!important;height:auto!important;overflow:visible!important}th{position:static!important;top:auto!important}img{max-width:100%}@page{size:A4 landscape;margin:8mm}@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}';
  w.document.open();w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+String(title||'Report').replace(/[<>]/g,'')+'</title><style>'+css+'</style></head><body><h2>'+String(title||'Report').replace(/[<>]/g,'')+'</h2>'+clone.outerHTML+'</body></html>');w.document.close();w.onload=()=>{w.focus();w.print();};
 }
 function mbqLoadHtml2Canvas(){
