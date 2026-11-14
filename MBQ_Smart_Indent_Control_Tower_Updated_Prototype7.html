@@ -5562,42 +5562,9 @@ async function mbqExportMbqTwoSheetWorkbook(){
  XLSX.utils.book_append_sheet(wb,first,'Full MBQ');
  XLSX.utils.book_append_sheet(wb,ws,'Total');
 
- // Third sheet: one row for every SKU Group under each CFA, with CFA name in the first column.
- const cfaHeaders=['CFA','SKU GROUP','MRP NEW'];
- const cfaDetails=[];
- ['TVD','PAY','ALU'].forEach(cfa=>{
-  const sh=mbqExcelSheets&&mbqExcelSheets[cfa];if(!sh||!Array.isArray(sh.headers)||!Array.isArray(sh.rows))return;
-  const sourceHeaders=sh.headers.map(h=>String(h??'').trim());
-  const skuIndex=sourceHeaders.findIndex(h=>h.toUpperCase()==='SKU GROUP');if(skuIndex<0)return;
-  const otherHeaders=sourceHeaders.filter((h,i)=>i!==skuIndex&&h.toUpperCase()!=='MRP NEW');
-  const sheetHeaders=['CFA','SKU GROUP','MRP NEW',...otherHeaders];
-  const sourceIndexes=sourceHeaders.map((h,i)=>({h,i})).filter(x=>x.i!==skuIndex&&x.h.toUpperCase()!=='MRP NEW');
-  sh.rows.forEach(row=>{
-   const sku=String(row[skuIndex]??'').trim();if(!sku||!mbqIsOfficialSkuGroup(sku)||['TOTAL','GRAND TOTAL','OVERALL TOTAL'].includes(sku.toUpperCase()))return;
-   cfaDetails.push([cfa,sku,mrpForSku(sku),...sourceIndexes.map(x=>row[x.i]===undefined?'':row[x.i])]);
-  });
- });
- const detailHeaders=['CFA','SKU GROUP','MRP NEW'];
- const sourceCfaSheet=mbqExcelSheets&&mbqExcelSheets.TVD||mbqExcelSheets&&mbqExcelSheets.PAY||mbqExcelSheets&&mbqExcelSheets.ALU;
- if(sourceCfaSheet&&Array.isArray(sourceCfaSheet.headers)){
-  const original=sourceCfaSheet.headers.map(h=>String(h??'').trim());
-  const si=original.findIndex(h=>h.toUpperCase()==='SKU GROUP');
-  detailHeaders.push(...original.filter((h,i)=>i!==si&&h.toUpperCase()!=='MRP NEW'));
- }
- const cfaAoa=[['UNIBIC FOODS INDIA PRIVATE LIMITED'],['MBQ EXCEL VIEW · CFA-WISE SKU DETAILS'],['All available CFA sheets · Filter the first column to view TVD / PAY / ALU'],detailHeaders,...cfaDetails];
- const detailWs=XLSX.utils.aoa_to_sheet(cfaAoa);
- detailWs['!cols']=[{wch:12},{wch:32},{wch:14},...detailHeaders.slice(3).map(h=>({wch:Math.min(28,Math.max(12,String(h).length+3))}))];
- detailWs['!rows']=[{hpt:26},{hpt:22},{hpt:22},{hpt:34},...cfaDetails.map(()=>({hpt:24}))];
- detailWs['!freeze']={xSplit:2,ySplit:4};
- detailWs['!autofilter']={ref:XLSX.utils.encode_range({s:{r:3,c:0},e:{r:Math.max(3,cfaAoa.length-1),c:detailHeaders.length-1}})};
- const detailBorder={top:{style:'thin',color:{rgb:'CBD5E1'}},bottom:{style:'thin',color:{rgb:'CBD5E1'}},left:{style:'thin',color:{rgb:'CBD5E1'}},right:{style:'thin',color:{rgb:'CBD5E1'}}};
- for(let r=0;r<cfaAoa.length;r++)for(let c=0;c<detailHeaders.length;c++){
-  const cell=detailWs[XLSX.utils.encode_cell({r,c})];if(!cell)continue;
-  cell.s={font:{name:'Aptos',sz:r<3?10:9,bold:r<4,color:{rgb:r<4?'FFFFFF':'24364B'}},fill:{patternType:'solid',fgColor:{rgb:r===0?'12233F':r===1?'087F8C':r===2?'EAF5F5':r===3?'17365D':r%2===0?'F1F6FB':'FFFFFF'}},alignment:{horizontal:c<2?'left':'center',vertical:'center',wrapText:true},border:detailBorder};
- }
- XLSX.utils.book_append_sheet(wb,detailWs,'CFA-wise Details');
+
  XLSX.writeFile(wb,'MBQ_Excel_View_'+(document.getElementById('mbqSheetSelect')?.value||'DATA')+'_Colour.xlsx',{compression:true});
- showToast('3-sheet MBQ Excel report downloaded: Full MBQ · Total · CFA-wise Details.');
+ showToast('2-sheet MBQ Excel report downloaded: Full MBQ · Total.');
 }
 function mbqExportTargetPdf(target,title){
  let root=target?document.querySelector(target):null;if(root&&(root.tagName==='TBODY'||root.tagName==='TR'))root=root.closest('table')||root;if(!root){showToast('PDF report area unavailable.');return;}
