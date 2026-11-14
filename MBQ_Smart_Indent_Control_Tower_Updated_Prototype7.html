@@ -5562,6 +5562,102 @@ async function mbqExportMbqTwoSheetWorkbook(){
  XLSX.utils.book_append_sheet(wb,first,'Full MBQ');
  XLSX.utils.book_append_sheet(wb,ws,'Total');
 
+ // The CFA-wise detail tab is an All-CFA-only export. A single-CFA export
+ // intentionally keeps the existing two-sheet workbook unchanged.
+ const selectedSheet=String(document.getElementById('mbqSheetSelect')?.value||'DATA').toUpperCase();
+ if(selectedSheet==='DATA'){
+  const cfaDetailHeaders=['CFA NAME','SKU GROUP','MRP NEW','Category','Contri %','Indent','SOH','INTRANSIT','Sales','Coverage %','Overall Coverage','Days Coverage'];
+  const cfaOrder=[['ALU','ALU CFA'],['PAY','PAY CFA'],['TVD','TVD CFA']];
+  const detailRows=[];
+  const strictCfa=value=>{
+   const key=String(value??'').trim().toUpperCase().replace(/[\s_-]+/g,'');
+   if(['ALU','ALUCFA'].includes(key))return 'ALU';
+   if(['PAY','PAYCFA'].includes(key))return 'PAY';
+   if(['TVD','TVDCFA'].includes(key))return 'TVD';
+   return '';
+  };
+  const shelfPct=raw=>{
+   const value=keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%']);
+   const n=Number(String(value??'').replace(/[% ,]/g,''));
+   return Number.isFinite(n)?n:null;
+  };
+  const qtyCbb=raw=>{
+   const n=Number(String(keyValue(raw,['CBO'])??'').replace(/,/g,''));
+   return Number.isFinite(n)?n:0;
+  };
+  const cfaSkuStock=(sku,cfa,typeWanted)=>{
+   const group=groupKey(sku),codes=itemCodesByGroup.get(group);
+   if(!codes||!codes.size)return null;
+   let total=0,found=false;
+   (Array.isArray(liveSohRows)?liveSohRows:[]).forEach(raw=>{
+    const type=String(keyValue(raw,['TYPE','Type'])||'').trim().toUpperCase().replace(/[\s_-]+/g,'');
+    const wanted=typeWanted==='SOH'?type==='SOH':(type==='INTRANSIT'||type==='TRANSIT');
+    if(!wanted)return;
+    const code=cleanCode(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']));
+    if(!codes.has(code))return;
+    const warehouse=keyValue(raw,['WAREHOUSE','Warehouse','CFA','LocationCode','Location Code','Location Name','Location']);
+    if(strictCfa(warehouse)!==cfa)return;
+    const shelf=shelfPct(raw);
+    if(shelf===null||shelf<=60)return;
+    total+=qtyCbb(raw);found=true;
+   });
+   return found?total:null;
+  };
+  const metaBySku=new Map();
+  output.forEach(r=>metaBySku.set(groupKey(r[0]),r));
+  cfaOrder.forEach(([cfa,cfaLabel])=>{
+   output.forEach(r=>{
+    const sku=String(r[0]??'').trim(),key=groupKey(sku);
+    if(!sku||!key)return;
+    const meta=metaBySku.get(key)||r;
+    const allocated=mbqCfaAllocatedIndentForSku(sku,cfa);
+    const indentValue=typeof allocated==='number'&&Number.isFinite(allocated)?allocated:(allocated||'ALLOCATION NOT DONE');
+    const sohValue=cfaSkuStock(sku,cfa,'SOH');
+    const transitValue=cfaSkuStock(sku,cfa,'INTRANSIT');
+    const salesValue=mbqGsvGroupDateRange(sku,cfa);
+    const contribution=Number(meta[3])||0;
+    const contributionValue=String(rowsOut.find(x=>groupKey(x[skuI])===key)?.[conI]??'').includes('%')?contribution/100:contribution;
+    detailRows.push([
+     cfaLabel,sku,Number(meta[1])||0,String(meta[2]??''),contributionValue,
+     indentValue,sohValue===null?'No Data Available':sohValue,
+     transitValue===null?'No Data Available':transitValue,
+     salesValue===null?'No Data Available':salesValue
+    ]);
+   });
+  });
+  const detailAoa=[cfaDetailHeaders,...detailRows.map(()=>Array(cfaDetailHeaders.length).fill(0))];
+  const detailWs=XLSX.utils.aoa_to_sheet(detailAoa);
+  const detailBorder={top:{style:'thin',color:{rgb:'CBD5E1'}},bottom:{style:'thin',color:{rgb:'CBD5E1'}},left:{style:'thin',color:{rgb:'CBD5E1'}},right:{style:'thin',color:{rgb:'CBD5E1'}}};
+  const detailHeaderStyle={font:{name:'Aptos',sz:10,bold:true,color:{rgb:'FFFFFF'}},fill:{patternType:'solid',fgColor:{rgb:'17365D'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:detailBorder};
+  const detailBodyStyle=i=>({font:{name:'Aptos',sz:9,color:{rgb:'24364B'}},fill:{patternType:'solid',fgColor:{rgb:i%2?'EEF4FA':'FFFFFF'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:detailBorder});
+  cfaDetailHeaders.forEach((h,c)=>{detailWs[XLSX.utils.encode_cell({r:0,c})]={t:'s',v:h,s:detailHeaderStyle};});
+  detailRows.forEach((r,i)=>{
+   const rn=i+2,style=detailBodyStyle(i);
+   for(let c=0;c<9;c++){
+    const cell=XLSX.utils.encode_cell({r:rn-1,c}),v=r[c];
+    if(c===0||c===1||c===3||v==='No Data Available'||v==='ALLOCATION NOT DONE'){
+     detailWs[cell]={t:'s',v:String(v??''),s:style};
+    }else{
+     const n=Number(v);
+     detailWs[cell]={t:'n',v:Number.isFinite(n)?n:0,s:{...style,numFmt:c===4?'0.00%':'#,##0.00'}};
+    }
+   }
+   const formulas={
+    J:'IFERROR((F'+rn+'+G'+rn+'+H'+rn+')/F'+rn+',0)',
+    K:"IFERROR(MIN(1,(I"+rn+"+G"+rn+"+H"+rn+")/(F"+rn+"*'Full MBQ'!$B$1)),0)",
+    L:'IFERROR((I'+rn+'+G'+rn+'+H'+rn+')/(F'+rn+'/30),0)'
+   };
+   Object.entries(formulas).forEach(([col,formula])=>{
+    detailWs[col+rn]={t:'n',f:formula,v:0,z:col==='L'?'0':'0%',s:style};
+   });
+  });
+  detailWs['!ref']='A1:L'+(detailRows.length+1);
+  detailWs['!cols']=[{wch:16},{wch:34},{wch:16},{wch:16},{wch:13},{wch:13},{wch:13},{wch:14},{wch:13},{wch:14},{wch:18},{wch:14}];
+  detailWs['!rows']=[{hpt:38},...detailRows.map(()=>({hpt:25}))];
+  detailWs['!freeze']={xSplit:0,ySplit:1};
+  detailWs['!autofilter']={ref:'A1:L'+(detailRows.length+1)};
+  XLSX.utils.book_append_sheet(wb,detailWs,'CFA-wise Details');
+ }
 
  XLSX.writeFile(wb,'MBQ_Excel_View_'+(document.getElementById('mbqSheetSelect')?.value||'DATA')+'_Colour.xlsx',{compression:true});
  showToast('2-sheet MBQ Excel report downloaded: Full MBQ · Total.');
