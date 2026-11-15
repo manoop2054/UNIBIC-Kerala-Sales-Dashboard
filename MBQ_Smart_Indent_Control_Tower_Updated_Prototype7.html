@@ -1861,7 +1861,7 @@ function mbqStockReportRows(){
     return sum+(value===null?0:Number(value)||0);
    },0)):null;
    const salesDay=monthTotals?monthTotals.reduce((sum,v)=>sum+v,0)/(periodCount*30):null;
-   const intransit=allCodes.reduce((sum,code)=>sum+openToQtyFor(cfa,code),0);
+   const intransit=allCodes.reduce((sum,code)=>sum+(Array.isArray(liveSohRows)?liveSohRows.reduce((itemSum,raw)=>{const type=String(keyValue(raw,['TYPE','Type'])||'').trim().toUpperCase();if(!(type.includes('INTRANSIT')||type==='TRANSIT'))return itemSum;const rowCode=cleanCode(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']));const rowCfa=normalCfa(keyValue(raw,['WAREHOUSE','Warehouse','CFA','LocationCode','Location Code','Location_Code','Location Name','Location','Branch','Site','Store']));if(rowCode!==cleanCode(code)||rowCfa!==cfa)return itemSum;const shelfRaw=keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%']);const shelf=Number(String(shelfRaw??'').replace('%','').replace(/,/g,'').trim());if(shelfRaw===''||shelfRaw===null||shelfRaw===undefined||!Number.isFinite(shelf)||shelf<60)return itemSum;const qty=Number(String(keyValue(raw,['CBO','CBB','QuantityinCBO','Quantity in CBO'])??'').replace(/,/g,''));return Number.isFinite(qty)?itemSum+qty:itemSum;},0):0),0);
    const cover=totalStock>0&&salesDay!==null&&salesDay>0?totalStock/salesDay:null;
    const status=cover!==null&&cover<6?'Low cover':cover!==null?'Normal':'No data available';
    const eligibleCodes=eligible.map(x=>x.code);
