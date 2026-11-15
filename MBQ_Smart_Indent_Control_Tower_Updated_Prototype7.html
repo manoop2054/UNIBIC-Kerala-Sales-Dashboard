@@ -5831,7 +5831,7 @@ async function mbqFlashExcelExport(){
  const achievement=report.totalIndent>0&&report.totalBilled!==null?report.totalBilled/report.totalIndent*100:null;
  const topBalance=detail.filter(x=>x.indent!==null&&x.billed!==null&&x.balance>0).sort((a,b)=>b.balance-a.balance).slice(0,10);
  const topOver=detail.filter(x=>x.indent!==null&&x.billed!==null&&x.balance<0).sort((a,b)=>a.balance-b.balance).slice(0,10);
- const lines=String(report.flashText||'').split(/\\r?\\n/).map(x=>x.trim()).filter(Boolean);
+ const lines=String(report.flashText||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
  const wb=XLSX.utils.book_new();
  const border={top:{style:'thin',color:{rgb:'D5DDE7'}},bottom:{style:'thin',color:{rgb:'D5DDE7'}},left:{style:'thin',color:{rgb:'D5DDE7'}},right:{style:'thin',color:{rgb:'D5DDE7'}}};
  const add=(name,rows,widths,headerRow=4)=>{
