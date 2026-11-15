@@ -5632,9 +5632,11 @@ async function mbqExportMbqTwoSheetWorkbook(){
   .map(tr=>[...tr.querySelectorAll('td')].map(c=>String(c.innerText||c.textContent||'').replace(/\s+/g,' ').trim()))
   .filter(c=>c.length&&c[skuI]&&!['TOTAL','GRAND TOTAL','OVERALL TOTAL'].includes(c[skuI].toUpperCase()));
  const exportCfaKey=String(document.getElementById('mbqSheetSelect')?.value||'DATA').toUpperCase();
- const output=rowsOut.map(c=>[c[skuI]||0,mrpForSku(c[skuI]),catI>=0&&c[catI]?c[catI]:0,conI>=0?num(c[conI]):0,indI>=0?num(c[indI]):0,sohI>=0?num(c[sohI]):0,transI>=0?num(c[transI]):0,salesI>=0?num(c[salesI]):0,Number(mbqFallbackMbqValue(c[skuI],exportCfaKey))||0]);
+ const lastYearRange=(()=>{const range=mbqExcelSelectedDateRange();if(!range?.valid)return null;const shift=d=>{const [y,m,day]=String(d).split('-').map(Number);if(!y||!m||!day)return null;const dt=new Date(y,m-1,day);dt.setFullYear(y-1);return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');};const from=shift(range.from),to=shift(range.to);return from&&to?{from,to}:null;})();
+ const lastYearPeriodicForSku=(sku,cfa)=>{if(!lastYearRange||!mbqGsvRows.length)return null;if(!mbqGsvDailyIndex)mbqBuildGsvDailyIndex();if(!mbqSkuCodesByGroup.size)mbqBuildSkuGroupCodeIndex();const codes=mbqSkuCodesByGroup.get(groupKey(sku));if(!codes?.size)return null;let total=0,found=false;codes.forEach(code=>{const prefix=mbqGsvNormCode(code)+"|";mbqGsvDailyIndex.forEach((qty,key)=>{if(!key.startsWith(prefix))return;const parts=key.split("|"),date=parts[1],loc=parts[2];if(date<lastYearRange.from||date>lastYearRange.to||(cfa!=="DATA"&&normalCfa(cfa)!==loc))return;found=true;total+=Number(qty)||0;});});return found?total:null;};
+ const output=rowsOut.map(c=>[c[skuI]||0,mrpForSku(c[skuI]),catI>=0&&c[catI]?c[catI]:0,conI>=0?num(c[conI]):0,indI>=0?num(c[indI]):0,sohI>=0?num(c[sohI]):0,transI>=0?num(c[transI]):0,salesI>=0?num(c[salesI]):0,Number(mbqFallbackMbqValue(c[skuI],exportCfaKey))||0,lastYearPeriodicForSku(c[skuI],exportCfaKey)]);
  if(!output.length){showToast('Export ചെയ്യാൻ visible SKU rows ലഭ്യമല്ല.');return;}
- const headers2=['SKU GROUP','MRP NEW','Category','Contri %','Indent','SOH','INTRANSIT','Sales','MBQ','Coverage %','Overall Coverage','Days Coverage'];
+ const headers2=['SKU GROUP','MRP NEW','Category','Contri %','Indent','SOH','INTRANSIT','Sales','MBQ','Coverage %','Overall Coverage','Days Coverage','Last Year Periodic'];
  const aoa=[[],[],headers2,...output.map(()=>Array(headers2.length).fill(0))],ws=XLSX.utils.aoa_to_sheet(aoa);
  ws.A1={t:'n',f:'DATE(YEAR(TODAY()),MONTH(TODAY()),1)',z:'dd-mm-yyyy'};
  ws.B1={t:'n',f:'(TODAY()-A1)/31',z:'0.00'};
@@ -5653,12 +5655,16 @@ async function mbqExportMbqTwoSheetWorkbook(){
   const formulas={J:'IFERROR((H'+rn+'+F'+rn+'+G'+rn+')/E'+rn+',0)',K:'IFERROR(MIN(1,(G'+rn+'+H'+rn+'+F'+rn+')/(E'+rn+'*$B$1)),0)',L:'IFERROR((H'+rn+'+F'+rn+'+G'+rn+')/(E'+rn+'/30),0)'};
   Object.entries(formulas).forEach(([col,f])=>{const cell=col+rn;ws[cell]={t:'n',f,v:0,z:col==='K'?'0':'0%',s:bodyStyle(i)};});
  });
- ws['!ref']='A1:L'+(output.length+3);ws['!cols']=[{wch:32},{wch:20},{wch:16},{wch:13},{wch:13},{wch:13},{wch:14},{wch:13},{wch:13},{wch:14},{wch:18},{wch:14}];
+ output.forEach((r,i)=>{const cell='M'+(i+4),v=r[9],style=bodyStyle(i);ws[cell]=v===null?{t:'s',v:'No Data Available',s:style}:{t:'n',v:Number(v)||0,s:{...style,numFmt:'#,##0.00'}};});
+ ws['!ref']='A1:M'+(output.length+3);ws['!cols']=[{wch:32},{wch:20},{wch:16},{wch:13},{wch:13},{wch:13},{wch:14},{wch:13},{wch:13},{wch:14},{wch:18},{wch:14},{wch:20}];
  ws['!rows']=[{hpt:24},{hpt:24},{hpt:38},...output.map(()=>({hpt:25}))];
- ws['!freeze']={xSplit:0,ySplit:3};ws['!autofilter']={ref:'A3:L'+(output.length+3)};
+ ws['!freeze']={xSplit:0,ySplit:3};ws['!autofilter']={ref:'A3:M'+(output.length+3)};
  for(let r=0;r<3;r++)for(let c=0;c<2;c++){const cell=ws[XLSX.utils.encode_cell({r,c})];if(cell)cell.s={font:{name:'Aptos',sz:10,bold:r<2,color:{rgb:'17365D'}},fill:{patternType:'solid',fgColor:{rgb:r<2?'E5EEF8':'F1F7F8'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border};}
  const wb=XLSX.utils.book_new();
  const fullRows=trs.map(tr=>[...tr.querySelectorAll('th,td')].map(c=>(c.innerText||c.textContent||'').replace(/\s+/g,' ').trim())).filter(r=>r.length).map(r=>r.map(v=>/^no data available$/i.test(String(v).trim())?0:v));
+ const fullHeaderIndex=fullRows.findIndex(r=>r.some(v=>String(v).trim().toUpperCase()==='SKU GROUP'));
+ if(fullHeaderIndex>=0){const fullSkuIndex=fullRows[fullHeaderIndex].findIndex(v=>String(v).trim().toUpperCase()==='SKU GROUP');fullRows[fullHeaderIndex].push('Last Year Periodic');for(let ri=fullHeaderIndex+1;ri<fullRows.length;ri++){const sku=fullRows[ri][fullSkuIndex];fullRows[ri].push(sku&&!['TOTAL','GRAND TOTAL','OVERALL TOTAL'].includes(String(sku).trim().toUpperCase())?lastYearPeriodicForSku(sku,exportCfaKey)??'No Data Available':'');}}
+
  const first=XLSX.utils.aoa_to_sheet(fullRows),fullCols=Math.max(1,...fullRows.map(r=>r.length));
  first['!cols']=Array.from({length:fullCols},(_,c)=>{const max=Math.max(10,...fullRows.map(r=>String(r[c]??'').length+2));return {wch:Math.min(c===0?36:42,Math.max(c===0?24:12,max))};});
  first['!rows']=fullRows.map((r,i)=>({hpt:i===0?30:i===1?42:26}));first['!freeze']={xSplit:0,ySplit:2};
@@ -5675,7 +5681,7 @@ async function mbqExportMbqTwoSheetWorkbook(){
  // intentionally keeps the existing two-sheet workbook unchanged.
  const selectedSheet=String(document.getElementById('mbqSheetSelect')?.value||'DATA').toUpperCase();
  if(selectedSheet==='DATA'){
-  const cfaDetailHeaders=['CFA NAME','SKU GROUP','MRP NEW','Category','Contri %','Indent','SOH','INTRANSIT','Sales','Coverage %','Overall Coverage','Days Coverage','MBQ','BALANCE'];
+  const cfaDetailHeaders=['CFA NAME','SKU GROUP','MRP NEW','Category','Contri %','Indent','SOH','INTRANSIT','Sales','Coverage %','Overall Coverage','Days Coverage','MBQ','BALANCE','Last Year Periodic'];
   const cfaOrder=[['ALU','ALU CFA'],['PAY','PAY CFA'],['TVD','TVD CFA']];
   const detailRows=[];
   const strictCfa=value=>{
@@ -5730,7 +5736,8 @@ async function mbqExportMbqTwoSheetWorkbook(){
      cfaLabel,sku,Number(meta[1])||0,String(meta[2]??''),contributionValue,
      indentValue,sohValue===null?0:sohValue,
      transitValue===null?0:transitValue,
-     salesValue===null?0:salesValue
+     salesValue===null?0:salesValue,
+     lastYearPeriodicForSku(sku,cfa)===null?'No Data Available':lastYearPeriodicForSku(sku,cfa)
     ]);
    });
   });
@@ -5764,11 +5771,11 @@ async function mbqExportMbqTwoSheetWorkbook(){
     detailWs[col+rn]={t:'n',f:formula,v:0,z:col==='L'?'0':col==='N'?'#,##0.00':'0%',s:style};
    });
   });
-  detailWs['!ref']='A1:N'+(detailRows.length+1);
-  detailWs['!cols']=[{wch:16},{wch:34},{wch:16},{wch:16},{wch:13},{wch:13},{wch:13},{wch:14},{wch:13},{wch:14},{wch:18},{wch:14},{wch:13},{wch:14}];
+  detailWs['!ref']='A1:O'+(detailRows.length+1);
+  detailWs['!cols']=[{wch:16},{wch:34},{wch:16},{wch:16},{wch:13},{wch:13},{wch:13},{wch:14},{wch:13},{wch:14},{wch:18},{wch:14},{wch:13},{wch:14},{wch:20}];
   detailWs['!rows']=[{hpt:38},...detailRows.map(()=>({hpt:25}))];
   detailWs['!freeze']={xSplit:0,ySplit:1};
-  detailWs['!autofilter']={ref:'A1:N'+(detailRows.length+1)};
+  detailWs['!autofilter']={ref:'A1:O'+(detailRows.length+1)};
   XLSX.utils.book_append_sheet(wb,detailWs,'CFA-wise Details');
  }
 
