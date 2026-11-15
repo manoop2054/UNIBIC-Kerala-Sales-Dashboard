@@ -5736,8 +5736,7 @@ async function mbqExportMbqTwoSheetWorkbook(){
      cfaLabel,sku,Number(meta[1])||0,String(meta[2]??''),contributionValue,
      indentValue,sohValue===null?0:sohValue,
      transitValue===null?0:transitValue,
-     salesValue===null?0:salesValue,
-     lastYearPeriodicForSku(sku,cfa)===null?'No Data Available':lastYearPeriodicForSku(sku,cfa)
+     salesValue===null?0:salesValue
     ]);
    });
   });
@@ -5770,6 +5769,7 @@ async function mbqExportMbqTwoSheetWorkbook(){
    Object.entries(formulas).forEach(([col,formula])=>{
     detailWs[col+rn]={t:'n',f:formula,v:0,z:col==='L'?'0':col==='N'?'#,##0.00':'0%',s:style};
    });
+   const lastYear=lastYearPeriodicForSku(r[1],String(r[0]).replace(/\\s+CFA$/i,''));detailWs['O'+rn]=lastYear===null?{t:'s',v:'No Data Available',s:style}:{t:'n',v:Number(lastYear)||0,s:{...style,numFmt:'#,##0.00'}};
   });
   detailWs['!ref']='A1:O'+(detailRows.length+1);
   detailWs['!cols']=[{wch:16},{wch:34},{wch:16},{wch:16},{wch:13},{wch:13},{wch:13},{wch:14},{wch:13},{wch:14},{wch:18},{wch:14},{wch:13},{wch:14},{wch:20}];
