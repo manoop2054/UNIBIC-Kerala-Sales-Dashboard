@@ -5808,6 +5808,8 @@ function mbqExportToJpg(mode){mbqExportRowsJpg(mode);}
 async function mbqFlashExcelExport(){
  if(document.getElementById('flashCfa')?.value==='COMPARE_3')return exportFlashExcel();
  try{await mbqEnsureXlsx();}catch(e){showToast(e.message||'Excel library unavailable.');return;}
+ // Rebuild the snapshot at click-time so the export matches the visible CFA/date filters.
+ try{if(typeof renderFlashSingle==='function')renderFlashSingle();}catch(e){console.warn('Flash snapshot refresh failed',e);}
  const report=window.mbqFlashReportSnapshot;
  if(!report){showToast('Flash report data unavailable. Change the date/CFA filter and refresh the report.');return;}
  const from=report.from||document.getElementById('flashFromDate')?.value||'';
@@ -5816,8 +5818,16 @@ async function mbqFlashExcelExport(){
  const cfaLabel=cfa==='DATA'?'All CFAs':cfa+' CFA';
  const fmt=v=>v===null||v===undefined||!Number.isFinite(Number(v))?'No Data Available':Number(v);
  const pct=v=>v===null||v===undefined||!Number.isFinite(Number(v))?'No Data Available':Number(v);
- const detail=Array.isArray(report.detail)?report.detail:[];
- const noIndent=Array.isArray(report.noIndentRows)?report.noIndentRows:[];
+ let detail=Array.isArray(report.detail)?report.detail.slice():[];
+ let noIndent=Array.isArray(report.noIndentRows)?report.noIndentRows.slice():[];
+ // DOM fallback: use the visible tables if a partial/stale snapshot omitted their rows.
+ const readNum=v=>{const t=String(v??'').replace(/,/g,'').replace(/%/g,'').replace(/CBB/ig,'').trim();if(!t||/no data|—|^-$|^total$/i.test(t))return null;const n=Number(t);return Number.isFinite(n)?n:null;};
+ if(!detail.length){
+  detail=[...document.querySelectorAll('#flashGroupRows tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(td=>td.innerText.trim())).filter(c=>c.length>=6&&!/^TOTAL$/i.test(c[0])).map(c=>({sku:c[0],indent:readNum(c[1]),billed:readNum(c[2]),achievement:readNum(c[3]),balancePct:readNum(c[4]),balance:readNum(c[5])})).filter(x=>x.sku&&x.indent!==null);
+ }
+ if(!noIndent.length){
+  noIndent=[...document.querySelectorAll('#flashNoIndentRows table tbody tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(td=>td.innerText.trim())).filter(c=>c.length>=5&&!/TOTAL NO-INDENT/i.test(c.join(' '))).map(c=>({cfa:c[0],sku:c[1],code:c[2],description:c[3],billed:readNum(c[4])})).filter(x=>x.code&&x.billed!==null);
+ }
  const achievement=report.totalIndent>0&&report.totalBilled!==null?report.totalBilled/report.totalIndent*100:null;
  const topBalance=detail.filter(x=>x.indent!==null&&x.billed!==null&&x.balance>0).sort((a,b)=>b.balance-a.balance).slice(0,10);
  const topOver=detail.filter(x=>x.indent!==null&&x.billed!==null&&x.balance<0).sort((a,b)=>a.balance-b.balance).slice(0,10);
@@ -5895,6 +5905,12 @@ async function mbqFlashExcelExport(){
   ['','TOTAL NO-INDENT BILLING','','',fmt(report.noIndentTotal)]
  ];
  add('Billing Without Indent',noIndentRows,[12,30,20,58,20],4);
+ const expectedSheets=['Flash Summary','Daily Flash','Group-wise Ind vs Bill','Billing Without Indent'];
+ if(wb.SheetNames.length!==4||expectedSheets.some((name,i)=>wb.SheetNames[i]!==name)){
+  console.error('[Daily Flash Excel] Invalid workbook sheet set',wb.SheetNames);
+  throw new Error('Excel workbook validation failed: expected all 4 Daily Flash sheets.');
+ }
+ console.info('[Daily Flash Excel] Workbook ready',{sheets:wb.SheetNames,detailRows:detail.length,noIndentRows:noIndent.length,flashLines:lines.length});
  XLSX.writeFile(wb,'Daily_WhatsApp_Flash_'+String(cfaLabel).replace(/[^A-Za-z0-9]+/g,'_')+'_'+from+'_to_'+to+'_Colour.xlsx',{compression:true});
  showToast('4-sheet structured colour Excel downloaded.');
 }
