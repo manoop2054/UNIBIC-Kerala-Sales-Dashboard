@@ -5808,48 +5808,95 @@ function mbqExportToJpg(mode){mbqExportRowsJpg(mode);}
 async function mbqFlashExcelExport(){
  if(document.getElementById('flashCfa')?.value==='COMPARE_3')return exportFlashExcel();
  try{await mbqEnsureXlsx();}catch(e){showToast(e.message||'Excel library unavailable.');return;}
- const from=document.getElementById('flashFromDate')?.value||'',to=document.getElementById('flashToDate')?.value||'';
- const cfa=document.getElementById('flashCfa')?.selectedOptions?.[0]?.textContent||'Selected CFA';
+ const report=window.mbqFlashReportSnapshot;
+ if(!report){showToast('Flash report data unavailable. Change the date/CFA filter and refresh the report.');return;}
+ const from=report.from||document.getElementById('flashFromDate')?.value||'';
+ const to=report.to||document.getElementById('flashToDate')?.value||'';
+ const cfa=report.cfa||'DATA';
+ const cfaLabel=cfa==='DATA'?'All CFAs':cfa+' CFA';
+ const fmt=v=>v===null||v===undefined||!Number.isFinite(Number(v))?'No Data Available':Number(v);
+ const pct=v=>v===null||v===undefined||!Number.isFinite(Number(v))?'No Data Available':Number(v);
+ const detail=Array.isArray(report.detail)?report.detail:[];
+ const noIndent=Array.isArray(report.noIndentRows)?report.noIndentRows:[];
+ const achievement=report.totalIndent>0&&report.totalBilled!==null?report.totalBilled/report.totalIndent*100:null;
+ const topBalance=detail.filter(x=>x.indent!==null&&x.billed!==null&&x.balance>0).sort((a,b)=>b.balance-a.balance).slice(0,10);
+ const topOver=detail.filter(x=>x.indent!==null&&x.billed!==null&&x.balance<0).sort((a,b)=>a.balance-b.balance).slice(0,10);
+ const lines=String(report.flashText||'').split(/\\r?\\n/).map(x=>x.trim()).filter(Boolean);
  const wb=XLSX.utils.book_new();
- const add=(name,rows,widths,headerRow=0)=>{
-  const safe=rows.length?rows:[['No Data Available']];
-  const ws=XLSX.utils.aoa_to_sheet(safe);
-  const cols=widths||Array.from({length:Math.max(1,...safe.map(x=>x.length))},(_,i)=>({wch:Math.min(42,Math.max(12,...safe.map(x=>String(x[i]??'').length+2)))}));
-  ws['!cols']=cols.map(x=>typeof x==='number'?{wch:x}:x);
-  ws['!freeze']={xSplit:0,ySplit:headerRow+1};
-  if(headerRow>=0&&safe[headerRow])ws['!autofilter']={ref:XLSX.utils.encode_range({s:{r:headerRow,c:0},e:{r:safe.length-1,c:Math.max(0,safe[headerRow].length-1)}})};
-  const border={top:{style:'thin',color:{rgb:'D8E1EC'}},bottom:{style:'thin',color:{rgb:'D8E1EC'}},left:{style:'thin',color:{rgb:'D8E1EC'}},right:{style:'thin',color:{rgb:'D8E1EC'}}};
-  for(let rr=0;rr<safe.length;rr++)for(let cc=0;cc<safe[rr].length;cc++){
-   const cell=ws[XLSX.utils.encode_cell({r:rr,c:cc})];if(!cell)continue;
-   cell.s={font:{name:'Aptos',sz:10,bold:rr===0||rr===headerRow,color:{rgb:rr===0||rr===headerRow?'FFFFFF':'203047'}},fill:{patternType:'solid',fgColor:{rgb:rr===0?'12233F':rr===headerRow?'244D78':rr%2?'F2F6FA':'FFFFFF'}},alignment:{vertical:'center',wrapText:true},border};
+ const border={top:{style:'thin',color:{rgb:'D5DDE7'}},bottom:{style:'thin',color:{rgb:'D5DDE7'}},left:{style:'thin',color:{rgb:'D5DDE7'}},right:{style:'thin',color:{rgb:'D5DDE7'}}};
+ const add=(name,rows,widths,headerRow=4)=>{
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=widths.map(w=>({wch:w}));
+  ws['!freeze']={xSplit:0,ySplit:headerRow+1,topLeftCell:'A'+(headerRow+2),activePane:'bottomLeft',state:'frozen'};
+  if(rows[headerRow])ws['!autofilter']={ref:XLSX.utils.encode_range({s:{r:headerRow,c:0},e:{r:Math.max(headerRow,rows.length-1),c:Math.max(0,rows[headerRow].length-1)}})};
+  ws['!rows']=[{hpt:28},{hpt:22},{hpt:20},{hpt:8}];
+  for(let r=0;r<rows.length;r++)for(let c=0;c<Math.max(1,widths.length);c++){
+   const cell=ws[XLSX.utils.encode_cell({r,c})];if(!cell)continue;
+   const isTitle=r===0,isSub=r===1,isHeader=r===headerRow;
+   cell.s={font:{name:'Aptos',sz:isTitle?14:10,bold:isTitle||isSub||isHeader,color:{rgb:isTitle||isSub||isHeader?'FFFFFF':'203047'}},fill:{patternType:'solid',fgColor:{rgb:isTitle?'12233F':isSub?'0E7778':isHeader?'244D78':r%2?'F2F6FA':'FFFFFF'}},alignment:{vertical:'center',wrapText:true,horizontal:c===0?'left':'center'},border};
+   if(r>headerRow&&typeof cell.v==='number')cell.s={...cell.s,numFmt:'#,##0.0;[Red](#,##0.0);-',alignment:{vertical:'center',horizontal:'right'}};
   }
+  if(rows[0])ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:widths.length-1}}];
+  if(rows[1])ws['!merges'].push({s:{r:1,c:0},e:{r:1,c:widths.length-1}});
   XLSX.utils.book_append_sheet(wb,ws,name);
  };
- const flashText=document.getElementById('flashText')?.innerText?.trim()||'';
- const tokens=flashText.replace(/\s*\|\s*/g,'\n').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
- const summary=[['UNIBIC KERALA · DAILY INDENT FLASH'],['Period',from+' to '+to],['CFA',cfa],[],['Metric','Value']];
- const daily=[['UNIBIC KERALA · DAILY WHATSAPP FLASH'],['Period',from+' to '+to],['CFA',cfa],[],['Section / Item','Details']];
- tokens.forEach(line=>{
-  const clean=line.replace(/^\*+|\*+$/g,'').trim();
-  if(!clean)return;
-  const ix=clean.indexOf(':');
-  if(ix>0){summary.push([clean.slice(0,ix).trim(),clean.slice(ix+1).trim()]);daily.push([clean.slice(0,ix).trim(),clean.slice(ix+1).trim()]);}
-  else daily.push([clean,'']);
- });
- add('Flash Summary',summary,[30,62],4);
- add('Daily Flash',daily,[38,90],4);
- const groupTable=document.querySelector('#flashGroupRows')?.closest('table');
- const groupRows=groupTable?[...groupTable.querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(td=>(td.innerText||td.textContent||'').replace(/\s+/g,' ').trim())).filter(r=>r.length&&r.some(v=>v)): [['No Data Available']];
- const groupData=[['UNIBIC KERALA · GROUP-WISE INDENT VS BILLED'],['Period',from+' to '+to],['CFA',cfa],[],...groupRows];
- add('Groupwise Indent vs Billed',groupData,[36,18,24,18,16,18],4);
- const noRoot=document.getElementById('flashNoIndentRows');
- const noStats=[... (noRoot?.querySelectorAll('.excel-stat')||[])].map(n=>[n.querySelector('small')?.innerText?.trim()||'Metric',n.querySelector('strong')?.innerText?.trim()||'']);
- const noTable=noRoot?.querySelector('table');
- const noRows=noTable?[...noTable.querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(td=>(td.innerText||td.textContent||'').replace(/\s+/g,' ').trim())).filter(r=>r.length&&r.some(v=>v)): [['No Data Available']];
- const noData=[['UNIBIC KERALA · BILLING WITHOUT INDENT'],['Period',from+' to '+to],['CFA',cfa],[],['Metric','Value'],...noStats,[],...noRows];
- add('Billing Without Indent',noData,[22,32,20,58,20],4);
- XLSX.writeFile(wb,'Daily_WhatsApp_Flash_'+String(cfa).replace(/[^A-Za-z0-9]+/g,'_')+'_'+from+'_to_'+to+'_Colour.xlsx',{compression:true});
- showToast('4-sheet Daily WhatsApp Flash Excel downloaded.');
+ const summary=[
+  ['UNIBIC FOODS INDIA PRIVATE LIMITED'],
+  ['DAILY WHATSAPP FLASH · MANAGEMENT SUMMARY'],
+  ['Period: '+from+' to '+to+' · CFA: '+cfaLabel],
+  [],
+  ['Metric','Value'],
+  ['Sales Head IND / CFA Indent (CBB)',fmt(report.totalIndent)],
+  ['Period Billed (CBB)',fmt(report.totalBilled)],
+  ['Achievement (%)',pct(achievement)],
+  ['Balance to Indent (CBB)',fmt(report.totalBalance)],
+  ['Balance (%)',pct(report.totalBalancePct)],
+  ['Billing Without Indent (CBB)',fmt(report.noIndentTotal)],
+  ['Unindented billed items',noIndent.length],
+  ['Total GSV Billing (CBB)',fmt(report.gsvTotal)],
+  ['Indent-linked Billing (CBB)',fmt(report.indentLinked)],
+  ['Reconciliation Difference (CBB)',fmt(report.reconciliationDifference)],
+  [],
+  ['TOP 10 · HIGHEST INDENT BALANCE','Indent (CBB)','Billed (CBB)','Achievement (%)','Balance (CBB)'],
+  ...topBalance.map(x=>[x.sku,fmt(x.indent),fmt(x.billed),pct(x.achievement),fmt(x.balance)]),
+  ...(topBalance.length?[]:[['No verified positive-balance items','','','','']]),
+  [],
+  ['TOP 10 · OVER-BILLING REVIEW','Indent (CBB)','Billed (CBB)','Achievement (%)','Excess (CBB)'],
+  ...topOver.map(x=>[x.sku,fmt(x.indent),fmt(x.billed),pct(x.achievement),fmt(Math.abs(x.balance))]),
+  ...(topOver.length?[]:[['No verified over-billing items','','','','']])
+ ];
+ add('Flash Summary',summary,[42,24,22,20,22],4);
+ const daily=[
+  ['UNIBIC FOODS INDIA PRIVATE LIMITED'],
+  ['DAILY WHATSAPP FLASH · TEXT VIEW'],
+  ['Period: '+from+' to '+to+' · CFA: '+cfaLabel],
+  [],
+  ['Line No.','WhatsApp Flash Text'],
+  ...lines.map((line,i)=>[i+1,line])
+ ];
+ add('Daily Flash',daily,[12,110],4);
+ const groups=[
+  ['UNIBIC FOODS INDIA PRIVATE LIMITED'],
+  ['GROUP-WISE INDENT VS BILLED'],
+  ['Period: '+from+' to '+to+' · CFA: '+cfaLabel],
+  [],
+  ['CFA','SKU Group','Indent (CBB)','Period Billed (CBB)','Achievement (%)','Balance (%)','Balance (CBB)'],
+  ...detail.map(x=>[cfa,x.sku,fmt(x.indent),fmt(x.billed),pct(x.achievement),pct(x.balancePct),fmt(x.balance)]),
+  ['','GRAND TOTAL',fmt(report.totalIndent),fmt(report.totalBilled),pct(achievement),pct(report.totalBalancePct),fmt(report.totalBalance)]
+ ];
+ add('Group-wise Ind vs Bill',groups,[12,34,18,22,18,16,18],4);
+ const noIndentRows=[
+  ['UNIBIC FOODS INDIA PRIVATE LIMITED'],
+  ['BILLING WITHOUT INDENT · ITEM DETAIL'],
+  ['Period: '+from+' to '+to+' · CFA: '+cfaLabel],
+  [],
+  ['CFA','SKU Group','FG Code','Item Description','Billing (CBB)'],
+  ...noIndent.map(x=>[x.cfa||cfa,x.sku||'No Data Available',x.code||'No Data Available',x.description||'No Data Available',fmt(x.billed)]),
+  ['','TOTAL NO-INDENT BILLING','','',fmt(report.noIndentTotal)]
+ ];
+ add('Billing Without Indent',noIndentRows,[12,30,20,58,20],4);
+ XLSX.writeFile(wb,'Daily_WhatsApp_Flash_'+String(cfaLabel).replace(/[^A-Za-z0-9]+/g,'_')+'_'+from+'_to_'+to+'_Colour.xlsx',{compression:true});
+ showToast('4-sheet structured colour Excel downloaded.');
 }
 function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='COMPARE_3')return exportFlashPdf();return mbqExportTargetPdf('#page-flash','Daily WhatsApp Flash');}
 
