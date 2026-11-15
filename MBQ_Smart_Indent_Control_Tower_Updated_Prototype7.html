@@ -5827,11 +5827,11 @@ async function mbqFlashExcelExport(){
   XLSX.utils.book_append_sheet(wb,ws,name);
  };
  const flashText=document.getElementById('flashText')?.innerText?.trim()||'';
- const tokens=flashText.replace(/\\s*\\|\\s*/g,'\\n').split(/\\r?\\n/).map(x=>x.trim()).filter(Boolean);
+ const tokens=flashText.replace(/\s*\\|\s*/g,'\n').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
  const summary=[['UNIBIC KERALA · DAILY INDENT FLASH'],['Period',from+' to '+to],['CFA',cfa],[],['Metric','Value']];
  const daily=[['UNIBIC KERALA · DAILY WHATSAPP FLASH'],['Period',from+' to '+to],['CFA',cfa],[],['Section / Item','Details']];
  tokens.forEach(line=>{
-  const clean=line.replace(/^\\*+|\\*+$/g,'').trim();
+  const clean=line.replace(/^\*+|\*+$/g,'').trim();
   if(!clean)return;
   const ix=clean.indexOf(':');
   if(ix>0){summary.push([clean.slice(0,ix).trim(),clean.slice(ix+1).trim()]);daily.push([clean.slice(0,ix).trim(),clean.slice(ix+1).trim()]);}
@@ -5840,13 +5840,13 @@ async function mbqFlashExcelExport(){
  add('Flash Summary',summary,[30,62],4);
  add('Daily Flash',daily,[38,90],4);
  const groupTable=document.querySelector('#flashGroupRows')?.closest('table');
- const groupRows=groupTable?[...groupTable.querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(td=>(td.innerText||td.textContent||'').replace(/\\s+/g,' ').trim())).filter(r=>r.length&&r.some(v=>v)): [['No Data Available']];
+ const groupRows=groupTable?[...groupTable.querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(td=>(td.innerText||td.textContent||'').replace(/\s+/g,' ').trim())).filter(r=>r.length&&r.some(v=>v)): [['No Data Available']];
  const groupData=[['UNIBIC KERALA · GROUP-WISE INDENT VS BILLED'],['Period',from+' to '+to],['CFA',cfa],[],...groupRows];
  add('Groupwise Indent vs Billed',groupData,[36,18,24,18,16,18],4);
  const noRoot=document.getElementById('flashNoIndentRows');
  const noStats=[... (noRoot?.querySelectorAll('.excel-stat')||[])].map(n=>[n.querySelector('small')?.innerText?.trim()||'Metric',n.querySelector('strong')?.innerText?.trim()||'']);
  const noTable=noRoot?.querySelector('table');
- const noRows=noTable?[...noTable.querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(td=>(td.innerText||td.textContent||'').replace(/\\s+/g,' ').trim())).filter(r=>r.length&&r.some(v=>v)): [['No Data Available']];
+ const noRows=noTable?[...noTable.querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(td=>(td.innerText||td.textContent||'').replace(/\s+/g,' ').trim())).filter(r=>r.length&&r.some(v=>v)): [['No Data Available']];
  const noData=[['UNIBIC KERALA · BILLING WITHOUT INDENT'],['Period',from+' to '+to],['CFA',cfa],[],['Metric','Value'],...noStats,[],...noRows];
  add('Billing Without Indent',noData,[22,32,20,58,20],4);
  XLSX.writeFile(wb,'Daily_WhatsApp_Flash_'+String(cfa).replace(/[^A-Za-z0-9]+/g,'_')+'_'+from+'_to_'+to+'_Colour.xlsx',{compression:true});
