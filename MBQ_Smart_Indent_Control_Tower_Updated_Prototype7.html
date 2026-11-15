@@ -3224,7 +3224,17 @@ function showPreviousIndent(){document.getElementById('prevIndentPanel').innerHT
 function mbqBuildNoIndentBilling(from,to,cfaKey,detailRows){
  const raw=Array.isArray(mbqGsvRows)?mbqGsvRows:[],mapped=new Map();
  (Array.isArray(rows)?rows:[]).forEach(x=>{const code=mbqGsvNormCode(x.code),sku=String(x.sku||'').trim();if(code&&sku&&!mapped.has(code))mapped.set(code,sku);});
- const indented=new Set((Array.isArray(detailRows)?detailRows:[]).filter(x=>Number(x.indent)>0).map(x=>mbqSkuGroupKey(x.sku)));
+ let indentRows=Array.isArray(detailRows)?detailRows.slice():[];
+ if(!indentRows.length){
+  const table=document.querySelector('#mbqExcelTableHost table'),trs=table?[...table.querySelectorAll('tr')]:[];
+  if(trs.length){
+   const headers=[...trs[0].querySelectorAll('th,td')].map(c=>String(c.innerText||c.textContent||'').trim().toUpperCase());
+   const si=headers.findIndex(x=>x==='SKU GROUP'),ii=headers.findIndex(x=>x==='INDENT'||x==='IND');
+   if(si>=0&&ii>=0)trs.slice(1).forEach(tr=>{const cells=[...tr.querySelectorAll('th,td')],sku=String(cells[si]?.innerText||'').trim(),v=Number(String(cells[ii]?.innerText||'').replace(/,/g,'').replace(/CBB/ig,'').trim());if(sku&&Number.isFinite(v))indentRows.push({sku,indent:v});});
+  }
+ }
+ if(!indentRows.length&&Array.isArray(allocationData))allocationData.forEach(x=>{const cf=normalCfa(x.cfaKey||x.cfa);if(cfaKey!=='DATA'&&cf!==cfaKey)return;indentRows.push({sku:x.sku,indent:Number(x.allocation??x.indentCbb)||0});});
+ const indented=new Set(indentRows.filter(x=>Number(x.indent)>0).map(x=>mbqSkuGroupKey(x.sku)));
  const map=new Map();
  raw.forEach(x=>{
   const date=String(x.date||'').slice(0,10),cfa=normalCfa(x.cfa),code=String(x.itemId||'').trim(),codeKey=mbqGsvNormCode(code),qty=Number(x.quantity);
@@ -3245,8 +3255,10 @@ function mbqRenderNoIndentBilling(hostId,from,to,cfaKey,detailRows){
  const data=ready?mbqBuildNoIndentBilling(from,to,cfaKey,detailRows):[];
  const fmt=v=>Number(v||0).toLocaleString('en-IN',{maximumFractionDigits:0});
  const total=data.reduce((n,x)=>n+x.billed,0);
+ const raw=Array.isArray(mbqGsvRows)?mbqGsvRows:[],gsvTotal=ready?raw.filter(x=>{const d=String(x.date||'').slice(0,10),cf=normalCfa(x.cfa);return d>=from&&d<=to&&(cfaKey==='DATA'||cf===cfaKey);}).reduce((n,x)=>n+(Number(x.quantity)||0),0):null;
+ const indentedBilling=ready?gsvTotal-total:null,delta=ready?gsvTotal-(indentedBilling+total):null;
  const rowsHtml=data.map(x=>'<tr><td>'+mbqEscape(x.cfa)+'</td><td>'+mbqEscape(x.sku)+'</td><td>'+mbqEscape(x.code)+'</td><td>'+mbqEscape(x.description)+'</td><td>'+fmt(x.billed)+'</td></tr>').join('');
- host.innerHTML='<div class="excel-stat-grid" style="margin-bottom:12px"><div class="excel-stat"><small>No-Indent Billing</small><strong>'+fmt(total)+' CBB</strong></div><div class="excel-stat"><small>Unindented billed items</small><strong>'+fmt(data.length)+'</strong></div><div class="excel-stat"><small>Period</small><strong style="font-size:13px">'+mbqEscape(from||'—')+' to '+mbqEscape(to||'—')+'</strong></div></div><div class="table-wrap"><table><thead><tr><th>CFA</th><th>SKU Group</th><th>FG Code</th><th>Item Description</th><th>Billing CBB</th></tr></thead><tbody>'+(rowsHtml||'<tr><td colspan="5" class="empty">'+(ready?'No billing without indent found for this period.':'Select a valid date range and wait for GSV rows.')+'</td></tr>')+'<tr><th colspan="4">TOTAL NO-INDENT BILLING</th><th>'+fmt(total)+'</th></tr></tbody></table></div>';
+ host.innerHTML='<div class="excel-stat-grid" style="margin-bottom:12px"><div class="excel-stat"><small>No-Indent Billing</small><strong>'+fmt(total)+' CBB</strong></div><div class="excel-stat"><small>Unindented billed items</small><strong>'+fmt(data.length)+'</strong></div><div class="excel-stat"><small>Total GSV Billing</small><strong>'+fmt(gsvTotal)+' CBB</strong></div><div class="excel-stat"><small>Indent-linked Billing</small><strong>'+fmt(indentedBilling)+' CBB</strong></div><div class="excel-stat"><small>Reconciliation Difference</small><strong>'+fmt(delta)+' CBB</strong></div><div class="excel-stat"><small>Period</small><strong style="font-size:13px">'+mbqEscape(from||'—')+' to '+mbqEscape(to||'—')+'</strong></div></div><div class="table-wrap"><table><thead><tr><th>CFA</th><th>SKU Group</th><th>FG Code</th><th>Item Description</th><th>Billing CBB</th></tr></thead><tbody>'+(rowsHtml||'<tr><td colspan="5" class="empty">'+(ready?'No billing without indent found for this period.':'Select a valid date range and wait for GSV rows.')+'</td></tr>')+'<tr><th colspan="4">TOTAL NO-INDENT BILLING</th><th>'+fmt(total)+'</th></tr></tbody></table></div>';
  return data;
 }
 
@@ -3285,7 +3297,7 @@ function renderFlashSingle(){
   const balance=indent!==null&&billed!==null?indent-billed:null;
   const balancePct=indent!==null&&indent>0&&billed!==null?Math.max(0,balance)/indent*100:null;
   return {sku,indent,billed,achievement,balance,balancePct};
- }).filter(x=>x.indent!==null||x.billed!==null);
+ }).filter(x=>x.indent!==null&&x.indent>0);
  const indentValues=detail.filter(x=>x.indent!==null).map(x=>x.indent);
  const billedValues=detail.filter(x=>x.billed!==null).map(x=>x.billed);
  const totalIndent=indentValues.length?indentValues.reduce((a,b)=>a+b,0):null;
@@ -3331,7 +3343,7 @@ function renderFlashSingle(){
  if(body)body.innerHTML=(bySku.length?bySku.map(x=>'<tr><td class="sku">'+mbqEscape(x.sku)+'</td><td>'+fmt(x.indent)+'</td><td>'+fmt(x.billed)+'</td><td><b>'+pct(x.achievement)+'</b></td><td>'+pct(x.balancePct)+'</td><td>'+fmt(x.balance)+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">Sales Head IND / CFA Allocation and date-wise GSV billing data are required.</td></tr>')+'<tr><th>TOTAL</th><th>'+fmt(totalIndent)+'</th><th>'+fmt(billingSourceReady?totalBilled:null)+'</th><th>'+pct(totalAchievement)+'</th><th>'+pct(totalBalancePct)+'</th><th>'+fmt(totalBalance)+'</th></tr>';
  const noIndentRows=mbqRenderNoIndentBilling('flashNoIndentRows',from,to,cfaKey,detail);
  const noIndentTotal=noIndentRows.reduce((n,x)=>n+x.billed,0);
- if(flash&&noIndentRows.length){const lines=flash.innerText.split('\\n');const at=lines.indexOf('*TOP 10 · HIGHEST INDENT BALANCE*');lines.splice(at<0?lines.length:at,0,'*BILLING WITHOUT INDENT*',...noIndentRows.map(x=>x.cfa+' | '+x.code+' | '+x.description+' | '+fmt(x.billed)+' CBB'),'Total No-Indent Billing: '+fmt(noIndentTotal)+' CBB','');flash.innerText=lines.join('\\n');}
+ if(flash){const gsvRows=Array.isArray(mbqGsvRows)?mbqGsvRows:[],gsvTotal=validRange&&rangeCovered?gsvRows.filter(x=>{const d=String(x.date||'').slice(0,10);return d>=from&&d<=to&&(cfaKey==='DATA'||normalCfa(x.cfa)===cfaKey);}).reduce((n,x)=>n+(Number(x.quantity)||0),0):null;const indentLinked=totalBilled===null?null:totalBilled,delta=gsvTotal===null||indentLinked===null?null:gsvTotal-indentLinked-noIndentTotal;const lines=flash.innerText.split('\\n');const at=lines.indexOf('*TOP 10 · HIGHEST INDENT BALANCE*');lines.splice(at<0?lines.length:at,0,'*BILLING WITHOUT INDENT*',...(noIndentRows.length?noIndentRows.map(x=>x.cfa+' | '+x.code+' | '+x.description+' | '+fmt(x.billed)+' CBB'):['No billing without indent found for this period.']),'Total No-Indent Billing: '+fmt(noIndentTotal)+' CBB','Total GSV Billing: '+fmt(gsvTotal)+' CBB','Indent-linked Billing: '+fmt(indentLinked)+' CBB','Reconciliation Difference: '+fmt(delta)+' CBB','');flash.innerText=lines.join('\\n');}
  const note2=document.getElementById('flashGroupNote');
  if(note2)note2.textContent='Period Achievement = selected date-range billed ÷ indent × 100. Balance % = max(indent − period billed, 0) ÷ indent × 100. Billing uses GSV posting dates; verify source coverage and item/CFA mapping.';
 }
