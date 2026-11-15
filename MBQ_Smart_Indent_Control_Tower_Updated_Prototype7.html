@@ -5746,7 +5746,7 @@ async function mbqExportMbqTwoSheetWorkbook(){
    const mbqNumber=Number(mbqValue);
    detailWs['M'+rn]={t:'n',v:Number.isFinite(mbqNumber)?mbqNumber:0,s:{...style,numFmt:'#,##0.00'}};
    const formulas={
-    J:'IFERROR((F'+rn+'+G'+rn+'+H'+rn+')/F'+rn+',0)',
+    J:'IFERROR((G'+rn+'+H'+rn+'+I'+rn+')/F'+rn+',0)',
     K:"IFERROR(MIN(1,(I"+rn+"+G"+rn+"+H"+rn+")/(F"+rn+"*'Total'!$B$1)),0)",
     L:'IFERROR((I'+rn+'+G'+rn+'+H'+rn+')/(F'+rn+'/30),0)',
     N:'IFERROR(F'+rn+'-G'+rn+'-H'+rn+'-I'+rn+',0)'
