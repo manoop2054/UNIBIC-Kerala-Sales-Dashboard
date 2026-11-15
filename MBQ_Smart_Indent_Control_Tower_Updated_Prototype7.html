@@ -5504,7 +5504,8 @@ async function mbqRunReportExport(format){
  try{
   if(format==='excel'){
    await mbqEnsureXlsx();
-   if(cfg.excel)await cfg.excel();else if(cfg.target==='#page-distributor')await mbqExportDistributorWorkbook();else await mbqExportTargetExcel(cfg.target,cfg.title);
+   // Daily Flash must always use its dedicated four-sheet workbook, never the generic page-table exporter.
+   if(cfg.target==='#page-flash')await mbqFlashExcelExport();else if(cfg.excel)await cfg.excel();else if(cfg.target==='#page-distributor')await mbqExportDistributorWorkbook();else await mbqExportTargetExcel(cfg.target,cfg.title);
   }else if(format==='pdf'){if(cfg.pdf)await cfg.pdf();else await mbqExportTargetPdf(cfg.target,cfg.title);}
   else if(format==='jpg'){if(cfg.jpg)await cfg.jpg();else await mbqExportTargetJpg(cfg.target,cfg.title);}
  }catch(e){console.error('Report export failed',e);showToast('Export failed: '+(e.message||'Please retry'));}
