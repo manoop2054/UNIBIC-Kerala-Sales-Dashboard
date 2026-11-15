@@ -3227,10 +3227,11 @@ function mbqBuildNoIndentBilling(from,to,cfaKey,detailRows){
  let indentRows=Array.isArray(detailRows)?detailRows.slice():[];
  if(!indentRows.length){
   const table=document.querySelector('#mbqExcelTableHost table'),trs=table?[...table.querySelectorAll('tr')]:[];
-  if(trs.length){
-   const headers=[...trs[0].querySelectorAll('th,td')].map(c=>String(c.innerText||c.textContent||'').trim().toUpperCase());
+  const hi=trs.findIndex(tr=>[...tr.querySelectorAll('th,td')].some(c=>String(c.innerText||c.textContent||'').trim().toUpperCase()==='SKU GROUP'));
+  if(hi>=0){
+   const headers=[...trs[hi].querySelectorAll('th,td')].map(c=>String(c.innerText||c.textContent||'').trim().toUpperCase());
    const si=headers.findIndex(x=>x==='SKU GROUP'),ii=headers.findIndex(x=>x==='INDENT'||x==='IND');
-   if(si>=0&&ii>=0)trs.slice(1).forEach(tr=>{const cells=[...tr.querySelectorAll('th,td')],sku=String(cells[si]?.innerText||'').trim(),v=Number(String(cells[ii]?.innerText||'').replace(/,/g,'').replace(/CBB/ig,'').trim());if(sku&&Number.isFinite(v))indentRows.push({sku,indent:v});});
+   if(si>=0&&ii>=0)trs.slice(hi+1).forEach(tr=>{const cells=[...tr.querySelectorAll('th,td')],sku=String(cells[si]?.innerText||'').trim(),v=Number(String(cells[ii]?.innerText||'').replace(/,/g,'').replace(/CBB/ig,'').trim());if(sku&&Number.isFinite(v))indentRows.push({sku,indent:v});});
   }
  }
  if(!indentRows.length&&Array.isArray(allocationData))allocationData.forEach(x=>{const cf=normalCfa(x.cfaKey||x.cfa);if(cfaKey!=='DATA'&&cf!==cfaKey)return;indentRows.push({sku:x.sku,indent:Number(x.allocation??x.indentCbb)||0});});
