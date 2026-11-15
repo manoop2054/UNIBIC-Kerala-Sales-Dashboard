@@ -3235,6 +3235,7 @@ function mbqBuildNoIndentBilling(from,to,cfaKey,detailRows){
   }
  }
  if(detailRows===null&&!indentRows.length&&Array.isArray(allocationData))allocationData.forEach(x=>{const cf=normalCfa(x.cfaKey||x.cfa);if(cfaKey!=='DATA'&&cf!==cfaKey)return;indentRows.push({sku:x.sku,indent:Number(x.allocation??x.indentCbb)||0});});
+ if(detailRows===null&&!indentRows.length&&cfaKey==='DATA'&&Array.isArray(sourceRows))sourceRows.forEach(r=>{const sku=String(r?.[0]||'').trim(),v=Number(r?.[1]);if(sku&&Number.isFinite(v))indentRows.push({sku,indent:v});});
  const indented=new Set(indentRows.filter(x=>Number(x.indent)>0).map(x=>mbqSkuGroupKey(x.sku)));
  const map=new Map();
  raw.forEach(x=>{
@@ -3252,7 +3253,7 @@ function mbqBuildNoIndentBilling(from,to,cfaKey,detailRows){
 }
 function mbqRenderNoIndentBilling(hostId,from,to,cfaKey,detailRows){
  const host=document.getElementById(hostId);if(!host)return [];
- const indentSourceReady=(Array.isArray(sourceRows)&&sourceRows.length>0)||(Array.isArray(allocationData)&&allocationData.length>0)||Array.isArray(detailRows);const ready=!!from&&!!to&&from<=to&&Array.isArray(mbqGsvRows)&&mbqGsvRows.length&&Array.isArray(rows)&&rows.length&&indentSourceReady;
+ const indentSourceReady=Array.isArray(detailRows)||(cfaKey==='DATA'&&Array.isArray(sourceRows)&&sourceRows.length>0)||(Array.isArray(allocationData)&&allocationData.some(x=>cfaKey==='DATA'||normalCfa(x.cfaKey||x.cfa)===cfaKey));const ready=!!from&&!!to&&from<=to&&Array.isArray(mbqGsvRows)&&mbqGsvRows.length&&Array.isArray(rows)&&rows.length&&indentSourceReady;
  const data=ready?mbqBuildNoIndentBilling(from,to,cfaKey,detailRows):[];
  const fmt=v=>Number(v||0).toLocaleString('en-IN',{maximumFractionDigits:0});
  const total=data.reduce((n,x)=>n+x.billed,0);
