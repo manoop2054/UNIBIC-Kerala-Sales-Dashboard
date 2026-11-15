@@ -2934,6 +2934,7 @@ function printToReport(mode='details'){
      detail:Array.isArray(report.detail)?report.detail.map(x=>({...x})):[],
      noIndentRows:Array.isArray(report.noIndentRows)?report.noIndentRows.map(x=>({...x})):[],
      totalIndent:report.totalIndent??null,totalBilled:report.totalBilled??null,
+     totalBalance:report.totalBalance??null,totalBalancePct:report.totalBalancePct??null,
      noIndentTotal:report.noIndentTotal??null,gsvTotal:report.gsvTotal??null,
      indentLinked:report.indentLinked??null,reconciliationDifference:report.reconciliationDifference??null,
      flashText:String(report.flashText||'')
@@ -2978,9 +2979,21 @@ function printToReport(mode='details'){
   const summary=[['UNIBIC FOODS INDIA PRIVATE LIMITED'],['DAILY FLASH · 3 CFA MANAGEMENT SUMMARY'],['Period: '+from+' to '+to],['CFA','Indent (CBB)','Period Billed (CBB)','Achievement','Balance %','Balance (CBB)','Billing Without Indent (CBB)','Total GSV Billing (CBB)','Reconciliation Difference (CBB)']];
   data.forEach(x=>{const r=x.report||{};summary.push([x.key,r.totalIndent??null,r.totalBilled??null,x.achievement,r.totalBalancePct??null,r.totalBalance??null,r.noIndentTotal??null,r.gsvTotal??null,r.reconciliationDifference??null]);});
   addSheet('Flash Summary',summary,[14,17,19,16,14,17,24,21,25],0);
-  const flash=[['UNIBIC FOODS INDIA PRIVATE LIMITED'],['DAILY FLASH · CFA-WISE DETAIL'],['Period: '+from+' to '+to],['CFA','Flash Summary / Report Text']];
-  data.forEach(x=>String(x.report?.flashText||'').split(/\r?\n/).forEach(line=>flash.push([x.key,line])));
-  addSheet('Daily Flash',flash,[14,100],0);
+  const flash=[['UNIBIC FOODS INDIA PRIVATE LIMITED'],['DAILY FLASH · CFA-WISE DETAIL'],['Period: '+from+' to '+to],['CFA','Section','SKU Group / Metric','Indent (CBB)','Period Billed (CBB)','Achievement %','Balance (CBB)','Balance %']];
+  data.forEach(x=>{
+   const r=x.report||{},detail=Array.isArray(r.detail)?r.detail:[];
+   const num=v=>v===null||v===undefined||!Number.isFinite(Number(v))?null:Number(v);
+   const totalIndent=num(r.totalIndent),totalBilled=num(r.totalBilled);
+   const totalAchievement=totalIndent>0&&totalBilled!==null?totalBilled/totalIndent*100:null;
+   flash.push([x.key,'SUMMARY','TOTAL',r.totalIndent??null,r.totalBilled??null,totalAchievement,r.totalBalance??null,r.totalBalancePct??null]);
+   const highest=detail.filter(v=>num(v.indent)!==null&&num(v.billed)!==null&&num(v.balance)>0).sort((a,b)=>num(b.balance)-num(a.balance)).slice(0,10);
+   highest.forEach(v=>flash.push([x.key,'HIGHEST INDENT BALANCE',v.sku,num(v.indent),num(v.billed),num(v.achievement),num(v.balance),num(v.balancePct)]));
+   const over=detail.filter(v=>num(v.indent)!==null&&num(v.billed)!==null&&num(v.balance)<0).sort((a,b)=>num(a.balance)-num(b.balance)).slice(0,10);
+   over.forEach(v=>flash.push([x.key,'OVER-BILLING REVIEW',v.sku,num(v.indent),num(v.billed),num(v.achievement),num(v.balance),num(v.balancePct)]));
+   if(!highest.length)flash.push([x.key,'HIGHEST INDENT BALANCE','No verified positive-balance items',null,null,null,null,null]);
+   if(!over.length)flash.push([x.key,'OVER-BILLING REVIEW','No verified over-billing items',null,null,null,null,null]);
+  });
+  addSheet('Daily Flash',flash,[14,25,32,17,20,17,17,15],0);
   const groups=[['UNIBIC FOODS INDIA PRIVATE LIMITED'],['GROUP-WISE INDENT VS BILLED'],['Period: '+from+' to '+to],['CFA','SKU Group','Indent (CBB)','Period Billed (CBB)','Achievement %','Balance %','Balance (CBB)']];
   data.forEach(x=>{const detail=x.report?.detail||[];detail.forEach(r=>groups.push([x.key,r.sku,r.indent,r.billed,r.achievement,r.balancePct,r.balance]));groups.push([x.key,'TOTAL',x.report?.totalIndent??null,x.report?.totalBilled??null,x.report?.totalIndent>0&&x.report?.totalBilled!==null?(x.report.totalBilled/x.report.totalIndent*100):null,x.report?.totalBalancePct??null,x.report?.totalBalance??null]);});
   addSheet('Group-wise Ind vs Bill',groups,[14,34,17,20,17,15,17],0);
