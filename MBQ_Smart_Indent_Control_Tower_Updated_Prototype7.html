@@ -3244,19 +3244,20 @@ function mbqBuildNoIndentBilling(from,to,cfaKey,detailRows){
   if(sku&&indented.has(mbqSkuGroupKey(sku)))return;
   const key=cfa+'|'+codeKey;
   let z=map.get(key);
-  if(!z){z={cfa,code,sku:sku||'No SKU Group Mapping',description:String(x.itemDescription||x.description||x.itemName||'').trim()||mbqDistDescription(code),billed:0};map.set(key,z);}
+  if(!z){z={cfa:cfa||'Other / Unmapped CFA',code,sku:sku||'No SKU Group Mapping',description:String(x.itemDescription||x.description||x.itemName||'').trim()||mbqDistDescription(code),billed:0};map.set(key,z);}
   z.billed+=qty;
  });
  return [...map.values()].sort((a,b)=>b.billed-a.billed);
 }
 function mbqRenderNoIndentBilling(hostId,from,to,cfaKey,detailRows){
  const host=document.getElementById(hostId);if(!host)return [];
- const ready=!!from&&!!to&&from<=to&&Array.isArray(mbqGsvRows)&&mbqGsvRows.length;
+ const ready=!!from&&!!to&&from<=to&&Array.isArray(mbqGsvRows)&&mbqGsvRows.length&&Array.isArray(rows)&&rows.length;
  const data=ready?mbqBuildNoIndentBilling(from,to,cfaKey,detailRows):[];
  const fmt=v=>Number(v||0).toLocaleString('en-IN',{maximumFractionDigits:0});
  const total=data.reduce((n,x)=>n+x.billed,0);
  const raw=Array.isArray(mbqGsvRows)?mbqGsvRows:[],gsvTotal=ready?raw.filter(x=>{const d=String(x.date||'').slice(0,10),cf=normalCfa(x.cfa);return d>=from&&d<=to&&(cfaKey==='DATA'||cf===cfaKey);}).reduce((n,x)=>n+(Number(x.quantity)||0),0):null;
- const indentedBilling=ready?gsvTotal-total:null,delta=ready?gsvTotal-(indentedBilling+total):null;
+ const indentedGroups=new Set((Array.isArray(rows)?rows:[]).filter(x=>indented.has(mbqSkuGroupKey(x.sku))).map(x=>mbqGsvNormCode(x.code)).filter(Boolean));
+ const indentedBilling=ready?raw.filter(x=>{const d=String(x.date||'').slice(0,10),cf=normalCfa(x.cfa),code=mbqGsvNormCode(x.itemId);return d>=from&&d<=to&&(cfaKey==='DATA'||cf===cfaKey)&&indentedGroups.has(code);}).reduce((n,x)=>n+(Number(x.quantity)||0),0):null,delta=ready?gsvTotal-(indentedBilling+total):null;
  const rowsHtml=data.map(x=>'<tr><td>'+mbqEscape(x.cfa)+'</td><td>'+mbqEscape(x.sku)+'</td><td>'+mbqEscape(x.code)+'</td><td>'+mbqEscape(x.description)+'</td><td>'+fmt(x.billed)+'</td></tr>').join('');
  host.innerHTML='<div class="excel-stat-grid" style="margin-bottom:12px"><div class="excel-stat"><small>No-Indent Billing</small><strong>'+fmt(total)+' CBB</strong></div><div class="excel-stat"><small>Unindented billed items</small><strong>'+fmt(data.length)+'</strong></div><div class="excel-stat"><small>Total GSV Billing</small><strong>'+fmt(gsvTotal)+' CBB</strong></div><div class="excel-stat"><small>Indent-linked Billing</small><strong>'+fmt(indentedBilling)+' CBB</strong></div><div class="excel-stat"><small>Reconciliation Difference</small><strong>'+fmt(delta)+' CBB</strong></div><div class="excel-stat"><small>Period</small><strong style="font-size:13px">'+mbqEscape(from||'—')+' to '+mbqEscape(to||'—')+'</strong></div></div><div class="table-wrap"><table><thead><tr><th>CFA</th><th>SKU Group</th><th>FG Code</th><th>Item Description</th><th>Billing CBB</th></tr></thead><tbody>'+(rowsHtml||'<tr><td colspan="5" class="empty">'+(ready?'No billing without indent found for this period.':'Select a valid date range and wait for GSV rows.')+'</td></tr>')+'<tr><th colspan="4">TOTAL NO-INDENT BILLING</th><th>'+fmt(total)+'</th></tr></tbody></table></div>';
  return data;
@@ -3362,10 +3363,11 @@ function renderFlash(){
  [['ALU','ALU CFA','flash-compare-alu'],['TVD','TVD CFA','flash-compare-tvd'],['PAY','PAY CFA','flash-compare-pay']].forEach(([key,label,cls])=>{
   select.value=label;
   renderFlashSingle();
-  reports.push({key,cls,text:flash?flash.innerText:''});
+  reports.push({key,cls,text:flash?flash.innerText:'',noIndentHtml:document.getElementById('flashNoIndentRows')?.innerHTML||''});
  });
  select.value='COMPARE_3';
  window.mbqFlashCompareReports=reports;
+ const noIndentHost=document.getElementById('flashNoIndentRows');if(noIndentHost)noIndentHost.innerHTML=reports.map(r=>'<section class="flash-compare-col '+r.cls+'"><h4>'+r.key+' CFA</h4>'+r.noIndentHtml+'</section>').join('');
  if(flash)flash.style.display='none';
  if(note)note.style.display='none';
  if(summaryCard)summaryCard.style.display='none';
