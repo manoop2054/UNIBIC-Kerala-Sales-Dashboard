@@ -3253,7 +3253,7 @@ function mbqBuildNoIndentBilling(from,to,cfaKey,detailRows){
 }
 function mbqRenderNoIndentBilling(hostId,from,to,cfaKey,detailRows){
  const host=document.getElementById(hostId);if(!host)return [];
- const indentSourceReady=Array.isArray(detailRows)||(cfaKey==='DATA'&&Array.isArray(sourceRows)&&sourceRows.length>0)||(Array.isArray(allocationData)&&allocationData.some(x=>cfaKey==='DATA'||normalCfa(x.cfaKey||x.cfa)===cfaKey));const ready=!!from&&!!to&&from<=to&&Array.isArray(mbqGsvRows)&&mbqGsvRows.length&&Array.isArray(rows)&&rows.length&&indentSourceReady;
+ const indentSourceReady=indentRows.length>0||(cfaKey==='DATA'&&Array.isArray(sourceRows)&&sourceRows.length>0)||(Array.isArray(allocationData)&&allocationData.some(x=>cfaKey==='DATA'||normalCfa(x.cfaKey||x.cfa)===cfaKey));const ready=!!from&&!!to&&from<=to&&Array.isArray(mbqGsvRows)&&mbqGsvRows.length&&Array.isArray(rows)&&rows.length&&indentSourceReady;
  const data=ready?mbqBuildNoIndentBilling(from,to,cfaKey,detailRows):[];
  const fmt=v=>Number(v||0).toLocaleString('en-IN',{maximumFractionDigits:0});
  const total=data.reduce((n,x)=>n+x.billed,0);
@@ -3272,7 +3272,8 @@ function renderNoIndentReports(){
  if(from&&!from.value)from.value=iso(new Date(now.getFullYear(),now.getMonth(),1));
  if(to&&!to.value)to.value=iso(now);
  const cfa=document.getElementById('mbqNoIndentCfa')?.value||'DATA';
- mbqRenderNoIndentBilling('mbqNoIndentReportsRows',from?.value||'',to?.value||'',cfa,null);
+ const baseline=cfa==='DATA'?(Array.isArray(sourceRows)?sourceRows.map(r=>({sku:r?.[0],indent:Number(r?.[1])||0})):[]):(Array.isArray(allocationData)?allocationData.filter(x=>normalCfa(x.cfaKey||x.cfa)===cfa).map(x=>({sku:x.sku,indent:Number(x.allocation??x.indentCbb)||0})):[]);
+ mbqRenderNoIndentBilling('mbqNoIndentReportsRows',from?.value||'',to?.value||'',cfa,baseline);
 }
 function renderFlashSingle(){
  const today=new Date();
