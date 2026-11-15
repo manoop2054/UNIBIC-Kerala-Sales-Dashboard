@@ -2984,17 +2984,17 @@ function printToReport(mode='details'){
    }
    XLSX.utils.book_append_sheet(wb,ws,name);
   };
-  const summary=[['UNIBIC FOODS INDIA PRIVATE LIMITED'],['DAILY FLASH · 3 CFA MANAGEMENT SUMMARY'],['Period: '+from+' to '+to],['CFA','Indent (CBB)','Period Billed (CBB)','Achievement','Balance %','Billing Without Indent (CBB)','Total GSV Billing (CBB)','Reconciliation Difference (CBB)']];
-  data.forEach(x=>{const r=x.report||{};summary.push([x.key,r.totalIndent??null,r.totalBilled??null,x.achievement,r.balance??x.balance,r.noIndentTotal??null,r.gsvTotal??null,r.reconciliationDifference??null]);});
-  addSheet('Flash Summary',summary,[14,17,19,16,14,24,21,25],0);
+  const summary=[['UNIBIC FOODS INDIA PRIVATE LIMITED'],['DAILY FLASH · 3 CFA MANAGEMENT SUMMARY'],['Period: '+from+' to '+to],['CFA','Indent (CBB)','Period Billed (CBB)','Achievement','Balance %','Balance (CBB)','Billing Without Indent (CBB)','Total GSV Billing (CBB)','Reconciliation Difference (CBB)']];
+  data.forEach(x=>{const r=x.report||{};summary.push([x.key,r.totalIndent??null,r.totalBilled??null,x.achievement,r.totalBalancePct??null,r.totalBalance??null,r.noIndentTotal??null,r.gsvTotal??null,r.reconciliationDifference??null]);});
+  addSheet('Flash Summary',summary,[14,17,19,16,14,17,24,21,25],0);
   const flash=[['UNIBIC FOODS INDIA PRIVATE LIMITED'],['DAILY FLASH · CFA-WISE DETAIL'],['Period: '+from+' to '+to],['CFA','Flash Summary / Report Text']];
   data.forEach(x=>String(x.report?.flashText||'').split(/\r?\n/).forEach(line=>flash.push([x.key,line])));
   addSheet('Daily Flash',flash,[14,100],0);
   const groups=[['UNIBIC FOODS INDIA PRIVATE LIMITED'],['GROUP-WISE INDENT VS BILLED'],['Period: '+from+' to '+to],['CFA','SKU Group','Indent (CBB)','Period Billed (CBB)','Achievement %','Balance %','Balance (CBB)']];
-  data.forEach(x=>(x.report?.detail||[]).forEach(r=>groups.push([x.key,r.sku,r.indent,r.billed,r.achievement,r.balancePct,r.balance])));
+  data.forEach(x=>{const detail=x.report?.detail||[];detail.forEach(r=>groups.push([x.key,r.sku,r.indent,r.billed,r.achievement,r.balancePct,r.balance]));groups.push([x.key,'TOTAL',x.report?.totalIndent??null,x.report?.totalBilled??null,x.report?.totalIndent>0&&x.report?.totalBilled!==null?(x.report.totalBilled/x.report.totalIndent*100):null,x.report?.totalBalancePct??null,x.report?.totalBalance??null]);});
   addSheet('Group-wise Ind vs Bill',groups,[14,34,17,20,17,15,17],0);
   const noIndent=[['UNIBIC FOODS INDIA PRIVATE LIMITED'],['BILLING WITHOUT INDENT · ITEM DETAIL'],['Period: '+from+' to '+to],['CFA','SKU Group','FG Code','Item Description','Billing (CBB)']];
-  data.forEach(x=>(x.report?.noIndentRows||[]).forEach(r=>noIndent.push([x.key,r.sku,r.code,r.description,r.billed])));
+  data.forEach(x=>{(x.report?.noIndentRows||[]).forEach(r=>noIndent.push([x.key,r.sku,r.code,r.description,r.billed]));noIndent.push([x.key,'TOTAL','','',x.report?.noIndentTotal??null]);});
   addSheet('Billing Without Indent',noIndent,[14,30,18,56,19],0);
   ['Indent (CBB)','Period Billed (CBB)','Billing (CBB)','Balance (CBB)','Total GSV Billing (CBB)','Reconciliation Difference (CBB)'].forEach((label)=>{});
   XLSX.writeFile(wb,'UNIBIC_3_CFA_Complete_Colour_Report_'+from+'_to_'+to+'.xlsx',{compression:true});
@@ -3420,7 +3420,7 @@ function renderFlashSingle(){
  if(note2)note2.textContent='Period Achievement = selected date-range billed ÷ indent × 100. Balance % = max(indent − period billed, 0) ÷ indent × 100. Billing uses GSV posting dates; verify source coverage and item/CFA mapping.';
  const gsvRowsForSnapshot=Array.isArray(mbqGsvRows)?mbqGsvRows:[];
  const gsvTotalForSnapshot=validRange&&rangeCovered?gsvRowsForSnapshot.filter(x=>{const d=String(x.date||'').slice(0,10);return d>=from&&d<=to&&(cfaKey==='DATA'||normalCfa(x.cfa)===cfaKey);}).reduce((n,x)=>n+(Number(x.quantity)||0),0):null;
- window.mbqFlashReportSnapshot={cfa:cfaKey,from,to,detail:detail.map(x=>({...x})),noIndentRows:noIndentRows.map(x=>({...x})),totalIndent,totalBilled,noIndentTotal,gsvTotal:gsvTotalForSnapshot,indentLinked:totalBilled,reconciliationDifference:gsvTotalForSnapshot===null||totalBilled===null?null:gsvTotalForSnapshot-totalBilled-noIndentTotal,flashText:flash?flash.innerText:''};
+ window.mbqFlashReportSnapshot={cfa:cfaKey,from,to,detail:detail.map(x=>({...x})),noIndentRows:noIndentRows.map(x=>({...x})),totalIndent,totalBilled,totalBalance,totalBalancePct,noIndentTotal,gsvTotal:gsvTotalForSnapshot,indentLinked:totalBilled,reconciliationDifference:gsvTotalForSnapshot===null||totalBilled===null?null:gsvTotalForSnapshot-totalBilled-noIndentTotal,flashText:flash?flash.innerText:''};
 }
 function renderFlash(){
  const select=document.getElementById('flashCfa'),host=document.getElementById('flashCompareContainer'),flash=document.getElementById('flashText'),note=document.getElementById('flashBillingNote'),summaryCard=document.getElementById('flashGroupSummary')?.closest('.card');
