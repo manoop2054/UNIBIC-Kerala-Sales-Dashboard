@@ -5827,7 +5827,7 @@ async function mbqFlashExcelExport(){
   XLSX.utils.book_append_sheet(wb,ws,name);
  };
  const flashText=document.getElementById('flashText')?.innerText?.trim()||'';
- const tokens=flashText.replace(/\s*\\|\s*/g,'\n').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+ const tokens=flashText.replace(/\s*\|\s*/g,'\n').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
  const summary=[['UNIBIC KERALA · DAILY INDENT FLASH'],['Period',from+' to '+to],['CFA',cfa],[],['Metric','Value']];
  const daily=[['UNIBIC KERALA · DAILY WHATSAPP FLASH'],['Period',from+' to '+to],['CFA',cfa],[],['Section / Item','Details']];
  tokens.forEach(line=>{
