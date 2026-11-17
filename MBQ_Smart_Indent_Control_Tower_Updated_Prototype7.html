@@ -1544,7 +1544,14 @@ let mbqGsvRows = [];
 let mbqGsvMeta = null;
 let mbqGsvLoading = false;
 let mbqGsvTimer = null;
+let mbqItemSkuGroupMap=new Map(),mbqSkuGroupAliasMap=new Map();
 function mbqSkuGroupKey(v){return String(v??"").normalize("NFKC").replace(/\uFFFD/g,"").replace(/[\p{Z}\s]+/gu," ").replace(/\p{Cf}/gu,"").replace(/\s+/g," ").trim().toUpperCase();}
+function mbqCanonicalSkuGroup(group,itemId){
+ const code=String(itemId??"").trim().toUpperCase().replace(/\s+/g,"");
+ const byItem=code?mbqItemSkuGroupMap.get(code):"";
+ const raw=String(group??"").trim();
+ return byItem||mbqSkuGroupAliasMap.get(mbqSkuGroupKey(raw))||raw;
+}
 function mbqIsOfficialSkuGroup(v){const key=mbqSkuGroupKey(v);const official=window.mbqOfficialAssortmentGroupKeys;return !!key&&Array.isArray(official)&&official.includes(key);}
 function mbqGsvNormCode(v){return String(v??"").trim().toUpperCase().replace(/\s+/g,"");}
 let mbqGsvMonthlyIndex=null;
@@ -1799,8 +1806,9 @@ function mbqStockReportRows(){
   const type=String(keyValue(raw,['TYPE','Type'])||'').trim().toUpperCase();
   if(type&&type!=='SOH')return;
   const cfa=normalCfa(keyValue(raw,['WAREHOUSE','Warehouse','CFA','LocationCode','Location Code','Location_Code','Location Name','Location','Branch','Site','Store']));
-  const sku=String(keyValue(raw,['ItemAttribute.SKUGroup','SKUGroup','SKU Group'])||'').trim();
-  const g=groupKey(sku),code=String(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No'])||'').trim();
+  const sourceSku=String(keyValue(raw,['ItemAttribute.SKUGroup','SKUGroup','SKU Group'])||'').trim();
+  const code=String(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No'])||'').trim();
+  const sku=mbqCanonicalSkuGroup(sourceSku,code),g=groupKey(sku);
   if(!g||!code||!allowedCfas.includes(cfa))return;
   addCode(sku,code);
   const shelfRaw=keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%']);
@@ -2261,7 +2269,7 @@ function previewIndentUpload(input){
    if(ti<0&&vi<0&&pi<0&&ai<0)throw new Error('No supported indent column found. Include Total Indent or at least one CFA allocation heading.');
    const known=new Set([...sourceRows.map(r=>String(r[0]||'').trim().toLowerCase()),...rows.map(r=>String(r.sku||'').trim().toLowerCase()),...mbqSalesRows.map(r=>String(r.SKU_Group??r.SKU_GROUP??r['SKU Group']??'').trim().toLowerCase())].filter(Boolean));
    pendingUpload=records.slice(headerIndex+headerDepth).filter(r=>r.some(v=>String(v??'').trim())).map(r=>{
-    const sku=String(r[gi]??'').trim(),total=ti<0?'':String(r[ti]??'').trim(),tvd=vi<0?'':String(r[vi]??'').trim(),pay=pi<0?'':String(r[pi]??'').trim(),alu=ai<0?'':String(r[ai]??'').trim();
+    const sku=mbqCanonicalSkuGroup(String(r[gi]??'').trim()),total=ti<0?'':String(r[ti]??'').trim(),tvd=vi<0?'':String(r[vi]??'').trim(),pay=pi<0?'':String(r[pi]??'').trim(),alu=ai<0?'':String(r[ai]??'').trim();
     const errors=[],warnings=[];if(!sku)errors.push('SKU Group missing');else if(known.size&&!known.has(sku.toLowerCase()))warnings.push('Not in assortment master — will be listed for manual CFA allocation; item code/SOH mapping unavailable');
     const values=[['Total Indent',total],['TVD allocation',tvd],['PAY allocation',pay],['ALU allocation',alu]];
     values.forEach(([label,v])=>{if(v!==''&&(!Number.isFinite(Number(v))||Number(v)<0))errors.push('Invalid '+label);});
@@ -4437,8 +4445,9 @@ function mbqRebuildAssortmentItemRows(){
   const type=String(keyValue(raw,['TYPE','Type'])||'').trim();
   if(type&&type.toUpperCase()!=='SOH')return;
   const sku=String(keyValue(raw,['ItemAttribute.SKUGroup','SKUGroup','SKU Group'])||'').trim();
-  const groupKey=mbqSkuGroupKey(sku),displayGroup=groupNames.get(groupKey);
   const code=String(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No'])||'').trim();
+  const canonicalSku=mbqCanonicalSkuGroup(sku,code);
+  const groupKey=mbqSkuGroupKey(canonicalSku),displayGroup=groupNames.get(groupKey);
   if(!displayGroup||!code)return;
   const k=groupKey+'|'+codeKey(code);
   const prior=itemMap.get(k);
@@ -4494,7 +4503,14 @@ async function loadLiveSoh(){
 }
 async function fetchGitHubAssortment(){
  try{
-  const res=await fetch("https://raw.githubusercontent.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/feature/mbq-smart-indent-dashboard/UNIBIC_Kerala_Assortment_SKU_Group_Only.csv",{cache:"no-store"});
+  const mapRes=await fetch("https://raw.githubusercontent.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/fix/sku-group-item-mapping/UNIBIC_Kerala_Item_SKU_Group_Mapping.csv",{cache:"no-store"});
+  if(!mapRes.ok)throw new Error("Item-to-SKU mapping master HTTP "+mapRes.status);
+  const mapRows=parseCsv(await mapRes.text()),mapHeaders=(mapRows[0]||[]).map(h=>String(h||"").trim().toUpperCase());
+  const itemIx=mapHeaders.indexOf("ITEMID"),sourceGroupIx=mapHeaders.indexOf("SOURCE_SKU_GROUP"),canonicalIx=mapHeaders.indexOf("CANONICAL_SKU_GROUP");
+  if(itemIx<0||sourceGroupIx<0||canonicalIx<0)throw new Error("Item-to-SKU mapping master headings are invalid");
+  mbqItemSkuGroupMap=new Map();mbqSkuGroupAliasMap=new Map();
+  mapRows.slice(1).forEach(row=>{const item=String(row[itemIx]||"").trim().toUpperCase().replace(/\s+/g,""),source=String(row[sourceGroupIx]||"").trim(),canonical=String(row[canonicalIx]||"").trim();if(item&&canonical)mbqItemSkuGroupMap.set(item,canonical);if(source&&canonical)mbqSkuGroupAliasMap.set(mbqSkuGroupKey(source),canonical);});
+  const res=await fetch("https://raw.githubusercontent.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/fix/sku-group-item-mapping/UNIBIC_Kerala_Assortment_SKU_Group_Only.csv",{cache:"no-store"});
   if(!res.ok)throw new Error("HTTP "+res.status);
   const parsed=parseCsv(await res.text());
   if(parsed.length<2)throw new Error("Assortment CSV has no SKU Groups");
@@ -4620,7 +4636,7 @@ function mbqSelectedMonthHistory(){
 }
 function mbqLoadedSalesValue(sku,cfa,month){
   let total=0,found=false,monthAvailable=false;const norm=v=>{const t=String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(t.includes('ALU'))return 'ALU';if(t.includes('PAY'))return 'PAY';if(t.includes('TVD'))return 'TVD';return t;};
-  for(const r of mbqSalesRows){const group=String(r.SKU_Group??r.SKU_GROUP??r['SKU Group']??'').trim();const mo=Number(r.Month??r.MONTH);const loc=norm(r.LocationCode??r['Location Code']??r.CFA??'');if(mo!==month||(cfa!=='DATA'&&loc!==cfa))continue;monthAvailable=true;if(group.toUpperCase()!==String(sku).trim().toUpperCase())continue;const q=Number(r.QuantityinCBO??r.Quantity_in_CBO??r.CBO??0);if(Number.isFinite(q)){total+=q;found=true;}}
+  for(const r of mbqSalesRows){const group=mbqCanonicalSkuGroup(String(r.SKU_Group??r.SKU_GROUP??r['SKU Group']??'').trim());const mo=Number(r.Month??r.MONTH);const loc=norm(r.LocationCode??r['Location Code']??r.CFA??'');if(mo!==month||(cfa!=='DATA'&&loc!==cfa))continue;monthAvailable=true;if(group.toUpperCase()!==String(sku).trim().toUpperCase())continue;const q=Number(r.QuantityinCBO??r.Quantity_in_CBO??r.CBO??0);if(Number.isFinite(q)){total+=q;found=true;}}
   return found?total:(monthAvailable?0:null);
 }
 function mbqRecalcContributionRows(sheet){
@@ -4642,12 +4658,12 @@ function mbqRecalcContributionRows(sheet){
     return Number.isFinite(n)?(isPercent?n/100:n):null;
   };
   const isTotal=row=>/^(TOTAL|GRAND TOTAL|OVERALL TOTAL)$/i.test(String(skuIx>=0?row[skuIx]??'':'').trim());
-  const source=(sheet.rows||[]).filter(row=>skuIx>=0&&!isTotal(row)&&mbqIsOfficialSkuGroup(row[skuIx]));
+  const source=(sheet.rows||[]).filter(row=>skuIx>=0&&!isTotal(row)&&mbqIsOfficialSkuGroup(mbqCanonicalSkuGroup(row[skuIx])));
   const merged=new Map(),other=[];
   const additive=new Set(['IND','INDENT','CL PO','OPEN PO','SOH<60%','SOH>60%','INTRANSIT','PLANT SOH','SALES','NXT 10D']);
   headers.forEach((h,i)=>{if(/^(JUL|AUG|SEP|OCT|NOV|DEC|JAN|FEB|MAR|APR|MAY|JUN)(\\s+\d{4})?$/.test(norm(h)))additive.add(norm(h));});
   source.forEach(raw=>{
-    const row=raw.slice(),sku=skuIx>=0?String(row[skuIx]??'').trim():'';
+    const row=raw.slice(),sku=skuIx>=0?mbqCanonicalSkuGroup(String(row[skuIx]??'').trim()):'';
     if(!sku){other.push(row);return;}
     const key=typeof mbqSkuGroupKey==='function'?mbqSkuGroupKey(sku):sku.toUpperCase().replace(/[\\u00A0\\u2007\\u202F\\uFFFD]/g,' ').replace(/\s+/g,' ').trim();
     if(!key){other.push(row);return;}
