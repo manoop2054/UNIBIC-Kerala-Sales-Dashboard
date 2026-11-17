@@ -4966,6 +4966,7 @@ async function loadMbqPoReport(event){
   const uploadRevision=++mbqPoUploadRevision;
   input.disabled=true;
   try{
+    await ensureXlsxLoaded();
     let parsed;
     if(file.name.toLowerCase().endsWith('.csv')){const text=await file.text();const wb=XLSX.read(text,{type:'string'});parsed=mbqFindPoTable(wb);}
     else{const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});parsed=mbqFindPoTable(wb);}
