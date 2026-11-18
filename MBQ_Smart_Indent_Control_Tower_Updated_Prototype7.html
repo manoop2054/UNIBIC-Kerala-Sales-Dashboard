@@ -5685,7 +5685,22 @@ async function mbqExportMbqTwoSheetWorkbook(){
  const wb=XLSX.utils.book_new();
  const fullRows=trs.map(tr=>[...tr.querySelectorAll('th,td')].map(c=>(c.innerText||c.textContent||'').replace(/\s+/g,' ').trim())).filter(r=>r.length).map(r=>r.map(v=>/^no data available$/i.test(String(v).trim())?0:v));
  const fullHeaderIndex=fullRows.findIndex(r=>r.some(v=>String(v).trim().toUpperCase()==='SKU GROUP'));
- if(fullHeaderIndex>=0){const fullSkuIndex=fullRows[fullHeaderIndex].findIndex(v=>String(v).trim().toUpperCase()==='SKU GROUP');fullRows[fullHeaderIndex].push('Last Year Periodic');for(let ri=fullHeaderIndex+1;ri<fullRows.length;ri++){const sku=fullRows[ri][fullSkuIndex];fullRows[ri].push(sku&&!['TOTAL','GRAND TOTAL','OVERALL TOTAL'].includes(String(sku).trim().toUpperCase())?lastYearPeriodicForSku(sku,exportCfaKey)??'No Data Available':'');}}
+ if(fullHeaderIndex>=0){
+  const fullHeader=fullRows[fullHeaderIndex];
+  const fullIdx=(...names)=>{for(const name of names){const i=fullHeader.findIndex(v=>String(v??'').trim().toUpperCase()===name);if(i>=0)return i;}return -1;};
+  const fullSkuIndex=fullIdx('SKU GROUP');
+  let lastYearIndex=fullIdx('LAST YEAR PERIODIC');
+  if(lastYearIndex<0){lastYearIndex=fullHeader.length;fullHeader.push('Last Year Periodic');}
+  let abmIndex=fullIdx('ABM REQ');if(abmIndex<0){abmIndex=fullHeader.length;fullHeader.push('ABM REQ');}
+  let balanceIndex=fullIdx('BALANCE');if(balanceIndex<0){balanceIndex=fullHeader.length;fullHeader.push('BALANCE');}
+  let alertIndex=fullIdx('ALERT');if(alertIndex<0){alertIndex=fullHeader.length;fullHeader.push('ALERT');}
+  for(let ri=fullHeaderIndex+1;ri<fullRows.length;ri++){
+   const sku=fullRows[ri][fullSkuIndex];
+   if(fullRows[ri].length<=lastYearIndex)fullRows[ri][lastYearIndex]='';
+   if(!fullRows[ri][lastYearIndex])fullRows[ri][lastYearIndex]=sku&&!['TOTAL','GRAND TOTAL','OVERALL TOTAL'].includes(String(sku).trim().toUpperCase())?lastYearPeriodicForSku(sku,exportCfaKey)??'No Data Available':'';
+   while(fullRows[ri].length<=Math.max(abmIndex,balanceIndex,alertIndex))fullRows[ri].push('');
+  }
+ }
 
  const first=XLSX.utils.aoa_to_sheet(fullRows),fullCols=Math.max(1,...fullRows.map(r=>r.length));
  first['!cols']=Array.from({length:fullCols},(_,c)=>{const max=Math.max(10,...fullRows.map(r=>String(r[c]??'').length+2));return {wch:Math.min(c===0?36:42,Math.max(c===0?24:12,max))};});
@@ -5695,6 +5710,28 @@ async function mbqExportMbqTwoSheetWorkbook(){
  for(let r=0;r<fullRows.length;r++)for(let c=0;c<fullCols;c++){
   const addr=XLSX.utils.encode_cell({r,c});let cell=first[addr];if(!cell)cell=first[addr]={t:'s',v:''};
   cell.s={font:{name:'Aptos',sz:r<2?10:9,bold:r<2,color:{rgb:r<2?'FFFFFF':'24364B'}},fill:{patternType:'solid',fgColor:{rgb:r===0?'12233F':r===1?'087F8C':r%2===0?'F1F6FB':'FFFFFF'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:fullBorder};
+ }
+ if(fullHeaderIndex>=0){
+  const fullHeader=fullRows[fullHeaderIndex];
+  const colIndex=(...names)=>{for(const name of names){const i=fullHeader.findIndex(v=>String(v??'').trim().toUpperCase()===name);if(i>=0)return i;}return -1;};
+  const skuCol=colIndex('SKU GROUP'),indCol=colIndex('INDENT','IND'),sohLtCol=colIndex('SOH<60%'),sohGtCol=colIndex('SOH>60%'),transitCol=colIndex('INTRANSIT'),salesCol=colIndex('SALES','SALE'),mbqCol=colIndex('MBQ'),abmCol=colIndex('ABM REQ'),balanceCol=colIndex('BALANCE'),alertCol=colIndex('ALERT');
+  const excelCol=i=>XLSX.utils.encode_col(i);
+  for(let ri=fullHeaderIndex+1;ri<fullRows.length;ri++){
+   const sku=String(fullRows[ri][skuCol]??'').trim().toUpperCase();
+   if(!sku||['TOTAL','GRAND TOTAL','OVERALL TOTAL'].includes(sku))continue;
+   const excelRow=ri+1,abmRef=excelCol(abmCol)+excelRow;
+   const valueRef=i=>i>=0?excelCol(i)+excelRow:'0';
+   const style=first[XLSX.utils.encode_cell({r:ri,c:balanceCol})]?.s;
+   if(balanceCol>=0&&abmCol>=0&&indCol>=0&&sohLtCol>=0&&sohGtCol>=0&&transitCol>=0&&salesCol>=0){
+    const formula='IF('+abmRef+'="","",'+valueRef(indCol)+'-'+valueRef(sohLtCol)+'-'+valueRef(sohGtCol)+'-'+valueRef(transitCol)+'-'+valueRef(salesCol)+'-'+abmRef+')';
+    first[XLSX.utils.encode_cell({r:ri,c:balanceCol})]={t:'n',f:formula,v:0,z:'#,##0',s:style};
+   }
+   if(alertCol>=0&&abmCol>=0&&mbqCol>=0&&indCol>=0){
+    const mbqRef=valueRef(mbqCol),indRef=valueRef(indCol);
+    const formula='IF('+abmRef+'="","",IF(AND('+abmRef+'>'+mbqRef+','+abmRef+'>'+indRef+'),"ALERT - ABOVE MBQ | ALERT - ABOVE INDENT",IF('+abmRef+'>'+mbqRef+',"ALERT - ABOVE MBQ",IF('+abmRef+'>'+indRef+',"ALERT - ABOVE INDENT",""))))';
+    first[XLSX.utils.encode_cell({r:ri,c:alertCol})]={t:'str',f:formula,v:'',s:first[XLSX.utils.encode_cell({r:ri,c:alertCol})]?.s};
+   }
+  }
  }
  XLSX.utils.book_append_sheet(wb,first,'Full MBQ');
  XLSX.utils.book_append_sheet(wb,ws,'Total');
