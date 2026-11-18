@@ -5735,8 +5735,8 @@ async function mbqExportMbqTwoSheetWorkbook(){
    if(alertCol>=0&&abmCol>=0&&mbqCol>=0&&indCol>=0&&balanceCol>=0){
     const mbqRef=valueRef(mbqCol),indRef=valueRef(indCol),balanceRef=valueRef(balanceCol);
     const noAlert='AND('+balanceRef+'>=0,'+abmRef+'<='+mbqRef+')';
-    const mbqAlert='IF('+abmRef+'>'+mbqRef+',IF('+balanceRef+'<0,"ALERT - ABOVE MBQ | ","")&"ALERT - ABOVE MBQ","")';
-    const indentAlert='IF('+balanceRef+'<0,"ALERT - ABOVE INDENT","")';
+    const mbqAlert='IF('+abmRef+'>'+mbqRef+',"ALERT - ABOVE MBQ","")';
+    const indentAlert='IF('+balanceRef+'<0,IF('+abmRef+'>'+mbqRef+'," | ","")&"ALERT - ABOVE INDENT","")';
     const formula='IF('+abmRef+'="","ENTER ABM REQ",IF('+noAlert+',"OK",'+mbqAlert+'&'+indentAlert+'))';
     first[XLSX.utils.encode_cell({r:ri,c:alertCol})]={t:'str',f:formula,v:'',s:first[XLSX.utils.encode_cell({r:ri,c:alertCol})]?.s};
    }
