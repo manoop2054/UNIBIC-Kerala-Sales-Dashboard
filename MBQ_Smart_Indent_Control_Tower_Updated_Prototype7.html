@@ -5732,9 +5732,13 @@ async function mbqExportMbqTwoSheetWorkbook(){
     const formula='IF('+abmRef+'="","",'+valueRef(indCol)+'-'+valueRef(sohLtCol)+'-'+valueRef(sohGtCol)+'-'+valueRef(transitCol)+'-'+valueRef(salesCol)+'-'+abmRef+')';
     first[XLSX.utils.encode_cell({r:ri,c:balanceCol})]={t:'n',f:formula,v:0,z:'#,##0',s:style};
    }
-   if(alertCol>=0&&abmCol>=0&&mbqCol>=0&&indCol>=0){
-    const mbqRef=valueRef(mbqCol),indRef=valueRef(indCol);
-    const formula='IF('+abmRef+'="","",IF(AND('+abmRef+'>'+mbqRef+','+abmRef+'>'+indRef+'),"ALERT - ABOVE MBQ | ALERT - ABOVE INDENT",IF('+abmRef+'>'+mbqRef+',"ALERT - ABOVE MBQ",IF('+abmRef+'>'+indRef+',"ALERT - ABOVE INDENT",""))))';
+   if(alertCol>=0&&abmCol>=0&&mbqCol>=0&&indCol>=0&&balanceCol>=0){
+    const mbqRef=valueRef(mbqCol),indRef=valueRef(indCol),balanceRef=valueRef(balanceCol);
+    const noAlert='AND('+balanceRef+'>=0,'+abmRef+'<='+mbqRef+','+abmRef+'<='+indRef+')';
+    const requirementAlert='IF('+balanceRef+'<0,"ALERT - ABOVE REQUIREMENT","")';
+    const mbqAlert='IF('+abmRef+'>'+mbqRef+',IF(OR('+balanceRef+'<0,'+abmRef+'>'+indRef+')," | ","")&"ALERT - ABOVE MBQ","")';
+    const indentAlert='IF('+abmRef+'>'+indRef+',IF(OR('+balanceRef+'<0,'+abmRef+'>'+mbqRef+')," | ","")&"ALERT - ABOVE INDENT","")';
+    const formula='IF('+abmRef+'="","ENTER ABM REQ",IF('+noAlert+',"OK",'+requirementAlert+'&'+mbqAlert+'&'+indentAlert+'))';
     first[XLSX.utils.encode_cell({r:ri,c:alertCol})]={t:'str',f:formula,v:'',s:first[XLSX.utils.encode_cell({r:ri,c:alertCol})]?.s};
    }
   }
@@ -5844,6 +5848,8 @@ async function mbqExportMbqTwoSheetWorkbook(){
   XLSX.utils.book_append_sheet(wb,detailWs,'CFA-wise Details');
  }
 
+ wb.Workbook=wb.Workbook||{};
+ wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};
  XLSX.writeFile(wb,'MBQ_Excel_View_'+(document.getElementById('mbqSheetSelect')?.value||'DATA')+'_Colour.xlsx',{compression:true});
  showToast(selectedSheet==='DATA'?'3-sheet MBQ Excel report downloaded: Full MBQ · Total · CFA-wise Details.':'2-sheet MBQ Excel report downloaded: Full MBQ · Total.');
 }
