@@ -5845,7 +5845,7 @@ async function mbqExportMbqTwoSheetWorkbook(){
  }
 
  XLSX.writeFile(wb,'MBQ_Excel_View_'+(document.getElementById('mbqSheetSelect')?.value||'DATA')+'_Colour.xlsx',{compression:true});
- showToast('2-sheet MBQ Excel report downloaded: Full MBQ · Total.');
+ showToast(selectedSheet==='DATA'?'3-sheet MBQ Excel report downloaded: Full MBQ · Total · CFA-wise Details.':'2-sheet MBQ Excel report downloaded: Full MBQ · Total.');
 }
 function mbqExportTargetPdf(target,title){
  let root=target?document.querySelector(target):null;if(root&&(root.tagName==='TBODY'||root.tagName==='TR'))root=root.closest('table')||root;if(!root){showToast('PDF report area unavailable.');return;}
