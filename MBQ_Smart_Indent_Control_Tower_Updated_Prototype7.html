@@ -1130,7 +1130,7 @@ body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,t
 <div class="card flash-cfa-new-session" id="flashNewCfaSession" style="display:none;margin-top:16px">
  <div class="flash-cfa-new-head">
   <div><div class="eyebrow">NEW SESSION · UNIBIC KERALA</div><h3>3 CFA · Group-wise Indent vs Billed Achievement</h3><small id="flashNewCfaPeriod">Selected date range · GSV date-wise billing</small></div>
-  <button class="btn primary" type="button" onclick="mbqOpenReportExport(this,'New Session · Daily Flash','#flashNewCfaSession',mbqExportDailyFlashCfaDetails)">⇩ Export New Session</button>
+  <button class="btn primary" type="button" onclick="mbqOpenReportExport(this,'New Session · Daily Flash','#flashNewCfaSession',()=>mbqExportDailyFlashCfaDetails('excel'),()=>mbqExportDailyFlashCfaDetails('pdf'),()=>mbqExportDailyFlashCfaDetails('jpg'))">⇩ Export New Session</button>
  </div>
  <div id="flashNewCfaCards" class="flash-cfa-new-grid"></div>
 </div>
@@ -1254,6 +1254,7 @@ body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,t
 <script>
 const sourceRows=[];
 const rows=[];
+window.mbqSkuCodeRows=rows;
 const indentLines=[];
 
 const MBQ_PLANNING_RULES_KEY='mbqPlanningRulesV1';
@@ -2955,7 +2956,9 @@ function printToReport(mode='details'){
 ;
 ;
 
-window.mbqExportDailyFlashCfaDetails = async function(){
+window.mbqExportDailyFlashCfaDetails = async function(format='excel'){
+  const printWindow=format==='pdf'?window.open('','_blank'):null;
+  if(format==='pdf'&&!printWindow){showToast('PDF export popup അനുവദിക്കുക.');return;}
   if(typeof mbqEnsureXlsx==='function'){
     try{await mbqEnsureXlsx();}catch(error){showToast(error.message||'Excel library unavailable.');return;}
   }
@@ -2974,6 +2977,7 @@ window.mbqExportDailyFlashCfaDetails = async function(){
   const from=document.getElementById('flashFromDate')?.value||'';
   const to=document.getElementById('flashToDate')?.value||'';
   const wb=XLSX.utils.book_new();
+  const exportTables=[];
   const normHeader=v=>String(v??'').trim().toUpperCase().replace(/\s+/g,' ');
   const getIndex=(headers,...names)=>{for(const name of names){const i=headers.findIndex(h=>normHeader(h)===normHeader(name));if(i>=0)return i;}return -1;};
   const cellValue=(cells,index,percent=false)=>{
@@ -3095,6 +3099,7 @@ window.mbqExportDailyFlashCfaDetails = async function(){
       const aoa=[[ 'UNIBIC KERALA · '+cfa.name+' · FULL SKU DETAILS' ],
                  [ 'Daily WhatsApp Flash period: '+(from||'—')+' to '+(to||'—') ],
                  headers,...rows];
+      exportTables.push({name:cfa.name,aoa});
       const ws=XLSX.utils.aoa_to_sheet(aoa);
       ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:headers.length-1}},{s:{r:1,c:0},e:{r:1,c:headers.length-1}}];
       ws['!cols']=widths.map(w=>({wch:w}));
@@ -3118,11 +3123,29 @@ window.mbqExportDailyFlashCfaDetails = async function(){
       }
       XLSX.utils.book_append_sheet(wb,ws,cfa.tab);
     }
-    wb.Workbook=wb.Workbook||{};
-    wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};
-    const safeFrom=from||'AllDates',safeTo=to||'AllDates';
-    XLSX.writeFile(wb,'UNIBIC_Daily_Flash_CFA_Details_'+safeFrom+'_to_'+safeTo+'.xlsx',{compression:true});
-    showToast('Separate 3-CFA colour Excel downloaded · ALU, TVD and PAY sheets.');
+    if(format==='excel'){
+      wb.Workbook=wb.Workbook||{};
+      wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};
+      const safeFrom=from||'AllDates',safeTo=to||'AllDates';
+      XLSX.writeFile(wb,'UNIBIC_Daily_Flash_CFA_Details_'+safeFrom+'_to_'+safeTo+'.xlsx',{compression:true});
+      showToast('Separate 3-CFA colour Excel downloaded · ALU, TVD and PAY sheets.');
+    }else{
+      const safe=v=>String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+      const reportHtml=exportTables.map(t=>{
+        const body=t.aoa.slice(3).map(row=>'<tr>'+row.map(v=>'<td>'+safe(v)+'</td>').join('')+'</tr>').join('');
+        return '<h2>'+safe(t.name)+' · FULL SKU DETAILS</h2><p>Period: '+safe(from||'—')+' to '+safe(to||'—')+'</p><table><thead><tr>'+headers.map(h=>'<th>'+safe(h)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table>';
+      }).join('<div class="page-break"></div>');
+      const styles='*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{font:9px Arial,sans-serif;color:#24364b;margin:14px}h2{font-size:16px;color:#17365d;margin:18px 0 4px}p{margin:4px 0 10px}table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:8px;margin-bottom:18px}th,td{border:1px solid #cbd5e1;padding:5px 3px;overflow-wrap:anywhere;text-align:right}th{background:#17365d;color:#fff;text-align:center}th:first-child,td:first-child{text-align:left;width:18%}thead{display:table-header-group}tr{break-inside:avoid}.page-break{break-before:page}@page{size:A3 landscape;margin:8mm}';
+      if(format==='pdf'){
+        printWindow.document.open();printWindow.document.write('<!doctype html><html><head><meta charset="utf-8"><title>UNIBIC Daily Flash CFA Details</title><style>'+styles+'</style></head><body>'+reportHtml+'</body></html>');printWindow.document.close();printWindow.onload=()=>{printWindow.focus();printWindow.print();};
+      }else if(format==='jpg'){
+        let wrap=null;
+        try{
+          const capture=await mbqLoadHtml2Canvas();wrap=document.createElement('div');wrap.style.cssText='position:fixed;left:-100000px;top:0;background:#fff;width:2200px;padding:24px;font:9px Arial;color:#24364b';wrap.innerHTML='<style>'+styles+'</style>'+reportHtml;document.body.appendChild(wrap);
+          const canvas=await capture(wrap,{scale:1,backgroundColor:'#fff',windowWidth:2200,scrollX:0,scrollY:0});const a=document.createElement('a');a.href=canvas.toDataURL('image/jpeg',.94);a.download='UNIBIC_Daily_Flash_CFA_Details_'+(from||'AllDates')+'_to_'+(to||'AllDates')+'.jpg';a.click();showToast('3-CFA full 12-column JPG downloaded.');
+        }finally{if(wrap&&wrap.parentNode)wrap.parentNode.removeChild(wrap);}
+      }
+    }
   }catch(error){
     console.error('Daily Flash CFA details export failed:',error);
     showToast('CFA details Excel export failed: '+(error.message||'Please retry.'));
@@ -3618,7 +3641,8 @@ function renderFlashSingle(){
    const raw=sr&&sr[1]!==''&&sr[1]!==null&&sr[1]!==undefined?sr[1]:(typeof mbqUploadedIndentForSku==='function'?mbqUploadedIndentForSku(sku):null);
    if(raw!==null&&raw!==undefined&&raw!==''&&Number.isFinite(Number(raw)))indent=Number(raw);
   }else if(alloc.length){indent=alloc.reduce((sum,x)=>sum+(Number(x.allocation)||0),0);}
-  const codes=[...new Set(rows.filter(r=>String(r.sku||'').trim().toLowerCase()===sku.toLowerCase()).map(r=>mbqGsvNormCode(r.code)).filter(Boolean))];
+  const skuCodeRows=Array.isArray(window.mbqSkuCodeRows)?window.mbqSkuCodeRows:[];
+  const codes=[...new Set(skuCodeRows.filter(r=>String(r.sku||'').trim().toLowerCase()===sku.toLowerCase()).map(r=>mbqGsvNormCode(r.code)).filter(Boolean))];
   let billed=null;
   if(validRange&&rangeCovered&&codes.length&&mbqGsvRows.length){
    const codeSet=new Set(codes);
