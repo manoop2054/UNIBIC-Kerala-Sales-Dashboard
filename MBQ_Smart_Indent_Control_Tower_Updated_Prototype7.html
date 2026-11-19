@@ -6974,12 +6974,12 @@ window.mbqExportDailyFlashCfaDetails = async function(){
   const from=document.getElementById('flashFromDate')?.value||'';
   const to=document.getElementById('flashToDate')?.value||'';
   const wb=XLSX.utils.book_new();
-  const normHeader=v=>String(v??'').trim().toUpperCase().replace(/\\s+/g,' ');
+  const normHeader=v=>String(v??'').trim().toUpperCase().replace(/\s+/g,' ');
   const getIndex=(headers,...names)=>{for(const name of names){const i=headers.findIndex(h=>normHeader(h)===normHeader(name));if(i>=0)return i;}return -1;};
   const cellValue=(cells,index,percent=false)=>{
     if(index<0||index>=cells.length)return 'No Data Available';
-    const raw=String(cells[index]??'').replace(/\\s+/g,' ').trim();
-    if(!raw||/^(NO DATA AVAILABLE|—|-|N\\/A)$/i.test(raw))return 'No Data Available';
+    const raw=String(cells[index]??'').replace(/\s+/g,' ').trim();
+    if(!raw||/^(NO DATA AVAILABLE|—|-|N\/A)$/i.test(raw))return 'No Data Available';
     const hasPercent=/%$/.test(raw);
     const n=Number(raw.replace(/,/g,'').replace(/₹/g,'').replace(/CBB/ig,'').replace(/%/g,'').trim());
     if(!Number.isFinite(n))return raw;
@@ -6991,20 +6991,20 @@ window.mbqExportDailyFlashCfaDetails = async function(){
       if(typeof mbqBuildSkuGroupCodeIndex==='function'&&(!mbqSkuCodesByGroup||!mbqSkuCodesByGroup.size))mbqBuildSkuGroupCodeIndex();
       const codeToGroup=new Map();
       if(mbqSkuCodesByGroup&&typeof mbqSkuCodesByGroup.forEach==='function'){
-        mbqSkuCodesByGroup.forEach((codes,group)=>codes.forEach(code=>codeToGroup.set(typeof mbqGsvNormCode==='function'?mbqGsvNormCode(code):String(code).toUpperCase().replace(/\\s+/g,''),group)));
+        mbqSkuCodesByGroup.forEach((codes,group)=>codes.forEach(code=>codeToGroup.set(typeof mbqGsvNormCode==='function'?mbqGsvNormCode(code):String(code).toUpperCase().replace(/\s+/g,''),group)));
       }
       const candidates=new Map();
       (Array.isArray(liveSohRows)?liveSohRows:[]).forEach(raw=>{
         const type=String(keyValue(raw,['TYPE','Type'])||'').trim().toUpperCase();
         if(type&&type!=='SOH')return;
         const rawCode=keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']);
-        const code=typeof mbqGsvNormCode==='function'?mbqGsvNormCode(rawCode):String(rawCode??'').trim().toUpperCase().replace(/\\s+/g,'');
+        const code=typeof mbqGsvNormCode==='function'?mbqGsvNormCode(rawCode):String(rawCode??'').trim().toUpperCase().replace(/\s+/g,'');
         const rawGroup=String(keyValue(raw,['ItemAttribute.SKUGroup','SKUGroup','SKU Group'])??'').trim();
         const group=(typeof mbqSkuGroupKey==='function'&&rawGroup?mbqSkuGroupKey(rawGroup):'')||codeToGroup.get(code);
         if(!group||!code||codeToGroup.get(code)!==group)return;
         const shelf=Number(String(keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%'])??'').replace(/[% ,]/g,''));
         const mrpRaw=keyValue(raw,['MRP','MRP NEW','Mrp','Maximum Retail Price']);
-        const mrp=Number(String(mrpRaw??'').replace(/[₹,\\s]/g,''));
+        const mrp=Number(String(mrpRaw??'').replace(/[₹,\s]/g,''));
         if(!Number.isFinite(shelf)||mrpRaw===null||mrpRaw===undefined||String(mrpRaw).trim()===''||!Number.isFinite(mrp))return;
         if(!candidates.has(group))candidates.set(group,[]);
         candidates.get(group).push({shelf,mrp,code});
