@@ -1097,7 +1097,7 @@ body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,t
 <div class="peak-modal peak-billing-modal" id="peakBillingModal" role="dialog" aria-modal="true" aria-labelledby="peakBillingTitle" onclick="if(event.target===this)peakCloseBilling()"><div class="peak-modal-panel"><div class="peak-modal-head"><h3 id="peakBillingTitle">Day-wise GSV Billing Details</h3><button type="button" onclick="peakCloseBilling()">Close ✕</button></div><div class="peak-modal-body" id="peakBillingModalBody"></div></div></div>
 </section>
 <section class="section" id="page-loading"><div class="page-head"><div><div class="eyebrow">CFA-specific supply planning</div><h1>CFA Loading & Indent Planner</h1><p>Day-wise demand is the base. Required Loading = max(0, Allocated Indent − 60%+ usable CFA SOH − INTRANSIT). No uploaded TO records means 0 pending TO; this planner's current loading is never treated as Open TO.</p></div><div class="actions"><button class="btn" onclick="mbqOpenReportExport(this,'Plant Loading Sheet','#page-loading')">⇩ Export Plant Loading Sheet</button><button class="btn" onclick="aiFillDaysPlanBalance()">AI Fill Balance</button><button class="btn primary" onclick="renderDaysPlanner()">↻ Calculate plan</button></div></div><div class="card" style="margin-bottom:16px"><div class="form-grid"><div class="field"><label>Selected CFA</label><select id="daysPlanCfa" onchange="renderDaysPlanner()"><option value="PAY" selected>PAY CFA</option><option value="ALU">ALU CFA</option><option value="TVD">TVD CFA</option></select></div><div class="field"><label>Planning period</label><select id="daysPlanDays" onchange="renderDaysPlanner()"><option value="6">6 Days</option><option value="12" selected>12 Days</option><option value="18">18 Days</option><option value="custom">Custom Days</option></select></div><div class="field" id="daysPlanCustomWrap" style="display:none"><label>Custom days</label><input id="daysPlanCustom" type="number" min="1" step="1" placeholder="Enter days" oninput="renderDaysPlanner()"></div><div class="field"><label>Available loading capacity (CBB) · optional</label><input id="daysPlanCapacity" type="number" min="0" step="1" placeholder="Enter approved CBB capacity" oninput="renderDaysPlanner()"></div><div class="field"><label>Item display</label><button class="btn" id="daysPlanZeroIndentToggle" type="button" onclick="toggleDaysPlanZeroIndent()">Hide 0 Indent</button></div></div></div><div class="grid kpis" style="margin-bottom:16px"><div class="card kpi"><div class="label">Period demand</div><div class="value" id="daysPlanDemand">No Data Available</div><div class="sub">Average daily sales × selected days</div></div><div class="card kpi"><div class="label">Required loading</div><div class="value" id="daysPlanIndent">No Data Available</div><div class="sub">Allocated Indent less 60%+ usable SOH and INTRANSIT</div></div><div class="card kpi"><div class="label">Final loading qty</div><div class="value" id="daysPlanLoad">No Data Available</div><div class="sub" id="daysPlanLoadSub">AI add-on not applied</div></div><div class="card kpi"><div class="label">Balance capacity</div><div class="value" id="daysPlanShortage">No Data Available</div><div class="sub">After final loading; capacity required</div></div></div><div class="card table-card"><div class="card-head"><div><h3>Item-wise CFA Demand & Loading</h3><small id="daysPlanTableSub">PAY CFA · 12 days · Latest 3 completed months (excludes current month)</small></div><span class="pill blue" id="daysPlanStatus">SOURCE DATA REQUIRED</span></div><div class="table-wrap"><table><thead><tr><th>CFA</th><th>SKU Group</th><th>FG Code</th><th>Allocated Indent</th><th>Average Daily Sales</th><th>Period Demand</th><th>Usable CFA SOH</th><th>INTRANSIT</th><th>Required Loading</th><th>AI Suggested Add-on</th><th>Allocation Balance (CBB)</th><th>Final Loading Qty</th><th>Status</th></tr></thead><tbody id="daysPlanRows"><tr><td colspan="13" class="empty">No Data Available</td></tr></tbody></table></div><div class="small-note">Required Loading = max(0, Allocated Indent − 60%+ usable CFA SOH − INTRANSIT). Allocation Balance = max(0, Allocated Indent − 60%+ usable CFA SOH − INTRANSIT). Final Loading Qty is limited by the available allocation balance; 0-indent items can be hidden with the toggle. No uploaded TO records means 0 pending TO. AI Suggested Add-on fills only the remaining capacity up to the 950 CBB target; Required Loading and Allocation Balance are not reduced. Missing demand or SOH is flagged, not silently treated as confirmed data.</div></div></section>
-<section class="section" id="page-flash"><div class="page-head"><div><div class="eyebrow">Daily execution</div><h1>Daily WhatsApp Flash</h1><p>Build a concise operational update for sharing with the sales / supply team.</p></div><div class="actions"><button class="btn" onclick="copyFlash()">⧉ Copy WhatsApp text</button><button class="btn" onclick="mbqOpenReportExport(this,'Daily WhatsApp Flash','#page-flash',mbqFlashExcelExport,mbqFlashPdfExport)">⇩ Export Report</button></div></div><div class="card"><div class="card-head"><h3>Flash report filters</h3><small>Choose a date range; billing is calculated from dated GSV invoice rows.</small></div><div class="form-grid"><div class="field"><label>From Date</label><input id="flashFromDate" type="date" onchange="renderFlash()"></div><div class="field"><label>To Date</label><input id="flashToDate" type="date" onchange="renderFlash()"></div><div class="field"><label>CFA</label><select id="flashCfa" onchange="renderFlash()"><option>All CFAs</option><option>TVD CFA</option><option>PAY CFA</option><option>ALU CFA</option><option value="COMPARE_3">Compare 3 CFAs</option></select></div><div class="field"><label>Sales / billing source</label><div id="flashSourceStatus" class="input" style="min-height:38px;display:flex;align-items:center;color:var(--green);font-weight:600">GSV date-wise billing loading…</div></div></div><div id="flashCfaKpiCompare" class="flash-cfa-kpi-compare" style="display:none"><div class="flash-cfa-kpi-head"><div><h3>3 CFA · Group-wise Indent vs Billed Achievement</h3><small id="flashCfaKpiPeriod">Selected date range</small></div><button class="btn" onclick="mbqOpenReportExport(this,'3 CFA Group Indent vs Billed','#flashCfaKpiCompare',mbqExportCfaKpiExcel,mbqExportCfaKpiPdf,mbqExportCfaKpiJpg)">⇩ Export · Excel / PDF / JPEG</button></div><div id="flashCfaKpiCards" class="flash-cfa-kpi-grid"></div></div><div class="card-body"><div id="flashText" class="flash"></div><div id="flashCompareContainer" class="flash-compare-grid" style="display:none"></div><div id="flashBillingNote" style="margin-top:12px;font-size:10.5px;color:var(--muted)">Billing totals will be calculated from the actual GSV posting dates.</div></div></div>
+<section class="section" id="page-flash"><div class="page-head"><div><div class="eyebrow">Daily execution</div><h1>Daily WhatsApp Flash</h1><p>Build a concise operational update for sharing with the sales / supply team.</p></div><div class="actions"><button class="btn" onclick="copyFlash()">⧉ Copy WhatsApp text</button><button class="btn" onclick="mbqOpenReportExport(this,'Daily WhatsApp Flash','#page-flash',mbqFlashExcelExport,mbqFlashPdfExport)">⇩ Export Report</button><button class="btn" type="button" onclick="mbqExportDailyFlashCfaDetails()">⇩ Export CFA Details (Excel)</button></div></div><div class="card"><div class="card-head"><h3>Flash report filters</h3><small>Choose a date range; billing is calculated from dated GSV invoice rows.</small></div><div class="form-grid"><div class="field"><label>From Date</label><input id="flashFromDate" type="date" onchange="renderFlash()"></div><div class="field"><label>To Date</label><input id="flashToDate" type="date" onchange="renderFlash()"></div><div class="field"><label>CFA</label><select id="flashCfa" onchange="renderFlash()"><option>All CFAs</option><option>TVD CFA</option><option>PAY CFA</option><option>ALU CFA</option><option value="COMPARE_3">Compare 3 CFAs</option></select></div><div class="field"><label>Sales / billing source</label><div id="flashSourceStatus" class="input" style="min-height:38px;display:flex;align-items:center;color:var(--green);font-weight:600">GSV date-wise billing loading…</div></div></div><div id="flashCfaKpiCompare" class="flash-cfa-kpi-compare" style="display:none"><div class="flash-cfa-kpi-head"><div><h3>3 CFA · Group-wise Indent vs Billed Achievement</h3><small id="flashCfaKpiPeriod">Selected date range</small></div><button class="btn" onclick="mbqOpenReportExport(this,'3 CFA Group Indent vs Billed','#flashCfaKpiCompare',mbqExportCfaKpiExcel,mbqExportCfaKpiPdf,mbqExportCfaKpiJpg)">⇩ Export · Excel / PDF / JPEG</button></div><div id="flashCfaKpiCards" class="flash-cfa-kpi-grid"></div></div><div class="card-body"><div id="flashText" class="flash"></div><div id="flashCompareContainer" class="flash-compare-grid" style="display:none"></div><div id="flashBillingNote" style="margin-top:12px;font-size:10.5px;color:var(--muted)">Billing totals will be calculated from the actual GSV posting dates.</div></div></div>
 <div class="card" style="margin-top:16px"><div class="report-banner flash-report-banner"><div><h3>Group-wise Indent vs Billed Achievement</h3><small>Separate group-level reconciliation · values and percentages</small></div><button class="btn" onclick="mbqOpenReportExport(this,'Group-wise Indent vs Billed','#flashGroupRows')">⇩ Export group report</button></div><div class="card-body"><div id="flashGroupSummary" class="grid kpis" style="margin-bottom:14px"></div><div class="table-wrap"><table><thead><tr><th>SKU Group</th><th>Indent (CBB)</th><th>Running-month Billed (CBB)</th><th>Achievement %</th><th>Balance %</th><th>Balance (CBB)</th></tr></thead><tbody id="flashGroupRows"><tr><td colspan="6" class="empty">Waiting for GSV billing data and indent quantities.</td></tr></tbody></table></div><div id="flashGroupNote" class="small-note">Achievement = billed ÷ indent × 100. Balance % = remaining indent ÷ indent × 100. Values above 100% indicate over-billing.</div></div></div></section>
 <section class="section" id="page-advanced">
  <div class="page-head"><div><div class="eyebrow">Advanced control tower</div><h1>Advanced Controls & Exceptions</h1><p>Verified GSV, LIVE SOH, CFA allocation and uploaded Fill Rate Report sources only.</p></div><div class="actions"><button class="btn primary" onclick="mbqAdvOpen('quality')">Run Source Validation</button></div></div>
@@ -6951,4 +6951,163 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
 })();
 
 </script>
-</body></html>
+
+<script>
+/* Daily WhatsApp Flash: isolated all-CFA detailed Excel export.
+   This adds a separate export only; it does not alter the existing report/export paths. */
+window.mbqExportDailyFlashCfaDetails = async function(){
+  if(typeof mbqEnsureXlsx==='function'){
+    try{await mbqEnsureXlsx();}catch(error){showToast(error.message||'Excel library unavailable.');return;}
+  }
+  if(!window.XLSX){showToast('Excel library loading. Please retry.');return;}
+  const cfas=[{key:'ALU',name:'ALU CFA',tab:'ALU CFA',head:'D9EAD3',body:'F1F8F2',accent:'387B4B'},
+              {key:'TVD',name:'TVD CFA',tab:'TVD CFA',head:'CFE2F3',body:'F0F6FC',accent:'28639A'},
+              {key:'PAY',name:'PAY CFA',tab:'PAY CFA',head:'FCE4D6',body:'FFF5EF',accent:'B65D22'}];
+  const searchEl=document.getElementById('mbqViewSearch');
+  const sizeEl=document.getElementById('mbqViewPageSize');
+  const statIds=['mbqStatCfa','mbqStatRows','mbqStatCols','mbqStatSource'];
+  const savedStats={};
+  statIds.forEach(id=>{const el=document.getElementById(id);if(el)savedStats[id]=el.textContent;});
+  const savedSearch=searchEl?searchEl.value:null;
+  const savedSize=sizeEl?sizeEl.value:null;
+  const savedHide=typeof mbqHideEmptyIndents!=='undefined'?mbqHideEmptyIndents:null;
+  const from=document.getElementById('flashFromDate')?.value||'';
+  const to=document.getElementById('flashToDate')?.value||'';
+  const wb=XLSX.utils.book_new();
+  const normHeader=v=>String(v??'').trim().toUpperCase().replace(/\\s+/g,' ');
+  const getIndex=(headers,...names)=>{for(const name of names){const i=headers.findIndex(h=>normHeader(h)===normHeader(name));if(i>=0)return i;}return -1;};
+  const cellValue=(cells,index,percent=false)=>{
+    if(index<0||index>=cells.length)return 'No Data Available';
+    const raw=String(cells[index]??'').replace(/\\s+/g,' ').trim();
+    if(!raw||/^(NO DATA AVAILABLE|—|-|N\\/A)$/i.test(raw))return 'No Data Available';
+    const hasPercent=/%$/.test(raw);
+    const n=Number(raw.replace(/,/g,'').replace(/₹/g,'').replace(/CBB/ig,'').replace(/%/g,'').trim());
+    if(!Number.isFinite(n))return raw;
+    return (percent||hasPercent)?n/100:n;
+  };
+  const mrpBySku=()=>{
+    const result=new Map();
+    try{
+      if(typeof mbqBuildSkuGroupCodeIndex==='function'&&(!mbqSkuCodesByGroup||!mbqSkuCodesByGroup.size))mbqBuildSkuGroupCodeIndex();
+      const codeToGroup=new Map();
+      if(mbqSkuCodesByGroup&&typeof mbqSkuCodesByGroup.forEach==='function'){
+        mbqSkuCodesByGroup.forEach((codes,group)=>codes.forEach(code=>codeToGroup.set(String(code).toUpperCase().replace(/\\s+/g,''),group)));
+      }
+      const candidates=new Map();
+      (Array.isArray(liveSohRows)?liveSohRows:[]).forEach(raw=>{
+        const type=String(keyValue(raw,['TYPE','Type'])||'').trim().toUpperCase();
+        if(type&&type!=='SOH')return;
+        const code=String(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No'])??'').trim().toUpperCase().replace(/\\s+/g,'');
+        const rawGroup=String(keyValue(raw,['ItemAttribute.SKUGroup','SKUGroup','SKU Group'])??'').trim();
+        const group=(typeof mbqSkuGroupKey==='function'&&rawGroup?mbqSkuGroupKey(rawGroup):'')||codeToGroup.get(code);
+        if(!group||!code||codeToGroup.get(code)!==group)return;
+        const shelf=Number(String(keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%'])??'').replace(/[% ,]/g,''));
+        const mrpRaw=keyValue(raw,['MRP','MRP NEW','Mrp','Maximum Retail Price']);
+        const mrp=Number(String(mrpRaw??'').replace(/[₹,\\s]/g,''));
+        if(!Number.isFinite(shelf)||mrpRaw===null||mrpRaw===undefined||String(mrpRaw).trim()===''||!Number.isFinite(mrp))return;
+        if(!candidates.has(group))candidates.set(group,[]);
+        candidates.get(group).push({shelf,mrp,code});
+      });
+      candidates.forEach((items,group)=>{
+        const preferred=items.filter(x=>x.shelf>60).sort((a,b)=>b.shelf-a.shelf||a.code.localeCompare(b.code));
+        const fallback=items.filter(x=>x.shelf>=50&&x.shelf<=55).sort((a,b)=>b.shelf-a.shelf||a.code.localeCompare(b.code));
+        if(preferred[0]||fallback[0])result.set(group,(preferred[0]||fallback[0]).mrp);
+      });
+    }catch(error){console.warn('CFA detail export MRP lookup unavailable:',error);}
+    return result;
+  };
+  const mrpMap=mrpBySku();
+  const border={top:{style:'thin',color:{rgb:'D7DEE8'}},bottom:{style:'thin',color:{rgb:'D7DEE8'}},left:{style:'thin',color:{rgb:'D7DEE8'}},right:{style:'thin',color:{rgb:'D7DEE8'}}};
+  const widths=[32,14,14,13,14,14,14,15,14,15,16,12];
+  const headers=['NEW SKU GRP','MRP NEW','Category','Contri %','Avg','Indent','SOH','Intransit','MBQ','Sales','Sales Trend','DOS'];
+  const numericCols=new Set([1,3,4,5,6,7,8,9,10,11]);
+  try{
+    if(searchEl)searchEl.value='';
+    if(sizeEl&&[...sizeEl.options].some(o=>o.value==='250'))sizeEl.value='250';
+    if(savedHide!==null)mbqHideEmptyIndents=false;
+    for(const cfa of cfas){
+      const host=document.createElement('div');
+      const rendered=typeof mbqRenderLoadedWorkbook==='function'&&mbqRenderLoadedWorkbook(cfa.key,host,cfa.name);
+      const table=rendered?host.querySelector('table.excel-table'):null;
+      const headerRow=table?.querySelector('thead tr:last-child');
+      const tableHeaders=headerRow?[...headerRow.querySelectorAll('th,td')].map(x=>x.textContent.trim()):[];
+      const idx={
+        sku:getIndex(tableHeaders,'SKU GROUP'),
+        category:getIndex(tableHeaders,'CAT','CATEGORY','CTG'),
+        contribution:getIndex(tableHeaders,'CONTRI%','CONTRI %'),
+        avg:getIndex(tableHeaders,'L3M AVG SALES'),
+        indent:getIndex(tableHeaders,'IND','INDENT'),
+        soh:getIndex(tableHeaders,'SOH>60%','SOH'),
+        transit:getIndex(tableHeaders,'INTRANSIT','IN TRANSIT'),
+        mbq:getIndex(tableHeaders,'MBQ'),
+        sales:getIndex(tableHeaders,'SALES'),
+        trend:getIndex(tableHeaders,'S. TREND','S.TREND','SALES TREND'),
+        dos:getIndex(tableHeaders,'DOS')
+      };
+      const bodyRows=table?[...table.querySelectorAll('tbody tr')]:[];
+      const dataRows=bodyRows.map(tr=>[...tr.querySelectorAll('td')].map(td=>td.textContent.trim()))
+        .filter(cells=>cells.length&&idx.sku>=0&&cells[idx.sku]&&!/^(TOTAL|GRAND TOTAL|OVERALL TOTAL)$/i.test(cells[idx.sku]));
+      const out=dataRows.map(cells=>{
+        const sku=cells[idx.sku]||'No Data Available';
+        const groupKey=typeof mbqSkuGroupKey==='function'?mbqSkuGroupKey(sku):String(sku).trim().toUpperCase();
+        return [
+          sku,
+          mrpMap.has(groupKey)?mrpMap.get(groupKey):'No Data Available',
+          idx.category>=0?cells[idx.category]||'No Data Available':'No Data Available',
+          cellValue(cells,idx.contribution,true),
+          cellValue(cells,idx.avg),
+          cellValue(cells,idx.indent),
+          cellValue(cells,idx.soh),
+          cellValue(cells,idx.transit),
+          cellValue(cells,idx.mbq),
+          cellValue(cells,idx.sales),
+          cellValue(cells,idx.trend,true),
+          cellValue(cells,idx.dos)
+        ];
+      });
+      const rows=out.length?out:[['No Data Available',...Array(headers.length-1).fill('No Data Available')]];
+      const aoa=[[ 'UNIBIC KERALA · '+cfa.name+' · FULL SKU DETAILS' ],
+                 [ 'Daily WhatsApp Flash period: '+(from||'—')+' to '+(to||'—') ],
+                 headers,...rows];
+      const ws=XLSX.utils.aoa_to_sheet(aoa);
+      ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:headers.length-1}},{s:{r:1,c:0},e:{r:1,c:headers.length-1}}];
+      ws['!cols']=widths.map(w=>({wch:w}));
+      ws['!rows']=[{hpt:28},{hpt:21},{hpt:34},...rows.map(()=>({hpt:22}))];
+      ws['!freeze']={xSplit:0,ySplit:3,topLeftCell:'A4',activePane:'bottomLeft',state:'frozen'};
+      ws['!autofilter']={ref:'A3:L'+(rows.length+3)};
+      for(let r=0;r<rows.length+3;r++){
+        for(let c=0;c<headers.length;c++){
+          const cell=ws[XLSX.utils.encode_cell({r,c})];if(!cell)continue;
+          const fill=r===0?'17365D':r===1?cfa.head:r===2?cfa.accent:(r%2?cfa.body:'FFFFFF');
+          const fontColor=r===0||r===2?'FFFFFF':(r===1?cfa.accent:'24364B');
+          const style={font:{name:'Aptos',sz:r===0?13:r===2?10:9,bold:r<3||c===0,color:{rgb:fontColor}},
+            fill:{patternType:'solid',fgColor:{rgb:fill}},
+            alignment:{vertical:'center',horizontal:r<3?'center':(numericCols.has(c)?'right':'left'),wrapText:true},
+            border};
+          if(r>=3&&numericCols.has(c)&&typeof rows[r-3][c]==='number'){
+            style.numFmt=c===3||c===10?'0.0%':c===11?'0.0':'#,##0.00';
+          }
+          cell.s=style;
+        }
+      }
+      XLSX.utils.book_append_sheet(wb,ws,cfa.tab);
+    }
+    wb.Workbook=wb.Workbook||{};
+    wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};
+    const safeFrom=from||'AllDates',safeTo=to||'AllDates';
+    XLSX.writeFile(wb,'UNIBIC_Daily_Flash_CFA_Details_'+safeFrom+'_to_'+safeTo+'.xlsx',{compression:true});
+    showToast('Separate 3-CFA colour Excel downloaded · ALU, TVD and PAY sheets.');
+  }catch(error){
+    console.error('Daily Flash CFA details export failed:',error);
+    showToast('CFA details Excel export failed: '+(error.message||'Please retry.'));
+  }finally{
+    if(searchEl)searchEl.value=savedSearch??'';
+    if(sizeEl&&savedSize!==null)sizeEl.value=savedSize;
+    if(savedHide!==null)mbqHideEmptyIndents=savedHide;
+    Object.entries(savedStats).forEach(([id,value])=>{const el=document.getElementById(id);if(el)el.textContent=value;});
+  }
+};
+</script>
+
+</body>
+</html>
