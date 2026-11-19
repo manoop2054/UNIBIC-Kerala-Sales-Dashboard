@@ -1130,7 +1130,7 @@ body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,t
 <div class="card flash-cfa-new-session" id="flashNewCfaSession" style="display:none;margin-top:16px">
  <div class="flash-cfa-new-head">
   <div><div class="eyebrow">NEW SESSION · UNIBIC KERALA</div><h3>3 CFA · Group-wise Indent vs Billed Achievement</h3><small id="flashNewCfaPeriod">Selected date range · GSV date-wise billing</small></div>
-  <button class="btn primary" type="button" onclick="mbqExportDailyFlashCfaDetails()">⇩ Export New Session · Excel</button>
+  <button class="btn primary" type="button" onclick="mbqOpenReportExport(this,'New Session · Daily Flash','#flashNewCfaSession',mbqExportDailyFlashCfaDetails)">⇩ Export New Session</button>
  </div>
  <div id="flashNewCfaCards" class="flash-cfa-new-grid"></div>
 </div>
@@ -2948,7 +2948,13 @@ function printToReport(mode='details'){
   :'<th>TO Number</th><th>Item Number</th><th>Product Name</th><th>CFA</th><th>Transfer Qty CBO</th><th>Received CBB</th><th>Open TO CBB</th><th>Status</th>';
  const w=window.open('','_blank');if(!w){showToast('Print popup അനുവദിക്കുക.');return;}
  const title=summary?'Summary':'Item Details';
- const html=`<!doctype html><html><head><meta charset="utf-8"><title>Open TO Report</title><style>body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}</style></head><body><h2>Open TO ${escapeToHtml(title)}</h2><table><thead><tr>${heads}</tr></thead><tbody>${rows}</tbody></table><script>window.onload=function(){window.focus();window.print();};<\\/script><script>
+ const html=`<!doctype html><html><head><meta charset="utf-8"><title>Open TO Report</title><style>body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}</style></head><body><h2>Open TO ${escapeToHtml(title)}</h2><table><thead><tr>${heads}</tr></thead><tbody>${rows}</tbody></table><script>window.onload=function(){window.focus();window.print();};<\\/script>
+</body></html>`;
+ w.document.open();w.document.write(html);w.document.close();w.focus();w.print();
+}
+;
+;
+
 window.mbqExportDailyFlashCfaDetails = async function(){
   if(typeof mbqEnsureXlsx==='function'){
     try{await mbqEnsureXlsx();}catch(error){showToast(error.message||'Excel library unavailable.');return;}
@@ -3127,12 +3133,6 @@ window.mbqExportDailyFlashCfaDetails = async function(){
     Object.entries(savedStats).forEach(([id,value])=>{const el=document.getElementById(id);if(el)el.textContent=value;});
   }
 };
-<\/script>
-</body></html>`;
- w.document.open();w.document.write(html);w.document.close();w.focus();w.print();
-}
-;
-;
 
 (function(){
  const cfas=[{key:'ALU',label:'ALU CFA',cls:'flash-cfa-alu'},{key:'TVD',label:'TVD CFA',cls:'flash-cfa-tvd'},{key:'PAY',label:'PAY CFA',cls:'flash-cfa-pay'}];
