@@ -3460,7 +3460,7 @@ function renderFlash(){
  });
  select.value='COMPARE_3';
  window.mbqFlashCompareReports=reports;
- const noIndentHost=document.getElementById('flashNoIndentRows');if(noIndentHost)noIndentHost.innerHTML=reports.map(r=>'<section class="flash-compare-col '+r.cls+'"><h4>'+r.key+' CFA</h4>'+r.noIndentHtml+'</section>').join('');
+ const noIndentHost=document.getElementById('flashNoIndentRows');if(noIndentHost)noIndentHost.innerHTML='';
  if(flash)flash.style.display='none';
  if(note)note.style.display='none';
  if(summaryCard)summaryCard.style.display='none';
