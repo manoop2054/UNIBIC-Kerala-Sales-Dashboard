@@ -897,6 +897,34 @@ body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,t
 }
 </style>
 
+
+<style id="daily-flash-new-cfa-session-style">
+#flashNewCfaSession{padding:16px;border:1px solid #dce4ee;border-radius:14px;background:#fff}
+#flashNewCfaSession .flash-cfa-new-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px}
+#flashNewCfaSession .flash-cfa-new-head h3{font-size:15px;margin:4px 0;color:#18253b}
+#flashNewCfaSession .flash-cfa-new-head small{font-size:11px;color:#718096}
+#flashNewCfaSession .flash-cfa-new-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start}
+#flashNewCfaSession .flash-cfa-new-card{border:1px solid;border-radius:12px;overflow:hidden;min-width:0;box-shadow:0 3px 10px rgba(20,39,71,.05)}
+#flashNewCfaSession .flash-cfa-new-card h4{font-size:13px;margin:0;padding:10px 12px}
+#flashNewCfaSession .flash-cfa-new-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:9px}
+#flashNewCfaSession .flash-cfa-new-kpi{border:1px solid #ffffffb8;border-radius:8px;background:#ffffffd9;padding:8px;min-width:0}
+#flashNewCfaSession .flash-cfa-new-kpi small{display:block;font-size:9px;font-weight:750;color:#52627a;line-height:1.25}
+#flashNewCfaSession .flash-cfa-new-kpi strong{display:block;font-size:16px;line-height:1.2;margin-top:5px;color:#18253b;overflow-wrap:anywhere}
+#flashNewCfaSession .flash-cfa-new-table-title{padding:2px 10px 8px;font-size:9px;font-weight:800;letter-spacing:.35px;color:#52627a}
+#flashNewCfaSession .flash-cfa-new-table{width:100%;min-width:0;border-collapse:collapse}
+#flashNewCfaSession .flash-cfa-new-table th{font-size:8px;padding:8px 6px;background:#ffffffa8;color:#52627a;white-space:normal}
+#flashNewCfaSession .flash-cfa-new-table td{font-size:9px;padding:7px 6px;white-space:normal;overflow-wrap:anywhere}
+#flashNewCfaSession .flash-cfa-new-table td:not(:first-child),#flashNewCfaSession .flash-cfa-new-table th:not(:first-child){text-align:right}
+#flashNewCfaSession .flash-cfa-new-empty{text-align:center!important;color:#718096;padding:14px 5px!important}
+#flashNewCfaSession .flash-cfa-alu{background:#e8f1fa;border-color:#a8c5e3}
+#flashNewCfaSession .flash-cfa-alu h4{background:#d7e7f7;color:#245b91}
+#flashNewCfaSession .flash-cfa-tvd{background:#e9f4ea;border-color:#a9ceaf}
+#flashNewCfaSession .flash-cfa-tvd h4{background:#d8ebdc;color:#28723d}
+#flashNewCfaSession .flash-cfa-pay{background:#fff0e5;border-color:#e6bfa4}
+#flashNewCfaSession .flash-cfa-pay h4{background:#ffe2cf;color:#a65320}
+@media(max-width:900px){#flashNewCfaSession .flash-cfa-new-grid{grid-template-columns:1fr}#flashNewCfaSession .flash-cfa-new-head{align-items:flex-start;flex-direction:column}}
+@media(min-width:901px) and (max-width:1150px){#flashNewCfaSession .flash-cfa-new-kpi strong{font-size:13px}#flashNewCfaSession .flash-cfa-new-table th,#flashNewCfaSession .flash-cfa-new-table td{font-size:8px;padding:6px 4px}}
+</style>
 </head>
 <body><div id="mbqLoginGate"><div class="mbq-login-card"><div class="mbq-login-brand">UNIBIC · EMPLOYEE ACCESS</div><div id="mbqLoginFormWrap"><h1>MBQ Smart Indent</h1><p>Sign in using your existing UNIBIC Dashboard Employee ID and password.</p><form id="mbqLoginForm"><label for="mbqEmployeeId">Employee ID</label><input id="mbqEmployeeId" name="employee_id" autocomplete="username" required><label for="mbqEmployeePassword">Password</label><input id="mbqEmployeePassword" name="password" type="password" autocomplete="current-password" required><button id="mbqLoginButton" type="submit">Login</button><div id="mbqLoginMessage" role="alert"></div></form></div><div id="mbqAccessPending"><h1>Access not assigned yet</h1><p id="mbqPendingMessage">Your MBQ tab access has not been assigned by Super Admin.</p><button type="button" id="mbqPendingLogout">Logout</button></div></div></div><div class="app"><aside class="sidebar"><div class="brand"><div class="logo">MB</div><div><strong>SMART INDENT</strong><small>Kerala · CFA Replenishment</small></div></div><div class="nav-label">WORKSPACE</div><nav class="nav" id="nav"><button class="active" data-page="overview"><span>◫</span>Overview Dashboard</button><button data-page="indent"><span>＋</span>Monthly Indent Entry</button><button data-page="suggest"><span>✦</span>AI Suggested Indent</button><button data-page="stock"><span>▦</span>CFA-wise Stock</button><button data-page="advanced"><span>✦</span>Advanced Controls</button><button data-page="distributor"><span>▥</span>Distributor Performance</button><button data-page="peak"><span>◷</span>Peak Billing Planner</button><button data-page="loading"><span>▤</span>CFA Loading Plan</button><button data-page="flash"><span>◉</span>Daily WhatsApp Flash</button><button data-page="reports"><span>⇩</span>Reports & Export</button><button data-page="excelview"><span>▤</span>MBQ Excel View</button><button data-page="settings"><span>⚙</span>Master Data & Settings</button></nav><div class="sidebar-foot"><span class="dot"></span>MBQ workspace<br><br>Data will appear after the relevant source is connected.</div></aside>
 <main class="main"><header class="topbar"><div class="crumb">Workspace / <b id="crumb">Overview Dashboard</b></div><div class="top-right"><div id="gsvConnectionStatus" class="gsv-connection loading" role="status" aria-live="polite"><span class="gsv-dot"></span><span id="gsvConnectionLabel">GSV Loading</span></div><select class="select" id="month" onchange="renderMbqExcelView()"><option>November 2026</option><option>October 2026</option><option>December 2026</option></select><select class="select" id="cfa"><option>All CFAs</option><option>TVD CFA</option><option>PAY CFA</option><option>ALU CFA</option></select><div class="user" id="mbqEmployeeIdDisplay">Employee</div><button class="mbq-logout-link" id="mbqLogoutButton" type="button">Logout</button></div></header><div class="content">
@@ -1098,6 +1126,14 @@ body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,t
 </section>
 <section class="section" id="page-loading"><div class="page-head"><div><div class="eyebrow">CFA-specific supply planning</div><h1>CFA Loading & Indent Planner</h1><p>Day-wise demand is the base. Required Loading = max(0, Allocated Indent − 60%+ usable CFA SOH − INTRANSIT). No uploaded TO records means 0 pending TO; this planner's current loading is never treated as Open TO.</p></div><div class="actions"><button class="btn" onclick="mbqOpenReportExport(this,'Plant Loading Sheet','#page-loading')">⇩ Export Plant Loading Sheet</button><button class="btn" onclick="aiFillDaysPlanBalance()">AI Fill Balance</button><button class="btn primary" onclick="renderDaysPlanner()">↻ Calculate plan</button></div></div><div class="card" style="margin-bottom:16px"><div class="form-grid"><div class="field"><label>Selected CFA</label><select id="daysPlanCfa" onchange="renderDaysPlanner()"><option value="PAY" selected>PAY CFA</option><option value="ALU">ALU CFA</option><option value="TVD">TVD CFA</option></select></div><div class="field"><label>Planning period</label><select id="daysPlanDays" onchange="renderDaysPlanner()"><option value="6">6 Days</option><option value="12" selected>12 Days</option><option value="18">18 Days</option><option value="custom">Custom Days</option></select></div><div class="field" id="daysPlanCustomWrap" style="display:none"><label>Custom days</label><input id="daysPlanCustom" type="number" min="1" step="1" placeholder="Enter days" oninput="renderDaysPlanner()"></div><div class="field"><label>Available loading capacity (CBB) · optional</label><input id="daysPlanCapacity" type="number" min="0" step="1" placeholder="Enter approved CBB capacity" oninput="renderDaysPlanner()"></div><div class="field"><label>Item display</label><button class="btn" id="daysPlanZeroIndentToggle" type="button" onclick="toggleDaysPlanZeroIndent()">Hide 0 Indent</button></div></div></div><div class="grid kpis" style="margin-bottom:16px"><div class="card kpi"><div class="label">Period demand</div><div class="value" id="daysPlanDemand">No Data Available</div><div class="sub">Average daily sales × selected days</div></div><div class="card kpi"><div class="label">Required loading</div><div class="value" id="daysPlanIndent">No Data Available</div><div class="sub">Allocated Indent less 60%+ usable SOH and INTRANSIT</div></div><div class="card kpi"><div class="label">Final loading qty</div><div class="value" id="daysPlanLoad">No Data Available</div><div class="sub" id="daysPlanLoadSub">AI add-on not applied</div></div><div class="card kpi"><div class="label">Balance capacity</div><div class="value" id="daysPlanShortage">No Data Available</div><div class="sub">After final loading; capacity required</div></div></div><div class="card table-card"><div class="card-head"><div><h3>Item-wise CFA Demand & Loading</h3><small id="daysPlanTableSub">PAY CFA · 12 days · Latest 3 completed months (excludes current month)</small></div><span class="pill blue" id="daysPlanStatus">SOURCE DATA REQUIRED</span></div><div class="table-wrap"><table><thead><tr><th>CFA</th><th>SKU Group</th><th>FG Code</th><th>Allocated Indent</th><th>Average Daily Sales</th><th>Period Demand</th><th>Usable CFA SOH</th><th>INTRANSIT</th><th>Required Loading</th><th>AI Suggested Add-on</th><th>Allocation Balance (CBB)</th><th>Final Loading Qty</th><th>Status</th></tr></thead><tbody id="daysPlanRows"><tr><td colspan="13" class="empty">No Data Available</td></tr></tbody></table></div><div class="small-note">Required Loading = max(0, Allocated Indent − 60%+ usable CFA SOH − INTRANSIT). Allocation Balance = max(0, Allocated Indent − 60%+ usable CFA SOH − INTRANSIT). Final Loading Qty is limited by the available allocation balance; 0-indent items can be hidden with the toggle. No uploaded TO records means 0 pending TO. AI Suggested Add-on fills only the remaining capacity up to the 950 CBB target; Required Loading and Allocation Balance are not reduced. Missing demand or SOH is flagged, not silently treated as confirmed data.</div></div></section>
 <section class="section" id="page-flash"><div class="page-head"><div><div class="eyebrow">Daily execution</div><h1>Daily WhatsApp Flash</h1><p>Build a concise operational update for sharing with the sales / supply team.</p></div><div class="actions"><button class="btn" onclick="copyFlash()">⧉ Copy WhatsApp text</button><button class="btn" onclick="mbqOpenReportExport(this,'Daily WhatsApp Flash','#page-flash',mbqFlashExcelExport,mbqFlashPdfExport)">⇩ Export Report</button></div></div><div class="card"><div class="card-head"><h3>Flash report filters</h3><small>Choose a date range; billing is calculated from dated GSV invoice rows.</small></div><div class="form-grid"><div class="field"><label>From Date</label><input id="flashFromDate" type="date" onchange="renderFlash()"></div><div class="field"><label>To Date</label><input id="flashToDate" type="date" onchange="renderFlash()"></div><div class="field"><label>CFA</label><select id="flashCfa" onchange="renderFlash()"><option>All CFAs</option><option>TVD CFA</option><option>PAY CFA</option><option>ALU CFA</option><option value="COMPARE_3">Compare 3 CFAs</option></select></div><div class="field"><label>Sales / billing source</label><div id="flashSourceStatus" class="input" style="min-height:38px;display:flex;align-items:center;color:var(--green);font-weight:600">GSV date-wise billing loading…</div></div></div><div id="flashCfaKpiCompare" class="flash-cfa-kpi-compare" style="display:none"><div class="flash-cfa-kpi-head"><div><h3>3 CFA · Group-wise Indent vs Billed Achievement</h3><small id="flashCfaKpiPeriod">Selected date range</small></div><button class="btn" onclick="mbqOpenReportExport(this,'3 CFA Group Indent vs Billed','#flashCfaKpiCompare',mbqExportCfaKpiExcel,mbqExportCfaKpiPdf,mbqExportCfaKpiJpg)">⇩ Export · Excel / PDF / JPEG</button></div><div id="flashCfaKpiCards" class="flash-cfa-kpi-grid"></div></div><div class="card-body"><div id="flashText" class="flash"></div><div id="flashCompareContainer" class="flash-compare-grid" style="display:none"></div><div id="flashBillingNote" style="margin-top:12px;font-size:10.5px;color:var(--muted)">Billing totals will be calculated from the actual GSV posting dates.</div></div></div>
+
+<div class="card flash-cfa-new-session" id="flashNewCfaSession" style="display:none;margin-top:16px">
+ <div class="flash-cfa-new-head">
+  <div><div class="eyebrow">NEW SESSION · UNIBIC KERALA</div><h3>3 CFA · Group-wise Indent vs Billed Achievement</h3><small id="flashNewCfaPeriod">Selected date range · GSV date-wise billing</small></div>
+  <button class="btn primary" type="button" onclick="mbqExportDailyFlashCfaDetails()">⇩ Export New Session · Excel</button>
+ </div>
+ <div id="flashNewCfaCards" class="flash-cfa-new-grid"></div>
+</div>
 <div class="card" style="margin-top:16px"><div class="report-banner flash-report-banner"><div><h3>Group-wise Indent vs Billed Achievement</h3><small>Separate group-level reconciliation · values and percentages</small></div><button class="btn" onclick="mbqOpenReportExport(this,'Group-wise Indent vs Billed','#flashGroupRows')">⇩ Export group report</button></div><div class="card-body"><div id="flashGroupSummary" class="grid kpis" style="margin-bottom:14px"></div><div class="table-wrap"><table><thead><tr><th>SKU Group</th><th>Indent (CBB)</th><th>Running-month Billed (CBB)</th><th>Achievement %</th><th>Balance %</th><th>Balance (CBB)</th></tr></thead><tbody id="flashGroupRows"><tr><td colspan="6" class="empty">Waiting for GSV billing data and indent quantities.</td></tr></tbody></table></div><div id="flashGroupNote" class="small-note">Achievement = billed ÷ indent × 100. Balance % = remaining indent ÷ indent × 100. Values above 100% indicate over-billing.</div></div></div></section>
 <section class="section" id="page-advanced">
  <div class="page-head"><div><div class="eyebrow">Advanced control tower</div><h1>Advanced Controls & Exceptions</h1><p>Verified GSV, LIVE SOH, CFA allocation and uploaded Fill Rate Report sources only.</p></div><div class="actions"><button class="btn primary" onclick="mbqAdvOpen('quality')">Run Source Validation</button></div></div>
@@ -2912,7 +2948,187 @@ function printToReport(mode='details'){
   :'<th>TO Number</th><th>Item Number</th><th>Product Name</th><th>CFA</th><th>Transfer Qty CBO</th><th>Received CBB</th><th>Open TO CBB</th><th>Status</th>';
  const w=window.open('','_blank');if(!w){showToast('Print popup അനുവദിക്കുക.');return;}
  const title=summary?'Summary':'Item Details';
- const html=`<!doctype html><html><head><meta charset="utf-8"><title>Open TO Report</title><style>body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}</style></head><body><h2>Open TO ${escapeToHtml(title)}</h2><table><thead><tr>${heads}</tr></thead><tbody>${rows}</tbody></table><script>window.onload=function(){window.focus();window.print();};<\\/script></body></html>`;
+ const html=`<!doctype html><html><head><meta charset="utf-8"><title>Open TO Report</title><style>body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#edf2f7}</style></head><body><h2>Open TO ${escapeToHtml(title)}</h2><table><thead><tr>${heads}</tr></thead><tbody>${rows}</tbody></table><script>window.onload=function(){window.focus();window.print();};<\\/script><script>
+window.mbqExportDailyFlashCfaDetails = async function(){
+  if(typeof mbqEnsureXlsx==='function'){
+    try{await mbqEnsureXlsx();}catch(error){showToast(error.message||'Excel library unavailable.');return;}
+  }
+  if(!window.XLSX){showToast('Excel library loading. Please retry.');return;}
+  const cfas=[{key:'ALU',name:'ALU CFA',tab:'ALU CFA',head:'D9EAD3',body:'F1F8F2',accent:'387B4B'},
+              {key:'TVD',name:'TVD CFA',tab:'TVD CFA',head:'CFE2F3',body:'F0F6FC',accent:'28639A'},
+              {key:'PAY',name:'PAY CFA',tab:'PAY CFA',head:'FCE4D6',body:'FFF5EF',accent:'B65D22'}];
+  const searchEl=document.getElementById('mbqViewSearch');
+  const sizeEl=document.getElementById('mbqViewPageSize');
+  const statIds=['mbqStatCfa','mbqStatRows','mbqStatCols','mbqStatSource'];
+  const savedStats={};
+  statIds.forEach(id=>{const el=document.getElementById(id);if(el)savedStats[id]=el.textContent;});
+  const savedSearch=searchEl?searchEl.value:null;
+  const savedSize=sizeEl?sizeEl.value:null;
+  const savedHide=typeof mbqHideEmptyIndents!=='undefined'?mbqHideEmptyIndents:null;
+  const from=document.getElementById('flashFromDate')?.value||'';
+  const to=document.getElementById('flashToDate')?.value||'';
+  const wb=XLSX.utils.book_new();
+  const normHeader=v=>String(v??'').trim().toUpperCase().replace(/\s+/g,' ');
+  const getIndex=(headers,...names)=>{for(const name of names){const i=headers.findIndex(h=>normHeader(h)===normHeader(name));if(i>=0)return i;}return -1;};
+  const cellValue=(cells,index,percent=false)=>{
+    if(index<0||index>=cells.length)return 'No Data Available';
+    const raw=String(cells[index]??'').replace(/\s+/g,' ').trim();
+    if(!raw||/^(NO DATA AVAILABLE|—|-|N\/A)$/i.test(raw))return 'No Data Available';
+    const hasPercent=/%$/.test(raw);
+    const n=Number(raw.replace(/,/g,'').replace(/₹/g,'').replace(/CBB/ig,'').replace(/%/g,'').trim());
+    if(!Number.isFinite(n))return raw;
+    return (percent||hasPercent)?n/100:n;
+  };
+  const mrpBySku=()=>{
+    const result=new Map();
+    try{
+      if(typeof mbqBuildSkuGroupCodeIndex==='function'&&(!mbqSkuCodesByGroup||!mbqSkuCodesByGroup.size))mbqBuildSkuGroupCodeIndex();
+      const codeToGroup=new Map();
+      if(mbqSkuCodesByGroup&&typeof mbqSkuCodesByGroup.forEach==='function'){
+        mbqSkuCodesByGroup.forEach((codes,group)=>codes.forEach(code=>codeToGroup.set(typeof mbqGsvNormCode==='function'?mbqGsvNormCode(code):String(code).toUpperCase().replace(/\s+/g,''),group)));
+      }
+      const candidates=new Map();
+      (Array.isArray(liveSohRows)?liveSohRows:[]).forEach(raw=>{
+        const type=String(keyValue(raw,['TYPE','Type'])||'').trim().toUpperCase();
+        if(type&&type!=='SOH')return;
+        const rawCode=keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']);
+        const code=typeof mbqGsvNormCode==='function'?mbqGsvNormCode(rawCode):String(rawCode??'').trim().toUpperCase().replace(/\s+/g,'');
+        const rawGroup=String(keyValue(raw,['ItemAttribute.SKUGroup','SKUGroup','SKU Group'])??'').trim();
+        const group=(typeof mbqSkuGroupKey==='function'&&rawGroup?mbqSkuGroupKey(rawGroup):'')||codeToGroup.get(code);
+        if(!group||!code||codeToGroup.get(code)!==group)return;
+        const shelf=Number(String(keyValue(raw,['REMAININGSHELFLIFE','Remaining Shelf Life','Remaining Shelf Life %','Available Shelf Life %','Shelf Life %','ShelfLife%'])??'').replace(/[% ,]/g,''));
+        const mrpRaw=keyValue(raw,['MRP','MRP NEW','Mrp','Maximum Retail Price']);
+        const mrp=Number(String(mrpRaw??'').replace(/[₹,\s]/g,''));
+        if(!Number.isFinite(shelf)||mrpRaw===null||mrpRaw===undefined||String(mrpRaw).trim()===''||!Number.isFinite(mrp))return;
+        if(!candidates.has(group))candidates.set(group,[]);
+        candidates.get(group).push({shelf,mrp,code});
+      });
+      candidates.forEach((items,group)=>{
+        const preferred=items.filter(x=>x.shelf>60).sort((a,b)=>b.shelf-a.shelf||a.code.localeCompare(b.code));
+        const fallback=items.filter(x=>x.shelf>=50&&x.shelf<=55).sort((a,b)=>b.shelf-a.shelf||a.code.localeCompare(b.code));
+        if(preferred[0]||fallback[0])result.set(group,(preferred[0]||fallback[0]).mrp);
+      });
+    }catch(error){console.warn('CFA detail export MRP lookup unavailable:',error);}
+    return result;
+  };
+  const mrpMap=mrpBySku();
+  const border={top:{style:'thin',color:{rgb:'D7DEE8'}},bottom:{style:'thin',color:{rgb:'D7DEE8'}},left:{style:'thin',color:{rgb:'D7DEE8'}},right:{style:'thin',color:{rgb:'D7DEE8'}}};
+  const widths=[32,14,14,13,14,14,14,15,14,15,16,12];
+  const headers=['NEW SKU GRP','MRP NEW','Category','Contri %','Avg','Indent','SOH','Intransit','MBQ','Sales','Sales Trend','DOS'];
+  const numericCols=new Set([1,3,4,5,6,7,8,9,10,11]);
+  try{
+    if(searchEl)searchEl.value='';
+    if(sizeEl&&[...sizeEl.options].some(o=>o.value==='250'))sizeEl.value='250';
+    if(savedHide!==null)mbqHideEmptyIndents=false;
+    for(const cfa of cfas){
+      const host=document.createElement('div');
+      const rendered=typeof mbqRenderLoadedWorkbook==='function'&&mbqRenderLoadedWorkbook(cfa.key,host,cfa.name);
+      const table=rendered?host.querySelector('table.excel-table'):null;
+      const headerRow=table?.querySelector('thead tr:last-child');
+      const tableHeaders=headerRow?[...headerRow.querySelectorAll('th,td')].map(x=>x.textContent.trim()):[];
+      const idx={
+        sku:getIndex(tableHeaders,'SKU GROUP'),
+        category:getIndex(tableHeaders,'CAT','CATEGORY','CTG'),
+        contribution:getIndex(tableHeaders,'CONTRI%','CONTRI %'),
+        avg:getIndex(tableHeaders,'L3M AVG SALES'),
+        indent:getIndex(tableHeaders,'IND','INDENT'),
+        soh:getIndex(tableHeaders,'SOH>60%','SOH'),
+        transit:getIndex(tableHeaders,'INTRANSIT','IN TRANSIT'),
+        mbq:getIndex(tableHeaders,'MBQ'),
+        sales:getIndex(tableHeaders,'SALES'),
+        trend:getIndex(tableHeaders,'S. TREND','S.TREND','SALES TREND'),
+        dos:getIndex(tableHeaders,'DOS')
+      };
+      const bodyRows=table?[...table.querySelectorAll('tbody tr')]:[];
+      const dataRows=bodyRows.map(tr=>[...tr.querySelectorAll('td')].map(td=>td.textContent.trim()))
+        .filter(cells=>cells.length&&idx.sku>=0&&cells[idx.sku]&&!/^(TOTAL|GRAND TOTAL|OVERALL TOTAL)$/i.test(cells[idx.sku]));
+      const numericValue=value=>{
+        if(value===null||value===undefined||value===''||String(value).trim()==='No Data Available'||String(value).trim()==='ALLOCATION NOT DONE')return null;
+        const n=Number(String(value).replace(/,/g,'').replace(/CBB/ig,'').replace(/%/g,'').trim());
+        return Number.isFinite(n)?n:null;
+      };
+      const out=dataRows.map(cells=>{
+        const sku=cells[idx.sku]||'No Data Available';
+        const groupKey=typeof mbqSkuGroupKey==='function'?mbqSkuGroupKey(sku):String(sku).trim().toUpperCase();
+        const indent=typeof mbqCfaAllocatedIndentForSku==='function'?mbqCfaAllocatedIndentForSku(sku,cfa.key):cellValue(cells,idx.indent);
+        const soh=typeof mbqExcelGroupSoh==='function'?mbqExcelGroupSoh(sku,cfa.key,false):cellValue(cells,idx.soh);
+        const transit=typeof mbqExcelGroupIntransit==='function'?mbqExcelGroupIntransit(sku,cfa.key):cellValue(cells,idx.transit);
+        const skuCodes=mbqSkuCodesByGroup?.get(groupKey);
+        let periodSales=null,periodSalesFound=false;
+        if(from&&to&&skuCodes?.size&&Array.isArray(mbqGsvRows)){
+          mbqGsvRows.forEach(gsvRow=>{
+            const saleDate=String(gsvRow.date||'').slice(0,10);
+            const saleCfa=typeof normalCfa==='function'?normalCfa(gsvRow.cfa):String(gsvRow.cfa||'').trim().toUpperCase();
+            if(saleDate<from||saleDate>to||saleCfa!==cfa.key||!skuCodes.has(typeof mbqGsvNormCode==='function'?mbqGsvNormCode(gsvRow.itemId):String(gsvRow.itemId||'').trim().toUpperCase()))return;
+            const quantity=Number(gsvRow.quantity);if(Number.isFinite(quantity)){periodSales=(periodSales||0)+quantity;periodSalesFound=true;}
+          });
+        }
+        const sales=periodSalesFound?periodSales:null;
+        const history=typeof mbqSelectedMonthHistory==='function'?mbqSelectedMonthHistory():[];
+        const monthly=history.map(m=>typeof mbqLoadedSalesValue==='function'?mbqLoadedSalesValue(sku,cfa.key,m.month):null);
+        const avg=history.length===3?(monthly.every(v=>v!==null&&v!==undefined&&Number.isFinite(Number(v)))?monthly.reduce((sum,v)=>sum+Number(v),0)/3:'No Data Available'):cellValue(cells,idx.avg);
+        const indentNum=numericValue(indent),sohNum=numericValue(soh),salesNum=numericValue(sales);
+        const trend=indentNum!==null&&indentNum!==0&&salesNum!==null?salesNum/indentNum:'No Data Available';
+        const dos=indentNum!==null&&indentNum!==0&&sohNum!==null?sohNum/(indentNum/30):'No Data Available';
+        return [
+          sku,
+          mrpMap.has(groupKey)?mrpMap.get(groupKey):'No Data Available',
+          idx.category>=0?cells[idx.category]||'No Data Available':'No Data Available',
+          cellValue(cells,idx.contribution,true),
+          avg,
+          indent,
+          soh===null||soh===undefined?'No Data Available':soh,
+          transit===null||transit===undefined?'No Data Available':transit,
+          cellValue(cells,idx.mbq),
+          sales===null||sales===undefined?'No Data Available':sales,
+          trend,
+          dos
+        ];
+      });
+      const rows=out.length?out:[['No Data Available',...Array(headers.length-1).fill('No Data Available')]];
+      const aoa=[[ 'UNIBIC KERALA · '+cfa.name+' · FULL SKU DETAILS' ],
+                 [ 'Daily WhatsApp Flash period: '+(from||'—')+' to '+(to||'—') ],
+                 headers,...rows];
+      const ws=XLSX.utils.aoa_to_sheet(aoa);
+      ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:headers.length-1}},{s:{r:1,c:0},e:{r:1,c:headers.length-1}}];
+      ws['!cols']=widths.map(w=>({wch:w}));
+      ws['!rows']=[{hpt:28},{hpt:21},{hpt:34},...rows.map(()=>({hpt:22}))];
+      ws['!freeze']={xSplit:0,ySplit:3,topLeftCell:'A4',activePane:'bottomLeft',state:'frozen'};
+      ws['!autofilter']={ref:'A3:L'+(rows.length+3)};
+      for(let r=0;r<rows.length+3;r++){
+        for(let c=0;c<headers.length;c++){
+          const cell=ws[XLSX.utils.encode_cell({r,c})];if(!cell)continue;
+          const fill=r===0?'17365D':r===1?cfa.head:r===2?cfa.accent:(r%2?cfa.body:'FFFFFF');
+          const fontColor=r===0||r===2?'FFFFFF':(r===1?cfa.accent:'24364B');
+          const style={font:{name:'Aptos',sz:r===0?13:r===2?10:9,bold:r<3||c===0,color:{rgb:fontColor}},
+            fill:{patternType:'solid',fgColor:{rgb:fill}},
+            alignment:{vertical:'center',horizontal:r<3?'center':(numericCols.has(c)?'right':'left'),wrapText:true},
+            border};
+          if(r>=3&&numericCols.has(c)&&typeof rows[r-3][c]==='number'){
+            style.numFmt=c===3||c===10?'0.0%':c===11?'0.0':'#,##0.00';
+          }
+          cell.s=style;
+        }
+      }
+      XLSX.utils.book_append_sheet(wb,ws,cfa.tab);
+    }
+    wb.Workbook=wb.Workbook||{};
+    wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};
+    const safeFrom=from||'AllDates',safeTo=to||'AllDates';
+    XLSX.writeFile(wb,'UNIBIC_Daily_Flash_CFA_Details_'+safeFrom+'_to_'+safeTo+'.xlsx',{compression:true});
+    showToast('Separate 3-CFA colour Excel downloaded · ALU, TVD and PAY sheets.');
+  }catch(error){
+    console.error('Daily Flash CFA details export failed:',error);
+    showToast('CFA details Excel export failed: '+(error.message||'Please retry.'));
+  }finally{
+    if(searchEl)searchEl.value=savedSearch??'';
+    if(sizeEl&&savedSize!==null)sizeEl.value=savedSize;
+    if(savedHide!==null)mbqHideEmptyIndents=savedHide;
+    Object.entries(savedStats).forEach(([id,value])=>{const el=document.getElementById(id);if(el)el.textContent=value;});
+  }
+};
+</script>
+</body></html>`;
  w.document.open();w.document.write(html);w.document.close();w.focus();w.print();
 }
 ;
@@ -2925,7 +3141,7 @@ function printToReport(mode='details'){
  function renderCfaKpis(){
   const select=document.getElementById('flashCfa'),panel=document.getElementById('flashCfaKpiCompare'),cards=document.getElementById('flashCfaKpiCards');
   if(!select||!panel||!cards)return;
-  if(select.value!=='COMPARE_3'){panel.style.display='none';cards.innerHTML='';window.mbqCfaGroupKpiSnapshot=[];window.mbqCfaReportSnapshots=[];return;}
+  if(select.value!=='COMPARE_3'){panel.style.display='none';cards.innerHTML='';const ns=document.getElementById('flashNewCfaSession');if(ns)ns.style.display='none';window.mbqCfaGroupKpiSnapshot=[];window.mbqCfaReportSnapshots=[];return;}
   // renderFlashSingle writes into shared report containers. Preserve the Compare-3
   // presentation while collecting an independent data snapshot for each CFA.
   const ids=['flashText','flashGroupSummary','flashGroupRows','flashNoIndentRows','flashBillingNote','flashGroupNote','flashSourceStatus'];
@@ -2958,6 +3174,31 @@ function printToReport(mode='details'){
   const from=document.getElementById('flashFromDate')?.value||'',to=document.getElementById('flashToDate')?.value||'';
   const period=document.getElementById('flashCfaKpiPeriod');if(period)period.textContent='From '+(from||'—')+' to '+(to||'—')+' · GSV date-wise billing';
   cards.innerHTML=snapshots.map(x=>'<article class="flash-cfa-kpi-card '+x.cls+'"><h4>'+esc(x.label)+'</h4><div class="flash-cfa-kpi-values"><div class="flash-cfa-kpi-value"><small>INDENT</small><strong>'+esc(x.indent)+'</strong></div><div class="flash-cfa-kpi-value"><small>PERIOD BILLED</small><strong>'+esc(x.billed)+'</strong><em>'+esc(from||'—')+' to '+esc(to||'—')+'</em></div><div class="flash-cfa-kpi-value"><small>ACHIEVEMENT</small><strong>'+esc(x.achievement)+'</strong></div><div class="flash-cfa-kpi-value"><small>BALANCE %</small><strong>'+esc(x.balance)+'</strong></div></div></article>').join('');
+
+  const newSession=document.getElementById('flashNewCfaSession');
+  const newCards=document.getElementById('flashNewCfaCards');
+  const newPeriod=document.getElementById('flashNewCfaPeriod');
+  if(newSession&&newCards){
+   if(newPeriod)newPeriod.textContent='From '+(from||'—')+' to '+(to||'—')+' · GSV date-wise billing';
+   const fmtValue=v=>{
+    if(v===null||v===undefined||v===''||!Number.isFinite(Number(v)))return 'No Data Available';
+    return Number(v).toLocaleString('en-IN',{maximumFractionDigits:0});
+   };
+   newCards.innerHTML=snapshots.map(x=>{
+    const report=x.report||{},rows=Array.isArray(report.detail)?report.detail:[];
+    const tableRows=rows.length?rows.map(r=>'<tr><td>'+esc(r.sku??'No Data Available')+'</td><td>'+esc(fmtValue(r.indent))+'</td><td>'+esc(fmtValue(r.billed))+'</td><td>'+esc(fmtValue(r.balance))+'</td></tr>').join(''):'<tr><td class="flash-cfa-new-empty" colspan="4">No Data Available</td></tr>';
+    const balance=report.totalBalance;
+    const balanceText=balance===null||balance===undefined||!Number.isFinite(Number(balance))?'No Data Available':fmtValue(balance);
+    return '<article class="flash-cfa-new-card '+x.cls+'"><h4>'+esc(x.label)+'</h4><div class="flash-cfa-new-kpis">'+
+     '<div class="flash-cfa-new-kpi"><small>INDENT (CBB)</small><strong>'+esc(x.indent)+'</strong></div>'+
+     '<div class="flash-cfa-new-kpi"><small>PERIOD BILLED (CBB)</small><strong>'+esc(x.billed)+'</strong></div>'+
+     '<div class="flash-cfa-new-kpi"><small>ACHIEVEMENT</small><strong>'+esc(x.achievement)+'</strong></div>'+
+     '<div class="flash-cfa-new-kpi"><small>BALANCE (CBB)</small><strong>'+esc(balanceText)+'</strong></div></div>'+
+     '<div class="flash-cfa-new-table-title">SKU GROUP · INDENT vs BILLED</div><div class="table-wrap"><table class="flash-cfa-new-table"><thead><tr><th>SKU GROUP</th><th>INDENT</th><th>BILLED</th><th>BALANCE</th></tr></thead><tbody>'+tableRows+'</tbody></table></div></article>';
+   }).join('');
+   newSession.style.display='block';
+  }
+
   panel.style.display='block';
  }
  window.renderCfaKpis=renderCfaKpis;
