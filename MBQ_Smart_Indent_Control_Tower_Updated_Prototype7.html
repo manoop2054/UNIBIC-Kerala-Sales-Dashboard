@@ -6991,13 +6991,14 @@ window.mbqExportDailyFlashCfaDetails = async function(){
       if(typeof mbqBuildSkuGroupCodeIndex==='function'&&(!mbqSkuCodesByGroup||!mbqSkuCodesByGroup.size))mbqBuildSkuGroupCodeIndex();
       const codeToGroup=new Map();
       if(mbqSkuCodesByGroup&&typeof mbqSkuCodesByGroup.forEach==='function'){
-        mbqSkuCodesByGroup.forEach((codes,group)=>codes.forEach(code=>codeToGroup.set(String(code).toUpperCase().replace(/\\s+/g,''),group)));
+        mbqSkuCodesByGroup.forEach((codes,group)=>codes.forEach(code=>codeToGroup.set(typeof mbqGsvNormCode==='function'?mbqGsvNormCode(code):String(code).toUpperCase().replace(/\\s+/g,''),group)));
       }
       const candidates=new Map();
       (Array.isArray(liveSohRows)?liveSohRows:[]).forEach(raw=>{
         const type=String(keyValue(raw,['TYPE','Type'])||'').trim().toUpperCase();
         if(type&&type!=='SOH')return;
-        const code=String(keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No'])??'').trim().toUpperCase().replace(/\\s+/g,'');
+        const rawCode=keyValue(raw,['ItemId','Item ID','Item Code','ItemCode','FG Code','Product Code','Item No']);
+        const code=typeof mbqGsvNormCode==='function'?mbqGsvNormCode(rawCode):String(rawCode??'').trim().toUpperCase().replace(/\\s+/g,'');
         const rawGroup=String(keyValue(raw,['ItemAttribute.SKUGroup','SKUGroup','SKU Group'])??'').trim();
         const group=(typeof mbqSkuGroupKey==='function'&&rawGroup?mbqSkuGroupKey(rawGroup):'')||codeToGroup.get(code);
         if(!group||!code||codeToGroup.get(code)!==group)return;
@@ -7047,22 +7048,37 @@ window.mbqExportDailyFlashCfaDetails = async function(){
       const bodyRows=table?[...table.querySelectorAll('tbody tr')]:[];
       const dataRows=bodyRows.map(tr=>[...tr.querySelectorAll('td')].map(td=>td.textContent.trim()))
         .filter(cells=>cells.length&&idx.sku>=0&&cells[idx.sku]&&!/^(TOTAL|GRAND TOTAL|OVERALL TOTAL)$/i.test(cells[idx.sku]));
+      const numericValue=value=>{
+        if(value===null||value===undefined||value===''||String(value).trim()==='No Data Available'||String(value).trim()==='ALLOCATION NOT DONE')return null;
+        const n=Number(String(value).replace(/,/g,'').replace(/CBB/ig,'').replace(/%/g,'').trim());
+        return Number.isFinite(n)?n:null;
+      };
       const out=dataRows.map(cells=>{
         const sku=cells[idx.sku]||'No Data Available';
         const groupKey=typeof mbqSkuGroupKey==='function'?mbqSkuGroupKey(sku):String(sku).trim().toUpperCase();
+        const indent=typeof mbqCfaAllocatedIndentForSku==='function'?mbqCfaAllocatedIndentForSku(sku,cfa.key):cellValue(cells,idx.indent);
+        const soh=typeof mbqExcelGroupSoh==='function'?mbqExcelGroupSoh(sku,cfa.key,false):cellValue(cells,idx.soh);
+        const transit=typeof mbqExcelGroupIntransit==='function'?mbqExcelGroupIntransit(sku,cfa.key):cellValue(cells,idx.transit);
+        const sales=typeof mbqGsvGroupDateRange==='function'?mbqGsvGroupDateRange(sku,cfa.key):numericValue(cellValue(cells,idx.sales));
+        const history=typeof mbqSelectedMonthHistory==='function'?mbqSelectedMonthHistory():[];
+        const monthly=history.map(m=>typeof mbqLoadedSalesValue==='function'?mbqLoadedSalesValue(sku,cfa.key,m.month):null);
+        const avg=monthly.length===3&&monthly.every(v=>v!==null&&v!==undefined&&Number.isFinite(Number(v)))?monthly.reduce((sum,v)=>sum+Number(v),0)/3:cellValue(cells,idx.avg);
+        const indentNum=numericValue(indent),sohNum=numericValue(soh),salesNum=numericValue(sales);
+        const trend=indentNum!==null&&indentNum!==0&&salesNum!==null?salesNum/indentNum:'No Data Available';
+        const dos=indentNum!==null&&indentNum!==0&&sohNum!==null?sohNum/(indentNum/30):'No Data Available';
         return [
           sku,
           mrpMap.has(groupKey)?mrpMap.get(groupKey):'No Data Available',
           idx.category>=0?cells[idx.category]||'No Data Available':'No Data Available',
           cellValue(cells,idx.contribution,true),
-          cellValue(cells,idx.avg),
-          cellValue(cells,idx.indent),
-          cellValue(cells,idx.soh),
-          cellValue(cells,idx.transit),
+          avg,
+          indent,
+          soh===null||soh===undefined?'No Data Available':soh,
+          transit===null||transit===undefined?'No Data Available':transit,
           cellValue(cells,idx.mbq),
-          cellValue(cells,idx.sales),
-          cellValue(cells,idx.trend,true),
-          cellValue(cells,idx.dos)
+          sales===null||sales===undefined?'No Data Available':sales,
+          trend,
+          dos
         ];
       });
       const rows=out.length?out:[['No Data Available',...Array(headers.length-1).fill('No Data Available')]];
