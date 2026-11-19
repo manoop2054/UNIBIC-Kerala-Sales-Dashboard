@@ -7059,7 +7059,17 @@ window.mbqExportDailyFlashCfaDetails = async function(){
         const indent=typeof mbqCfaAllocatedIndentForSku==='function'?mbqCfaAllocatedIndentForSku(sku,cfa.key):cellValue(cells,idx.indent);
         const soh=typeof mbqExcelGroupSoh==='function'?mbqExcelGroupSoh(sku,cfa.key,false):cellValue(cells,idx.soh);
         const transit=typeof mbqExcelGroupIntransit==='function'?mbqExcelGroupIntransit(sku,cfa.key):cellValue(cells,idx.transit);
-        const sales=typeof mbqGsvGroupDateRange==='function'?mbqGsvGroupDateRange(sku,cfa.key):numericValue(cellValue(cells,idx.sales));
+        const skuCodes=mbqSkuCodesByGroup?.get(groupKey);
+        let periodSales=null,periodSalesFound=false;
+        if(from&&to&&skuCodes?.size&&Array.isArray(mbqGsvRows)){
+          mbqGsvRows.forEach(gsvRow=>{
+            const saleDate=String(gsvRow.date||'').slice(0,10);
+            const saleCfa=typeof normalCfa==='function'?normalCfa(gsvRow.cfa):String(gsvRow.cfa||'').trim().toUpperCase();
+            if(saleDate<from||saleDate>to||saleCfa!==cfa.key||!skuCodes.has(typeof mbqGsvNormCode==='function'?mbqGsvNormCode(gsvRow.itemId):String(gsvRow.itemId||'').trim().toUpperCase()))return;
+            const quantity=Number(gsvRow.quantity);if(Number.isFinite(quantity)){periodSales=(periodSales||0)+quantity;periodSalesFound=true;}
+          });
+        }
+        const sales=periodSalesFound?periodSales:null;
         const history=typeof mbqSelectedMonthHistory==='function'?mbqSelectedMonthHistory():[];
         const monthly=history.map(m=>typeof mbqLoadedSalesValue==='function'?mbqLoadedSalesValue(sku,cfa.key,m.month):null);
         const avg=history.length===3?(monthly.every(v=>v!==null&&v!==undefined&&Number.isFinite(Number(v)))?monthly.reduce((sum,v)=>sum+Number(v),0)/3:'No Data Available'):cellValue(cells,idx.avg);
