@@ -3464,7 +3464,7 @@ function renderFlash(){
  const select=document.getElementById('flashCfa'),host=document.getElementById('flashCompareContainer'),flash=document.getElementById('flashText'),note=document.getElementById('flashBillingNote'),summaryCard=document.getElementById('flashGroupSummary')?.closest('.card');
  const noIndentHost=document.getElementById('flashNoIndentRows');
  if(!select||select.value!=='COMPARE_3'){
-  if(host){host.style.display='none';host.innerHTML='';}
+  if(host){host.style.display='grid';host.innerHTML=reports.map(r=>'<section class="flash-compare-col '+r.cls+'"><h3>'+r.key+' CFA</h3><pre>'+mbqEscape(r.text)+'</pre></section>').join('');}
   if(flash)flash.style.display='';
   if(note)note.style.display='';
   if(summaryCard)summaryCard.style.display='';
@@ -3495,7 +3495,7 @@ function renderFlash(){
   const x=r.snapshot||{};
   return '<section class="flash-compare-panel '+r.cls+'"><header><h3>'+r.key+' CFA</h3><span>Daily WhatsApp Flash</span></header><div class="flash-compare-metrics">'+metric('INDENT (CBB)',fmt(x.totalIndent))+metric('PERIOD BILLED (CBB)',fmt(x.totalBilled))+metric('ACHIEVEMENT',pct(x.totalIndent>0&&x.totalBilled!==null?x.totalBilled/x.totalIndent*100:null))+metric('BALANCE (CBB)',fmt(x.totalBalance))+'</div><div class="flash-compare-section"><h4>SKU Group · Indent vs Billed</h4>'+groupTable(r)+'</div><div class="flash-compare-section"><h4>Billing Without Indent</h4>'+noIndentTable(r)+'</div><div class="flash-compare-reconcile"><span>Total GSV Billing: <b>'+esc(fmt(x.gsvTotal))+'</b></span><span>Indent-linked Billing: <b>'+esc(fmt(x.indentLinked))+'</b></span><span>No-Indent Billing: <b>'+esc(fmt(x.noIndentTotal))+'</b></span><span>Reconciliation Difference: <b>'+esc(fmt(x.reconciliationDifference))+'</b></span></div></section>';
  }).join('');
- if(noIndentHost){noIndentHost.classList.add('flash-compare-panel-grid');noIndentHost.innerHTML=panels;}
+ if(noIndentHost)noIndentHost.innerHTML=panels;
  if(flash)flash.style.display='none';if(note)note.style.display='none';if(summaryCard)summaryCard.style.display='none';
  if(host){host.style.display='none';host.innerHTML='';}
  if(typeof window.renderCfaKpis==='function')window.renderCfaKpis();
