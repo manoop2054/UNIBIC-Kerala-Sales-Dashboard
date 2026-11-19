@@ -897,32 +897,6 @@ body{font:12px Arial;padding:20px}table{border-collapse:collapse;width:100%}th,t
 }
 </style>
 
-<style id="flash-compare-structured-style">
-#flashCompareContainer{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start}
-.flash-compare-panel{min-width:0;border:1px solid;border-radius:12px;overflow:hidden;background:#fff}
-.flash-compare-panel>header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 13px}
-.flash-compare-panel>header h3{margin:0;font-size:14px}
-.flash-compare-panel>header span{font-size:10px;color:#52627a}
-.flash-compare-panel.flash-compare-alu>header{background:#d7e7f7;color:#245b91}
-.flash-compare-panel.flash-compare-tvd>header{background:#d8ebdc;color:#28723d}
-.flash-compare-panel.flash-compare-pay>header{background:#ffe2cf;color:#a65320}
-.flash-compare-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:9px}
-.flash-compare-metric{min-width:0;padding:8px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc}
-.flash-compare-metric small{display:block;font-size:9px;font-weight:700;color:#64748b}
-.flash-compare-metric strong{display:block;margin-top:4px;font-size:13px;overflow-wrap:anywhere;color:#18253b}
-.flash-compare-section{padding:8px 10px;border-top:1px solid #e8edf3}
-.flash-compare-section h4{font-size:11px;margin:0 0 7px;color:#334155}
-.flash-compare-table-wrap{max-width:100%;overflow:auto}
-.flash-compare-table{width:100%;min-width:440px;border-collapse:collapse;font-size:10px}
-.flash-compare-table th{padding:7px 6px;background:#f1f5f9;color:#475569;text-align:left;white-space:normal}
-.flash-compare-table td{padding:7px 6px;border-top:1px solid #e8edf3;white-space:normal;overflow-wrap:anywhere}
-.flash-compare-empty{padding:10px;color:#64748b;font-size:10px;background:#f8fafc;border-radius:7px}
-.flash-compare-reconcile{display:grid;gap:5px;padding:9px 11px;background:#f8fafc;border-top:1px solid #e8edf3;font-size:10px;color:#475569}
-.flash-compare-reconcile span{display:flex;justify-content:space-between;gap:8px}
-.flash-compare-reconcile b{color:#18253b;text-align:right}
-#flashNoIndentRows{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start}
-@media(max-width:1100px){#flashCompareContainer,#flashNoIndentRows{grid-template-columns:1fr}}
-</style>
 </head>
 <body><div id="mbqLoginGate"><div class="mbq-login-card"><div class="mbq-login-brand">UNIBIC · EMPLOYEE ACCESS</div><div id="mbqLoginFormWrap"><h1>MBQ Smart Indent</h1><p>Sign in using your existing UNIBIC Dashboard Employee ID and password.</p><form id="mbqLoginForm"><label for="mbqEmployeeId">Employee ID</label><input id="mbqEmployeeId" name="employee_id" autocomplete="username" required><label for="mbqEmployeePassword">Password</label><input id="mbqEmployeePassword" name="password" type="password" autocomplete="current-password" required><button id="mbqLoginButton" type="submit">Login</button><div id="mbqLoginMessage" role="alert"></div></form></div><div id="mbqAccessPending"><h1>Access not assigned yet</h1><p id="mbqPendingMessage">Your MBQ tab access has not been assigned by Super Admin.</p><button type="button" id="mbqPendingLogout">Logout</button></div></div></div><div class="app"><aside class="sidebar"><div class="brand"><div class="logo">MB</div><div><strong>SMART INDENT</strong><small>Kerala · CFA Replenishment</small></div></div><div class="nav-label">WORKSPACE</div><nav class="nav" id="nav"><button class="active" data-page="overview"><span>◫</span>Overview Dashboard</button><button data-page="indent"><span>＋</span>Monthly Indent Entry</button><button data-page="suggest"><span>✦</span>AI Suggested Indent</button><button data-page="stock"><span>▦</span>CFA-wise Stock</button><button data-page="advanced"><span>✦</span>Advanced Controls</button><button data-page="distributor"><span>▥</span>Distributor Performance</button><button data-page="peak"><span>◷</span>Peak Billing Planner</button><button data-page="loading"><span>▤</span>CFA Loading Plan</button><button data-page="flash"><span>◉</span>Daily WhatsApp Flash</button><button data-page="reports"><span>⇩</span>Reports & Export</button><button data-page="excelview"><span>▤</span>MBQ Excel View</button><button data-page="settings"><span>⚙</span>Master Data & Settings</button></nav><div class="sidebar-foot"><span class="dot"></span>MBQ workspace<br><br>Data will appear after the relevant source is connected.</div></aside>
 <main class="main"><header class="topbar"><div class="crumb">Workspace / <b id="crumb">Overview Dashboard</b></div><div class="top-right"><div id="gsvConnectionStatus" class="gsv-connection loading" role="status" aria-live="polite"><span class="gsv-dot"></span><span id="gsvConnectionLabel">GSV Loading</span></div><select class="select" id="month" onchange="renderMbqExcelView()"><option>November 2026</option><option>October 2026</option><option>December 2026</option></select><select class="select" id="cfa"><option>All CFAs</option><option>TVD CFA</option><option>PAY CFA</option><option>ALU CFA</option></select><div class="user" id="mbqEmployeeIdDisplay">Employee</div><button class="mbq-logout-link" id="mbqLogoutButton" type="button">Logout</button></div></header><div class="content">
@@ -3469,13 +3443,11 @@ function renderFlashSingle(){
 }
 function renderFlash(){
  const select=document.getElementById('flashCfa'),host=document.getElementById('flashCompareContainer'),flash=document.getElementById('flashText'),note=document.getElementById('flashBillingNote'),summaryCard=document.getElementById('flashGroupSummary')?.closest('.card');
- const noIndentHost=document.getElementById('flashNoIndentRows');
  if(!select||select.value!=='COMPARE_3'){
   if(host){host.style.display='none';host.innerHTML='';}
   if(flash)flash.style.display='';
   if(note)note.style.display='';
   if(summaryCard)summaryCard.style.display='';
-  if(noIndentHost)noIndentHost.innerHTML='';
   renderFlashSingle();
   if(typeof window.renderCfaKpis==='function')window.renderCfaKpis();
   return;
@@ -3484,42 +3456,18 @@ function renderFlash(){
  [['ALU','ALU CFA','flash-compare-alu'],['TVD','TVD CFA','flash-compare-tvd'],['PAY','PAY CFA','flash-compare-pay']].forEach(([key,label,cls])=>{
   select.value=label;
   renderFlashSingle();
-  reports.push({key,cls,text:flash?flash.innerText:'',snapshot:window.mbqFlashReportSnapshot?JSON.parse(JSON.stringify(window.mbqFlashReportSnapshot)):null});
+  reports.push({key,cls,text:flash?flash.innerText:'',noIndentHtml:document.getElementById('flashNoIndentRows')?.innerHTML||''});
  });
  select.value='COMPARE_3';
  window.mbqFlashCompareReports=reports;
- const fmt=v=>v===null||v===undefined||!Number.isFinite(Number(v))?'No Data Available':Number(v).toLocaleString('en-IN',{maximumFractionDigits:0});
- const pct=v=>v===null||v===undefined||!Number.isFinite(Number(v))?'No Data Available':Number(v).toLocaleString('en-IN',{maximumFractionDigits:1})+'%';
- const esc=v=>mbqEscape(v===null||v===undefined?'':String(v));
- const metric=(label,value)=>'<div class="flash-compare-metric"><small>'+label+'</small><strong>'+esc(value)+'</strong></div>';
- const groupTable=r=>{
-  const rows=r.snapshot?.detail||[];
-  if(!rows.length)return '<div class="flash-compare-empty">No indent-linked SKU group rows available.</div>';
-  return '<div class="flash-compare-table-wrap"><table class="flash-compare-table"><thead><tr><th>SKU Group</th><th>Indent</th><th>Period Billed</th><th>Achievement</th><th>Balance</th></tr></thead><tbody>'+
-   rows.map(x=>'<tr><td>'+esc(x.sku)+'</td><td>'+esc(fmt(x.indent))+'</td><td>'+esc(fmt(x.billed))+'</td><td>'+esc(pct(x.achievement))+'</td><td>'+esc(fmt(x.balance))+'</td></tr>').join('')+
-   '</tbody></table></div>';
- };
- const noIndentTable=r=>{
-  const rows=r.snapshot?.noIndentRows||[];
-  if(!rows.length)return '<div class="flash-compare-empty">No billing without indent found for this period.</div>';
-  return '<div class="flash-compare-table-wrap"><table class="flash-compare-table"><thead><tr><th>SKU Group</th><th>FG Code</th><th>Item Description</th><th>Billing (CBB)</th></tr></thead><tbody>'+
-   rows.map(x=>'<tr><td>'+esc(x.sku)+'</td><td>'+esc(x.code)+'</td><td>'+esc(x.description)+'</td><td>'+esc(fmt(x.billed))+'</td></tr>').join('')+
-   '</tbody></table></div>';
- };
- const panels=reports.map(r=>{
-  const x=r.snapshot||{};
-  return '<section class="flash-compare-panel '+r.cls+'"><header><h3>'+r.key+' CFA</h3><span>Daily WhatsApp Flash</span></header>'+
-   '<div class="flash-compare-metrics">'+metric('INDENT (CBB)',fmt(x.totalIndent))+metric('PERIOD BILLED (CBB)',fmt(x.totalBilled))+metric('ACHIEVEMENT',pct(x.totalIndent>0&&x.totalBilled!==null?x.totalBilled/x.totalIndent*100:null))+metric('BALANCE (CBB)',fmt(x.totalBalance))+'</div>'+
-   '<div class="flash-compare-section"><h4>SKU Group · Indent vs Billed</h4>'+groupTable(r)+'</div>'+
-   '<div class="flash-compare-section"><h4>Billing Without Indent</h4>'+noIndentTable(r)+'</div>'+
-   '<div class="flash-compare-reconcile"><span>Total GSV Billing: <b>'+esc(fmt(x.gsvTotal))+'</b></span><span>Indent-linked Billing: <b>'+esc(fmt(x.indentLinked))+'</b></span><span>No-Indent Billing: <b>'+esc(fmt(x.noIndentTotal))+'</b></span><span>Reconciliation Difference: <b>'+esc(fmt(x.reconciliationDifference))+'</b></span></div>'+
-  '</section>';
- }).join('');
- if(noIndentHost)noIndentHost.innerHTML=reports.map(r=>'<section class="flash-compare-panel '+r.cls+'"><header><h3>'+r.key+' CFA</h3></header><div class="flash-compare-section"><h4>Billing Without Indent</h4>'+noIndentTable(r)+'</div></section>').join('');
+ const noIndentHost=document.getElementById('flashNoIndentRows');if(noIndentHost)noIndentHost.innerHTML=reports.map(r=>'<section class="flash-compare-col '+r.cls+'"><h4>'+r.key+' CFA</h4>'+r.noIndentHtml+'</section>').join('');
  if(flash)flash.style.display='none';
  if(note)note.style.display='none';
  if(summaryCard)summaryCard.style.display='none';
- if(host){host.style.display='grid';host.innerHTML=panels;}
+ if(host){
+  host.style.display='grid';
+  host.innerHTML=reports.map(r=>'<section class="flash-compare-col '+r.cls+'"><h3>'+r.key+' CFA</h3><pre>'+mbqEscape(r.text)+'</pre></section>').join('');
+ }
  if(typeof window.renderCfaKpis==='function')window.renderCfaKpis();
 }
 function copyFlash(){
