@@ -3641,8 +3641,7 @@ function renderFlashSingle(){
    const raw=sr&&sr[1]!==''&&sr[1]!==null&&sr[1]!==undefined?sr[1]:(typeof mbqUploadedIndentForSku==='function'?mbqUploadedIndentForSku(sku):null);
    if(raw!==null&&raw!==undefined&&raw!==''&&Number.isFinite(Number(raw)))indent=Number(raw);
   }else if(alloc.length){indent=alloc.reduce((sum,x)=>sum+(Number(x.allocation)||0),0);}
-  const skuCodeRows=Array.isArray(window.mbqSkuCodeRows)?window.mbqSkuCodeRows:[];
-  const codes=[...new Set(skuCodeRows.filter(r=>String(r.sku||'').trim().toLowerCase()===sku.toLowerCase()).map(r=>mbqGsvNormCode(r.code)).filter(Boolean))];
+  const codes=[...new Set(rows.filter(r=>String(r.sku||'').trim().toLowerCase()===sku.toLowerCase()).map(r=>mbqGsvNormCode(r.code)).filter(Boolean))];
   let billed=null;
   if(validRange&&rangeCovered&&codes.length&&mbqGsvRows.length){
    const codeSet=new Set(codes);
