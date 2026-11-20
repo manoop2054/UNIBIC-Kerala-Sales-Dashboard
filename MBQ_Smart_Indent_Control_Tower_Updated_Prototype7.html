@@ -3104,26 +3104,80 @@ window.mbqExportDailyFlashCfaDetails = async function(format='excel'){
   const getRowValue=(row,headers,names,percent=false)=>{
     if(!row)return 'No Data Available';const ix=getIndex(headers,...names);return ix<0?'No Data Available':cellValue(row,ix,percent);
   };
+  const readExportNumber=(value,percent=false)=>{
+    const raw=String(value??'').replace(/\\s+/g,' ').trim();
+    if(!raw||/^(NO DATA AVAILABLE|—|-|N\\/A)$/i.test(raw))return 'No Data Available';
+    const hasPercent=/%$/.test(raw);
+    const n=Number(raw.replace(/,/g,'').replace(/₹/g,'').replace(/CBB/ig,'').replace(/%/g,'').trim());
+    if(!Number.isFinite(n))return raw;
+    const valueNum=hasPercent?n/100:n;
+    return percent?Math.round(valueNum*100)/100:Math.round(valueNum);
+  };
+  const headerKey=value=>String(value??'').trim().toUpperCase().replace(/\\s+/g,' ');
+  const pickViewValue=(cells,index,percent=false)=>index<0?'No Data Available':readExportNumber(cells[index]?.textContent,percent);
+  const viewHost=document.getElementById('mbqExcelTableHost');
+  const viewSelect=document.getElementById('mbqSheetSelect');
+  const noIndentHost=document.getElementById('mbqNoIndentExcelRows');
   for(const cfa of cfas){
-    const cfaSheet=cfaSheetMaps[cfa.key],cfaHeaders=cfaSheet.headers,dataHeaders=dataSheet.headers,out=[];
-    groupNames.forEach((sku,groupKey)=>{
-      const cfaRow=cfaSheet.map.get(groupKey)||null,dataRow=dataSheet.map.get(groupKey)||null;
-      const categoryValue=getRowValue(cfaRow,cfaHeaders,['CAT','CATEGORY','CTG']);
-      const category=categoryValue!=='No Data Available'?categoryValue:getRowValue(dataRow,dataHeaders,['CAT','CATEGORY','CTG']);
-      const contributionValue=getRowValue(cfaRow,cfaHeaders,['CONTRI%','CONTRI %','CONTRIBUTION %'],true);
-      const contribution=contributionValue!=='No Data Available'?contributionValue:getRowValue(dataRow,dataHeaders,['CONTRI%','CONTRI %','CONTRIBUTION %'],true);
-      const monthlyValues=l3mMonths.map(m=>{const key=groupKey+'|'+cfa.key+'|'+m.key;return monthSalesFound.has(key)?(monthSales.get(key)||0):null;});
-      const avg=monthlyValues.length===3&&monthlyValues.every(v=>v!==null)?monthlyValues.reduce((sum,v)=>sum+Number(v),0)/3:'No Data Available';
-      const salesKey=groupKey+'|'+cfa.key,sales=periodSalesFound.has(salesKey)?periodSales.get(salesKey):'No Data Available';
-      const indent=typeof mbqCfaAllocatedIndentForSku==='function'?mbqCfaAllocatedIndentForSku(sku,cfa.key):getRowValue(cfaRow,cfaHeaders,['IND','INDENT']);
-      const soh=typeof mbqExcelGroupSoh==='function'?mbqExcelGroupSoh(sku,cfa.key,false):getRowValue(cfaRow,cfaHeaders,['SOH>60%','SOH']);
-      const transit=typeof mbqExcelGroupIntransit==='function'?mbqExcelGroupIntransit(sku,cfa.key):getRowValue(cfaRow,cfaHeaders,['INTRANSIT','IN TRANSIT']);
-      let mbq=getRowValue(cfaRow,cfaHeaders,['MBQ']);
-      if(mbq==='No Data Available'&&typeof mbqFallbackMbqValue==='function')mbq=mbqFallbackMbqValue(sku,cfa.key);
-      const indentNum=numericValue(indent),sohNum=numericValue(soh),salesNum=numericValue(sales);
-      const trend=indentNum!==null&&indentNum!==0&&salesNum!==null?salesNum/indentNum:'No Data Available';
-      const dos=indentNum!==null&&indentNum!==0&&sohNum!==null?sohNum/(indentNum/30):'No Data Available';
-      out.push([sku,roundWhole(mrpMap.has(groupKey)?mrpMap.get(groupKey):null),category,roundWhole(contribution,true),roundWhole(avg),roundWhole(indent),roundWhole(soh),roundWhole(transit),roundWhole(mbq),roundWhole(sales),roundWhole(trend,true),roundWhole(dos)]);
+    let renderedHtml='',savedViewHtml=null,savedNoIndentHtml=null,savedViewKey=null;
+    if(!viewHost||!viewSelect||typeof renderMbqExcelView!=='function'){
+      throw new Error('MBQ EXCEL VIEW is not available; export stopped to avoid using a separate calculation.');
+    }
+    savedViewHtml=viewHost.innerHTML;
+    savedNoIndentHtml=noIndentHost?noIndentHost.innerHTML:null;
+    savedViewKey=viewSelect.value;
+    try{
+      viewSelect.value=cfa.key;
+      renderMbqExcelView();
+      renderedHtml=viewHost.innerHTML;
+    }finally{
+      viewHost.innerHTML=savedViewHtml;
+      if(noIndentHost&&savedNoIndentHtml!==null)noIndentHost.innerHTML=savedNoIndentHtml;
+      viewSelect.value=savedViewKey;
+    }
+    const parsed=document.createElement('div');
+    parsed.innerHTML=renderedHtml;
+    const table=parsed.querySelector('table');
+    if(!table)throw new Error('MBQ EXCEL VIEW has no source-backed table for '+cfa.name+'.');
+    const headerRows=[...table.querySelectorAll('thead tr')];
+    const headerCells=headerRows.length?[...headerRows[headerRows.length-1].querySelectorAll('th,td')]:[];
+    const viewHeaders=headerCells.map(cell=>headerKey(cell.textContent));
+    const findViewIndex=(...names)=>{for(const name of names){const ix=viewHeaders.indexOf(headerKey(name));if(ix>=0)return ix;}return -1;};
+    const ix={
+      sku:findViewIndex('SKU GROUP'),
+      category:findViewIndex('CAT','CATEGORY','CTG'),
+      contribution:findViewIndex('CONTRI%','CONTRI %','CONTRIBUTION %'),
+      avg:findViewIndex('L3M AVG SALES'),
+      indent:findViewIndex('IND','INDENT'),
+      soh:findViewIndex('SOH>60%','SOH'),
+      transit:findViewIndex('INTRANSIT','IN TRANSIT'),
+      mbq:findViewIndex('MBQ'),
+      sales:findViewIndex('SALES'),
+      trend:findViewIndex('S. TREND','S.TREND','SALES TREND'),
+      dos:findViewIndex('DOS')
+    };
+    if(ix.sku<0)throw new Error('SKU GROUP column is missing from MBQ EXCEL VIEW for '+cfa.name+'.');
+    const viewRows=[...table.querySelectorAll('tbody tr')].filter(tr=>!tr.classList.contains('mbq-total-row'));
+    const out=[];
+    viewRows.forEach(tr=>{
+      const cells=[...tr.querySelectorAll('td,th')];
+      const sku=String(cells[ix.sku]?.textContent??'').trim();
+      if(!sku||/^(TOTAL|GRAND TOTAL|OVERALL TOTAL)$/i.test(sku))return;
+      const groupKey=typeof mbqSkuGroupKey==='function'?mbqSkuGroupKey(sku):sku.toUpperCase();
+      out.push([
+        sku,
+        roundWhole(mrpMap.has(groupKey)?mrpMap.get(groupKey):null),
+        ix.category<0?'No Data Available':String(cells[ix.category]?.textContent??'').trim()||'No Data Available',
+        pickViewValue(cells,ix.contribution,true),
+        pickViewValue(cells,ix.avg),
+        pickViewValue(cells,ix.indent),
+        pickViewValue(cells,ix.soh),
+        pickViewValue(cells,ix.transit),
+        pickViewValue(cells,ix.mbq),
+        pickViewValue(cells,ix.sales),
+        pickViewValue(cells,ix.trend,true),
+        pickViewValue(cells,ix.dos)
+      ]);
     });
     const rows=out.length?out:[['No Data Available',...Array(headers.length-1).fill('No Data Available')]];
     const aoa=[[ 'UNIBIC KERALA · '+cfa.name+' · FULL SKU DETAILS' ],[ 'Daily WhatsApp Flash period: '+(from||'—')+' to '+(to||'—') ],headers,...rows];
@@ -3137,11 +3191,11 @@ window.mbqExportDailyFlashCfaDetails = async function(format='excel'){
       const fill=r===0?'17365D':r===1?cfa.head:r===2?cfa.accent:(r%2?cfa.body:'FFFFFF');
       const fontColor=r===0||r===2?'FFFFFF':(r===1?cfa.accent:'24364B');
       const style={font:{name:'Aptos',sz:r===0?13:r===2?10:9,bold:r<3||c===0,color:{rgb:fontColor}},fill:{patternType:'solid',fgColor:{rgb:fill}},alignment:{vertical:'center',horizontal:r<3?'center':(numericCols.has(c)?'right':'left'),wrapText:true},border};
-      if(r>=3&&numericCols.has(c)&&typeof rows[r-3][c]==='number')style.numFmt=c===3||c===10?'0%':'#,##0';
+      if(r>=3&&numericCols.has(c)&&typeof rows[r-3][c]==='number')style.numFmt=c===3||c===10?'0.00%':'#,##0';
       cell.s=style;
     }
     XLSX.utils.book_append_sheet(wb,ws,cfa.tab);
-    console.info('Daily Flash CFA export QA',cfa.key,{skuGroups:rows.length,salesRows:[...periodSalesFound].filter(k=>k.endsWith('|'+cfa.key)).length,periodSalesTotal:[...periodSales.entries()].filter(([key])=>key.endsWith('|'+cfa.key)).reduce((sum,[,qty])=>sum+qty,0),l3mRows:[...monthSalesFound].filter(k=>k.includes('|'+cfa.key+'|')).length});
+    console.info('Daily Flash CFA export source QA',cfa.key,{source:'MBQ EXCEL VIEW',skuGroups:rows.length});
   }
     if(format==='excel'){
       wb.Workbook=wb.Workbook||{};
