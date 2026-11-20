@@ -3177,13 +3177,22 @@ window.mbqExportDailyFlashCfaDetails = async function(format='excel'){
       const sku=String(sourceSkuIx>=0?rawRow?.[sourceSkuIx]??'':'').trim();
       if(sku)exportRowsByKey.set(groupKey,{sku,cells:null,rawRow});
     });
+    // The CFA sheet can contain only a subset of the official assortment.
+    // Keep every official group represented in the All-CFA MBQ workbook as well;
+    // groups without a CFA-specific row remain visible with No Data Available.
+    const dataSkuIx=getIndex(dataSheet.headers,'SKU GROUP');
+    dataSheet.map.forEach((dataRow,groupKey)=>{
+      if(exportRowsByKey.has(groupKey))return;
+      const sku=String(dataSkuIx>=0?dataRow?.[dataSkuIx]??'':'').trim();
+      if(sku)exportRowsByKey.set(groupKey,{sku,cells:null,rawRow:null});
+    });
     const rawValue=(rawRow,...names)=>getRowValue(rawRow,sourceMap.headers,names,false);
-    const valueWithFallback=(cells,viewIndex,rawRow,names,percent=false)=>{
+    const valueWithFallback=(cells,viewIndex,rawRow,names,percent=false,preferSourceWhenViewZero=false)=>{
       const viewValue=pickViewValue(cells||[],viewIndex,percent);
-      if(viewValue!=='No Data Available')return viewValue;
-      if(!rawRow)return 'No Data Available';
+      if(viewValue!=='No Data Available'&&!(preferSourceWhenViewZero&&Number(viewValue)===0&&rawRow))return viewValue;
+      if(!rawRow)return viewValue;
       const fallback=getRowValue(rawRow,sourceMap.headers,names,percent);
-      return fallback==='No Data Available'?fallback:roundWhole(fallback,percent);
+      return fallback==='No Data Available'?viewValue:roundWhole(fallback,percent);
     };
     const out=[];
     exportRowsByKey.forEach(({sku,cells,rawRow},groupKey)=>{
@@ -3194,10 +3203,10 @@ window.mbqExportDailyFlashCfaDetails = async function(format='excel'){
         roundWhole(mrpMap.has(groupKey)?mrpMap.get(groupKey):null),
         category||'No Data Available',
         valueWithFallback(cells,ix.contribution,rawRow,['CONTRI%','CONTRI %','CONTRIBUTION %'],true),
-        valueWithFallback(cells,ix.avg,rawRow,['L3M AVG SALES','AVG']),
+        valueWithFallback(cells,ix.avg,rawRow,['L3M AVG SALES','AVG'],false,true),
         valueWithFallback(cells,ix.indent,rawRow,['IND','INDENT']),
         valueWithFallback(cells,ix.soh,rawRow,['SOH>60%','SOH']),
-        valueWithFallback(cells,ix.transit,rawRow,['INTRANSIT','IN TRANSIT']),
+        valueWithFallback(cells,ix.transit,rawRow,['INTRANSIT','IN TRANSIT'],false,true),
         valueWithFallback(cells,ix.mbq,rawRow,['MBQ']),
         valueWithFallback(cells,ix.sales,rawRow,['SALES']),
         valueWithFallback(cells,ix.trend,rawRow,['S. TREND','S.TREND','SALES TREND'],true),
