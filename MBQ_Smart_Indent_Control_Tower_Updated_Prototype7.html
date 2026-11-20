@@ -3563,9 +3563,19 @@ function mbqResolveNoIndentIndentRows(detailRows,cfaKey){
  if(detailRows===null&&!indentRows.length&&cfaKey==='DATA'&&Array.isArray(sourceRows))sourceRows.forEach(r=>{const sku=String(r?.[0]||'').trim(),v=Number(r?.[1]);if(sku&&Number.isFinite(v))indentRows.push({sku,indent:v});});
  return indentRows;
 }
+function mbqBuildNoIndentSkuCodeIndex(){
+ const byCode=new Map(),displayByCode=new Map();
+ (Array.isArray(rows)?rows:[]).forEach(x=>{
+  const code=mbqGsvNormCode(x.code),group=mbqSkuGroupKey(x.sku);
+  if(!code||!group)return;
+  if(!byCode.has(code))byCode.set(code,new Set());
+  byCode.get(code).add(group);
+  if(!displayByCode.has(code))displayByCode.set(code,String(x.sku||'').trim());
+ });
+ return {byCode,displayByCode};
+}
 function mbqBuildNoIndentBilling(from,to,cfaKey,detailRows){
- const raw=Array.isArray(mbqGsvRows)?mbqGsvRows:[],mapped=new Map();
- (Array.isArray(rows)?rows:[]).forEach(x=>{const code=mbqGsvNormCode(x.code),sku=String(x.sku||'').trim();if(code&&sku&&!mapped.has(code))mapped.set(code,sku);});
+ const raw=Array.isArray(mbqGsvRows)?mbqGsvRows:[],codeIndex=mbqBuildNoIndentSkuCodeIndex();
  const indentRows=mbqResolveNoIndentIndentRows(detailRows,cfaKey);
  const indented=new Set(indentRows.filter(x=>Number(x.indent)>0).map(x=>mbqSkuGroupKey(x.sku)));
  const map=new Map();
@@ -3573,8 +3583,10 @@ function mbqBuildNoIndentBilling(from,to,cfaKey,detailRows){
   const date=String(x.date||'').slice(0,10),cfa=normalCfa(x.cfa),code=String(x.itemId||'').trim(),codeKey=mbqGsvNormCode(code),qty=Number(x.quantity);
   if(!codeKey||!Number.isFinite(qty)||date<from||date>to)return;
   if(cfaKey!=='DATA'&&cfa!==cfaKey)return;
-  const sku=mapped.get(codeKey)||'';
-  if(sku&&indented.has(mbqSkuGroupKey(sku)))return;
+  const owners=codeIndex.byCode.get(codeKey)||new Set();
+  const uniquelyIndentLinked=owners.size===1&&indented.has([...owners][0]);
+  if(uniquelyIndentLinked)return;
+  const sku=owners.size===1?(codeIndex.displayByCode.get(codeKey)||''):(owners.size>1?'Multiple SKU Group Mapping':'');
   const key=cfa+'|'+codeKey;
   let z=map.get(key);
   if(!z){z={cfa:cfa||'Other / Unmapped CFA',code,sku:sku||'No SKU Group Mapping',description:String(x.itemDescription||x.description||x.itemName||'').trim()||mbqDistDescription(code),billed:0};map.set(key,z);}
@@ -3590,8 +3602,9 @@ function mbqRenderNoIndentBilling(hostId,from,to,cfaKey,detailRows){
  const fmt=v=>Number(v||0).toLocaleString('en-IN',{maximumFractionDigits:0});
  const total=data.reduce((n,x)=>n+x.billed,0);
  const raw=Array.isArray(mbqGsvRows)?mbqGsvRows:[],gsvTotal=ready?raw.filter(x=>{const d=String(x.date||'').slice(0,10),cf=normalCfa(x.cfa);return d>=from&&d<=to&&(cfaKey==='DATA'||cf===cfaKey);}).reduce((n,x)=>n+(Number(x.quantity)||0),0):null;
- const indentedGroups=new Set((Array.isArray(rows)?rows:[]).filter(x=>indented.has(mbqSkuGroupKey(x.sku))).map(x=>mbqGsvNormCode(x.code)).filter(Boolean));
- const indentedBilling=ready?raw.filter(x=>{const d=String(x.date||'').slice(0,10),cf=normalCfa(x.cfa),code=mbqGsvNormCode(x.itemId);return d>=from&&d<=to&&(cfaKey==='DATA'||cf===cfaKey)&&indentedGroups.has(code);}).reduce((n,x)=>n+(Number(x.quantity)||0),0):null,delta=ready?gsvTotal-(indentedBilling+total):null;
+ const codeIndex=mbqBuildNoIndentSkuCodeIndex();
+ const indentedCodes=new Set([...codeIndex.byCode.entries()].filter(([code,owners])=>owners.size===1&&indented.has([...owners][0])).map(([code])=>code));
+ const indentedBilling=ready?raw.filter(x=>{const d=String(x.date||'').slice(0,10),cf=normalCfa(x.cfa),code=mbqGsvNormCode(x.itemId);return d>=from&&d<=to&&(cfaKey==='DATA'||cf===cfaKey)&&indentedCodes.has(code);}).reduce((n,x)=>n+(Number(x.quantity)||0),0):null,delta=ready?gsvTotal-(indentedBilling+total):null;
  const statStyle='background:#fff;border:1px solid #dbe3ee;border-radius:12px;padding:12px 14px;min-width:0;box-shadow:0 1px 2px rgba(15,23,42,.04)';
  const statLabel='display:block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#64748b;margin-bottom:7px;line-height:1.35';
  const statValue='display:block;font-size:21px;font-weight:750;color:#0f172a;line-height:1.25;overflow-wrap:anywhere';
@@ -3629,6 +3642,7 @@ function renderFlashSingle(){
  const pct=v=>v===null||v===undefined||!Number.isFinite(Number(v))?'No Data Available':Number(v).toLocaleString('en-IN',{maximumFractionDigits:1})+'%';
  const salesHeadRows=(Array.isArray(sourceRows)?sourceRows:[]).filter(r=>mbqIsOfficialSkuGroup(r[0]));
  const allocationRows=Array.isArray(allocationData)?allocationData:[];
+ const skuCodeIndex=mbqBuildNoIndentSkuCodeIndex();
  const skuNames=[...new Set([...salesHeadRows.map(r=>String(r[0]||'').trim()),...allocationRows.map(x=>String(x.sku||'').trim())].filter(Boolean))];
  const validRange=!!from&&!!to&&from<=to;
  const coverage=mbqGsvMeta?.dateCoverage||{};
@@ -3641,7 +3655,8 @@ function renderFlashSingle(){
    const raw=sr&&sr[1]!==''&&sr[1]!==null&&sr[1]!==undefined?sr[1]:(typeof mbqUploadedIndentForSku==='function'?mbqUploadedIndentForSku(sku):null);
    if(raw!==null&&raw!==undefined&&raw!==''&&Number.isFinite(Number(raw)))indent=Number(raw);
   }else if(alloc.length){indent=alloc.reduce((sum,x)=>sum+(Number(x.allocation)||0),0);}
-  const codes=[...new Set(rows.filter(r=>String(r.sku||'').trim().toLowerCase()===sku.toLowerCase()).map(r=>mbqGsvNormCode(r.code)).filter(Boolean))];
+  const skuKey=mbqSkuGroupKey(sku);
+  const codes=[...skuCodeIndex.byCode.entries()].filter(([code,owners])=>owners.size===1&&owners.has(skuKey)).map(([code])=>code);
   let billed=null;
   if(validRange&&rangeCovered&&codes.length&&mbqGsvRows.length){
    const codeSet=new Set(codes);
