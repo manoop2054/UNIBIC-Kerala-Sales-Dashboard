@@ -3030,118 +3030,119 @@ window.mbqExportDailyFlashCfaDetails = async function(format='excel'){
     if(searchEl)searchEl.value='';
     if(sizeEl&&[...sizeEl.options].some(o=>o.value==='250'))sizeEl.value='250';
     if(savedHide!==null)mbqHideEmptyIndents=false;
-    for(const cfa of cfas){
-      const host=document.createElement('div');
-      const rendered=typeof mbqRenderLoadedWorkbook==='function'&&mbqRenderLoadedWorkbook(cfa.key,host,cfa.name,true);
-      const table=rendered?host.querySelector('table.excel-table'):null;
-      const headerRow=table?.querySelector('thead tr:last-child');
-      const tableHeaders=headerRow?[...headerRow.querySelectorAll('th,td')].map(x=>x.textContent.trim()):[];
-      const idx={
-        sku:getIndex(tableHeaders,'SKU GROUP'),
-        category:getIndex(tableHeaders,'CAT','CATEGORY','CTG'),
-        contribution:getIndex(tableHeaders,'CONTRI%','CONTRI %'),
-        avg:getIndex(tableHeaders,'L3M AVG SALES'),
-        indent:getIndex(tableHeaders,'IND','INDENT'),
-        soh:getIndex(tableHeaders,'SOH>60%','SOH'),
-        transit:getIndex(tableHeaders,'INTRANSIT','IN TRANSIT'),
-        mbq:getIndex(tableHeaders,'MBQ'),
-        sales:getIndex(tableHeaders,'SALES'),
-        trend:getIndex(tableHeaders,'S. TREND','S.TREND','SALES TREND'),
-        dos:getIndex(tableHeaders,'DOS')
-      };
-      const bodyRows=table?[...table.querySelectorAll('tbody tr')]:[];
-      const dataRows=bodyRows.map(tr=>[...tr.querySelectorAll('td')].map(td=>td.textContent.trim()))
-        .filter(cells=>cells.length&&idx.sku>=0&&cells[idx.sku]&&!/^(TOTAL|GRAND TOTAL|OVERALL TOTAL)$/i.test(cells[idx.sku]));
-      // Export every official assortment group, even when a CFA workbook sheet has no row for it.
-      const exportGroupNames=Array.isArray(sourceRows)?sourceRows.map(r=>String(r?.[0]??'').trim()).filter(Boolean):[];
-      const exportGroupMap=new Map(dataRows.map(cells=>[typeof mbqSkuGroupKey==='function'?mbqSkuGroupKey(cells[idx.sku]):String(cells[idx.sku]).trim().toUpperCase(),cells]));
-      exportGroupNames.forEach(group=>{
-        const key=typeof mbqSkuGroupKey==='function'?mbqSkuGroupKey(group):group.trim().toUpperCase();
-        if(!exportGroupMap.has(key)){
-          const blank=Array(tableHeaders.length).fill('');
-          if(idx.sku>=0)blank[idx.sku]=group;
-          exportGroupMap.set(key,blank);
-        }
-      });
-      const completeDataRows=exportGroupNames.length?[...exportGroupMap.values()]:dataRows;
-      const numericValue=value=>{
-        if(value===null||value===undefined||value===''||String(value).trim()==='No Data Available'||String(value).trim()==='ALLOCATION NOT DONE')return null;
-        const n=Number(String(value).replace(/,/g,'').replace(/CBB/ig,'').replace(/%/g,'').trim());
-        return Number.isFinite(n)?n:null;
-      };
-      const out=completeDataRows.map(cells=>{
-        const sku=cells[idx.sku]||'No Data Available';
-        const groupKey=typeof mbqSkuGroupKey==='function'?mbqSkuGroupKey(sku):String(sku).trim().toUpperCase();
-        const indent=typeof mbqCfaAllocatedIndentForSku==='function'?mbqCfaAllocatedIndentForSku(sku,cfa.key):cellValue(cells,idx.indent);
-        const soh=typeof mbqExcelGroupSoh==='function'?mbqExcelGroupSoh(sku,cfa.key,false):cellValue(cells,idx.soh);
-        const transit=typeof mbqExcelGroupIntransit==='function'?mbqExcelGroupIntransit(sku,cfa.key):cellValue(cells,idx.transit);
-        const skuCodes=mbqSkuCodesByGroup?.get(groupKey);
-        let periodSales=null,periodSalesFound=false;
-        if(from&&to&&skuCodes?.size&&Array.isArray(mbqGsvRows)){
-          mbqGsvRows.forEach(gsvRow=>{
-            const saleDate=String(gsvRow.date||'').slice(0,10);
-            const saleCfa=typeof normalCfa==='function'?normalCfa(gsvRow.cfa):String(gsvRow.cfa||'').trim().toUpperCase();
-            if(saleDate<from||saleDate>to||saleCfa!==cfa.key||!skuCodes.has(typeof mbqGsvNormCode==='function'?mbqGsvNormCode(gsvRow.itemId):String(gsvRow.itemId||'').trim().toUpperCase()))return;
-            const quantity=Number(gsvRow.quantity);if(Number.isFinite(quantity)){periodSales=(periodSales||0)+quantity;periodSalesFound=true;}
-          });
-        }
-        const sales=periodSalesFound?periodSales:null;
-        const history=typeof mbqSelectedMonthHistory==='function'?mbqSelectedMonthHistory():[];
-        const monthly=history.map(m=>typeof mbqLoadedSalesValue==='function'?mbqLoadedSalesValue(sku,cfa.key,m.month):null);
-        const periodDays=from&&to?Math.max(1,Math.floor((Date.parse(to+'T00:00:00Z')-Date.parse(from+'T00:00:00Z'))/86400000)+1):0;
-        const avg=periodSalesFound&&periodDays>0?periodSales/periodDays:'No Data Available';
-        const indentNum=numericValue(indent),sohNum=numericValue(soh),salesNum=numericValue(sales);
-        const trend=indentNum!==null&&indentNum!==0&&salesNum!==null?salesNum/indentNum:'No Data Available';
-        const dos=indentNum!==null&&indentNum!==0&&sohNum!==null?sohNum/(indentNum/30):'No Data Available';
-        const roundWhole=(value,percent=false)=>{
-          if(value===null||value===undefined||value===''||String(value).trim()==='No Data Available'||String(value).trim()==='ALLOCATION NOT DONE')return 'No Data Available';
-          const n=typeof value==='number'?value:Number(String(value).replace(/,/g,'').replace(/CBB/ig,'').replace(/%/g,'').trim());
-          if(!Number.isFinite(n))return value;
-          return percent?Math.round(n*100)/100:Math.round(n);
-        };
-        return [
-          sku,
-          roundWhole(mrpMap.has(groupKey)?mrpMap.get(groupKey):null),
-          idx.category>=0?cells[idx.category]||'No Data Available':'No Data Available',
-          roundWhole(cellValue(cells,idx.contribution,true),true),
-          roundWhole(avg),
-          roundWhole(indent),
-          roundWhole(soh),
-          roundWhole(transit),
-          roundWhole(cellValue(cells,idx.mbq)),
-          roundWhole(sales),
-          roundWhole(trend,true),
-          roundWhole(dos)
-        ];
-      });
-      const rows=out.length?out:[['No Data Available',...Array(headers.length-1).fill('No Data Available')]];
-      const aoa=[[ 'UNIBIC KERALA · '+cfa.name+' · FULL SKU DETAILS' ],
-                 [ 'Daily WhatsApp Flash period: '+(from||'—')+' to '+(to||'—') ],
-                 headers,...rows];
-      exportTables.push({name:cfa.name,aoa});
-      const ws=XLSX.utils.aoa_to_sheet(aoa);
-      ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:headers.length-1}},{s:{r:1,c:0},e:{r:1,c:headers.length-1}}];
-      ws['!cols']=widths.map(w=>({wch:w}));
-      ws['!rows']=[{hpt:28},{hpt:21},{hpt:34},...rows.map(()=>({hpt:22}))];
-      ws['!freeze']={xSplit:0,ySplit:3,topLeftCell:'A4',activePane:'bottomLeft',state:'frozen'};
-      ws['!autofilter']={ref:'A3:L'+(rows.length+3)};
-      for(let r=0;r<rows.length+3;r++){
-        for(let c=0;c<headers.length;c++){
-          const cell=ws[XLSX.utils.encode_cell({r,c})];if(!cell)continue;
-          const fill=r===0?'17365D':r===1?cfa.head:r===2?cfa.accent:(r%2?cfa.body:'FFFFFF');
-          const fontColor=r===0||r===2?'FFFFFF':(r===1?cfa.accent:'24364B');
-          const style={font:{name:'Aptos',sz:r===0?13:r===2?10:9,bold:r<3||c===0,color:{rgb:fontColor}},
-            fill:{patternType:'solid',fgColor:{rgb:fill}},
-            alignment:{vertical:'center',horizontal:r<3?'center':(numericCols.has(c)?'right':'left'),wrapText:true},
-            border};
-          if(r>=3&&numericCols.has(c)&&typeof rows[r-3][c]==='number'){
-            style.numFmt=c===3||c===10?'0%':'#,##0';
-          }
-          cell.s=style;
-        }
-      }
-      XLSX.utils.book_append_sheet(wb,ws,cfa.tab);
+    if(typeof mbqBuildSkuGroupCodeIndex==='function')mbqBuildSkuGroupCodeIndex();
+  const sheetRowsByKey=(sheet)=>{
+    const headers=Array.isArray(sheet?.headers)?sheet.headers:[];
+    const skuIx=getIndex(headers,'SKU GROUP');
+    const source=sheet?(typeof mbqRecalcContributionRows==='function'?mbqRecalcContributionRows(sheet):(Array.isArray(sheet.rows)?sheet.rows:[])):[];
+    const map=new Map();
+    source.forEach(cells=>{
+      const name=String(skuIx>=0?cells?.[skuIx]??'':'').trim();
+      const key=typeof mbqSkuGroupKey==='function'?mbqSkuGroupKey(name):name.toUpperCase();
+      if(!name||!key||/^(TOTAL|GRAND TOTAL|OVERALL TOTAL)$/i.test(name))return;
+      if(typeof mbqIsOfficialSkuGroup==='function'&&!mbqIsOfficialSkuGroup(name))return;
+      map.set(key,cells);
+    });
+    return {headers,map};
+  };
+  const dataSheet=sheetRowsByKey(mbqExcelSheets?.DATA);
+  const cfaSheetMaps={};
+  cfas.forEach(cfa=>{cfaSheetMaps[cfa.key]=sheetRowsByKey(mbqExcelSheets?.[cfa.key]);});
+  const groupNames=new Map();
+  const addGroup=(value)=>{
+    const name=String(value??'').trim();
+    const key=typeof mbqSkuGroupKey==='function'?mbqSkuGroupKey(name):name.toUpperCase();
+    if(!name||!key||(typeof mbqIsOfficialSkuGroup==='function'&&!mbqIsOfficialSkuGroup(name)))return;
+    if(!groupNames.has(key))groupNames.set(key,name);
+  };
+  cfas.forEach(cfa=>cfaSheetMaps[cfa.key].map.forEach((_,key)=>addGroup(key)));
+  dataSheet.map.forEach((_,key)=>addGroup(key));
+  (Array.isArray(sourceRows)?sourceRows:[]).forEach(r=>addGroup(r?.[0]));
+  (Array.isArray(rows)?rows:[]).forEach(r=>addGroup(r?.sku));
+  const codeToGroup=new Map();
+  const addCode=(group,code)=>{
+    const name=String(group??'').trim(),codeKey=typeof mbqGsvNormCode==='function'?mbqGsvNormCode(code):String(code??'').trim().toUpperCase().replace(/\s+/g,'');
+    const groupKey=typeof mbqSkuGroupKey==='function'?mbqSkuGroupKey(name):name.toUpperCase();
+    if(!name||!codeKey||!groupKey||(typeof mbqIsOfficialSkuGroup==='function'&&!mbqIsOfficialSkuGroup(name)))return;
+    if(!codeToGroup.has(codeKey))codeToGroup.set(codeKey,groupKey);
+  };
+  (Array.isArray(rows)?rows:[]).forEach(r=>addCode(r.sku,r.code));
+  if(mbqItemSkuGroupMap&&typeof mbqItemSkuGroupMap.forEach==='function')mbqItemSkuGroupMap.forEach((group,code)=>addCode(group,code));
+  const periodSales=new Map(),periodSalesFound=new Set(),monthSales=new Map(),monthSalesFound=new Set();
+  const l3mMonths=typeof mbqExcelSourceMonths==='function'?mbqExcelSourceMonths():(typeof mbqLastCompletedMonths==='function'?mbqLastCompletedMonths(3).map(m=>({key:m.year+'-'+String(m.month).padStart(2,'0')})):[]);
+  const cfaKeys=new Set(cfas.map(c=>c.key));
+  (Array.isArray(mbqGsvRows)?mbqGsvRows:[]).forEach(gsvRow=>{
+    const code=typeof mbqGsvNormCode==='function'?mbqGsvNormCode(gsvRow.itemId):String(gsvRow.itemId??'').trim().toUpperCase().replace(/\s+/g,'');
+    if(!code)return;
+    let groupKey=codeToGroup.get(code);
+    if(!groupKey&&typeof mbqCanonicalSkuGroup==='function'){
+      const canonical=mbqCanonicalSkuGroup('',code);
+      groupKey=typeof mbqSkuGroupKey==='function'?mbqSkuGroupKey(canonical):String(canonical||'').toUpperCase();
     }
+    if(!groupKey||!groupNames.has(groupKey))return;
+    const cfaKey=typeof normalCfa==='function'?normalCfa(gsvRow.cfa):String(gsvRow.cfa||'').trim().toUpperCase();
+    if(!cfaKeys.has(cfaKey))return;
+    const qty=Number(gsvRow.quantity);if(!Number.isFinite(qty))return;
+    const date=String(gsvRow.date||'').slice(0,10),month=String(gsvRow.month||date.slice(0,7));
+    if(from&&to&&date>=from&&date<=to){
+      const key=groupKey+'|'+cfaKey;periodSales.set(key,(periodSales.get(key)||0)+qty);periodSalesFound.add(key);
+    }
+    if(l3mMonths.some(m=>m.key===month)){
+      const key=groupKey+'|'+cfaKey+'|'+month;monthSales.set(key,(monthSales.get(key)||0)+qty);monthSalesFound.add(key);
+    }
+  });
+  const mrpMap=mrpBySku();
+  const numericValue=value=>{
+    if(value===null||value===undefined||value===''||String(value).trim()==='No Data Available'||String(value).trim()==='ALLOCATION NOT DONE')return null;
+    const n=Number(String(value).replace(/,/g,'').replace(/CBB/ig,'').replace(/%/g,'').trim());return Number.isFinite(n)?n:null;
+  };
+  const roundWhole=(value,percent=false)=>{
+    if(value===null||value===undefined||value===''||String(value).trim()==='No Data Available'||String(value).trim()==='ALLOCATION NOT DONE')return 'No Data Available';
+    const n=typeof value==='number'?value:Number(String(value).replace(/,/g,'').replace(/CBB/ig,'').replace(/%/g,'').trim());
+    if(!Number.isFinite(n))return value;return percent?Math.round(n*100)/100:Math.round(n);
+  };
+  const getRowValue=(row,headers,names,percent=false)=>{
+    if(!row)return 'No Data Available';const ix=getIndex(headers,...names);return ix<0?'No Data Available':cellValue(row,ix,percent);
+  };
+  for(const cfa of cfas){
+    const cfaSheet=cfaSheetMaps[cfa.key],cfaHeaders=cfaSheet.headers,dataHeaders=dataSheet.headers,out=[];
+    groupNames.forEach((sku,groupKey)=>{
+      const cfaRow=cfaSheet.map.get(groupKey)||null,dataRow=dataSheet.map.get(groupKey)||null;
+      const categoryValue=getRowValue(cfaRow,cfaHeaders,['CAT','CATEGORY','CTG']);
+      const category=categoryValue!=='No Data Available'?categoryValue:getRowValue(dataRow,dataHeaders,['CAT','CATEGORY','CTG']);
+      const contributionValue=getRowValue(cfaRow,cfaHeaders,['CONTRI%','CONTRI %','CONTRIBUTION %'],true);
+      const contribution=contributionValue!=='No Data Available'?contributionValue:getRowValue(dataRow,dataHeaders,['CONTRI%','CONTRI %','CONTRIBUTION %'],true);
+      const monthlyValues=l3mMonths.map(m=>{const key=groupKey+'|'+cfa.key+'|'+m.key;return monthSalesFound.has(key)?(monthSales.get(key)||0):null;});
+      const avg=monthlyValues.length===3&&monthlyValues.every(v=>v!==null)?monthlyValues.reduce((sum,v)=>sum+Number(v),0)/3:'No Data Available';
+      const salesKey=groupKey+'|'+cfa.key,sales=periodSalesFound.has(salesKey)?periodSales.get(salesKey):'No Data Available';
+      const indent=typeof mbqCfaAllocatedIndentForSku==='function'?mbqCfaAllocatedIndentForSku(sku,cfa.key):getRowValue(cfaRow,cfaHeaders,['IND','INDENT']);
+      const soh=typeof mbqExcelGroupSoh==='function'?mbqExcelGroupSoh(sku,cfa.key,false):getRowValue(cfaRow,cfaHeaders,['SOH>60%','SOH']);
+      const transit=typeof mbqExcelGroupIntransit==='function'?mbqExcelGroupIntransit(sku,cfa.key):getRowValue(cfaRow,cfaHeaders,['INTRANSIT','IN TRANSIT']);
+      let mbq=getRowValue(cfaRow,cfaHeaders,['MBQ']);
+      if(mbq==='No Data Available'&&typeof mbqFallbackMbqValue==='function')mbq=mbqFallbackMbqValue(sku,cfa.key);
+      const indentNum=numericValue(indent),sohNum=numericValue(soh),salesNum=numericValue(sales);
+      const trend=indentNum!==null&&indentNum!==0&&salesNum!==null?salesNum/indentNum:'No Data Available';
+      const dos=indentNum!==null&&indentNum!==0&&sohNum!==null?sohNum/(indentNum/30):'No Data Available';
+      out.push([sku,roundWhole(mrpMap.has(groupKey)?mrpMap.get(groupKey):null),category,roundWhole(contribution,true),roundWhole(avg),roundWhole(indent),roundWhole(soh),roundWhole(transit),roundWhole(mbq),roundWhole(sales),roundWhole(trend,true),roundWhole(dos)]);
+    });
+    const rows=out.length?out:[['No Data Available',...Array(headers.length-1).fill('No Data Available')]];
+    const aoa=[[ 'UNIBIC KERALA · '+cfa.name+' · FULL SKU DETAILS' ],[ 'Daily WhatsApp Flash period: '+(from||'—')+' to '+(to||'—') ],headers,...rows];
+    exportTables.push({name:cfa.name,aoa});
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:headers.length-1}},{s:{r:1,c:0},e:{r:1,c:headers.length-1}}];
+    ws['!cols']=widths.map(w=>({wch:w}));ws['!rows']=[{hpt:28},{hpt:21},{hpt:34},...rows.map(()=>({hpt:22}))];
+    ws['!freeze']={xSplit:0,ySplit:3,topLeftCell:'A4',activePane:'bottomLeft',state:'frozen'};ws['!autofilter']={ref:'A3:L'+(rows.length+3)};
+    for(let r=0;r<rows.length+3;r++)for(let c=0;c<headers.length;c++){
+      const cell=ws[XLSX.utils.encode_cell({r,c})];if(!cell)continue;
+      const fill=r===0?'17365D':r===1?cfa.head:r===2?cfa.accent:(r%2?cfa.body:'FFFFFF');
+      const fontColor=r===0||r===2?'FFFFFF':(r===1?cfa.accent:'24364B');
+      const style={font:{name:'Aptos',sz:r===0?13:r===2?10:9,bold:r<3||c===0,color:{rgb:fontColor}},fill:{patternType:'solid',fgColor:{rgb:fill}},alignment:{vertical:'center',horizontal:r<3?'center':(numericCols.has(c)?'right':'left'),wrapText:true},border};
+      if(r>=3&&numericCols.has(c)&&typeof rows[r-3][c]==='number')style.numFmt=c===3||c===10?'0%':'#,##0';
+      cell.s=style;
+    }
+    XLSX.utils.book_append_sheet(wb,ws,cfa.tab);
+    console.info('Daily Flash CFA export QA',cfa.key,{skuGroups:rows.length,salesRows:[...periodSalesFound].filter(k=>k.endsWith('|'+cfa.key)).length,periodSalesTotal:[...periodSales.entries()].filter(([key])=>key.endsWith('|'+cfa.key)).reduce((sum,[,qty])=>sum+qty,0),l3mRows:[...monthSalesFound].filter(k=>k.includes('|'+cfa.key+'|')).length});
+  }
     if(format==='excel'){
       wb.Workbook=wb.Workbook||{};
       wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};
