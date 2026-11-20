@@ -2980,6 +2980,7 @@ window.mbqExportDailyFlashCfaDetails = async function(format='excel'){
   const headers=['NEW SKU GRP','MRP NEW','Category','Contri %','Avg','Indent','SOH','Intransit','MBQ','Sales','Sales Trend','DOS'];
   const widths=[32,14,14,13,14,14,14,15,14,15,16,12];
   const numericCols=new Set([1,3,4,5,6,7,8,9,10,11]);
+  const border={top:{style:'thin',color:{rgb:'D7DEE8'}},bottom:{style:'thin',color:{rgb:'D7DEE8'}},left:{style:'thin',color:{rgb:'D7DEE8'}},right:{style:'thin',color:{rgb:'D7DEE8'}}};
   const normHeader=v=>String(v??'').trim().toUpperCase().replace(/\s+/g,' ');
   const parseViewCell=(cell,percent=false)=>{
     const raw=String(cell?.textContent??'').replace(/\s+/g,' ').trim();
@@ -3035,7 +3036,6 @@ window.mbqExportDailyFlashCfaDetails = async function(format='excel'){
     if(sizeEl&&[...sizeEl.options].some(o=>o.value==='500'))sizeEl.value='500';
     if(savedHide!==null)mbqHideEmptyIndents=false;
     if(typeof mbqBuildSkuGroupCodeIndex==='function')mbqBuildSkuGroupCodeIndex();
-    const mrpMap=mrpBySku();
     for(const cfa of cfas){
       viewSelect.value=cfa.key;
       if(mbqExcelSheets?.[cfa.key]&&typeof mbqRenderLoadedWorkbook==='function')
