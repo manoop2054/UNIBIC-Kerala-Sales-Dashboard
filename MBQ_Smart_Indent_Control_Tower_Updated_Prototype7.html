@@ -3105,15 +3105,15 @@ window.mbqExportDailyFlashCfaDetails = async function(format='excel'){
     if(!row)return 'No Data Available';const ix=getIndex(headers,...names);return ix<0?'No Data Available':cellValue(row,ix,percent);
   };
   const readExportNumber=(value,percent=false)=>{
-    const raw=String(value??'').replace(/\\s+/g,' ').trim();
-    if(!raw||/^(NO DATA AVAILABLE|—|-|N\\/A)$/i.test(raw))return 'No Data Available';
+    const raw=String(value??'').replace(/\s+/g,' ').trim();
+    if(!raw||/^(NO DATA AVAILABLE|—|-|N.A)$/i.test(raw))return 'No Data Available';
     const hasPercent=/%$/.test(raw);
     const n=Number(raw.replace(/,/g,'').replace(/₹/g,'').replace(/CBB/ig,'').replace(/%/g,'').trim());
     if(!Number.isFinite(n))return raw;
     const valueNum=hasPercent?n/100:n;
     return percent?Math.round(valueNum*100)/100:Math.round(valueNum);
   };
-  const headerKey=value=>String(value??'').trim().toUpperCase().replace(/\\s+/g,' ');
+  const headerKey=value=>String(value??'').trim().toUpperCase().replace(/\s+/g,' ');
   const pickViewValue=(cells,index,percent=false)=>index<0?'No Data Available':readExportNumber(cells[index]?.textContent,percent);
   const viewHost=document.getElementById('mbqExcelTableHost');
   const viewSelect=document.getElementById('mbqSheetSelect');
