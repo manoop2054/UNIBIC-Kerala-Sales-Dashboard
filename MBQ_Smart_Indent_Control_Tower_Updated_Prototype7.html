@@ -2966,28 +2966,33 @@ window.mbqExportDailyFlashCfaDetails = async function(format='excel'){
   const cfas=[{key:'ALU',name:'ALU CFA',tab:'ALU CFA',head:'D9EAD3',body:'F1F8F2',accent:'387B4B'},
               {key:'TVD',name:'TVD CFA',tab:'TVD CFA',head:'CFE2F3',body:'F0F6FC',accent:'28639A'},
               {key:'PAY',name:'PAY CFA',tab:'PAY CFA',head:'FCE4D6',body:'FFF5EF',accent:'B65D22'}];
-  const searchEl=document.getElementById('mbqViewSearch');
-  const sizeEl=document.getElementById('mbqViewPageSize');
-  const statIds=['mbqStatCfa','mbqStatRows','mbqStatCols','mbqStatSource'];
-  const savedStats={};
+  const searchEl=document.getElementById('mbqViewSearch'),sizeEl=document.getElementById('mbqViewPageSize');
+  const viewHost=document.getElementById('mbqExcelTableHost'),viewSelect=document.getElementById('mbqSheetSelect');
+  const noIndentHost=document.getElementById('mbqNoIndentExcelRows');
+  const statIds=['mbqStatCfa','mbqStatRows','mbqStatCols','mbqStatSource'],savedStats={};
   statIds.forEach(id=>{const el=document.getElementById(id);if(el)savedStats[id]=el.textContent;});
-  const savedSearch=searchEl?searchEl.value:null;
-  const savedSize=sizeEl?sizeEl.value:null;
+  const savedSearch=searchEl?searchEl.value:null,savedSize=sizeEl?sizeEl.value:null;
   const savedHide=typeof mbqHideEmptyIndents!=='undefined'?mbqHideEmptyIndents:null;
-  const from=document.getElementById('flashFromDate')?.value||'';
-  const to=document.getElementById('flashToDate')?.value||'';
-  const wb=XLSX.utils.book_new();
-  const exportTables=[];
+  const savedViewHtml=viewHost?viewHost.innerHTML:null,savedNoIndentHtml=noIndentHost?noIndentHost.innerHTML:null;
+  const savedViewKey=viewSelect?viewSelect.value:null;
+  const from=document.getElementById('flashFromDate')?.value||'',to=document.getElementById('flashToDate')?.value||'';
+  const wb=XLSX.utils.book_new(),exportTables=[];
+  const headers=['NEW SKU GRP','MRP NEW','Category','Contri %','Avg','Indent','SOH','Intransit','MBQ','Sales','Sales Trend','DOS'];
+  const widths=[32,14,14,13,14,14,14,15,14,15,16,12];
+  const numericCols=new Set([1,3,4,5,6,7,8,9,10,11]);
   const normHeader=v=>String(v??'').trim().toUpperCase().replace(/\s+/g,' ');
-  const getIndex=(headers,...names)=>{for(const name of names){const i=headers.findIndex(h=>normHeader(h)===normHeader(name));if(i>=0)return i;}return -1;};
-  const cellValue=(cells,index,percent=false)=>{
-    if(index<0||index>=cells.length)return 'No Data Available';
-    const raw=String(cells[index]??'').replace(/\s+/g,' ').trim();
+  const parseViewCell=(cell,percent=false)=>{
+    const raw=String(cell?.textContent??'').replace(/\s+/g,' ').trim();
     if(!raw||/^(NO DATA AVAILABLE|—|-|N\/A)$/i.test(raw))return 'No Data Available';
     const hasPercent=/%$/.test(raw);
     const n=Number(raw.replace(/,/g,'').replace(/₹/g,'').replace(/CBB/ig,'').replace(/%/g,'').trim());
     if(!Number.isFinite(n))return raw;
-    return (percent||hasPercent)?n/100:n;
+    if(hasPercent)return n/100;
+    return percent?n:(Math.round(n));
+  };
+  const headerIndex=(headers,...names)=>{
+    for(const name of names){const ix=headers.findIndex(h=>normHeader(h)===normHeader(name));if(ix>=0)return ix;}
+    return -1;
   };
   const mrpBySku=()=>{
     const result=new Map();
@@ -3022,221 +3027,86 @@ window.mbqExportDailyFlashCfaDetails = async function(format='excel'){
     return result;
   };
   const mrpMap=mrpBySku();
-  const border={top:{style:'thin',color:{rgb:'D7DEE8'}},bottom:{style:'thin',color:{rgb:'D7DEE8'}},left:{style:'thin',color:{rgb:'D7DEE8'}},right:{style:'thin',color:{rgb:'D7DEE8'}}};
-  const widths=[32,14,14,13,14,14,14,15,14,15,16,12];
-  const headers=['NEW SKU GRP','MRP NEW','Category','Contri %','Avg','Indent','SOH','Intransit','MBQ','Sales','Sales Trend','DOS'];
-  const numericCols=new Set([1,3,4,5,6,7,8,9,10,11]);
+  const groupKey=sku=>typeof mbqSkuGroupKey==='function'?mbqSkuGroupKey(sku):String(sku??'').trim().toUpperCase();
   try{
+    if(!viewHost||!viewSelect||typeof renderMbqExcelView!=='function')
+      throw new Error('MBQ EXCEL VIEW is not available; export stopped.');
     if(searchEl)searchEl.value='';
     if(sizeEl&&[...sizeEl.options].some(o=>o.value==='500'))sizeEl.value='500';
     if(savedHide!==null)mbqHideEmptyIndents=false;
     if(typeof mbqBuildSkuGroupCodeIndex==='function')mbqBuildSkuGroupCodeIndex();
-  const sheetRowsByKey=(sheet)=>{
-    const headers=Array.isArray(sheet?.headers)?sheet.headers:[];
-    const skuIx=getIndex(headers,'SKU GROUP');
-    const source=sheet?(typeof mbqRecalcContributionRows==='function'?mbqRecalcContributionRows(sheet):(Array.isArray(sheet.rows)?sheet.rows:[])):[];
-    const map=new Map();
-    source.forEach(cells=>{
-      const name=String(skuIx>=0?cells?.[skuIx]??'':'').trim();
-      const key=typeof mbqSkuGroupKey==='function'?mbqSkuGroupKey(name):name.toUpperCase();
-      if(!name||!key||/^(TOTAL|GRAND TOTAL|OVERALL TOTAL)$/i.test(name))return;
-      if(typeof mbqIsOfficialSkuGroup==='function'&&!mbqIsOfficialSkuGroup(name))return;
-      map.set(key,cells);
-    });
-    return {headers,map};
-  };
-  const dataSheet=sheetRowsByKey(mbqExcelSheets?.DATA);
-  const cfaSheetMaps={};
-  cfas.forEach(cfa=>{cfaSheetMaps[cfa.key]=sheetRowsByKey(mbqExcelSheets?.[cfa.key]);});
-  const groupNames=new Map();
-  const addGroup=(value)=>{
-    const name=String(value??'').trim();
-    const key=typeof mbqSkuGroupKey==='function'?mbqSkuGroupKey(name):name.toUpperCase();
-    if(!name||!key||(typeof mbqIsOfficialSkuGroup==='function'&&!mbqIsOfficialSkuGroup(name)))return;
-    if(!groupNames.has(key))groupNames.set(key,name);
-  };
-  cfas.forEach(cfa=>cfaSheetMaps[cfa.key].map.forEach((_,key)=>addGroup(key)));
-  dataSheet.map.forEach((_,key)=>addGroup(key));
-  (Array.isArray(sourceRows)?sourceRows:[]).forEach(r=>addGroup(r?.[0]));
-  (Array.isArray(rows)?rows:[]).forEach(r=>addGroup(r?.sku));
-  const codeToGroup=new Map();
-  const addCode=(group,code)=>{
-    const name=String(group??'').trim(),codeKey=typeof mbqGsvNormCode==='function'?mbqGsvNormCode(code):String(code??'').trim().toUpperCase().replace(/\s+/g,'');
-    const groupKey=typeof mbqSkuGroupKey==='function'?mbqSkuGroupKey(name):name.toUpperCase();
-    if(!name||!codeKey||!groupKey||(typeof mbqIsOfficialSkuGroup==='function'&&!mbqIsOfficialSkuGroup(name)))return;
-    if(!codeToGroup.has(codeKey))codeToGroup.set(codeKey,groupKey);
-  };
-  (Array.isArray(rows)?rows:[]).forEach(r=>addCode(r.sku,r.code));
-  if(mbqItemSkuGroupMap&&typeof mbqItemSkuGroupMap.forEach==='function')mbqItemSkuGroupMap.forEach((group,code)=>addCode(group,code));
-  const periodSales=new Map(),periodSalesFound=new Set(),monthSales=new Map(),monthSalesFound=new Set();
-  const l3mMonths=typeof mbqExcelSourceMonths==='function'?mbqExcelSourceMonths():(typeof mbqLastCompletedMonths==='function'?mbqLastCompletedMonths(3).map(m=>({key:m.year+'-'+String(m.month).padStart(2,'0')})):[]);
-  const cfaKeys=new Set(cfas.map(c=>c.key));
-  (Array.isArray(mbqGsvRows)?mbqGsvRows:[]).forEach(gsvRow=>{
-    const code=typeof mbqGsvNormCode==='function'?mbqGsvNormCode(gsvRow.itemId):String(gsvRow.itemId??'').trim().toUpperCase().replace(/\s+/g,'');
-    if(!code)return;
-    let groupKey=codeToGroup.get(code);
-    if(!groupKey&&typeof mbqCanonicalSkuGroup==='function'){
-      const canonical=mbqCanonicalSkuGroup('',code);
-      groupKey=typeof mbqSkuGroupKey==='function'?mbqSkuGroupKey(canonical):String(canonical||'').toUpperCase();
-    }
-    if(!groupKey||!groupNames.has(groupKey))return;
-    const cfaKey=typeof normalCfa==='function'?normalCfa(gsvRow.cfa):String(gsvRow.cfa||'').trim().toUpperCase();
-    if(!cfaKeys.has(cfaKey))return;
-    const qty=Number(gsvRow.quantity);if(!Number.isFinite(qty))return;
-    const date=String(gsvRow.date||'').slice(0,10),month=String(gsvRow.month||date.slice(0,7));
-    if(from&&to&&date>=from&&date<=to){
-      const key=groupKey+'|'+cfaKey;periodSales.set(key,(periodSales.get(key)||0)+qty);periodSalesFound.add(key);
-    }
-    if(l3mMonths.some(m=>m.key===month)){
-      const key=groupKey+'|'+cfaKey+'|'+month;monthSales.set(key,(monthSales.get(key)||0)+qty);monthSalesFound.add(key);
-    }
-  });
-  const mrpMap=mrpBySku();
-  const numericValue=value=>{
-    if(value===null||value===undefined||value===''||String(value).trim()==='No Data Available'||String(value).trim()==='ALLOCATION NOT DONE')return null;
-    const n=Number(String(value).replace(/,/g,'').replace(/CBB/ig,'').replace(/%/g,'').trim());return Number.isFinite(n)?n:null;
-  };
-  const roundWhole=(value,percent=false)=>{
-    if(value===null||value===undefined||value===''||String(value).trim()==='No Data Available'||String(value).trim()==='ALLOCATION NOT DONE')return 'No Data Available';
-    const n=typeof value==='number'?value:Number(String(value).replace(/,/g,'').replace(/CBB/ig,'').replace(/%/g,'').trim());
-    if(!Number.isFinite(n))return value;return percent?Math.round(n*100)/100:Math.round(n);
-  };
-  const getRowValue=(row,headers,names,percent=false)=>{
-    if(!row)return 'No Data Available';const ix=getIndex(headers,...names);return ix<0?'No Data Available':cellValue(row,ix,percent);
-  };
-  const readExportNumber=(value,percent=false)=>{
-    const raw=String(value??'').replace(/\s+/g,' ').trim();
-    if(!raw||/^(NO DATA AVAILABLE|—|-|N.A)$/i.test(raw))return 'No Data Available';
-    const hasPercent=/%$/.test(raw);
-    const n=Number(raw.replace(/,/g,'').replace(/₹/g,'').replace(/CBB/ig,'').replace(/%/g,'').trim());
-    if(!Number.isFinite(n))return raw;
-    const valueNum=hasPercent?n/100:n;
-    return percent?Math.round(valueNum*100)/100:Math.round(valueNum);
-  };
-  const headerKey=value=>String(value??'').trim().toUpperCase().replace(/\s+/g,' ');
-  const pickViewValue=(cells,index,percent=false)=>index<0?'No Data Available':readExportNumber(cells[index]?.textContent,percent);
-  const viewHost=document.getElementById('mbqExcelTableHost');
-  const viewSelect=document.getElementById('mbqSheetSelect');
-  const noIndentHost=document.getElementById('mbqNoIndentExcelRows');
-  for(const cfa of cfas){
-    let renderedHtml='',savedViewHtml=null,savedNoIndentHtml=null,savedViewKey=null;
-    if(!viewHost||!viewSelect||typeof renderMbqExcelView!=='function'){
-      throw new Error('MBQ EXCEL VIEW is not available; export stopped to avoid using a separate calculation.');
-    }
-    savedViewHtml=viewHost.innerHTML;
-    savedNoIndentHtml=noIndentHost?noIndentHost.innerHTML:null;
-    savedViewKey=viewSelect.value;
-    try{
+    const mrpMap=mrpBySku();
+    for(const cfa of cfas){
       viewSelect.value=cfa.key;
-      if(mbqExcelSheets?.[cfa.key]&&typeof mbqRenderLoadedWorkbook==='function')mbqRenderLoadedWorkbook(cfa.key,viewHost,cfa.name,true);
+      if(mbqExcelSheets?.[cfa.key]&&typeof mbqRenderLoadedWorkbook==='function')
+        mbqRenderLoadedWorkbook(cfa.key,viewHost,cfa.name,true);
       else renderMbqExcelView();
-      renderedHtml=viewHost.innerHTML;
-    }finally{
-      viewHost.innerHTML=savedViewHtml;
-      if(noIndentHost&&savedNoIndentHtml!==null)noIndentHost.innerHTML=savedNoIndentHtml;
-      viewSelect.value=savedViewKey;
+      const parsed=document.createElement('div');parsed.innerHTML=viewHost.innerHTML;
+      const table=parsed.querySelector('#mbqExcelTableHost table, table');
+      if(!table)throw new Error('MBQ EXCEL VIEW table is unavailable for '+cfa.name+'.');
+      const headerRows=[...table.querySelectorAll('thead tr')];
+      const headerCells=headerRows.length?[...headerRows[headerRows.length-1].querySelectorAll('th,td')]:[];
+      const viewHeaders=headerCells.map(cell=>normHeader(cell.textContent));
+      const ix={
+        sku:headerIndex(viewHeaders,'SKU GROUP'),
+        category:headerIndex(viewHeaders,'CAT','CATEGORY','CTG'),
+        contribution:headerIndex(viewHeaders,'CONTRI%','CONTRI %','CONTRIBUTION %'),
+        avg:headerIndex(viewHeaders,'L3M AVG SALES','AVG'),
+        indent:headerIndex(viewHeaders,'IND','INDENT'),
+        soh:headerIndex(viewHeaders,'SOH>60%','SOH'),
+        transit:headerIndex(viewHeaders,'INTRANSIT','IN TRANSIT'),
+        mbq:headerIndex(viewHeaders,'MBQ'),
+        sales:headerIndex(viewHeaders,'SALES'),
+        trend:headerIndex(viewHeaders,'S. TREND','S.TREND','SALES TREND'),
+        dos:headerIndex(viewHeaders,'DOS')
+      };
+      if(ix.sku<0)throw new Error('SKU GROUP column missing in MBQ EXCEL VIEW for '+cfa.name+'.');
+      const viewRows=[...table.querySelectorAll('tbody tr')].filter(tr=>!tr.classList.contains('mbq-total-row'));
+      const rows=[];
+      for(const tr of viewRows){
+        const cells=[...tr.querySelectorAll('td,th')],sku=String(cells[ix.sku]?.textContent??'').trim();
+        if(!sku||/^(TOTAL|GRAND TOTAL|OVERALL TOTAL)$/i.test(sku))continue;
+        const key=groupKey(sku);
+        rows.push([
+          sku,
+          mrpMap.has(key)?Math.round(Number(mrpMap.get(key))):'No Data Available',
+          ix.category>=0?String(cells[ix.category]?.textContent??'').trim()||'No Data Available':'No Data Available',
+          parseViewCell(cells[ix.contribution],true),
+          parseViewCell(cells[ix.avg]),
+          parseViewCell(cells[ix.indent]),
+          parseViewCell(cells[ix.soh]),
+          parseViewCell(cells[ix.transit]),
+          parseViewCell(cells[ix.mbq]),
+          parseViewCell(cells[ix.sales]),
+          parseViewCell(cells[ix.trend],true),
+          parseViewCell(cells[ix.dos])
+        ]);
+      }
+      const finalRows=rows.length?rows:[['No Data Available',...Array(headers.length-1).fill('No Data Available')]];
+      const aoa=[['UNIBIC KERALA · '+cfa.name+' · FULL SKU DETAILS'],['Daily WhatsApp Flash period: '+(from||'—')+' to '+(to||'—')],headers,...finalRows];
+      exportTables.push({name:cfa.name,aoa});
+      const ws=XLSX.utils.aoa_to_sheet(aoa);
+      ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:headers.length-1}},{s:{r:1,c:0},e:{r:1,c:headers.length-1}}];
+      ws['!cols']=widths.map(w=>({wch:w}));
+      ws['!rows']=[{hpt:28},{hpt:21},{hpt:34},...finalRows.map(()=>({hpt:22}))];
+      ws['!freeze']={xSplit:0,ySplit:3,topLeftCell:'A4',activePane:'bottomLeft',state:'frozen'};
+      ws['!autofilter']={ref:'A3:L'+(finalRows.length+3)};
+      for(let r=0;r<finalRows.length+3;r++)for(let c=0;c<headers.length;c++){
+        const cell=ws[XLSX.utils.encode_cell({r,c})];if(!cell)continue;
+        const fill=r===0?'17365D':r===1?cfa.head:r===2?cfa.accent:(r%2?cfa.body:'FFFFFF');
+        const fontColor=r===0||r===2?'FFFFFF':(r===1?cfa.accent:'24364B');
+        const style={font:{name:'Aptos',sz:r===0?13:r===2?10:9,bold:r<3||c===0,color:{rgb:fontColor}},fill:{patternType:'solid',fgColor:{rgb:fill}},alignment:{vertical:'center',horizontal:r<3?'center':(numericCols.has(c)?'right':'left'),wrapText:true},border};
+        if(r>=3&&numericCols.has(c)&&typeof finalRows[r-3][c]==='number')
+          style.numFmt=(c===3||c===10)?'0.00%':'#,##0';
+        cell.s=style;
+      }
+      XLSX.utils.book_append_sheet(wb,ws,cfa.tab);
+      console.info('Daily Flash CFA export QA',{cfa:cfa.key,source:'MBQ EXCEL VIEW',skuGroups:finalRows.length});
     }
-    const parsed=document.createElement('div');
-    parsed.innerHTML=renderedHtml;
-    const table=parsed.querySelector('table');
-    if(!table)throw new Error('MBQ EXCEL VIEW has no source-backed table for '+cfa.name+'.');
-    const headerRows=[...table.querySelectorAll('thead tr')];
-    const headerCells=headerRows.length?[...headerRows[headerRows.length-1].querySelectorAll('th,td')]:[];
-    const viewHeaders=headerCells.map(cell=>headerKey(cell.textContent));
-    const findViewIndex=(...names)=>{for(const name of names){const ix=viewHeaders.indexOf(headerKey(name));if(ix>=0)return ix;}return -1;};
-    const ix={
-      sku:findViewIndex('SKU GROUP'),
-      category:findViewIndex('CAT','CATEGORY','CTG'),
-      contribution:findViewIndex('CONTRI%','CONTRI %','CONTRIBUTION %'),
-      avg:findViewIndex('L3M AVG SALES'),
-      indent:findViewIndex('IND','INDENT'),
-      soh:findViewIndex('SOH>60%','SOH'),
-      transit:findViewIndex('INTRANSIT','IN TRANSIT'),
-      mbq:findViewIndex('MBQ'),
-      sales:findViewIndex('SALES'),
-      trend:findViewIndex('S. TREND','S.TREND','SALES TREND'),
-      dos:findViewIndex('DOS')
-    };
-    if(ix.sku<0)throw new Error('SKU GROUP column is missing from MBQ EXCEL VIEW for '+cfa.name+'.');
-    const viewRows=[...table.querySelectorAll('tbody tr')].filter(tr=>!tr.classList.contains('mbq-total-row'));
-    const sourceMap=cfaSheetMaps[cfa.key]||{headers:[],map:new Map()};
-    const sourceSkuIx=getIndex(sourceMap.headers,'SKU GROUP');
-    const exportRowsByKey=new Map();
-    viewRows.forEach(tr=>{
-      const cells=[...tr.querySelectorAll('td,th')];
-      const sku=String(cells[ix.sku]?.textContent??'').trim();
-      if(!sku||/^(TOTAL|GRAND TOTAL|OVERALL TOTAL)$/i.test(sku))return;
-      const groupKey=typeof mbqSkuGroupKey==='function'?mbqSkuGroupKey(sku):sku.toUpperCase();
-      if(groupKey)exportRowsByKey.set(groupKey,{sku,cells,rawRow:sourceMap.map.get(groupKey)||null});
-    });
-    // Keep every official SKU row from the same CFA workbook source, even if the
-    // rendered table has a narrower row set. The rendered MBQ view remains primary;
-    // workbook cells fill any missing row/value instead of exporting blanks.
-    sourceMap.map.forEach((rawRow,groupKey)=>{
-      if(exportRowsByKey.has(groupKey))return;
-      const sku=String(sourceSkuIx>=0?rawRow?.[sourceSkuIx]??'':'').trim();
-      if(sku)exportRowsByKey.set(groupKey,{sku,cells:null,rawRow});
-    });
-    // The CFA sheet can contain only a subset of the official assortment.
-    // Keep every official group represented in the All-CFA MBQ workbook as well;
-    // groups without a CFA-specific row remain visible with No Data Available.
-    const dataSkuIx=getIndex(dataSheet.headers,'SKU GROUP');
-    dataSheet.map.forEach((dataRow,groupKey)=>{
-      if(exportRowsByKey.has(groupKey))return;
-      const sku=String(dataSkuIx>=0?dataRow?.[dataSkuIx]??'':'').trim();
-      if(sku)exportRowsByKey.set(groupKey,{sku,cells:null,rawRow:null});
-    });
-    const rawValue=(rawRow,...names)=>getRowValue(rawRow,sourceMap.headers,names,false);
-    const valueWithFallback=(cells,viewIndex,rawRow,names,percent=false,preferSourceWhenViewZero=false)=>{
-      const viewValue=pickViewValue(cells||[],viewIndex,percent);
-      if(viewValue!=='No Data Available'&&!(preferSourceWhenViewZero&&Number(viewValue)===0&&rawRow))return viewValue;
-      if(!rawRow)return viewValue;
-      const fallback=getRowValue(rawRow,sourceMap.headers,names,percent);
-      return fallback==='No Data Available'?viewValue:roundWhole(fallback,percent);
-    };
-    const out=[];
-    exportRowsByKey.forEach(({sku,cells,rawRow},groupKey)=>{
-      const categoryText=ix.category>=0?String(cells?.[ix.category]?.textContent??'').trim():'';
-      const category=categoryText||rawValue(rawRow,'CAT','CATEGORY','CTG');
-      out.push([
-        sku,
-        roundWhole(mrpMap.has(groupKey)?mrpMap.get(groupKey):null),
-        category||'No Data Available',
-        valueWithFallback(cells,ix.contribution,rawRow,['CONTRI%','CONTRI %','CONTRIBUTION %'],true),
-        valueWithFallback(cells,ix.avg,rawRow,['L3M AVG SALES','AVG'],false,true),
-        valueWithFallback(cells,ix.indent,rawRow,['IND','INDENT']),
-        valueWithFallback(cells,ix.soh,rawRow,['SOH>60%','SOH']),
-        valueWithFallback(cells,ix.transit,rawRow,['INTRANSIT','IN TRANSIT'],false,true),
-        valueWithFallback(cells,ix.mbq,rawRow,['MBQ']),
-        valueWithFallback(cells,ix.sales,rawRow,['SALES']),
-        valueWithFallback(cells,ix.trend,rawRow,['S. TREND','S.TREND','SALES TREND'],true),
-        valueWithFallback(cells,ix.dos,rawRow,['DOS'])
-      ]);
-    });
-    const rows=out.length?out:[['No Data Available',...Array(headers.length-1).fill('No Data Available')]];
-    const aoa=[[ 'UNIBIC KERALA · '+cfa.name+' · FULL SKU DETAILS' ],[ 'Daily WhatsApp Flash period: '+(from||'—')+' to '+(to||'—') ],headers,...rows];
-    exportTables.push({name:cfa.name,aoa});
-    const ws=XLSX.utils.aoa_to_sheet(aoa);
-    ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:headers.length-1}},{s:{r:1,c:0},e:{r:1,c:headers.length-1}}];
-    ws['!cols']=widths.map(w=>({wch:w}));ws['!rows']=[{hpt:28},{hpt:21},{hpt:34},...rows.map(()=>({hpt:22}))];
-    ws['!freeze']={xSplit:0,ySplit:3,topLeftCell:'A4',activePane:'bottomLeft',state:'frozen'};ws['!autofilter']={ref:'A3:L'+(rows.length+3)};
-    for(let r=0;r<rows.length+3;r++)for(let c=0;c<headers.length;c++){
-      const cell=ws[XLSX.utils.encode_cell({r,c})];if(!cell)continue;
-      const fill=r===0?'17365D':r===1?cfa.head:r===2?cfa.accent:(r%2?cfa.body:'FFFFFF');
-      const fontColor=r===0||r===2?'FFFFFF':(r===1?cfa.accent:'24364B');
-      const style={font:{name:'Aptos',sz:r===0?13:r===2?10:9,bold:r<3||c===0,color:{rgb:fontColor}},fill:{patternType:'solid',fgColor:{rgb:fill}},alignment:{vertical:'center',horizontal:r<3?'center':(numericCols.has(c)?'right':'left'),wrapText:true},border};
-      if(r>=3&&numericCols.has(c)&&typeof rows[r-3][c]==='number')style.numFmt=c===3||c===10?'0.00%':'#,##0';
-      cell.s=style;
-    }
-    XLSX.utils.book_append_sheet(wb,ws,cfa.tab);
-    console.info('Daily Flash CFA export source QA',cfa.key,{source:'MBQ EXCEL VIEW',skuGroups:rows.length});
-  }
     if(format==='excel'){
-      wb.Workbook=wb.Workbook||{};
-      wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};
-      const safeFrom=from||'AllDates',safeTo=to||'AllDates';
-      XLSX.writeFile(wb,'UNIBIC_Daily_Flash_CFA_Details_'+safeFrom+'_to_'+safeTo+'.xlsx',{compression:true});
-      showToast('Separate 3-CFA colour Excel downloaded · ALU, TVD and PAY sheets.');
+      wb.Workbook=wb.Workbook||{};wb.Workbook.CalcPr={calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};
+      XLSX.writeFile(wb,'UNIBIC_Daily_Flash_CFA_Details_'+(from||'AllDates')+'_to_'+(to||'AllDates')+'.xlsx',{compression:true});
+      showToast('3-CFA Excel exported from MBQ EXCEL VIEW.');
     }else{
       const safe=v=>String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
       const reportHtml=exportTables.map(t=>{
@@ -3256,8 +3126,11 @@ window.mbqExportDailyFlashCfaDetails = async function(format='excel'){
     }
   }catch(error){
     console.error('Daily Flash CFA details export failed:',error);
-    showToast('CFA details Excel export failed: '+(error.message||'Please retry.'));
+    showToast('CFA details export failed: '+(error.message||'Please retry.'));
   }finally{
+    if(viewHost&&savedViewHtml!==null)viewHost.innerHTML=savedViewHtml;
+    if(noIndentHost&&savedNoIndentHtml!==null)noIndentHost.innerHTML=savedNoIndentHtml;
+    if(viewSelect&&savedViewKey!==null)viewSelect.value=savedViewKey;
     if(searchEl)searchEl.value=savedSearch??'';
     if(sizeEl&&savedSize!==null)sizeEl.value=savedSize;
     if(savedHide!==null)mbqHideEmptyIndents=savedHide;
@@ -5026,7 +4899,7 @@ function mbqLoadedSalesValue(sku,cfa,month){
   for(const r of mbqSalesRows){const group=mbqCanonicalSkuGroup(String(r.SKU_Group??r.SKU_GROUP??r['SKU Group']??'').trim());const mo=Number(r.Month??r.MONTH);const loc=norm(r.LocationCode??r['Location Code']??r.CFA??'');if(mo!==month||(cfa!=='DATA'&&loc!==cfa))continue;monthAvailable=true;if(group.toUpperCase()!==String(sku).trim().toUpperCase())continue;const q=Number(r.QuantityinCBO??r.Quantity_in_CBO??r.CBO??0);if(Number.isFinite(q)){total+=q;found=true;}}
   return found?total:(monthAvailable?0:null);
 }
-function mbqRecalcContributionRows(sheet){
+function mbqRecalcContributionRows(sheet,includeAllRows=false){
   // Merge duplicate master rows by normalized SKU GROUP before ranking or displaying.
   // Month sales and additive stock/order/indent measures are combined; ratios and ranks are recalculated below.
   const headers=sheet.headers||[];
@@ -5045,7 +4918,7 @@ function mbqRecalcContributionRows(sheet){
     return Number.isFinite(n)?(isPercent?n/100:n):null;
   };
   const isTotal=row=>/^(TOTAL|GRAND TOTAL|OVERALL TOTAL)$/i.test(String(skuIx>=0?row[skuIx]??'':'').trim());
-  const source=(sheet.rows||[]).filter(row=>skuIx>=0&&!isTotal(row)&&mbqIsOfficialSkuGroup(mbqCanonicalSkuGroup(row[skuIx])));
+  const source=(sheet.rows||[]).filter(row=>skuIx>=0&&!isTotal(row)&&(includeAllRows||mbqIsOfficialSkuGroup(mbqCanonicalSkuGroup(row[skuIx]))));
   const merged=new Map(),other=[];
   const additive=new Set(['IND','INDENT','CL PO','OPEN PO','SOH<60%','SOH>60%','INTRANSIT','PLANT SOH','SALES','NXT 10D']);
   headers.forEach((h,i)=>{if(/^(JUL|AUG|SEP|OCT|NOV|DEC|JAN|FEB|MAR|APR|MAY|JUN)(\\s+\d{4})?$/.test(norm(h)))additive.add(norm(h));});
@@ -5110,7 +4983,7 @@ function mbqFallbackMbqValue(sku,cfa){const cfg=mbqProductionSettings()[String(s
 function mbqRenderLoadedWorkbook(key,host,label,exportAll=false){
   const sheet=mbqExcelSheets[key];if(!sheet)return false;const history=mbqSelectedMonthHistory();const original=sheet.headers.slice();const headers=original.slice();const monthIx=original.map((h,i)=>({h:String(h).trim().toUpperCase(),i})).filter(x=>['JUL','AUG','SEP','OCT','NOV','DEC','JAN','FEB','MAR','APR','MAY','JUN'].includes(x.h));
   if(monthIx.length>=3)monthIx.slice(0,3).forEach((x,j)=>headers[x.i]=history[j].label);const displayCols=headers.map((h,i)=>({h,i})).filter(x=>key==='ALU'||!['GT','ECOM','MT'].includes(String(x.h).trim().toUpperCase()));
-  const q=mbqText(document.getElementById('mbqViewSearch')?.value).toLowerCase(),size=Number(document.getElementById('mbqViewPageSize')?.value)||250;const skuIndex=original.findIndex(h=>String(h).trim().toUpperCase()==='SKU GROUP');const calculatedRows=mbqFilterIndentedGroups(mbqRecalcContributionRows(sheet),r=>skuIndex>=0?r[skuIndex]:'');const catIndex=original.findIndex(h=>String(h).trim().toUpperCase()==='CAT'),rankIndex=original.findIndex(h=>String(h).trim().toUpperCase()==='RANK'),mbqIndex=original.findIndex(h=>String(h).trim().toUpperCase()==='MBQ'),sortMode=mbqViewSortMode();calculatedRows.sort((a,b)=>{if(sortMode==='rank'){const order={A:0,B:1,C:2};const ac=String(catIndex>=0?a[catIndex]:'').trim().toUpperCase(),bc=String(catIndex>=0?b[catIndex]:'').trim().toUpperCase();const ag=Object.prototype.hasOwnProperty.call(order,ac)?order[ac]:99,bg=Object.prototype.hasOwnProperty.call(order,bc)?order[bc]:99;if(ag!==bg)return ag-bg;const ar=rankIndex>=0?Number(a[rankIndex]):NaN,br=rankIndex>=0?Number(b[rankIndex]):NaN;return (Number.isFinite(ar)?ar:Infinity)-(Number.isFinite(br)?br:Infinity);}const av=mbqIndex>=0?mbqSortNumeric(a[mbqIndex]):null,bv=mbqIndex>=0?mbqSortNumeric(b[mbqIndex]):null;if(av===null&&bv===null)return String(a[skuIndex]||'').localeCompare(String(b[skuIndex]||''));if(av===null)return 1;if(bv===null)return -1;return sortMode==='mbq-asc'?av-bv:bv-av;});const filtered=exportAll?calculatedRows:calculatedRows.filter(r=>!q||r.some(v=>mbqText(v).toLowerCase().includes(q)));const shown=exportAll?filtered:filtered.slice(0,size);
+  const q=mbqText(document.getElementById('mbqViewSearch')?.value).toLowerCase(),size=Number(document.getElementById('mbqViewPageSize')?.value)||250;const skuIndex=original.findIndex(h=>String(h).trim().toUpperCase()==='SKU GROUP');const calculatedRows=exportAll?mbqRecalcContributionRows(sheet,true):mbqFilterIndentedGroups(mbqRecalcContributionRows(sheet),r=>skuIndex>=0?r[skuIndex]:'');const catIndex=original.findIndex(h=>String(h).trim().toUpperCase()==='CAT'),rankIndex=original.findIndex(h=>String(h).trim().toUpperCase()==='RANK'),mbqIndex=original.findIndex(h=>String(h).trim().toUpperCase()==='MBQ'),sortMode=mbqViewSortMode();calculatedRows.sort((a,b)=>{if(sortMode==='rank'){const order={A:0,B:1,C:2};const ac=String(catIndex>=0?a[catIndex]:'').trim().toUpperCase(),bc=String(catIndex>=0?b[catIndex]:'').trim().toUpperCase();const ag=Object.prototype.hasOwnProperty.call(order,ac)?order[ac]:99,bg=Object.prototype.hasOwnProperty.call(order,bc)?order[bc]:99;if(ag!==bg)return ag-bg;const ar=rankIndex>=0?Number(a[rankIndex]):NaN,br=rankIndex>=0?Number(b[rankIndex]):NaN;return (Number.isFinite(ar)?ar:Infinity)-(Number.isFinite(br)?br:Infinity);}const av=mbqIndex>=0?mbqSortNumeric(a[mbqIndex]):null,bv=mbqIndex>=0?mbqSortNumeric(b[mbqIndex]):null;if(av===null&&bv===null)return String(a[skuIndex]||'').localeCompare(String(b[skuIndex]||''));if(av===null)return 1;if(bv===null)return -1;return sortMode==='mbq-asc'?av-bv:bv-av;});const filtered=exportAll?calculatedRows:calculatedRows.filter(r=>!q||r.some(v=>mbqText(v).toLowerCase().includes(q)));const shown=exportAll?filtered:filtered.slice(0,size);
   document.getElementById('mbqStatCfa').textContent=label;document.getElementById('mbqStatRows').textContent=filtered.length.toLocaleString('en-IN');document.getElementById('mbqStatCols').textContent=headers.length;document.getElementById('mbqStatSource').textContent='Workbook loaded';
   const trendHeaders=original.map(h=>String(h||'').trim().toUpperCase());const trendCol=name=>trendHeaders.findIndex(h=>h===name);const trendNum=v=>{if(v===null||v===undefined||v==='')return 0;const n=Number(String(v).replace(/,/g,'').replace(/%/g,'').trim());return Number.isFinite(n)?n:0;};const skuCol=trendCol('SKU GROUP'),indCol=trendCol('IND')>=0?trendCol('IND'):trendCol('INDENT'),clCol=trendCol('CL PO'),openCol=trendCol('OPEN PO'),salesCol=trendCol('SALES');const trendRows=(sheet.rows||[]).filter(r=>skuCol>=0&&mbqIsOfficialSkuGroup(r[skuCol])&&!['TOTAL','GRAND TOTAL','OVERALL TOTAL'].includes(String(r[skuCol]||'').trim().toUpperCase()));const trendTotals=trendRows.reduce((a,r)=>{a.ind+=indCol>=0?trendNum(r[indCol]):0;a.cl+=clCol>=0?trendNum(r[clCol]):0;a.open+=openCol>=0?trendNum(r[openCol]):0;a.sales+=salesCol>=0?trendNum(r[salesCol]):0;return a;},{ind:0,cl:0,open:0,sales:0});const savedT=sheet.trendValues?.['T.TREND'];const tValue=savedT!==undefined&&savedT!==''&&Number.isFinite(Number(savedT))?Number(savedT):new Date().getDate()*3/100;const trendSourceReady=indCol>=0&&clCol>=0&&openCol>=0;const trendVals=[(Math.abs(tValue)<=1?(tValue*100).toFixed(0)+'%':String(tValue)),trendSourceReady?(trendTotals.ind!==0?(((trendTotals.cl+trendTotals.open)/trendTotals.ind)*100).toFixed(0)+'%':'0%'):'No Data Available',trendSourceReady?(trendTotals.ind!==0?((trendTotals.sales/trendTotals.ind)*100).toFixed(0)+'%':'0%'):'No Data Available'];
   const trendKeys=['Total Trend','PO Trend','Sales Trend'];
