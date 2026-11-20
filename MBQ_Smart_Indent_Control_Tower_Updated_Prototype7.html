@@ -3159,25 +3159,49 @@ window.mbqExportDailyFlashCfaDetails = async function(format='excel'){
     };
     if(ix.sku<0)throw new Error('SKU GROUP column is missing from MBQ EXCEL VIEW for '+cfa.name+'.');
     const viewRows=[...table.querySelectorAll('tbody tr')].filter(tr=>!tr.classList.contains('mbq-total-row'));
-    const out=[];
+    const sourceMap=cfaSheetMaps[cfa.key]||{headers:[],map:new Map()};
+    const sourceSkuIx=getIndex(sourceMap.headers,'SKU GROUP');
+    const exportRowsByKey=new Map();
     viewRows.forEach(tr=>{
       const cells=[...tr.querySelectorAll('td,th')];
       const sku=String(cells[ix.sku]?.textContent??'').trim();
       if(!sku||/^(TOTAL|GRAND TOTAL|OVERALL TOTAL)$/i.test(sku))return;
       const groupKey=typeof mbqSkuGroupKey==='function'?mbqSkuGroupKey(sku):sku.toUpperCase();
+      if(groupKey)exportRowsByKey.set(groupKey,{sku,cells,rawRow:sourceMap.map.get(groupKey)||null});
+    });
+    // Keep every official SKU row from the same CFA workbook source, even if the
+    // rendered table has a narrower row set. The rendered MBQ view remains primary;
+    // workbook cells fill any missing row/value instead of exporting blanks.
+    sourceMap.map.forEach((rawRow,groupKey)=>{
+      if(exportRowsByKey.has(groupKey))return;
+      const sku=String(sourceSkuIx>=0?rawRow?.[sourceSkuIx]??'':'').trim();
+      if(sku)exportRowsByKey.set(groupKey,{sku,cells:null,rawRow});
+    });
+    const rawValue=(rawRow,...names)=>getRowValue(rawRow,sourceMap.headers,names,false);
+    const valueWithFallback=(cells,viewIndex,rawRow,names,percent=false)=>{
+      const viewValue=pickViewValue(cells||[],viewIndex,percent);
+      if(viewValue!=='No Data Available')return viewValue;
+      if(!rawRow)return 'No Data Available';
+      const fallback=getRowValue(rawRow,sourceMap.headers,names,percent);
+      return fallback==='No Data Available'?fallback:roundWhole(fallback,percent);
+    };
+    const out=[];
+    exportRowsByKey.forEach(({sku,cells,rawRow},groupKey)=>{
+      const categoryText=ix.category>=0?String(cells?.[ix.category]?.textContent??'').trim():'';
+      const category=categoryText||rawValue(rawRow,'CAT','CATEGORY','CTG');
       out.push([
         sku,
         roundWhole(mrpMap.has(groupKey)?mrpMap.get(groupKey):null),
-        ix.category<0?'No Data Available':String(cells[ix.category]?.textContent??'').trim()||'No Data Available',
-        pickViewValue(cells,ix.contribution,true),
-        pickViewValue(cells,ix.avg),
-        pickViewValue(cells,ix.indent),
-        pickViewValue(cells,ix.soh),
-        pickViewValue(cells,ix.transit),
-        pickViewValue(cells,ix.mbq),
-        pickViewValue(cells,ix.sales),
-        pickViewValue(cells,ix.trend,true),
-        pickViewValue(cells,ix.dos)
+        category||'No Data Available',
+        valueWithFallback(cells,ix.contribution,rawRow,['CONTRI%','CONTRI %','CONTRIBUTION %'],true),
+        valueWithFallback(cells,ix.avg,rawRow,['L3M AVG SALES','AVG']),
+        valueWithFallback(cells,ix.indent,rawRow,['IND','INDENT']),
+        valueWithFallback(cells,ix.soh,rawRow,['SOH>60%','SOH']),
+        valueWithFallback(cells,ix.transit,rawRow,['INTRANSIT','IN TRANSIT']),
+        valueWithFallback(cells,ix.mbq,rawRow,['MBQ']),
+        valueWithFallback(cells,ix.sales,rawRow,['SALES']),
+        valueWithFallback(cells,ix.trend,rawRow,['S. TREND','S.TREND','SALES TREND'],true),
+        valueWithFallback(cells,ix.dos,rawRow,['DOS'])
       ]);
     });
     const rows=out.length?out:[['No Data Available',...Array(headers.length-1).fill('No Data Available')]];
