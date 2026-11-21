@@ -3125,10 +3125,20 @@ window.mbqExportDailyFlashCfaDetails = async function(format='excel'){
       }).join('<div class="page-break"></div>');
       const styles='*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{font:9px Arial,sans-serif;color:#24364b;margin:14px}h2{font-size:16px;color:#17365d;margin:18px 0 4px}p{margin:4px 0 10px}table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:8px;margin-bottom:18px}th,td{border:1px solid #cbd5e1;padding:5px 3px;overflow-wrap:anywhere;text-align:right}th{background:#17365d;color:#fff;text-align:center}th:first-child,td:first-child{text-align:left;width:18%}thead{display:table-header-group}tr{break-inside:avoid}.page-break{break-before:page}@page{size:A3 landscape;margin:8mm}';
       if(format==='pdf'){
-        printWindow.onload=()=>{printWindow.focus();printWindow.print();};
+        // document.open() clears handlers registered before it; attach print after writing the document.
+        let printStarted=false;
+        const startPdfPrint=()=>{
+          if(printStarted||!printWindow||printWindow.closed)return;
+          printStarted=true;
+          try{printWindow.focus();printWindow.print();}
+          catch(printError){console.error('Daily Flash PDF print dialog failed:',printError);showToast('PDF തയ്യാറായി. പുതിയ tab-ൽ Ctrl+P അമർത്തി Save as PDF തിരഞ്ഞെടുക്കുക.');}
+        };
         printWindow.document.open();
         printWindow.document.write('<!doctype html><html><head><meta charset="utf-8"><title>UNIBIC Daily Flash CFA Details</title><style>'+styles+'</style></head><body>'+reportHtml+'</body></html>');
         printWindow.document.close();
+        printWindow.addEventListener('load',startPdfPrint,{once:true});
+        // Fallback for browsers that complete the about:blank document load before listener attachment.
+        setTimeout(startPdfPrint,700);
       }else if(format==='jpg'){
         let wrap=null;
         try{
