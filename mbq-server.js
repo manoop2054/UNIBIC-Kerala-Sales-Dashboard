@@ -51,10 +51,12 @@ function githubReleaseMetadata() {
   });
 }
 async function githubReleaseAssetUrl(name) {
-  const release = await githubReleaseMetadata();
-  const asset = release.assets.find(item => item.name === name);
-  if (!asset || !asset.browser_download_url) throw new Error("Latest GitHub release " + release.tag_name + " is missing asset " + name);
-  return asset.browser_download_url;
+  // Use GitHub's stable latest-release asset redirect instead of the
+  // rate-limited Releases API. This endpoint redirects directly to the
+  // named asset and does not require release metadata.
+  const allowedAssets = new Set(["KL.LIVE.GSV.LINK-MANOOB.xlsx", "LIVE.STOCK.xlsb"]);
+  if (!allowedAssets.has(name)) throw new Error("Unsupported GitHub release asset: " + name);
+  return "https://github.com/manoop2054/UNIBIC-Kerala-Sales-Dashboard/releases/latest/download/" + encodeURIComponent(name);
 }
 async function githubReleaseAssetTimes() {
   try {
