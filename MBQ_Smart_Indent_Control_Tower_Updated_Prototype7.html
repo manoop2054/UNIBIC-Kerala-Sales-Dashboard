@@ -3040,9 +3040,9 @@ window.mbqExportDailyFlashCfaDetails = async function(format='excel'){
     if(typeof mbqBuildSkuGroupCodeIndex==='function')mbqBuildSkuGroupCodeIndex();
     for(const cfa of cfas){
       viewSelect.value=cfa.key;
-      if(mbqExcelSheets?.[cfa.key]&&typeof mbqRenderLoadedWorkbook==='function')
-        mbqRenderLoadedWorkbook(cfa.key,viewHost,cfa.name,true);
-      else renderMbqExcelView();
+      // Export from the exact normal MBQ EXCEL VIEW renderer. Do not use exportAll=true,
+      // because that path independently rebuilds/recalculates workbook values.
+      renderMbqExcelView();
       const parsed=document.createElement('div');parsed.innerHTML=viewHost.innerHTML;
       const table=parsed.querySelector('#mbqExcelTableHost table, table');
       if(!table)throw new Error('MBQ EXCEL VIEW table is unavailable for '+cfa.name+'.');
@@ -3064,6 +3064,9 @@ window.mbqExportDailyFlashCfaDetails = async function(format='excel'){
       };
       if(ix.sku<0)throw new Error('SKU GROUP column missing in MBQ EXCEL VIEW for '+cfa.name+'.');
       const viewRows=[...table.querySelectorAll('tbody tr')].filter(tr=>!tr.classList.contains('mbq-total-row'));
+      const expectedRows=Number(String(document.getElementById('mbqStatRows')?.textContent||'').replace(/,/g,''));
+      if(Number.isFinite(expectedRows)&&expectedRows>viewRows.length)
+        throw new Error('MBQ EXCEL VIEW row limit reached for '+cfa.name+': expected '+expectedRows+', rendered '+viewRows.length+'. Increase the MBQ view page size before exporting.');
       const rows=[];
       for(const tr of viewRows){
         const cells=[...tr.querySelectorAll('td,th')],sku=String(cells[ix.sku]?.textContent??'').trim();
