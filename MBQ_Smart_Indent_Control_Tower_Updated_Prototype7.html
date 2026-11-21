@@ -2959,10 +2959,13 @@ function printToReport(mode='details'){
 window.mbqExportDailyFlashCfaDetails = async function(format='excel'){
   const printWindow=format==='pdf'?window.open('','_blank'):null;
   if(format==='pdf'&&!printWindow){showToast('PDF export popup അനുവദിക്കുക.');return;}
-  if(typeof mbqEnsureXlsx==='function'){
-    try{await mbqEnsureXlsx();}catch(error){showToast(error.message||'Excel library unavailable.');return;}
+  // PDF is rendered directly as printable HTML; XLSX is required only for Excel downloads.
+  if(format==='excel'){
+    if(typeof mbqEnsureXlsx==='function'){
+      try{await mbqEnsureXlsx();}catch(error){showToast(error.message||'Excel library unavailable.');return;}
+    }
+    if(!window.XLSX){showToast('Excel library loading. Please retry.');return;}
   }
-  if(!window.XLSX){showToast('Excel library loading. Please retry.');return;}
   const cfas=[{key:'ALU',name:'ALU CFA',tab:'ALU CFA',head:'D9EAD3',body:'F1F8F2',accent:'387B4B'},
               {key:'TVD',name:'TVD CFA',tab:'TVD CFA',head:'CFE2F3',body:'F0F6FC',accent:'28639A'},
               {key:'PAY',name:'PAY CFA',tab:'PAY CFA',head:'FCE4D6',body:'FFF5EF',accent:'B65D22'}];
@@ -2976,7 +2979,7 @@ window.mbqExportDailyFlashCfaDetails = async function(format='excel'){
   const savedViewHtml=viewHost?viewHost.innerHTML:null,savedNoIndentHtml=noIndentHost?noIndentHost.innerHTML:null;
   const savedViewKey=viewSelect?viewSelect.value:null;
   const from=document.getElementById('flashFromDate')?.value||'',to=document.getElementById('flashToDate')?.value||'';
-  const wb=XLSX.utils.book_new(),exportTables=[];
+  const wb=format==='excel'?XLSX.utils.book_new():null,exportTables=[];
   const headers=['NEW SKU GRP','MRP NEW','Category','Contri %','Avg','Indent','SOH','Intransit','MBQ','Sales','Sales Trend','DOS'];
   const widths=[32,14,14,13,14,14,14,15,14,15,16,12];
   const numericCols=new Set([1,3,4,5,6,7,8,9,10,11]);
@@ -3090,22 +3093,24 @@ window.mbqExportDailyFlashCfaDetails = async function(format='excel'){
       const finalRows=rows.length?rows:[['No Data Available',...Array(headers.length-1).fill('No Data Available')]];
       const aoa=[['UNIBIC KERALA · '+cfa.name+' · FULL SKU DETAILS'],['Daily WhatsApp Flash period: '+(from||'—')+' to '+(to||'—')],headers,...finalRows];
       exportTables.push({name:cfa.name,aoa});
-      const ws=XLSX.utils.aoa_to_sheet(aoa);
-      ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:headers.length-1}},{s:{r:1,c:0},e:{r:1,c:headers.length-1}}];
-      ws['!cols']=widths.map(w=>({wch:w}));
-      ws['!rows']=[{hpt:28},{hpt:21},{hpt:34},...finalRows.map(()=>({hpt:22}))];
-      ws['!freeze']={xSplit:0,ySplit:3,topLeftCell:'A4',activePane:'bottomLeft',state:'frozen'};
-      ws['!autofilter']={ref:'A3:L'+(finalRows.length+3)};
-      for(let r=0;r<finalRows.length+3;r++)for(let c=0;c<headers.length;c++){
-        const cell=ws[XLSX.utils.encode_cell({r,c})];if(!cell)continue;
-        const fill=r===0?'17365D':r===1?cfa.head:r===2?cfa.accent:(r%2?cfa.body:'FFFFFF');
-        const fontColor=r===0||r===2?'FFFFFF':(r===1?cfa.accent:'24364B');
-        const style={font:{name:'Aptos',sz:r===0?13:r===2?10:9,bold:r<3||c===0,color:{rgb:fontColor}},fill:{patternType:'solid',fgColor:{rgb:fill}},alignment:{vertical:'center',horizontal:r<3?'center':(numericCols.has(c)?'right':'left'),wrapText:true},border};
-        if(r>=3&&numericCols.has(c)&&typeof finalRows[r-3][c]==='number')
-          style.numFmt=(c===3||c===10)?'0.00%':'#,##0';
-        cell.s=style;
+      if(format==='excel'){
+        const ws=XLSX.utils.aoa_to_sheet(aoa);
+        ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:headers.length-1}},{s:{r:1,c:0},e:{r:1,c:headers.length-1}}];
+        ws['!cols']=widths.map(w=>({wch:w}));
+        ws['!rows']=[{hpt:28},{hpt:21},{hpt:34},...finalRows.map(()=>({hpt:22}))];
+        ws['!freeze']={xSplit:0,ySplit:3,topLeftCell:'A4',activePane:'bottomLeft',state:'frozen'};
+        ws['!autofilter']={ref:'A3:L'+(finalRows.length+3)};
+        for(let r=0;r<finalRows.length+3;r++)for(let c=0;c<headers.length;c++){
+          const cell=ws[XLSX.utils.encode_cell({r,c})];if(!cell)continue;
+          const fill=r===0?'17365D':r===1?cfa.head:r===2?cfa.accent:(r%2?cfa.body:'FFFFFF');
+          const fontColor=r===0||r===2?'FFFFFF':(r===1?cfa.accent:'24364B');
+          const style={font:{name:'Aptos',sz:r===0?13:r===2?10:9,bold:r<3||c===0,color:{rgb:fontColor}},fill:{patternType:'solid',fgColor:{rgb:fill}},alignment:{vertical:'center',horizontal:r<3?'center':(numericCols.has(c)?'right':'left'),wrapText:true},border};
+          if(r>=3&&numericCols.has(c)&&typeof finalRows[r-3][c]==='number')
+            style.numFmt=(c===3||c===10)?'0.00%':'#,##0';
+          cell.s=style;
+        }
+        XLSX.utils.book_append_sheet(wb,ws,cfa.tab);
       }
-      XLSX.utils.book_append_sheet(wb,ws,cfa.tab);
       console.info('Daily Flash CFA export QA',{cfa:cfa.key,source:'MBQ EXCEL VIEW',skuGroups:finalRows.length});
     }
     if(format==='excel'){
@@ -3120,7 +3125,10 @@ window.mbqExportDailyFlashCfaDetails = async function(format='excel'){
       }).join('<div class="page-break"></div>');
       const styles='*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{font:9px Arial,sans-serif;color:#24364b;margin:14px}h2{font-size:16px;color:#17365d;margin:18px 0 4px}p{margin:4px 0 10px}table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:8px;margin-bottom:18px}th,td{border:1px solid #cbd5e1;padding:5px 3px;overflow-wrap:anywhere;text-align:right}th{background:#17365d;color:#fff;text-align:center}th:first-child,td:first-child{text-align:left;width:18%}thead{display:table-header-group}tr{break-inside:avoid}.page-break{break-before:page}@page{size:A3 landscape;margin:8mm}';
       if(format==='pdf'){
-        printWindow.document.open();printWindow.document.write('<!doctype html><html><head><meta charset="utf-8"><title>UNIBIC Daily Flash CFA Details</title><style>'+styles+'</style></head><body>'+reportHtml+'</body></html>');printWindow.document.close();printWindow.onload=()=>{printWindow.focus();printWindow.print();};
+        printWindow.onload=()=>{printWindow.focus();printWindow.print();};
+        printWindow.document.open();
+        printWindow.document.write('<!doctype html><html><head><meta charset="utf-8"><title>UNIBIC Daily Flash CFA Details</title><style>'+styles+'</style></head><body>'+reportHtml+'</body></html>');
+        printWindow.document.close();
       }else if(format==='jpg'){
         let wrap=null;
         try{
@@ -3131,6 +3139,7 @@ window.mbqExportDailyFlashCfaDetails = async function(format='excel'){
     }
   }catch(error){
     console.error('Daily Flash CFA details export failed:',error);
+    if(format==='pdf'&&printWindow&&!printWindow.closed){try{printWindow.close();}catch(_){}}
     showToast('CFA details export failed: '+(error.message||'Please retry.'));
   }finally{
     if(viewHost&&savedViewHtml!==null)viewHost.innerHTML=savedViewHtml;
