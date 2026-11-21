@@ -2640,7 +2640,7 @@ async function runCfaAllocation(){
   showToast('CFA allocation നടന്നില്ല: Sales Head IND അല്ലെങ്കിൽ matched billing data ലഭ്യമല്ല.');
   return;
  }
- document.getElementById('allocLineCount').textContent=allocationData.length.toLocaleString('en-IN');
+ const allocLineCount=document.getElementById('allocLineCount');if(allocLineCount)allocLineCount.textContent=allocationData.length.toLocaleString('en-IN');
  const toStatus=document.getElementById('allocToStatus');if(toStatus)toStatus.textContent='Reference only';
  renderAlloc();allocationSummary();
  const uniqueSkus=[...new Set(allocationData.map(r=>r.sku))];
