@@ -5960,7 +5960,7 @@ async function mbqExportMbqTwoSheetWorkbook(){
    else {const n=Number(v);ws[cell]={t:'n',v:Number.isFinite(n)?n:0,s:{...style,numFmt:c===3?'0.00%':'#,##0.00'}};if(c===3&&String(rowsOut[i]?.[conI]||'').includes('%'))ws[cell].v=n/100;}
   }
   const formulas={J:'IFERROR((H'+rn+'+F'+rn+'+G'+rn+')/E'+rn+',0)',K:'IFERROR(MIN(1,(G'+rn+'+H'+rn+'+F'+rn+')/(E'+rn+'*$B$1)),0)',L:'IFERROR((H'+rn+'+F'+rn+'+G'+rn+')/(E'+rn+'/30),0)'};
-  Object.entries(formulas).forEach(([col,f])=>{const cell=col+rn;ws[cell]={t:'n',f,v:0,z:col==='K'?'0':'0%',s:bodyStyle(i)};});
+  Object.entries(formulas).forEach(([col,f])=>{const cell=col+rn;ws[cell]={t:'n',f,v:0,z:col==='K'?'0':col==='L'?'0.0':'0%',s:bodyStyle(i)};});
  });
  output.forEach((r,i)=>{const cell='M'+(i+4),v=r[9],style=bodyStyle(i);ws[cell]=v===null?{t:'s',v:'No Data Available',s:style}:{t:'n',v:Number(v)||0,s:{...style,numFmt:'#,##0.00'}};});
  ws['!ref']='A1:M'+(output.length+3);ws['!cols']=[{wch:32},{wch:20},{wch:16},{wch:13},{wch:13},{wch:13},{wch:14},{wch:13},{wch:13},{wch:14},{wch:18},{wch:14},{wch:20}];
