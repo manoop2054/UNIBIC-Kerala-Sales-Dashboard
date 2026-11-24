@@ -7049,8 +7049,9 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
     const safe = warehouse.replace(/[^A-Z0-9]+/gi, '_');
     exportRows(state.selectedDetails, 'LIVE_SOH_Batch_Details_' + safe + '.xlsx', 'Batch Details');
   }
-  function exportPivot() {
-    if (!window.XLSX) { if (typeof showToast === 'function') showToast('Excel library is loading. Please retry.'); return; }
+  async function exportPivot() {
+    try { await mbqEnsureXlsx(); } catch (error) { if (typeof showToast === 'function') showToast('Excel library could not be loaded. Please check internet/CDN access and retry.'); return; }
+    if (!window.XLSX || !window.XLSX.utils || typeof window.XLSX.writeFile !== 'function') { if (typeof showToast === 'function') showToast('Excel library is unavailable. Please retry.'); return; }
     const threshold = Number(document.getElementById('lpShelfValue')?.value || 10);
     const warehouse = document.getElementById('lpWarehouse')?.value || 'All CFA';
     const exportedAt = new Date().toLocaleString('en-IN');
