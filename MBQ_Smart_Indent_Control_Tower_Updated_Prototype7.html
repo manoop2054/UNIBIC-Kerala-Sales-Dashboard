@@ -6967,7 +6967,7 @@ function mbqFlashPdfExport(){if(document.getElementById('flashCfa')?.value==='CO
     if (fields.some(field => ['MFG','MFGDATE','MANUFACTURINGDATE','EXPIRYDATE','EXPIRY'].includes(field))) {
       const clean = String(value == null ? '' : value).trim();
       if (!clean) return '';
-      if (/^\\d{2}-\\d{2}-\\d{4}$/.test(clean)) return clean;
+      if (/^\d{2}-\d{2}-\d{4}$/.test(clean)) return clean;
       const parsed = new Date(clean);
       if (!Number.isNaN(parsed.getTime())) {
         const day = String(parsed.getUTCDate()).padStart(2, '0');
